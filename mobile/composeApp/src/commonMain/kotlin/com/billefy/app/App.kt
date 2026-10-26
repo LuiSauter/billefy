@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
@@ -22,10 +24,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.billefy.app.ui.ProminentDisclosureDialog
 import com.billefy.shared.model.AccountDto
 
 @Composable
-fun App(accounts: List<AccountDto> = emptyList()) {
+fun App(
+    accounts: List<AccountDto> = emptyList(),
+    onRequestNotificationPermission: () -> Unit = {}
+) {
+    var showDisclosure by remember { mutableStateOf(false) }
+
     MaterialTheme {
         Surface(modifier = Modifier.fillMaxSize()) {
             Column(modifier = Modifier.padding(16.dp)) {
@@ -34,10 +42,49 @@ fun App(accounts: List<AccountDto> = emptyList()) {
                     style = MaterialTheme.typography.headlineMedium
                 )
                 Text(
-                    text = "Gestor Multimoneda · Ledger Inmutable",
+                    text = "Gestor Multimoneda · Smart Capture & Ledger Inmutable",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Smart Capture Action Card
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        Text(
+                            text = "⚡ Smart Capture (Android)",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "Detecta movimientos bancarios desde tus notificaciones con privacidad garantizada on-device.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Button(
+                            onClick = { showDisclosure = true },
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                        ) {
+                            Text("Activar Captura de Notificaciones")
+                        }
+                    }
+                }
+
+                if (showDisclosure) {
+                    ProminentDisclosureDialog(
+                        onAccept = {
+                            showDisclosure = false
+                            onRequestNotificationPermission()
+                        },
+                        onDismiss = { showDisclosure = false }
+                    )
+                }
+
                 Spacer(modifier = Modifier.height(16.dp))
 
                 Text(
@@ -48,7 +95,7 @@ fun App(accounts: List<AccountDto> = emptyList()) {
 
                 if (accounts.isEmpty()) {
                     Card(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
