@@ -9,21 +9,24 @@ Privacy & Non-Negotiable Rules:
 
 ## Tasks
 
-- [ ] Task 1: On-Device Financial Detector in Kotlin (KMP) — Create `FinancialNotificationDetector` in `mobile/shared/src/commonMain/kotlin` with parsing for BOB, USD, USDT, EUR, direction, and references.
-- [ ] Task 2: Corpus Unit Tests for On-Device Detector — Write extensive positive/negative test corpus in `mobile/shared/src/commonTest/kotlin` verifying zero false positives on non-financial text.
-- [ ] Task 3: Android NotificationListenerService & Privacy Guard — Implement `BillefyNotificationListenerService` in `androidMain`, registering it in `AndroidManifest.xml` with local filtering.
-- [ ] Task 4: Prominent Disclosure UI Screen — Implement Compose Multiplatform disclosure screen explaining permission requirements, privacy boundaries, and deep link to system settings.
-- [ ] Task 5: Mobile Verification & Build — Verify `./gradlew :shared:allTests` and `./gradlew :composeApp:assembleDebug`.
+- [x] Task 1: On-Device Financial Detector in Kotlin (KMP) — Create `FinancialNotificationDetector` in `mobile/shared/src/commonMain/kotlin` with parsing for BOB, USD, USDT, EUR, direction, and references.
+- [x] Task 2: Corpus Unit Tests for On-Device Detector — Write extensive positive/negative test corpus in `mobile/shared/src/commonTest/kotlin` verifying zero false positives on non-financial text.
+- [x] Task 3: Android NotificationListenerService & Privacy Guard — Implement `BillefyNotificationListenerService` in `androidMain`, registering it in `AndroidManifest.xml` with local filtering.
+- [x] Task 4: Prominent Disclosure UI Screen — Implement Compose Multiplatform disclosure screen explaining permission requirements, privacy boundaries, and deep link to system settings.
+- [x] Task 5: Mobile Verification & Build — Verify `./gradlew :shared:allTests` and `./gradlew :composeApp:assembleDebug`.
 
 ## Acceptance Criteria & Checks
-1. Detector evaluates notification text locally: returns non-financial for personal chats, emails, promo notifications without amounts/keywords (verified by unit tests).
-2. Detector extracts amount, currency, direction, and reference for valid bank notifications.
-3. Android `NotificationListenerService` is registered with `android.permission.BIND_NOTIFICATION_LISTENER_SERVICE` in `AndroidManifest.xml`.
-4. Prominent disclosure component explains privacy boundaries before redirecting to Android notification listener settings.
-5. All mobile unit tests pass and debug APK compiles cleanly.
+1. Detector evaluates notification text locally: returns non-financial for personal chats, emails, promo notifications without amounts/keywords (verified by 13 unit tests in commonTest). (PASS)
+2. Detector extracts amount, currency, direction, and reference for valid bank notifications. (PASS)
+3. Android `NotificationListenerService` is registered with `android.permission.BIND_NOTIFICATION_LISTENER_SERVICE` in `AndroidManifest.xml`. (PASS)
+4. Prominent disclosure component explains privacy boundaries before redirecting to Android notification listener settings. (PASS)
+5. All mobile unit tests pass and debug APK compiles cleanly (`assembleDebug`). (PASS)
 
 ## Progress & Evidence
 - Branch `feat/phase-2-android-notification-capture` created.
+- Task 1 & 2: `FinancialNotificationDetector` and corpus tests (commit `603298c`).
+- Task 3: `BillefyNotificationListenerService` & `NotificationCaptureEventBus` (commit `05fa501`).
+- Task 4 & 5: `ProminentDisclosureDialog` and `MainActivity` wiring (commit `b7ac1d0`).
 
 ## Next Step
-Implement Task 1: On-Device Financial Detector in Kotlin (KMP).
+Merge `feat/phase-2-android-notification-capture` into `main`.
