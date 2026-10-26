@@ -39,5 +39,6 @@
     <Project Path="tests/Architecture.Tests/Architecture.Tests.csproj" />
     <Project Path="tests/BuildingBlocks.Tests/BuildingBlocks.Tests.csproj" />
     <Project Path="tests/Ledger.Domain.Tests/Ledger.Domain.Tests.csproj" />
+    <Project Path="tests/Ledger.IntegrationTests/Ledger.IntegrationTests.csproj" />
   </Folder>
 </Solution>
