@@ -19,6 +19,7 @@
   </Folder>
   <Folder Name="/src/Modules/Ledger/">
     <Project Path="src/Modules/Ledger/Ledger.Contracts/Ledger.Contracts.csproj" />
+    <Project Path="src/Modules/Ledger/Ledger.Domain/Ledger.Domain.csproj" />
   </Folder>
   <Folder Name="/src/Modules/Lending/">
     <Project Path="src/Modules/Lending/Lending.Contracts/Lending.Contracts.csproj" />
@@ -35,5 +36,6 @@
   <Folder Name="/tests/">
     <Project Path="tests/Architecture.Tests/Architecture.Tests.csproj" />
     <Project Path="tests/BuildingBlocks.Tests/BuildingBlocks.Tests.csproj" />
+    <Project Path="tests/Ledger.Domain.Tests/Ledger.Domain.Tests.csproj" />
   </Folder>
 </Solution>
