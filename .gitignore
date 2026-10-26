@@ -1,1 +1,48 @@
-.atl
+# Operating Systems
+.DS_Store
+Thumbs.db
+
+# IDEs and Editors
+.idea/
+*.iml
+.vscode/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# .NET / C#
+bin/
+obj/
+TestResults/
+*.received.*
+*.verified.*
+
+# Node / Web
+node_modules/
+.pnpm-store/
+web/.next/
+web/out/
+web/coverage/
+*.tsbuildinfo
+
+# Mobile / Android / Kotlin / Gradle
+.gradle/
+build/
+local.properties
+*.apk
+*.aab
+*.keystore
+!*.example.keystore
+
+# Local Environment & Secrets
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+!*.sample.key
+
+# Tools & Temporary
+.atl/
+*.log
