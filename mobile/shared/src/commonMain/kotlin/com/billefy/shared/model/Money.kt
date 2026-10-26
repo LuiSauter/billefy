@@ -7,6 +7,9 @@ data class Money(
     val amount: BigDecimal,
     val currency: String
 ) {
+    val displayAmount: String
+        get() = amount.toPlainString()
+
     companion object {
         fun of(amountString: String, currency: String): Money {
             val decimal = BigDecimal.parseString(amountString)

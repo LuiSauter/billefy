@@ -36,7 +36,7 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
-            implementation(libs.bignum)
+            api(libs.bignum)
             implementation(libs.kotlinx.datetime)
             implementation(libs.kotlinx.coroutines.core)
         }
