@@ -34,6 +34,7 @@
   </Folder>
   <Folder Name="/src/Modules/Lending/">
     <Project Path="src/Modules/Lending/Lending.Contracts/Lending.Contracts.csproj" />
+    <Project Path="src/Modules/Lending/Lending.Domain/Lending.Domain.csproj" />
   </Folder>
   <Folder Name="/src/Modules/Messaging/">
     <Project Path="src/Modules/Messaging/Messaging.Contracts/Messaging.Contracts.csproj" />
@@ -50,6 +51,7 @@
     <Project Path="tests/BuildingBlocks.Tests/BuildingBlocks.Tests.csproj" />
     <Project Path="tests/Fx.Domain.Tests/Fx.Domain.Tests.csproj" />
     <Project Path="tests/Ingestion.Domain.Tests/Ingestion.Domain.Tests.csproj" />
+    <Project Path="tests/Lending.Domain.Tests/Lending.Domain.Tests.csproj" />
     <Project Path="tests/Ledger.Domain.Tests/Ledger.Domain.Tests.csproj" />
     <Project Path="tests/Ledger.IntegrationTests/Ledger.IntegrationTests.csproj" />
   </Folder>
