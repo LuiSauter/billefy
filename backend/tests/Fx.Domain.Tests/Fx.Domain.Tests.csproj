@@ -22,6 +22,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Modules\Fx\Fx.Domain\Fx.Domain.csproj" />
     <ProjectReference Include="..\..\src\BuildingBlocks\BuildingBlocks.csproj" />
+    <ProjectReference Include="..\..\src\Integrations\Billefy.Integrations.Fx\Billefy.Integrations.Fx.csproj" />
   </ItemGroup>
 
 </Project>

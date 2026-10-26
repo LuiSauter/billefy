@@ -4,6 +4,9 @@
     <Project Path="src/BuildingBlocks/BuildingBlocks.csproj" />
     <Project Path="src/Worker/Worker.csproj" />
   </Folder>
+  <Folder Name="/src/Integrations/">
+    <Project Path="src/Integrations/Billefy.Integrations.Fx/Billefy.Integrations.Fx.csproj" />
+  </Folder>
   <Folder Name="/src/Modules/" />
   <Folder Name="/src/Modules/Analytics/">
     <Project Path="src/Modules/Analytics/Analytics.Contracts/Analytics.Contracts.csproj" />
