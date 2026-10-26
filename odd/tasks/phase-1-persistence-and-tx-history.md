@@ -23,20 +23,21 @@ Rule 8 of AGENTS.md mandates EF Core migrations only (never edit applied migrati
 
 ## Tasks
 
-- [ ] Task 1: EF Core Tooling & PostgreSQL Migrations — Add `Microsoft.EntityFrameworkCore.Design` and generate initial migrations for `LedgerDbContext` and `FxDbContext`.
-- [ ] Task 2: Automatic Migration Execution on Startup — Configure `Program.cs` to apply pending migrations safely in containerized/local environments.
-- [ ] Task 3: Transaction History Endpoint — Implement `GET /v1/transactions` with filtering and unit/integration tests.
-- [ ] Task 4: Web Transactions List & Reversal UI — Display transactions and enable reversals from the dashboard.
-- [ ] Task 5: End-to-End Verification & OpenAPI Refresh — Run all test suites and refresh `docs/openapi.json`.
+- [x] Task 1: EF Core Tooling & PostgreSQL Migrations — Add `Microsoft.EntityFrameworkCore.Design` and generate initial migrations for `LedgerDbContext` and `FxDbContext`.
+- [x] Task 2: Automatic Migration Execution on Startup — Configure `Program.cs` to apply pending migrations safely in containerized/local environments.
+- [x] Task 3: Transaction History Endpoint — Implement `GET /v1/transactions` with filtering and unit/integration tests.
+- [x] Task 4: Web Transactions List & Reversal UI — Display transactions and enable reversals from the dashboard.
+- [x] Task 5: End-to-End Verification & OpenAPI Refresh — Run all test suites and refresh `docs/openapi.json`.
 
 ## Acceptance Criteria & Checks
-1. `dotnet ef migrations` compiles and generates migration files for both contexts.
-2. `GET /v1/transactions` returns transactions for the authenticated user, respecting filters.
-3. Reversing a transaction from the UI executes `POST /v1/transactions/{id}/reverse` and updates the list and balance.
-4. All test suites pass (backend, web, mobile).
+1. `dotnet ef migrations` compiles and generates migration files for both contexts (`InitialLedger` and `InitialFx`). (PASS)
+2. `GET /v1/transactions` returns transactions for the authenticated user, respecting filters (verified in ApiIntegrationTests). (PASS)
+3. Reversing a transaction from the UI executes `POST /v1/transactions/{id}/reverse` and updates the list and balance. (PASS)
+4. All test suites pass (backend: 42 tests, web: 5 tests, mobile: clean). (PASS)
 
 ## Progress & Evidence
 - Branch `feat/phase-1-persistence-and-tx-history` created.
+- Tasks 1-5 completed: PostgreSQL migrations for Ledger and Fx, automatic startup runner, `GET /v1/transactions`, web reversal UI, and test suite verification (commit `2549041`).
 
 ## Next Step
-Implement Task 1: EF Core Tooling & PostgreSQL Migrations.
+Merge `feat/phase-1-persistence-and-tx-history` into `main` and transition to Phase 2: Smart Capture (Ingestion pipeline, drafts, deduplication, and Android financial detector).
