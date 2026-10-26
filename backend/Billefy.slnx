@@ -10,6 +10,7 @@
   </Folder>
   <Folder Name="/src/Modules/Fx/">
     <Project Path="src/Modules/Fx/Fx.Contracts/Fx.Contracts.csproj" />
+    <Project Path="src/Modules/Fx/Fx.Domain/Fx.Domain.csproj" />
   </Folder>
   <Folder Name="/src/Modules/Identity/">
     <Project Path="src/Modules/Identity/Identity.Contracts/Identity.Contracts.csproj" />
@@ -38,6 +39,7 @@
   <Folder Name="/tests/">
     <Project Path="tests/Architecture.Tests/Architecture.Tests.csproj" />
     <Project Path="tests/BuildingBlocks.Tests/BuildingBlocks.Tests.csproj" />
+    <Project Path="tests/Fx.Domain.Tests/Fx.Domain.Tests.csproj" />
     <Project Path="tests/Ledger.Domain.Tests/Ledger.Domain.Tests.csproj" />
     <Project Path="tests/Ledger.IntegrationTests/Ledger.IntegrationTests.csproj" />
   </Folder>
