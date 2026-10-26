@@ -36,16 +36,17 @@ Rule 6 and Rule 7 of AGENTS.md mandate that transactions are immutable, correcti
 - [x] Task 6: Fx Domain & Conversion Rules — `ExchangeRate`, `RateSide`, `IRateSource` port, and buy/sell rate conversion service with unit tests.
 - [x] Task 7: Fx Persistence & Infrastructure — `FxDbContext` mapping to `exchange_rates`, repository for latest rates and history.
 - [x] Task 8: DolarApi Integration Adapter — `DolarApiRateSource` consuming DolarApi endpoints with resiliency and tests.
-- [/] Task 9: Fx Application & Ledger Rate Snapshot Integration — Use cases for querying rates, manual overrides, and transaction rate snapshots.
+- [x] Task 9: Fx Application & Ledger Rate Snapshot Integration — Use cases for querying rates, manual overrides, and transaction rate snapshots.
 
 ## Acceptance Criteria & Checks
 1. `dotnet build backend/` succeeds with 0 warnings. (PASS)
-2. `dotnet test backend/` passes all domain and integration tests. (PASS)
+2. `dotnet test backend/` passes all domain and integration tests (37/37 tests passed). (PASS)
 3. Transactions cannot be updated or deleted; attempting to modify an existing transaction throws an exception or fails validation (verified in ImmutabilityGuard tests). (PASS)
 4. Reversal transactions cancel the effect on the derived balance without altering the original row (verified in DerivedBalance test). (PASS)
 5. Queries for user A never return user B's accounts or transactions (verified in MultiTenantIsolation test). (PASS)
-6. Exchange rate rule strictly adheres to Rule 19: user holding local currency sees buy rate; holding USD sees sell rate.
-7. DolarApi adapter maps `compra`/`venta` correctly and handles network timeouts gracefully.
+6. Exchange rate rule strictly adheres to Rule 19: user holding local currency sees buy rate; holding USD sees sell rate (verified in ExchangeRateConverterTests). (PASS)
+7. DolarApi adapter maps `compra`/`venta` correctly and handles network timeouts gracefully (verified in DolarApiRateSourceTests). (PASS)
+8. Ledger automatically snapshots rate from Fx contract on transaction creation when rate is not supplied explicitly (verified in RegisterTransaction_WithoutExplicitRate test). (PASS)
 
 ## Progress & Evidence
 - Branch `feat/phase-1-core-ledger` created.
@@ -57,6 +58,7 @@ Rule 6 and Rule 7 of AGENTS.md mandate that transactions are immutable, correcti
 - Task 6 completed: Fx.Domain with ExchangeRate, IRateSource port, ExchangeRateConverter and 5 unit tests (commit `9f12c55`).
 - Task 7 completed: FxDbContext mapping exchange_rates with composite indexes and ExchangeRateRepository (commit `06063ad`).
 - Task 8 completed: DolarApiRateSource integration adapter consuming Binance P2P and tests (commit `2420cfc`).
+- Task 9 completed: Fx.Application RateSnapshotService and automatic snapshot capture in Ledger transactions (commit `a203782`).
 
 ## Next Step
-Implement Task 9: Fx Application & Rate Snapshot Integration.
+Slice 1.3 completed. Next step: Slice 1.4 (API Host REST Endpoints for Accounts, Transactions, and Rates) and client contract regeneration.
