@@ -45,7 +45,10 @@
     <Project Path="src/Modules/Notifications/Notifications.Contracts/Notifications.Contracts.csproj" />
   </Folder>
   <Folder Name="/src/Modules/Planning/">
+    <Project Path="src/Modules/Planning/Planning.Application/Planning.Application.csproj" />
     <Project Path="src/Modules/Planning/Planning.Contracts/Planning.Contracts.csproj" />
+    <Project Path="src/Modules/Planning/Planning.Domain/Planning.Domain.csproj" />
+    <Project Path="src/Modules/Planning/Planning.Infrastructure/Planning.Infrastructure.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Api.Tests/Api.Tests.csproj" />

@@ -246,6 +246,71 @@ export interface LoanPaymentResultDto {
   allocations: PaymentAllocationDto[];
 }
 
+export interface CreateBudgetRequest {
+  limitAmount: number;
+  currency: string;
+  categoryId?: string;
+  alertThreshold?: number;
+  period?: string;
+}
+
+export interface BudgetDto {
+  id: string;
+  categoryId?: string;
+  period: string;
+  limitAmount: number;
+  currency: string;
+  alertThreshold: number;
+  spentAmount: number;
+  remainingAmount: number;
+  percentageUsed: number;
+  isAlertTriggered: boolean;
+  isExceeded: boolean;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface CreateGoalRequest {
+  name: string;
+  targetAmount: number;
+  currency: string;
+  targetDate?: string;
+  accountId?: string;
+}
+
+export interface GoalDto {
+  id: string;
+  accountId?: string;
+  name: string;
+  targetAmount: number;
+  currency: string;
+  targetDate?: string;
+  currentAmount: number;
+  remainingAmount: number;
+  percentageAchieved: number;
+  monthsRemaining?: number;
+  monthlyContributionNeeded?: number;
+  createdAt: string;
+}
+
+export interface BudgetSplit503020Dto {
+  monthlyIncome: number;
+  needsTarget: number;
+  wantsTarget: number;
+  savingsTarget: number;
+}
+
+export interface FinancialHealthDto {
+  monthlyIncome: number;
+  monthlyExpenses: number;
+  netSavings: number;
+  savingsRate: number;
+  totalLiquidBalance: number;
+  emergencyFundMonths: number;
+  totalDebtLiabilities: number;
+  split503020: BudgetSplit503020Dto;
+}
+
 export interface ApiProblemDetails {
   type?: string;
   title?: string;
@@ -604,6 +669,44 @@ export class BillefyApiClient {
       method: "POST",
       body: JSON.stringify(req),
     });
+  }
+
+  async createBudget(req: CreateBudgetRequest): Promise<{ id: string }> {
+    return this.request<{ id: string }>("/v1/planning/budgets", {
+      method: "POST",
+      body: JSON.stringify(req),
+    });
+  }
+
+  async getBudgets(): Promise<BudgetDto[]> {
+    return this.request<BudgetDto[]>("/v1/planning/budgets");
+  }
+
+  async deleteBudget(id: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>(`/v1/planning/budgets/${id}`, {
+      method: "DELETE",
+    });
+  }
+
+  async createGoal(req: CreateGoalRequest): Promise<{ id: string }> {
+    return this.request<{ id: string }>("/v1/planning/goals", {
+      method: "POST",
+      body: JSON.stringify(req),
+    });
+  }
+
+  async getGoals(): Promise<GoalDto[]> {
+    return this.request<GoalDto[]>("/v1/planning/goals");
+  }
+
+  async deleteGoal(id: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>(`/v1/planning/goals/${id}`, {
+      method: "DELETE",
+    });
+  }
+
+  async getFinancialHealth(): Promise<FinancialHealthDto> {
+    return this.request<FinancialHealthDto>("/v1/planning/financial-health");
   }
 
   async getLatestRate(currency: string, baseCurrency: string = "USD"): Promise<RateSnapshotDto> {

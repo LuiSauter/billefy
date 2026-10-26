@@ -14,6 +14,9 @@ import {
   LoanDetailDto,
   LoanScheduleDto,
   SimulateLoanRequest,
+  BudgetDto,
+  GoalDto,
+  FinancialHealthDto,
 } from "../api/client";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -33,6 +36,9 @@ export default function DashboardPage() {
   const [transactions, setTransactions] = useState<TransactionDto[]>([]);
   const [drafts, setDrafts] = useState<DraftDto[]>([]);
   const [loans, setLoans] = useState<LoanSummaryDto[]>([]);
+  const [budgets, setBudgets] = useState<BudgetDto[]>([]);
+  const [goals, setGoals] = useState<GoalDto[]>([]);
+  const [health, setHealth] = useState<FinancialHealthDto | null>(null);
   const [rate, setRate] = useState<RateSnapshotDto | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -46,6 +52,8 @@ export default function DashboardPage() {
   const [isLoanModalOpen, setIsLoanModalOpen] = useState(false);
   const [isLoanPaymentModalOpen, setIsLoanPaymentModalOpen] = useState(false);
   const [isLoanDetailModalOpen, setIsLoanDetailModalOpen] = useState(false);
+  const [isBudgetModalOpen, setIsBudgetModalOpen] = useState(false);
+  const [isGoalModalOpen, setIsGoalModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   // Form states
@@ -90,6 +98,18 @@ export default function DashboardPage() {
   const [paymentAccountId, setPaymentAccountId] = useState("");
   const [paymentNote, setPaymentNote] = useState("");
 
+  // Budget form state
+  const [budgetLimit, setBudgetLimit] = useState("1500");
+  const [budgetCurrency, setBudgetCurrency] = useState("BOB");
+  const [budgetThreshold, setBudgetThreshold] = useState("0.80");
+
+  // Goal form state
+  const [goalName, setGoalName] = useState("");
+  const [goalTargetAmount, setGoalTargetAmount] = useState("5000");
+  const [goalCurrency, setGoalCurrency] = useState("BOB");
+  const [goalTargetDate, setGoalTargetDate] = useState("");
+  const [goalAccountId, setGoalAccountId] = useState("");
+
   // Initialize User ID from localStorage or generate fresh
   useEffect(() => {
     let storedId = "";
@@ -117,11 +137,14 @@ export default function DashboardPage() {
     setError(null);
 
     try {
-      const [accountsData, txnsData, draftsData, loansData, rateData] = await Promise.all([
+      const [accountsData, txnsData, draftsData, loansData, budgetsData, goalsData, healthData, rateData] = await Promise.all([
         client.getAccounts(),
         client.getTransactions({ limit: 20 }),
         client.getDrafts(),
         client.getLoans(),
+        client.getBudgets().catch(() => []),
+        client.getGoals().catch(() => []),
+        client.getFinancialHealth().catch(() => null),
         client.getLatestRate("BOB", "USD").catch(() => null),
       ]);
 
@@ -129,6 +152,9 @@ export default function DashboardPage() {
       setTransactions(txnsData);
       setDrafts(draftsData);
       setLoans(loansData);
+      setBudgets(budgetsData);
+      setGoals(goalsData);
+      setHealth(healthData);
       setRate(rateData);
 
       if (accountsData.length > 0 && !txnAccountId) {
@@ -137,13 +163,16 @@ export default function DashboardPage() {
       if (accountsData.length > 0 && !csvAccountId) {
         setCsvAccountId(accountsData[0].id);
       }
+      if (accountsData.length > 0 && !goalAccountId) {
+        setGoalAccountId(accountsData[0].id);
+      }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Error al conectar con el servidor.";
       setError(message);
     } finally {
       setLoading(false);
     }
-  }, [client, txnAccountId, csvAccountId]);
+  }, [client, txnAccountId, csvAccountId, goalAccountId]);
 
   useEffect(() => {
     if (client) {
@@ -151,7 +180,6 @@ export default function DashboardPage() {
     }
   }, [client, loadData]);
 
-  // Account map for quick lookup
   const accountsMap = useMemo(() => {
     const map = new Map<string, AccountDto>();
     for (const acc of accounts) {
@@ -160,12 +188,10 @@ export default function DashboardPage() {
     return map;
   }, [accounts]);
 
-  // Filter pending/review drafts
   const pendingDrafts = useMemo(() => {
     return drafts.filter((d) => d.status === "Pending" || d.status === "Review");
   }, [drafts]);
 
-  // Consolidated balances calculation
   const totals = useMemo(() => {
     let bobTotal = new Decimal(0);
     let usdTotal = new Decimal(0);
@@ -382,7 +408,6 @@ export default function DashboardPage() {
     }
   };
 
-  // Loan simulation
   const handleSimulateSchedule = async () => {
     if (!client) return;
 
@@ -487,6 +512,56 @@ export default function DashboardPage() {
     }
   };
 
+  const handleCreateBudget = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!client) return;
+
+    const limit = parseFloat(budgetLimit);
+    const threshold = parseFloat(budgetThreshold);
+    if (isNaN(limit) || limit <= 0) return;
+
+    setSubmitting(true);
+    try {
+      await client.createBudget({
+        limitAmount: limit,
+        currency: budgetCurrency,
+        alertThreshold: isNaN(threshold) ? 0.80 : threshold,
+      });
+      setIsBudgetModalOpen(false);
+      await loadData();
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Error al crear presupuesto.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleCreateGoal = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!client || !goalName.trim()) return;
+
+    const target = parseFloat(goalTargetAmount);
+    if (isNaN(target) || target <= 0) return;
+
+    setSubmitting(true);
+    try {
+      await client.createGoal({
+        name: goalName.trim(),
+        targetAmount: target,
+        currency: goalCurrency,
+        targetDate: goalTargetDate || undefined,
+        accountId: goalAccountId || undefined,
+      });
+      setIsGoalModalOpen(false);
+      setGoalName("");
+      await loadData();
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Error al crear la meta.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <div className="max-w-5xl mx-auto p-6 md:p-8 space-y-8">
       {/* Header */}
@@ -494,7 +569,7 @@ export default function DashboardPage() {
         <div>
           <h1 className="text-3xl font-extrabold tracking-tight text-foreground">Billefy</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Gestor de finanzas personales multimoneda · Smart Capture, Préstamos (Lending) & Ledger Inmutable
+            Gestor de finanzas personales multimoneda · Smart Capture, Préstamos & Planificación
           </p>
         </div>
         <div className="bg-muted px-4 py-2.5 rounded-lg text-sm border shadow-xs">
@@ -558,6 +633,46 @@ export default function DashboardPage() {
         </Card>
       </section>
 
+      {/* Financial Health Indicators (BUD-04, DASH-01) */}
+      {health && (
+        <Card className="border-emerald-200 bg-emerald-50/30 dark:bg-emerald-950/20 shadow-xs overflow-hidden">
+          <CardHeader className="py-3 px-6 border-b border-emerald-100 dark:border-emerald-900/40">
+            <CardTitle className="text-base font-semibold text-emerald-950 dark:text-emerald-200">
+              📊 Indicadores de Salud Financiera (Mes en Curso)
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-6">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+              <div className="p-3 bg-background rounded-lg border">
+                <div className="text-xs text-muted-foreground">Tasa de Ahorro</div>
+                <div className="text-xl font-bold font-mono text-emerald-600">{health.savingsRate.toFixed(1)}%</div>
+                <div className="text-[10px] text-muted-foreground mt-0.5">del ingreso neto</div>
+              </div>
+
+              <div className="p-3 bg-background rounded-lg border">
+                <div className="text-xs text-muted-foreground">Fondo de Emergencia</div>
+                <div className="text-xl font-bold font-mono text-blue-600">{health.emergencyFundMonths.toFixed(1)} meses</div>
+                <div className="text-[10px] text-muted-foreground mt-0.5">de gastos cubiertos</div>
+              </div>
+
+              <div className="p-3 bg-background rounded-lg border">
+                <div className="text-xs text-muted-foreground">Pasivos / Deudas</div>
+                <div className="text-xl font-bold font-mono text-purple-600">{health.totalDebtLiabilities.toFixed(2)} BOB</div>
+                <div className="text-[10px] text-muted-foreground mt-0.5">capital adeudado</div>
+              </div>
+
+              <div className="p-3 bg-background rounded-lg border">
+                <div className="text-xs text-muted-foreground">Regla 50 / 30 / 20</div>
+                <div className="text-xs font-semibold mt-1">
+                  Nec: <span className="text-primary font-mono">{health.split503020.needsTarget.toFixed(0)}</span> | Des: <span className="text-amber-600 font-mono">{health.split503020.wantsTarget.toFixed(0)}</span>
+                </div>
+                <div className="text-[10px] text-muted-foreground mt-0.5">Ahorro meta: {health.split503020.savingsTarget.toFixed(0)}</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Action Buttons */}
       <div className="flex flex-wrap gap-3">
         <Button onClick={() => setIsAccountModalOpen(true)} className="gap-2">
@@ -572,6 +687,20 @@ export default function DashboardPage() {
           + Registrar Movimiento
         </Button>
         <Button
+          onClick={() => setIsBudgetModalOpen(true)}
+          variant="outline"
+          className="gap-2"
+        >
+          🎯 Nuevo Presupuesto
+        </Button>
+        <Button
+          onClick={() => setIsGoalModalOpen(true)}
+          variant="outline"
+          className="gap-2"
+        >
+          🏆 Nueva Meta
+        </Button>
+        <Button
           onClick={() => {
             setSimulatedSchedule(null);
             setIsLoanModalOpen(true);
@@ -579,7 +708,7 @@ export default function DashboardPage() {
           variant="outline"
           className="gap-2 border-amber-300 text-amber-800 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-300 dark:hover:bg-amber-950"
         >
-          🤝 Nuevo Préstamo / Simular
+          🤝 Préstamo / Simular
         </Button>
         <Button
           onClick={() => setIsCsvModalOpen(true)}
@@ -587,7 +716,7 @@ export default function DashboardPage() {
           variant="outline"
           className="gap-2"
         >
-          📁 Importar Extracto CSV
+          📁 Importar Extracto
         </Button>
         <Button
           onClick={() => setIsSimulateModalOpen(true)}
@@ -685,6 +814,84 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Budgets & Goals Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Budgets */}
+        <Card className="overflow-hidden shadow-xs">
+          <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/30 py-3 px-6">
+            <CardTitle className="text-base font-semibold">Presupuestos Mensuales ({budgets.length})</CardTitle>
+            <span className="text-xs text-muted-foreground">Límites y alertas</span>
+          </CardHeader>
+          <CardContent className="p-4 space-y-4">
+            {budgets.length === 0 ? (
+              <div className="py-6 text-center text-xs text-muted-foreground">
+                No tienes presupuestos activos. Crea uno para controlar tus gastos mensuales.
+              </div>
+            ) : (
+              budgets.map((b) => (
+                <div key={b.id} className="space-y-1.5 p-3 rounded-lg border bg-muted/20">
+                  <div className="flex justify-between items-center text-xs font-semibold">
+                    <span>Presupuesto General ({b.currency})</span>
+                    <span className={b.isExceeded ? "text-destructive font-bold" : b.isAlertTriggered ? "text-amber-600 font-bold" : "text-foreground"}>
+                      {b.spentAmount.toFixed(2)} / {b.limitAmount.toFixed(2)} {b.currency} ({b.percentageUsed.toFixed(0)}%)
+                    </span>
+                  </div>
+                  {/* Progress bar */}
+                  <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all ${b.isExceeded ? "bg-rose-600" : b.isAlertTriggered ? "bg-amber-500" : "bg-emerald-600"}`}
+                      style={{ width: `${Math.min(100, b.percentageUsed)}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-between text-[11px] text-muted-foreground">
+                    <span>Restante: {b.remainingAmount.toFixed(2)} {b.currency}</span>
+                    {b.isExceeded && <span className="text-rose-600 font-semibold">¡Límite excedido!</span>}
+                  </div>
+                </div>
+              ))
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Goals */}
+        <Card className="overflow-hidden shadow-xs">
+          <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/30 py-3 px-6">
+            <CardTitle className="text-base font-semibold">Metas de Ahorro ({goals.length})</CardTitle>
+            <span className="text-xs text-muted-foreground">Progreso y cuota</span>
+          </CardHeader>
+          <CardContent className="p-4 space-y-4">
+            {goals.length === 0 ? (
+              <div className="py-6 text-center text-xs text-muted-foreground">
+                No tienes metas de ahorro definidas. Crea una para planificar objetivos futuros.
+              </div>
+            ) : (
+              goals.map((g) => (
+                <div key={g.id} className="space-y-1.5 p-3 rounded-lg border bg-muted/20">
+                  <div className="flex justify-between items-center text-xs font-semibold">
+                    <span>{g.name}</span>
+                    <span className="font-mono text-emerald-600 font-bold">
+                      {g.currentAmount.toFixed(2)} / {g.targetAmount.toFixed(2)} {g.currency} ({g.percentageAchieved.toFixed(0)}%)
+                    </span>
+                  </div>
+                  <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-blue-600 transition-all"
+                      style={{ width: `${Math.min(100, g.percentageAchieved)}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-between text-[11px] text-muted-foreground">
+                    <span>{g.monthsRemaining ? `${g.monthsRemaining} meses restantes` : "Sin fecha límite"}</span>
+                    {g.monthlyContributionNeeded && (
+                      <span className="font-semibold text-foreground">Aporte sugerido: {g.monthlyContributionNeeded.toFixed(2)}/mes</span>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Lending Section: Active Loans and Debts */}
       <Card className="overflow-hidden shadow-xs">
@@ -995,6 +1202,154 @@ export default function DashboardPage() {
                   </Button>
                   <Button type="submit" disabled={submitting} className="bg-emerald-600 hover:bg-emerald-700 text-white">
                     {submitting ? "Registrando..." : "Confirmar Movimiento"}
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Modal: Create Budget */}
+      {isBudgetModalOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <Card className="w-full max-w-md shadow-xl bg-background border">
+            <CardHeader className="border-b">
+              <CardTitle className="text-lg">Definir Presupuesto Mensual</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <form onSubmit={handleCreateBudget} className="space-y-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="budgetLimit">Monto Límite Mensual</Label>
+                  <Input
+                    id="budgetLimit"
+                    type="number"
+                    step="0.01"
+                    required
+                    value={budgetLimit}
+                    onChange={(e) => setBudgetLimit(e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="budgetCurrency">Moneda</Label>
+                  <select
+                    id="budgetCurrency"
+                    value={budgetCurrency}
+                    onChange={(e) => setBudgetCurrency(e.target.value)}
+                    className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  >
+                    <option value="BOB">Bolivianos (BOB)</option>
+                    <option value="USD">Dólares (USD)</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="budgetThreshold">Umbral de Alerta Temprana (ej. 0.80 = 80%)</Label>
+                  <Input
+                    id="budgetThreshold"
+                    type="number"
+                    step="0.05"
+                    min="0.10"
+                    max="1.00"
+                    value={budgetThreshold}
+                    onChange={(e) => setBudgetThreshold(e.target.value)}
+                  />
+                </div>
+
+                <div className="flex justify-end gap-2 pt-4 border-t">
+                  <Button type="button" variant="outline" onClick={() => setIsBudgetModalOpen(false)}>
+                    Cancelar
+                  </Button>
+                  <Button type="submit" disabled={submitting}>
+                    {submitting ? "Guardando..." : "Crear Presupuesto"}
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Modal: Create Goal */}
+      {isGoalModalOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <Card className="w-full max-w-md shadow-xl bg-background border">
+            <CardHeader className="border-b">
+              <CardTitle className="text-lg">Nueva Meta de Ahorro</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <form onSubmit={handleCreateGoal} className="space-y-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="goalName">Nombre de la Meta</Label>
+                  <Input
+                    id="goalName"
+                    required
+                    value={goalName}
+                    onChange={(e) => setGoalName(e.target.value)}
+                    placeholder="Ej. Vacaciones, Fondo de Emergencia, Auto"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="goalTargetAmount">Monto Objetivo</Label>
+                    <Input
+                      id="goalTargetAmount"
+                      type="number"
+                      step="0.01"
+                      required
+                      value={goalTargetAmount}
+                      onChange={(e) => setGoalTargetAmount(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="goalCurrency">Moneda</Label>
+                    <select
+                      id="goalCurrency"
+                      value={goalCurrency}
+                      onChange={(e) => setGoalCurrency(e.target.value)}
+                      className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    >
+                      <option value="BOB">Bolivianos (BOB)</option>
+                      <option value="USD">Dólares (USD)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="goalTargetDate">Fecha Objetivo (opcional)</Label>
+                  <Input
+                    id="goalTargetDate"
+                    type="date"
+                    value={goalTargetDate}
+                    onChange={(e) => setGoalTargetDate(e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="goalAccountId">Cuenta de ahorro asociada (opcional)</Label>
+                  <select
+                    id="goalAccountId"
+                    value={goalAccountId}
+                    onChange={(e) => setGoalAccountId(e.target.value)}
+                    className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  >
+                    <option value="">(Sin vincular cuenta específica)</option>
+                    {accounts.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.name} ({a.currency} - Saldo: {a.balance.toFixed(2)})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-4 border-t">
+                  <Button type="button" variant="outline" onClick={() => setIsGoalModalOpen(false)}>
+                    Cancelar
+                  </Button>
+                  <Button type="submit" disabled={submitting}>
+                    {submitting ? "Guardando..." : "Crear Meta"}
                   </Button>
                 </div>
               </form>

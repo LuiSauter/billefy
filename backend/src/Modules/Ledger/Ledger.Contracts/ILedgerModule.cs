@@ -12,9 +12,25 @@ public sealed record CreateTransactionFromDraftDto(
     Guid DraftId,
     string? Reference);
 
+public sealed record MonthlyLedgerMetricsDto(
+    decimal TotalIncome,
+    decimal TotalExpense,
+    decimal TotalLiquidBalance,
+    Dictionary<Guid, decimal> ExpensesByCategory);
+
 public interface ILedgerModule
 {
     Task<Guid> CreateTransactionFromDraftAsync(
         CreateTransactionFromDraftDto dto,
+        CancellationToken cancellationToken = default);
+
+    Task<MonthlyLedgerMetricsDto> GetMonthlyMetricsAsync(
+        Guid userId,
+        DateTime monthStart,
+        DateTime monthEnd,
+        CancellationToken cancellationToken = default);
+
+    Task<decimal> GetAccountBalanceAsync(
+        Guid accountId,
         CancellationToken cancellationToken = default);
 }

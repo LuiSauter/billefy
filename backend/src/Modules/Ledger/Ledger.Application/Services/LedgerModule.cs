@@ -82,4 +82,54 @@ public sealed class LedgerModule : ILedgerModule
 
         return transaction.Id;
     }
+
+    public async Task<MonthlyLedgerMetricsDto> GetMonthlyMetricsAsync(
+        Guid userId,
+        DateTime monthStart,
+        DateTime monthEnd,
+        CancellationToken cancellationToken = default)
+    {
+        var txns = await _transactionRepository.GetFilteredAsync(
+            accountId: null,
+            direction: null,
+            from: monthStart,
+            to: monthEnd,
+            limit: 1000,
+            cancellationToken: cancellationToken);
+
+        decimal totalIncome = decimal.Zero;
+        decimal totalExpense = decimal.Zero;
+        var categoryMap = new Dictionary<Guid, decimal>();
+
+        foreach (var t in txns)
+        {
+            if (t.Direction == TransactionDirection.Income)
+            {
+                totalIncome += t.Amount.Amount;
+            }
+            else
+            {
+                totalExpense += t.Amount.Amount;
+                if (t.CategoryId.HasValue)
+                {
+                    categoryMap[t.CategoryId.Value] = categoryMap.GetValueOrDefault(t.CategoryId.Value) + t.Amount.Amount;
+                }
+            }
+        }
+
+        var accounts = await _accountRepository.GetAllAsync(includeArchived: false, cancellationToken);
+        decimal totalLiquid = decimal.Zero;
+        foreach (var acc in accounts)
+        {
+            var bal = await _transactionRepository.CalculateBalanceAsync(acc.Id, cancellationToken);
+            totalLiquid += bal;
+        }
+
+        return new MonthlyLedgerMetricsDto(totalIncome, totalExpense, totalLiquid, categoryMap);
+    }
+
+    public Task<decimal> GetAccountBalanceAsync(Guid accountId, CancellationToken cancellationToken = default)
+    {
+        return _transactionRepository.CalculateBalanceAsync(accountId, cancellationToken);
+    }
 }

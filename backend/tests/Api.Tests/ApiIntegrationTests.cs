@@ -16,6 +16,8 @@ using Ingestion.Contracts;
 using Ingestion.Infrastructure;
 using Lending.Contracts;
 using Lending.Infrastructure;
+using Planning.Contracts;
+using Planning.Infrastructure;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Data.Sqlite;
@@ -31,6 +33,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
     private readonly SqliteConnection _fxConnection = new("DataSource=:memory:");
     private readonly SqliteConnection _ingestionConnection = new("DataSource=:memory:");
     private readonly SqliteConnection _lendingConnection = new("DataSource=:memory:");
+    private readonly SqliteConnection _planningConnection = new("DataSource=:memory:");
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -38,6 +41,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
         _fxConnection.Open();
         _ingestionConnection.Open();
         _lendingConnection.Open();
+        _planningConnection.Open();
 
         // Clear connection string so Npgsql is not registered by default
         builder.UseSetting("ConnectionStrings:PostgreSQL", string.Empty);
@@ -49,6 +53,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             services.AddDbContext<FxDbContext>(options => options.UseSqlite(_fxConnection));
             services.AddDbContext<IngestionDbContext>(options => options.UseSqlite(_ingestionConnection));
             services.AddDbContext<LendingDbContext>(options => options.UseSqlite(_lendingConnection));
+            services.AddDbContext<PlanningDbContext>(options => options.UseSqlite(_planningConnection));
 
             // Ensure databases created and seed Fx market rate
             var sp = services.BuildServiceProvider();
@@ -72,6 +77,9 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 
             var lendingDb = scope.ServiceProvider.GetRequiredService<LendingDbContext>();
             lendingDb.Database.EnsureCreated();
+
+            var planningDb = scope.ServiceProvider.GetRequiredService<PlanningDbContext>();
+            planningDb.Database.EnsureCreated();
         });
     }
 
@@ -82,6 +90,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
         _fxConnection.Dispose();
         _ingestionConnection.Dispose();
         _lendingConnection.Dispose();
+        _planningConnection.Dispose();
     }
 }
 
@@ -553,6 +562,70 @@ public class ApiIntegrationTests : IClassFixture<CustomWebApplicationFactory>
         alloc.ToInterest.Should().Be(50.00m);
         alloc.ToPrincipal.Should().Be(47.50m);
         payResult.RemainingPrincipal.Should().Be(952.50m); // 1000 - 47.50
+    }
+
+    [Fact]
+    public async Task Planning_BudgetsGoalsAndFinancialHealth_ShouldCalculateAccurately()
+    {
+        // 1. Create a monthly budget
+        var createBudgetReq = new CreateBudgetRequest(
+            LimitAmount: 500m,
+            Currency: "BOB",
+            AlertThreshold: 0.80m);
+
+        using var budgetMsg = new HttpRequestMessage(HttpMethod.Post, "/v1/planning/budgets")
+        {
+            Content = JsonContent.Create(createBudgetReq)
+        };
+        budgetMsg.Headers.Add("X-User-Id", _testUserId.ToString());
+        var budgetRes = await _client.SendAsync(budgetMsg);
+        budgetRes.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        // 2. Query budgets
+        using var getBudgetsMsg = new HttpRequestMessage(HttpMethod.Get, "/v1/planning/budgets");
+        getBudgetsMsg.Headers.Add("X-User-Id", _testUserId.ToString());
+        var getBudgetsRes = await _client.SendAsync(getBudgetsMsg);
+        getBudgetsRes.StatusCode.Should().Be(HttpStatusCode.OK);
+        var budgets = await getBudgetsRes.Content.ReadFromJsonAsync<List<BudgetDto>>();
+        budgets.Should().NotBeEmpty();
+        var budget = budgets!.First();
+        budget.LimitAmount.Should().Be(500m);
+        budget.AlertThreshold.Should().Be(0.80m);
+
+        // 3. Create a savings goal
+        var targetDate = DateOnly.FromDateTime(DateTime.UtcNow.AddMonths(5));
+        var createGoalReq = new CreateGoalRequest(
+            Name: "Fondo de Emergencia",
+            TargetAmount: 3000m,
+            Currency: "BOB",
+            TargetDate: targetDate);
+
+        using var goalMsg = new HttpRequestMessage(HttpMethod.Post, "/v1/planning/goals")
+        {
+            Content = JsonContent.Create(createGoalReq)
+        };
+        goalMsg.Headers.Add("X-User-Id", _testUserId.ToString());
+        var goalRes = await _client.SendAsync(goalMsg);
+        goalRes.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        // 4. Query goals
+        using var getGoalsMsg = new HttpRequestMessage(HttpMethod.Get, "/v1/planning/goals");
+        getGoalsMsg.Headers.Add("X-User-Id", _testUserId.ToString());
+        var getGoalsRes = await _client.SendAsync(getGoalsMsg);
+        getGoalsRes.StatusCode.Should().Be(HttpStatusCode.OK);
+        var goals = await getGoalsRes.Content.ReadFromJsonAsync<List<GoalDto>>();
+        goals.Should().Contain(g => g.Name == "Fondo de Emergencia");
+        var goal = goals!.First(g => g.Name == "Fondo de Emergencia");
+        goal.MonthlyContributionNeeded.Should().BeGreaterThan(0m);
+
+        // 5. Query Financial Health
+        using var healthMsg = new HttpRequestMessage(HttpMethod.Get, "/v1/planning/financial-health");
+        healthMsg.Headers.Add("X-User-Id", _testUserId.ToString());
+        var healthRes = await _client.SendAsync(healthMsg);
+        healthRes.StatusCode.Should().Be(HttpStatusCode.OK);
+        var health = await healthRes.Content.ReadFromJsonAsync<FinancialHealthDto>();
+        health.Should().NotBeNull();
+        health!.Split503020.Should().NotBeNull();
     }
 
     private sealed record CreatedAccountResponse(Guid Id);

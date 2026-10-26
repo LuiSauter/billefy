@@ -1,3 +1,6 @@
 namespace Lending.Contracts;
 
-public interface ILendingModule;
+public interface ILendingModule
+{
+    Task<decimal> GetTotalDebtLiabilitiesAsync(Guid userId, CancellationToken cancellationToken = default);
+}
