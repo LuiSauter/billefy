@@ -50,7 +50,7 @@ public sealed class ConfirmDraftCommandHandler(
                 draft.Amount.Currency.Code,
                 draft.Direction.ToString(),
                 request.CategoryId ?? draft.SuggestedCategoryId,
-                draft.EstimatedDate.UtcDateTime,
+                draft.EstimatedDate,
                 request.Description,
                 draft.Id,
                 draft.Reference);
@@ -62,7 +62,7 @@ public sealed class ConfirmDraftCommandHandler(
                 request.AccountId,
                 request.CategoryId ?? draft.SuggestedCategoryId,
                 txnId,
-                DateTimeOffset.UtcNow);
+                DateTime.UtcNow);
 
             await draftRepository.UpdateAsync(draft, cancellationToken);
             await unitOfWork.SaveChangesAsync(cancellationToken);

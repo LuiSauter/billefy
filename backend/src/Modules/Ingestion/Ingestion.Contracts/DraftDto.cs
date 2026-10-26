@@ -7,7 +7,7 @@ public sealed record DraftDto(
     string Direction,
     decimal Amount,
     string Currency,
-    DateTimeOffset EstimatedDate,
+    DateTime EstimatedDate,
     string? Reference,
     string Fingerprint,
     decimal Confidence,
@@ -16,9 +16,9 @@ public sealed record DraftDto(
     Guid? ConfirmedAccountId,
     Guid? ConfirmedCategoryId,
     Guid? LedgerTransactionId,
-    DateTimeOffset CreatedAt,
-    DateTimeOffset? ConfirmedAt,
-    DateTimeOffset? DiscardedAt,
+    DateTime CreatedAt,
+    DateTime? ConfirmedAt,
+    DateTime? DiscardedAt,
     int LinkedEventsCount);
 
 public sealed record CreateRawEventRequest(
@@ -26,7 +26,7 @@ public sealed record CreateRawEventRequest(
     string Channel,
     string? SourceId,
     string? MaskedText,
-    DateTimeOffset? ReceivedAt = null);
+    DateTime? ReceivedAt = null);
 
 public sealed record RegisterEventResponse(
     Guid EventId,

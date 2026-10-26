@@ -7,7 +7,7 @@ public sealed class FinancialSource : Entity
     public string SourceId { get; private set; }
     public string? Alias { get; private set; }
     public FinancialSourceDecision Decision { get; private set; }
-    public DateTimeOffset DecidedAt { get; private set; }
+    public DateTime DecidedAt { get; private set; }
 
     private FinancialSource() : base()
     {
@@ -20,8 +20,8 @@ public sealed class FinancialSource : Entity
         string sourceId,
         string? alias,
         FinancialSourceDecision decision,
-        DateTimeOffset decidedAt)
-        : base(id, userId, decidedAt.UtcDateTime)
+        DateTime decidedAt)
+        : base(id, userId, decidedAt)
     {
         if (string.IsNullOrWhiteSpace(sourceId))
             throw new ArgumentException("SourceId cannot be empty.", nameof(sourceId));
@@ -37,7 +37,7 @@ public sealed class FinancialSource : Entity
         string sourceId,
         string? alias,
         FinancialSourceDecision decision,
-        DateTimeOffset decidedAt)
+        DateTime decidedAt)
     {
         return new FinancialSource(
             Guid.NewGuid(),
@@ -48,7 +48,7 @@ public sealed class FinancialSource : Entity
             decidedAt);
     }
 
-    public void UpdateDecision(FinancialSourceDecision decision, DateTimeOffset decidedAt)
+    public void UpdateDecision(FinancialSourceDecision decision, DateTime decidedAt)
     {
         Decision = decision;
         DecidedAt = decidedAt;

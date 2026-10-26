@@ -14,7 +14,7 @@ public static class FingerprintGenerator
         decimal amount,
         string currency,
         DraftDirection direction,
-        DateTimeOffset estimatedDate,
+        DateTime estimatedDate,
         string? reference)
     {
         if (userId == Guid.Empty)
@@ -32,7 +32,8 @@ public static class FingerprintGenerator
         }
         else
         {
-            var bucket = estimatedDate.ToUnixTimeSeconds() / TimeBucketSeconds;
+            var utcEstimated = estimatedDate.Kind == DateTimeKind.Utc ? estimatedDate : DateTime.SpecifyKind(estimatedDate, DateTimeKind.Utc);
+            var bucket = new DateTimeOffset(utcEstimated).ToUnixTimeSeconds() / TimeBucketSeconds;
             discriminator = $"BUCKET:{bucket}";
         }
 

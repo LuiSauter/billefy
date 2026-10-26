@@ -11,7 +11,7 @@ namespace Ingestion.Domain.Tests;
 public class IngestionDomainTests
 {
     private readonly Guid _userId = Guid.NewGuid();
-    private readonly DateTimeOffset _now = DateTimeOffset.UtcNow;
+    private readonly DateTime _now = DateTime.UtcNow;
 
     [Fact]
     public void FingerprintGenerator_ShouldGenerateIdenticalHash_WhenInputsMatch()
@@ -40,8 +40,8 @@ public class IngestionDomainTests
     public void FingerprintGenerator_ShouldBucketTime_WithinFiveMinutes_WhenNoReference()
     {
         // Pick a base time aligned to start of a 5-min bucket
-        var baseSeconds = (_now.ToUnixTimeSeconds() / 300) * 300;
-        var bucketStart = DateTimeOffset.FromUnixTimeSeconds(baseSeconds);
+        var baseSeconds = (new DateTimeOffset(_now).ToUnixTimeSeconds() / 300) * 300;
+        var bucketStart = DateTimeOffset.FromUnixTimeSeconds(baseSeconds).UtcDateTime;
 
         var hash1 = FingerprintGenerator.Generate(
             _userId,

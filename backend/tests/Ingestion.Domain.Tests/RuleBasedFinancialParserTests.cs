@@ -8,7 +8,7 @@ namespace Ingestion.Domain.Tests;
 public class RuleBasedFinancialParserTests
 {
     private readonly RuleBasedFinancialParser _parser = new();
-    private readonly DateTimeOffset _now = DateTimeOffset.UtcNow;
+    private readonly DateTime _now = DateTime.UtcNow;
 
     [Fact]
     public void Parse_ShouldExtractIncome_WithBolivianosAndReference()

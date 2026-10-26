@@ -20,8 +20,8 @@ internal sealed class DraftRepository(IngestionDbContext context) : IDraftReposi
         decimal amount,
         string currency,
         DraftDirection direction,
-        DateTimeOffset windowStart,
-        DateTimeOffset windowEnd,
+        DateTime windowStart,
+        DateTime windowEnd,
         CancellationToken cancellationToken = default)
     {
         // 1. Exact fingerprint match
@@ -53,16 +53,17 @@ internal sealed class DraftRepository(IngestionDbContext context) : IDraftReposi
         }
 
         // 3. Time window (±5 mins) with same amount, currency, direction
-        return await context.Drafts
+        var candidates = await context.Drafts
             .Include(d => d.Events)
-            .FirstOrDefaultAsync(
-                d => d.UserId == userId &&
-                     d.Amount.Amount == amount &&
-                     d.Amount.Currency.Code == currency &&
-                     d.Direction == direction &&
-                     d.EstimatedDate >= windowStart &&
-                     d.EstimatedDate <= windowEnd,
-                cancellationToken);
+            .Where(d => d.UserId == userId &&
+                        d.EstimatedDate >= windowStart &&
+                        d.EstimatedDate <= windowEnd)
+            .ToListAsync(cancellationToken);
+
+        return candidates.FirstOrDefault(d =>
+            d.Amount.Amount == amount &&
+            d.Amount.Currency.Code == currency &&
+            d.Direction == direction);
     }
 
     public Task<List<Draft>> GetByUserIdAsync(

@@ -13,8 +13,8 @@ public interface IDraftRepository
         decimal amount,
         string currency,
         DraftDirection direction,
-        DateTimeOffset windowStart,
-        DateTimeOffset windowEnd,
+        DateTime windowStart,
+        DateTime windowEnd,
         CancellationToken cancellationToken = default);
 
     Task<List<Draft>> GetByUserIdAsync(

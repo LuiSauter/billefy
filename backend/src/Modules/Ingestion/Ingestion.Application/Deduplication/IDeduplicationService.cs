@@ -21,7 +21,7 @@ public interface IDeduplicationService
         decimal amount,
         string currencyCode,
         DraftDirection direction,
-        DateTimeOffset estimatedDate,
+        DateTime estimatedDate,
         string? reference,
         decimal confidence,
         Guid? suggestedAccountId = null,
@@ -40,7 +40,7 @@ public sealed class DeduplicationService(
         decimal amount,
         string currencyCode,
         DraftDirection direction,
-        DateTimeOffset estimatedDate,
+        DateTime estimatedDate,
         string? reference,
         decimal confidence,
         Guid? suggestedAccountId = null,
@@ -76,7 +76,7 @@ public sealed class DeduplicationService(
         if (existing is not null)
         {
             // Link this event as an additional source
-            existing.LinkAdditionalEvent(eventId, DateTimeOffset.UtcNow);
+            existing.LinkAdditionalEvent(eventId, DateTime.UtcNow);
             await draftRepository.UpdateAsync(existing, cancellationToken);
             await unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -89,7 +89,7 @@ public sealed class DeduplicationService(
 
         // Create new draft (Pending if confidence >= 0.70, otherwise Review)
         Draft draft;
-        var now = DateTimeOffset.UtcNow;
+        var now = DateTime.UtcNow;
 
         if (confidence >= 0.70m)
         {

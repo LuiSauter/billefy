@@ -4,13 +4,13 @@ public sealed class DraftEvent
 {
     public Guid DraftId { get; private init; }
     public Guid EventId { get; private init; }
-    public DateTimeOffset LinkedAt { get; private init; }
+    public DateTime LinkedAt { get; private init; }
 
     private DraftEvent()
     {
     }
 
-    public DraftEvent(Guid draftId, Guid eventId, DateTimeOffset linkedAt)
+    public DraftEvent(Guid draftId, Guid eventId, DateTime linkedAt)
     {
         if (draftId == Guid.Empty)
             throw new ArgumentException("DraftId cannot be empty.", nameof(draftId));

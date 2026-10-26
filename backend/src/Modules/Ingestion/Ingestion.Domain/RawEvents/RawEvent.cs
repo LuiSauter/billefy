@@ -8,8 +8,8 @@ public sealed class RawEvent : Entity
     public string Channel { get; private init; }
     public string? SourceId { get; private init; }
     public string? MaskedText { get; private init; }
-    public DateTimeOffset ReceivedAt { get; private init; }
-    public DateTimeOffset PurgeAfter { get; private init; }
+    public DateTime ReceivedAt { get; private init; }
+    public DateTime PurgeAfter { get; private init; }
 
     private RawEvent() : base()
     {
@@ -23,9 +23,9 @@ public sealed class RawEvent : Entity
         string channel,
         string? sourceId,
         string? maskedText,
-        DateTimeOffset receivedAt,
-        DateTimeOffset purgeAfter)
-        : base(id, userId, receivedAt.UtcDateTime)
+        DateTime receivedAt,
+        DateTime purgeAfter)
+        : base(id, userId, receivedAt)
     {
         if (eventId == Guid.Empty)
             throw new ArgumentException("EventId cannot be empty.", nameof(eventId));
@@ -47,7 +47,7 @@ public sealed class RawEvent : Entity
         string channel,
         string? sourceId,
         string? maskedText,
-        DateTimeOffset receivedAt)
+        DateTime receivedAt)
     {
         var purgeAfter = receivedAt.AddDays(30);
         return new RawEvent(

@@ -30,7 +30,7 @@ public sealed class DiscardDraftCommandHandler(
 
         try
         {
-            draft.Discard(DateTimeOffset.UtcNow);
+            draft.Discard(DateTime.UtcNow);
             await draftRepository.UpdateAsync(draft, cancellationToken);
             await unitOfWork.SaveChangesAsync(cancellationToken);
 

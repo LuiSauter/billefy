@@ -44,7 +44,7 @@ public sealed class GetDraftsQueryHandler(IDraftRepository draftRepository)
             d.ConfirmedAccountId,
             d.ConfirmedCategoryId,
             d.LedgerTransactionId,
-            new DateTimeOffset(d.CreatedAt, TimeSpan.Zero),
+            d.CreatedAt,
             d.ConfirmedAt,
             d.DiscardedAt,
             d.Events.Count)).ToList();

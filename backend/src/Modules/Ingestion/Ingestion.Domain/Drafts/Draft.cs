@@ -19,12 +19,12 @@ public sealed class Draft : Entity
     public string Source { get; private init; }
     public DraftDirection Direction { get; private set; }
     public Money Amount { get; private set; }
-    public DateTimeOffset EstimatedDate { get; private set; }
+    public DateTime EstimatedDate { get; private set; }
     public string? Reference { get; private set; }
     public string Fingerprint { get; private set; }
     public decimal Confidence { get; private set; }
-    public DateTimeOffset? ConfirmedAt { get; private set; }
-    public DateTimeOffset? DiscardedAt { get; private set; }
+    public DateTime? ConfirmedAt { get; private set; }
+    public DateTime? DiscardedAt { get; private set; }
 
     public IReadOnlyCollection<DraftEvent> Events => _events.AsReadOnly();
 
@@ -45,12 +45,12 @@ public sealed class Draft : Entity
         string source,
         DraftDirection direction,
         Money amount,
-        DateTimeOffset estimatedDate,
+        DateTime estimatedDate,
         string? reference,
         string fingerprint,
         decimal confidence,
-        DateTimeOffset createdAt)
-        : base(id, userId, createdAt.UtcDateTime)
+        DateTime createdAt)
+        : base(id, userId, createdAt)
     {
         if (amount.Amount <= 0)
             throw new ArgumentOutOfRangeException(nameof(amount), "Draft amount must be positive.");
@@ -76,13 +76,13 @@ public sealed class Draft : Entity
         string source,
         DraftDirection direction,
         Money amount,
-        DateTimeOffset estimatedDate,
+        DateTime estimatedDate,
         string? reference,
         Guid? suggestedAccountId,
         Guid? suggestedCategoryId,
         decimal confidence,
         Guid? initialEventId,
-        DateTimeOffset createdAt)
+        DateTime createdAt)
     {
         var fingerprint = FingerprintGenerator.Generate(
             userId,
@@ -121,13 +121,13 @@ public sealed class Draft : Entity
         string source,
         DraftDirection direction,
         Money amount,
-        DateTimeOffset estimatedDate,
+        DateTime estimatedDate,
         string? reference,
         Guid? suggestedAccountId,
         Guid? suggestedCategoryId,
         decimal confidence,
         Guid? initialEventId,
-        DateTimeOffset createdAt)
+        DateTime createdAt)
     {
         var fingerprint = FingerprintGenerator.Generate(
             userId,
@@ -161,7 +161,7 @@ public sealed class Draft : Entity
         return draft;
     }
 
-    public void LinkAdditionalEvent(Guid eventId, DateTimeOffset linkedAt)
+    public void LinkAdditionalEvent(Guid eventId, DateTime linkedAt)
     {
         if (eventId == Guid.Empty)
             throw new ArgumentException("EventId cannot be empty.", nameof(eventId));
@@ -176,7 +176,7 @@ public sealed class Draft : Entity
         Guid accountId,
         Guid? categoryId,
         Guid ledgerTransactionId,
-        DateTimeOffset confirmedAt)
+        DateTime confirmedAt)
     {
         if (Status == DraftStatus.Confirmed)
             throw new InvalidOperationException("Draft is already confirmed.");
@@ -197,7 +197,7 @@ public sealed class Draft : Entity
         ConfirmedAt = confirmedAt;
     }
 
-    public void Discard(DateTimeOffset discardedAt)
+    public void Discard(DateTime discardedAt)
     {
         if (Status == DraftStatus.Confirmed)
             throw new InvalidOperationException("Cannot discard an already confirmed draft.");
@@ -209,7 +209,7 @@ public sealed class Draft : Entity
     public void UpdateReviewDetails(
         Money amount,
         DraftDirection direction,
-        DateTimeOffset estimatedDate,
+        DateTime estimatedDate,
         string? reference,
         Guid? suggestedAccountId,
         Guid? suggestedCategoryId)

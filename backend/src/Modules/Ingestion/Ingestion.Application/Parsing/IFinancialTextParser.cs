@@ -18,5 +18,5 @@ public sealed record FinancialParseResult(
 
 public interface IFinancialTextParser
 {
-    FinancialParseResult Parse(string text, DateTimeOffset receivedAt);
+    FinancialParseResult Parse(string text, DateTime receivedAt);
 }

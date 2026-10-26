@@ -46,7 +46,7 @@ public sealed partial class RuleBasedFinancialParser : IFinancialTextParser
         @"\b([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{1,2})|[0-9]+(?:[.,][0-9]{1,2})?)\s*(?:USDT)\b",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
-    public FinancialParseResult Parse(string text, DateTimeOffset receivedAt)
+    public FinancialParseResult Parse(string text, DateTime receivedAt)
     {
         if (string.IsNullOrWhiteSpace(text))
         {

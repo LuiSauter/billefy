@@ -200,6 +200,162 @@ public class ApiIntegrationTests : IClassFixture<CustomWebApplicationFactory>
         }
     }
 
+    [Fact]
+    public async Task IngestRawEvent_ShouldBeIdempotent_AndDeduplicateAcrossCalls()
+    {
+        var eventId1 = Guid.NewGuid();
+        var requestPayload1 = new CreateRawEventRequest(
+            EventId: eventId1,
+            Channel: "notification",
+            SourceId: "com.banco.union",
+            MaskedText: "Transferencia recibida por Bs. 250.00 de Juan. Ref: TEST-DEDUP-001");
+
+        // 1. Initial ingestion -> 202 Accepted, creates new draft
+        using var postReq1 = new HttpRequestMessage(HttpMethod.Post, "/v1/ingestion/events")
+        {
+            Content = JsonContent.Create(requestPayload1)
+        };
+        postReq1.Headers.Add("X-User-Id", _testUserId.ToString());
+
+        var res1 = await _client.SendAsync(postReq1);
+        if (res1.StatusCode != HttpStatusCode.Accepted)
+        {
+            var err = await res1.Content.ReadAsStringAsync();
+            throw new Exception($"Status {res1.StatusCode}: {err}");
+        }
+
+        var body1 = await res1.Content.ReadFromJsonAsync<RegisterEventResponse>();
+        body1.Should().NotBeNull();
+        body1!.IsNewEvent.Should().BeTrue();
+        body1.IsDuplicate.Should().BeFalse();
+        body1.DraftId.Should().NotBeNull();
+        var draftId = body1.DraftId!.Value;
+
+        // 2. Retry same eventId -> 200 OK (idempotent technical retry)
+        using var retryReq = new HttpRequestMessage(HttpMethod.Post, "/v1/ingestion/events")
+        {
+            Content = JsonContent.Create(requestPayload1)
+        };
+        retryReq.Headers.Add("X-User-Id", _testUserId.ToString());
+
+        var resRetry = await _client.SendAsync(retryReq);
+        resRetry.StatusCode.Should().Be(HttpStatusCode.OK);
+        var bodyRetry = await resRetry.Content.ReadFromJsonAsync<RegisterEventResponse>();
+        bodyRetry!.IsNewEvent.Should().BeFalse();
+
+        // 3. Ingest same movement from different channel (e.g. WhatsApp) with different eventId
+        var eventId2 = Guid.NewGuid();
+        var requestPayload2 = new CreateRawEventRequest(
+            EventId: eventId2,
+            Channel: "whatsapp",
+            SourceId: "+59170000000",
+            MaskedText: "Transferencia recibida por Bs. 250.00 Ref: TEST-DEDUP-001");
+
+        using var postReq2 = new HttpRequestMessage(HttpMethod.Post, "/v1/ingestion/events")
+        {
+            Content = JsonContent.Create(requestPayload2)
+        };
+        postReq2.Headers.Add("X-User-Id", _testUserId.ToString());
+
+        var res2 = await _client.SendAsync(postReq2);
+        res2.StatusCode.Should().Be(HttpStatusCode.Accepted);
+        var body2 = await res2.Content.ReadFromJsonAsync<RegisterEventResponse>();
+        body2!.IsDuplicate.Should().BeTrue("Movement with same reference and amount must be deduplicated across channels (ING-07).");
+        body2.DraftId.Should().Be(draftId);
+    }
+
+    [Fact]
+    public async Task DraftLifecycle_Confirm_ShouldCreateTransactionInLedger_AndMarkConfirmed()
+    {
+        // 1. Create an account to receive confirmed draft
+        var createAccReq = new CreateAccountRequest("Cuenta Ingesta Test", AccountType.Bank, "BOB", 100m);
+        using var accMsg = new HttpRequestMessage(HttpMethod.Post, "/v1/accounts")
+        {
+            Content = JsonContent.Create(createAccReq)
+        };
+        accMsg.Headers.Add("X-User-Id", _testUserId.ToString());
+        var accRes = await _client.SendAsync(accMsg);
+        accRes.StatusCode.Should().Be(HttpStatusCode.Created);
+        var createdAcc = await accRes.Content.ReadFromJsonAsync<CreatedAccountResponse>();
+        var accountId = createdAcc!.Id;
+
+        // 2. Ingest movement to create draft
+        var eventId = Guid.NewGuid();
+        var rawEvent = new CreateRawEventRequest(
+            EventId: eventId,
+            Channel: "notification",
+            SourceId: "com.banco.union",
+            MaskedText: "Pago realizado por 45.00 Bs en Farmacia. Ref: TX-CONFIRM-99");
+
+        using var ingestMsg = new HttpRequestMessage(HttpMethod.Post, "/v1/ingestion/events")
+        {
+            Content = JsonContent.Create(rawEvent)
+        };
+        ingestMsg.Headers.Add("X-User-Id", _testUserId.ToString());
+        var ingestRes = await _client.SendAsync(ingestMsg);
+        var ingestBody = await ingestRes.Content.ReadFromJsonAsync<RegisterEventResponse>();
+        var draftId = ingestBody!.DraftId!.Value;
+
+        // 3. Verify draft exists in pending inbox
+        using var getDraftsMsg = new HttpRequestMessage(HttpMethod.Get, "/v1/drafts?status=pending");
+        getDraftsMsg.Headers.Add("X-User-Id", _testUserId.ToString());
+        var draftsRes = await _client.SendAsync(getDraftsMsg);
+        draftsRes.StatusCode.Should().Be(HttpStatusCode.OK);
+        var drafts = await draftsRes.Content.ReadFromJsonAsync<List<DraftDto>>();
+        drafts.Should().Contain(d => d.Id == draftId);
+
+        // 4. Confirm draft
+        var confirmReq = new ConfirmDraftRequest(accountId, null, "Gasto confirmado en farmacia");
+        using var confirmMsg = new HttpRequestMessage(HttpMethod.Post, $"/v1/drafts/{draftId}/confirm")
+        {
+            Content = JsonContent.Create(confirmReq)
+        };
+        confirmMsg.Headers.Add("X-User-Id", _testUserId.ToString());
+        var confirmRes = await _client.SendAsync(confirmMsg);
+        confirmRes.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // 5. Verify transaction is present in Ledger
+        using var getTxnsMsg = new HttpRequestMessage(HttpMethod.Get, $"/v1/transactions?accountId={accountId}");
+        getTxnsMsg.Headers.Add("X-User-Id", _testUserId.ToString());
+        var txnsRes = await _client.SendAsync(getTxnsMsg);
+        var txns = await txnsRes.Content.ReadFromJsonAsync<List<TransactionDto>>();
+        txns.Should().Contain(t => t.Amount == 45.00m && t.Description == "Gasto confirmado en farmacia");
+    }
+
+    [Fact]
+    public async Task DraftLifecycle_Discard_ShouldMarkDiscarded()
+    {
+        // 1. Ingest event
+        var eventId = Guid.NewGuid();
+        var rawEvent = new CreateRawEventRequest(
+            EventId: eventId,
+            Channel: "notification",
+            SourceId: "com.banco.union",
+            MaskedText: "Pago realizado por 10.00 Bs. Ref: TX-DISCARD-11");
+
+        using var ingestMsg = new HttpRequestMessage(HttpMethod.Post, "/v1/ingestion/events")
+        {
+            Content = JsonContent.Create(rawEvent)
+        };
+        ingestMsg.Headers.Add("X-User-Id", _testUserId.ToString());
+        var ingestRes = await _client.SendAsync(ingestMsg);
+        var ingestBody = await ingestRes.Content.ReadFromJsonAsync<RegisterEventResponse>();
+        var draftId = ingestBody!.DraftId!.Value;
+
+        // 2. Discard draft
+        using var discardMsg = new HttpRequestMessage(HttpMethod.Post, $"/v1/drafts/{draftId}/discard");
+        discardMsg.Headers.Add("X-User-Id", _testUserId.ToString());
+        var discardRes = await _client.SendAsync(discardMsg);
+        discardRes.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // 3. Verify draft no longer in pending inbox
+        using var getDraftsMsg = new HttpRequestMessage(HttpMethod.Get, "/v1/drafts?status=pending");
+        getDraftsMsg.Headers.Add("X-User-Id", _testUserId.ToString());
+        var draftsRes = await _client.SendAsync(getDraftsMsg);
+        var drafts = await draftsRes.Content.ReadFromJsonAsync<List<DraftDto>>();
+        drafts.Should().NotContain(d => d.Id == draftId);
+    }
+
     private sealed record CreatedAccountResponse(Guid Id);
     private sealed record CreatedTransactionResponse(Guid Id);
 }
