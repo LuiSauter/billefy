@@ -153,6 +153,19 @@ public class ApiIntegrationTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
+    public async Task GetTransactions_ShouldReturnFilteredTransactions()
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/v1/transactions?limit=10");
+        request.Headers.Add("X-User-Id", _testUserId.ToString());
+
+        var response = await _client.SendAsync(request);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var txns = await response.Content.ReadFromJsonAsync<List<TransactionDto>>();
+        txns.Should().NotBeNull();
+    }
+
+    [Fact]
     public async Task OpenApi_ShouldExposeValidSpecification()
     {
         var response = await _client.GetAsync("/openapi/v1.json");

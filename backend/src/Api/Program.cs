@@ -4,6 +4,7 @@ using BuildingBlocks.Security;
 using BuildingBlocks.Time;
 using Fx.Infrastructure;
 using Ledger.Infrastructure;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -26,6 +27,30 @@ builder.Services.AddOpenApi();
 var app = builder.Build();
 
 app.UseExceptionHandler();
+
+// Automatically apply relational database migrations on startup when PostgreSQL connection string is configured
+if (!string.IsNullOrWhiteSpace(builder.Configuration.GetConnectionString("PostgreSQL")))
+{
+    using var scope = app.Services.CreateScope();
+    try
+    {
+        var ledgerDb = scope.ServiceProvider.GetRequiredService<LedgerDbContext>();
+        if (ledgerDb.Database.IsRelational())
+        {
+            ledgerDb.Database.Migrate();
+        }
+
+        var fxDb = scope.ServiceProvider.GetRequiredService<FxDbContext>();
+        if (fxDb.Database.IsRelational())
+        {
+            fxDb.Database.Migrate();
+        }
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogWarning(ex, "Could not apply database migrations on startup. Ensure PostgreSQL is reachable.");
+    }
+}
 
 if (app.Environment.IsDevelopment())
 {

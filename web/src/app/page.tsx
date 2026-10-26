@@ -8,6 +8,7 @@ import {
   AccountType,
   TransactionDirection,
   RateSnapshotDto,
+  TransactionDto,
 } from "../api/client";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,7 @@ const DEFAULT_API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:500
 export default function DashboardPage() {
   const [userId, setUserId] = useState<string>("");
   const [accounts, setAccounts] = useState<AccountDto[]>([]);
+  const [transactions, setTransactions] = useState<TransactionDto[]>([]);
   const [rate, setRate] = useState<RateSnapshotDto | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -66,13 +68,16 @@ export default function DashboardPage() {
     setError(null);
 
     try {
-      const [accountsData, rateData] = await Promise.all([
+      const [accountsData, txnsData, rateData] = await Promise.all([
         client.getAccounts(),
+        client.getTransactions({ limit: 20 }),
         client.getLatestRate("BOB", "USD").catch(() => null),
       ]);
 
       setAccounts(accountsData);
+      setTransactions(txnsData);
       setRate(rateData);
+
       if (accountsData.length > 0 && !txnAccountId) {
         setTxnAccountId(accountsData[0].id);
       }
@@ -89,6 +94,15 @@ export default function DashboardPage() {
       loadData();
     }
   }, [client, loadData]);
+
+  // Account map for quick lookup
+  const accountsMap = useMemo(() => {
+    const map = new Map<string, AccountDto>();
+    for (const acc of accounts) {
+      map.set(acc.id, acc);
+    }
+    return map;
+  }, [accounts]);
 
   // Consolidated balances calculation
   const totals = useMemo(() => {
@@ -164,6 +178,17 @@ export default function DashboardPage() {
     }
   };
 
+  const handleReverseTxn = async (txnId: string) => {
+    if (!client || !confirm("¿Seguro que deseas revertir este movimiento? La reversión restaurará el saldo.")) return;
+
+    try {
+      await client.reverseTransaction(txnId, "Reversión solicitada por el usuario");
+      await loadData();
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Error al revertir el movimiento.");
+    }
+  };
+
   return (
     <div className="max-w-5xl mx-auto p-6 md:p-8 space-y-8">
       {/* Header */}
@@ -198,7 +223,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Balance Summary Cards using shadcn Card */}
+      {/* Balance Summary Cards */}
       <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="border-border shadow-xs">
           <CardHeader className="pb-2">
@@ -235,7 +260,7 @@ export default function DashboardPage() {
         </Card>
       </section>
 
-      {/* Action Buttons using shadcn Button */}
+      {/* Action Buttons */}
       <div className="flex gap-3">
         <Button onClick={() => setIsAccountModalOpen(true)} className="gap-2">
           + Nueva Cuenta
@@ -250,7 +275,7 @@ export default function DashboardPage() {
         </Button>
       </div>
 
-      {/* Accounts List using shadcn Card */}
+      {/* Accounts List */}
       <Card className="overflow-hidden shadow-xs">
         <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/30 py-3 px-6">
           <CardTitle className="text-base font-semibold">Tus Cuentas ({accounts.length})</CardTitle>
@@ -278,7 +303,65 @@ export default function DashboardPage() {
         </CardContent>
       </Card>
 
-      {/* Create Account Modal */}
+      {/* Recent Transactions List */}
+      <Card className="overflow-hidden shadow-xs">
+        <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/30 py-3 px-6">
+          <CardTitle className="text-base font-semibold">Últimos Movimientos ({transactions.length})</CardTitle>
+          <span className="text-xs text-muted-foreground">Libro Mayor Inmutable</span>
+        </CardHeader>
+        <CardContent className="p-0 divide-y">
+          {transactions.length === 0 && !loading ? (
+            <div className="py-8 px-4 text-center text-muted-foreground text-sm">
+              No hay movimientos registrados todavía.
+            </div>
+          ) : (
+            transactions.map((txn) => {
+              const account = accountsMap.get(txn.accountId);
+              const isIncome = txn.direction === "Income";
+              const isReversal = !!txn.reversesId;
+
+              return (
+                <div key={txn.id} className="flex flex-col md:flex-row justify-between items-start md:items-center py-3 px-6 gap-2 hover:bg-muted/10 transition-colors">
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-2">
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${isIncome ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-400" : "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-400"}`}>
+                        {isIncome ? "Ingreso" : "Gasto"}
+                      </span>
+                      {isReversal && (
+                        <span className="text-xs px-1.5 py-0.5 bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-400 rounded-md font-medium">
+                          Reversión
+                        </span>
+                      )}
+                      <span className="text-sm font-medium text-foreground">{txn.description || "Sin descripción"}</span>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {account?.name || "Cuenta"} · {new Date(txn.occurredAt).toLocaleDateString()} {new Date(txn.occurredAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      {txn.appliedRate && ` · Tasa: ${txn.appliedRate} (${txn.rateSource})`}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4 self-end md:self-auto">
+                    <span className={`text-base font-mono font-bold ${isIncome ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
+                      {isIncome ? "+" : "-"}{txn.amount.toFixed(2)} {txn.currency}
+                    </span>
+                    {!isReversal && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleReverseTxn(txn.id)}
+                        className="text-xs h-7 px-2 text-muted-foreground hover:text-destructive"
+                      >
+                        Revertir
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Modal: Create Account */}
       {isAccountModalOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
           <Card className="w-full max-w-md shadow-xl bg-background border">
@@ -348,7 +431,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Register Transaction Modal */}
+      {/* Modal: Register Transaction */}
       {isTxnModalOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
           <Card className="w-full max-w-md shadow-xl bg-background border">

@@ -1,3 +1,5 @@
+using BuildingBlocks.Security;
+using Ledger.Application.Abstractions;
 using Ledger.Application.Transactions.RegisterTransaction;
 using Ledger.Application.Transactions.RegisterTransfer;
 using Ledger.Application.Transactions.ReverseTransaction;
@@ -12,6 +14,44 @@ public static class TransactionEndpoints
     {
         var group = app.MapGroup("/v1/transactions")
             .WithTags("Transactions");
+
+        group.MapGet("/", async (
+            [FromQuery] Guid? accountId,
+            [FromQuery] TransactionDirection? direction,
+            [FromQuery] DateTime? from,
+            [FromQuery] DateTime? to,
+            [FromQuery] int? limit,
+            ITransactionRepository repository,
+            ICurrentUserContext userContext,
+            CancellationToken ct) =>
+        {
+            if (!userContext.IsAuthenticated)
+            {
+                return Results.Unauthorized();
+            }
+
+            var txns = await repository.GetFilteredAsync(accountId, direction, from, to, limit ?? 50, ct);
+
+            var dtos = txns.Select(t => new TransactionDto(
+                t.Id,
+                t.AccountId,
+                t.Amount.Amount,
+                t.Amount.Currency.Code,
+                t.Direction.ToString(),
+                t.CategoryId,
+                t.OccurredAt,
+                t.Description,
+                t.ReversesId,
+                t.TransferId,
+                t.AppliedRate,
+                t.RateSource,
+                t.CreatedAt));
+
+            return Results.Ok(dtos);
+        })
+        .WithName("GetTransactions")
+        .Produces<List<TransactionDto>>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status401Unauthorized);
 
         group.MapPost("/", async (
             [FromBody] RegisterTransactionRequest request,
@@ -113,6 +153,21 @@ public static class TransactionEndpoints
         return group;
     }
 }
+
+public sealed record TransactionDto(
+    Guid Id,
+    Guid AccountId,
+    decimal Amount,
+    string Currency,
+    string Direction,
+    Guid? CategoryId,
+    DateTime OccurredAt,
+    string? Description,
+    Guid? ReversesId,
+    Guid? TransferId,
+    decimal? AppliedRate,
+    string? RateSource,
+    DateTime CreatedAt);
 
 public sealed record RegisterTransactionRequest(
     Guid AccountId,

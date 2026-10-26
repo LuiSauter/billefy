@@ -22,6 +22,42 @@ public sealed class TransactionRepository : ITransactionRepository
             .OrderByDescending(t => t.OccurredAt)
             .ToListAsync(cancellationToken);
 
+    public async Task<IReadOnlyList<Transaction>> GetFilteredAsync(
+        Guid? accountId = null,
+        TransactionDirection? direction = null,
+        DateTime? from = null,
+        DateTime? to = null,
+        int limit = 50,
+        CancellationToken cancellationToken = default)
+    {
+        var query = _context.Transactions.AsQueryable();
+
+        if (accountId.HasValue)
+        {
+            query = query.Where(t => t.AccountId == accountId.Value);
+        }
+
+        if (direction.HasValue)
+        {
+            query = query.Where(t => t.Direction == direction.Value);
+        }
+
+        if (from.HasValue)
+        {
+            query = query.Where(t => t.OccurredAt >= from.Value);
+        }
+
+        if (to.HasValue)
+        {
+            query = query.Where(t => t.OccurredAt <= to.Value);
+        }
+
+        return await query
+            .OrderByDescending(t => t.OccurredAt)
+            .Take(Math.Clamp(limit, 1, 100))
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task AddAsync(Transaction transaction, CancellationToken cancellationToken = default)
     {
         await _context.Transactions.AddAsync(transaction, cancellationToken);

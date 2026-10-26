@@ -48,6 +48,30 @@ export interface RateSnapshotDto {
   isStale: boolean;
 }
 
+export interface TransactionDto {
+  id: string;
+  accountId: string;
+  amount: Decimal;
+  currency: string;
+  direction: TransactionDirection;
+  categoryId?: string;
+  occurredAt: string;
+  description?: string;
+  reversesId?: string;
+  transferId?: string;
+  appliedRate?: number;
+  rateSource?: string;
+  createdAt: string;
+}
+
+export interface GetTransactionsFilter {
+  accountId?: string;
+  direction?: TransactionDirection;
+  from?: string;
+  to?: string;
+  limit?: number;
+}
+
 export interface ApiProblemDetails {
   type?: string;
   title?: string;
@@ -168,6 +192,39 @@ export class BillefyApiClient {
         body: JSON.stringify({ reason }),
       }
     );
+  }
+
+  async getTransactions(filter: GetTransactionsFilter = {}): Promise<TransactionDto[]> {
+    interface RawTxnDto {
+      id: string;
+      accountId: string;
+      amount: number;
+      currency: string;
+      direction: TransactionDirection;
+      categoryId?: string;
+      occurredAt: string;
+      description?: string;
+      reversesId?: string;
+      transferId?: string;
+      appliedRate?: number;
+      rateSource?: string;
+      createdAt: string;
+    }
+
+    const params = new URLSearchParams();
+    if (filter.accountId) params.set("accountId", filter.accountId);
+    if (filter.direction) params.set("direction", filter.direction);
+    if (filter.from) params.set("from", filter.from);
+    if (filter.to) params.set("to", filter.to);
+    if (filter.limit) params.set("limit", filter.limit.toString());
+
+    const query = params.toString() ? `?${params.toString()}` : "";
+    const raw = await this.request<RawTxnDto[]>(`/v1/transactions${query}`);
+
+    return raw.map((t) => ({
+      ...t,
+      amount: new Decimal(t.amount),
+    }));
   }
 
   async getLatestRate(currency: string, baseCurrency: string = "USD"): Promise<RateSnapshotDto> {
