@@ -60,5 +60,36 @@ Rule 6 and Rule 7 of AGENTS.md mandate that transactions are immutable, correcti
 - Task 8 completed: DolarApiRateSource integration adapter consuming Binance P2P and tests (commit `2420cfc`).
 - Task 9 completed: Fx.Application RateSnapshotService and automatic snapshot capture in Ledger transactions (commit `a203782`).
 
+### Slice 1.4: API Host REST Endpoints & OpenAPI Contract
+- [x] Task 10: API Dependencies & Security Wiring — `HttpContextCurrentUserContext`, DI configuration for Ledger & Fx modules, and RFC 9457 problem details.
+- [x] Task 11: REST Endpoints Implementation — Accounts, Transactions, Transfers, Reversals, and Rates endpoints in `backend/src/Api`.
+- [x] Task 12: API Integration Tests — `Api.Tests` with `WebApplicationFactory` verifying HTTP contracts and status codes.
+- [x] Task 13: OpenAPI Spec Export & Client Generation Tooling — Update `tools/generate-clients.sh` and export full `docs/openapi.json`.
+
+## Acceptance Criteria & Checks
+1. `dotnet build backend/` succeeds with 0 warnings. (PASS)
+2. `dotnet test backend/` passes all domain, integration, and API tests (41/41 tests passed). (PASS)
+3. Transactions cannot be updated or deleted; attempting to modify an existing transaction throws an exception or fails validation (verified in ImmutabilityGuard tests). (PASS)
+4. Reversal transactions cancel the effect on the derived balance without altering the original row (verified in DerivedBalance test). (PASS)
+5. Queries for user A never return user B's accounts or transactions (verified in MultiTenantIsolation test). (PASS)
+6. Exchange rate rule strictly adheres to Rule 19: user holding local currency sees buy rate; holding USD sees sell rate (verified in ExchangeRateConverterTests). (PASS)
+7. DolarApi adapter maps `compra`/`venta` correctly and handles network timeouts gracefully (verified in DolarApiRateSourceTests). (PASS)
+8. Ledger automatically snapshots rate from Fx contract on transaction creation when rate is not supplied explicitly (verified in RegisterTransaction_WithoutExplicitRate test). (PASS)
+9. API endpoints return 200/201 on success and RFC 9457 ProblemDetails on validation/business errors (verified in ApiIntegrationTests). (PASS)
+10. `tools/generate-clients.sh` generates a valid `docs/openapi.json` matching API routes (verified). (PASS)
+
+## Progress & Evidence
+- Branch `feat/phase-1-core-ledger` created.
+- Task 1 completed: `ICurrentUserContext` and `Entity` base class (commit `6c53001`).
+- Task 2 completed: Account, Category, Transaction with reversal and transfer mechanics and 5 unit tests (commit `336906f`).
+- Task 3 completed: LedgerDbContext with Npgsql mapping, global user_id filter, and transaction immutability enforcement (commit `d2f93ee`).
+- Task 4 completed: Ledger.Application use cases with repository and unit of work implementations (commit `d678d49`).
+- Task 5 completed: Ledger integration tests covering immutability, reversals, derived balance, and user isolation (commit `4a2d4ae`).
+- Task 6 completed: Fx.Domain with ExchangeRate, IRateSource port, ExchangeRateConverter and 5 unit tests (commit `9f12c55`).
+- Task 7 completed: FxDbContext mapping exchange_rates with composite indexes and ExchangeRateRepository (commit `06063ad`).
+- Task 8 completed: DolarApiRateSource integration adapter consuming Binance P2P and tests (commit `2420cfc`).
+- Task 9 completed: Fx.Application RateSnapshotService and automatic snapshot capture in Ledger transactions (commit `a203782`).
+- Tasks 10-13 completed: REST endpoints (/v1/accounts, /v1/transactions, /v1/rates), HttpContextCurrentUserContext, Api.Tests, and OpenAPI contract export (commit `426359f`).
+
 ## Next Step
-Slice 1.3 completed. Next step: Slice 1.4 (API Host REST Endpoints for Accounts, Transactions, and Rates) and client contract regeneration.
+Slices 1.1, 1.2, 1.3, 1.4 completed. Next step: Slice 1.5 (Web and Mobile Client Integration for Core Ledger).
