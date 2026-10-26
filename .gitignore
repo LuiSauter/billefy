@@ -45,4 +45,5 @@ local.properties
 
 # Tools & Temporary
 .atl/
+.pi/
 *.log
