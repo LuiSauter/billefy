@@ -13,6 +13,7 @@ public interface ITransactionRepository
         DateTime? to = null,
         int limit = 50,
         CancellationToken cancellationToken = default);
+    Task<decimal> CalculateBalanceAsync(Guid accountId, CancellationToken cancellationToken = default);
     Task AddAsync(Transaction transaction, CancellationToken cancellationToken = default);
     Task AddRangeAsync(IEnumerable<Transaction> transactions, CancellationToken cancellationToken = default);
 }

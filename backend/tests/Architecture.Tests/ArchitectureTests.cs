@@ -82,4 +82,25 @@ public class ArchitectureTests
             result.IsSuccessful.Should().BeTrue($"Contract assembly {assembly.GetName().Name} must not depend on application hosts.");
         }
     }
+
+    [Fact]
+    public void Api_Endpoints_Should_Not_Depend_On_DbContext_Or_Repositories()
+    {
+        var result = Types.InAssembly(ApiAssembly)
+            .That()
+            .ResideInNamespace("Api.Endpoints")
+            .ShouldNot()
+            .HaveDependencyOnAny(
+                "Microsoft.EntityFrameworkCore.DbContext",
+                "Ledger.Infrastructure.LedgerDbContext",
+                "Ingestion.Infrastructure.IngestionDbContext",
+                "Fx.Infrastructure.FxDbContext",
+                "Ledger.Application.Abstractions.IAccountRepository",
+                "Ledger.Application.Abstractions.ITransactionRepository",
+                "Ingestion.Application.Abstractions.IDraftRepository",
+                "Ingestion.Application.Abstractions.IRawEventRepository")
+            .GetResult();
+
+        result.IsSuccessful.Should().BeTrue("API Endpoints must be ultra-thin and delegate strictly to Application Services, never directly touching DbContext or Repositories.");
+    }
 }

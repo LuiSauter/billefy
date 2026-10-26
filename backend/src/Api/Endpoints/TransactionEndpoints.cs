@@ -1,8 +1,5 @@
-using BuildingBlocks.Security;
-using Ledger.Application.Abstractions;
-using Ledger.Application.Transactions.RegisterTransaction;
-using Ledger.Application.Transactions.RegisterTransfer;
-using Ledger.Application.Transactions.ReverseTransaction;
+using Api.Common;
+using Ledger.Application.Transactions.Services;
 using Ledger.Domain.Transactions;
 using Microsoft.AspNetCore.Mvc;
 
@@ -21,172 +18,60 @@ public static class TransactionEndpoints
             [FromQuery] DateTime? from,
             [FromQuery] DateTime? to,
             [FromQuery] int? limit,
-            ITransactionRepository repository,
-            ICurrentUserContext userContext,
+            ITransactionService service,
             CancellationToken ct) =>
         {
-            if (!userContext.IsAuthenticated)
-            {
-                return Results.Unauthorized();
-            }
-
-            var txns = await repository.GetFilteredAsync(accountId, direction, from, to, limit ?? 50, ct);
-
-            var dtos = txns.Select(t => new TransactionDto(
-                t.Id,
-                t.AccountId,
-                t.Amount.Amount,
-                t.Amount.Currency.Code,
-                t.Direction.ToString(),
-                t.CategoryId,
-                t.OccurredAt,
-                t.Description,
-                t.ReversesId,
-                t.TransferId,
-                t.AppliedRate,
-                t.RateSource,
-                t.CreatedAt));
-
-            return Results.Ok(dtos);
+            var result = await service.GetTransactionsAsync(accountId, direction, from, to, limit ?? 50, ct);
+            return result.ToHttpResult();
         })
         .WithName("GetTransactions")
         .Produces<List<TransactionDto>>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status401Unauthorized);
+        .ProducesProblem(StatusCodes.Status401Unauthorized);
 
         group.MapPost("/", async (
             [FromBody] RegisterTransactionRequest request,
-            RegisterTransactionCommandHandler handler,
+            ITransactionService service,
             CancellationToken ct) =>
         {
-            var command = new RegisterTransactionCommand(
-                request.AccountId,
-                request.Amount,
-                request.Direction,
-                request.CategoryId,
-                request.OccurredAt ?? DateTime.UtcNow,
-                request.Description,
-                request.AppliedRate,
-                request.RateSource);
-
-            var result = await handler.HandleAsync(command, ct);
-
-            return result.Match(
-                id => Results.Created($"/v1/transactions/{id}", new { id }),
-                error => Results.Problem(
-                    detail: error.Description,
-                    title: error.Code,
-                    statusCode: error.Type switch
-                    {
-                        BuildingBlocks.Common.ErrorType.Validation => StatusCodes.Status400BadRequest,
-                        BuildingBlocks.Common.ErrorType.Unauthorized => StatusCodes.Status401Unauthorized,
-                        BuildingBlocks.Common.ErrorType.NotFound => StatusCodes.Status404NotFound,
-                        BuildingBlocks.Common.ErrorType.Conflict => StatusCodes.Status409Conflict,
-                        _ => StatusCodes.Status500InternalServerError
-                    }));
+            var result = await service.RegisterTransactionAsync(request, ct);
+            return result.ToHttpResult(id => Results.Created($"/v1/transactions/{id}", new { id }));
         })
         .WithName("RegisterTransaction")
         .Produces(StatusCodes.Status201Created)
         .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status404NotFound);
 
         group.MapPost("/transfers", async (
             [FromBody] RegisterTransferRequest request,
-            RegisterTransferCommandHandler handler,
+            ITransactionService service,
             CancellationToken ct) =>
         {
-            var command = new RegisterTransferCommand(
-                request.SourceAccountId,
-                request.SourceAmount,
-                request.DestinationAccountId,
-                request.DestinationAmount,
-                request.OccurredAt ?? DateTime.UtcNow,
-                request.AppliedRate,
-                request.RateSource,
-                request.Description);
-
-            var result = await handler.HandleAsync(command, ct);
-
-            return result.Match(
-                pair => Results.Created($"/v1/transactions/{pair.OutflowId}", new { outflowId = pair.OutflowId, inflowId = pair.InflowId }),
-                error => Results.Problem(
-                    detail: error.Description,
-                    title: error.Code,
-                    statusCode: error.Type switch
-                    {
-                        BuildingBlocks.Common.ErrorType.Validation => StatusCodes.Status400BadRequest,
-                        BuildingBlocks.Common.ErrorType.Unauthorized => StatusCodes.Status401Unauthorized,
-                        BuildingBlocks.Common.ErrorType.NotFound => StatusCodes.Status404NotFound,
-                        BuildingBlocks.Common.ErrorType.Conflict => StatusCodes.Status409Conflict,
-                        _ => StatusCodes.Status500InternalServerError
-                    }));
+            var result = await service.RegisterTransferAsync(request, ct);
+            return result.ToHttpResult(pair => Results.Created(
+                $"/v1/transactions/{pair.OutflowId}",
+                new { outflowId = pair.OutflowId, inflowId = pair.InflowId }));
         })
         .WithName("RegisterTransfer")
         .Produces(StatusCodes.Status201Created)
-        .ProducesProblem(StatusCodes.Status400BadRequest);
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized);
 
         group.MapPost("/{id:guid}/reverse", async (
-            Guid id,
+            [FromRoute] Guid id,
             [FromBody] ReverseTransactionRequest? request,
-            ReverseTransactionCommandHandler handler,
+            ITransactionService service,
             CancellationToken ct) =>
         {
-            var command = new ReverseTransactionCommand(id, request?.Reason);
-            var result = await handler.HandleAsync(command, ct);
-
-            return result.Match(
-                reversalId => Results.Ok(new { id = reversalId, reversedTransactionId = id }),
-                error => Results.Problem(
-                    detail: error.Description,
-                    title: error.Code,
-                    statusCode: error.Type switch
-                    {
-                        BuildingBlocks.Common.ErrorType.Validation => StatusCodes.Status400BadRequest,
-                        BuildingBlocks.Common.ErrorType.Unauthorized => StatusCodes.Status401Unauthorized,
-                        BuildingBlocks.Common.ErrorType.NotFound => StatusCodes.Status404NotFound,
-                        _ => StatusCodes.Status500InternalServerError
-                    }));
+            var result = await service.ReverseTransactionAsync(id, request?.Reason, ct);
+            return result.ToHttpResult(res => Results.Ok(new { id = res.Id, reversedTransactionId = res.ReversedTransactionId }));
         })
         .WithName("ReverseTransaction")
         .Produces(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status404NotFound);
 
         return group;
     }
 }
-
-public sealed record TransactionDto(
-    Guid Id,
-    Guid AccountId,
-    decimal Amount,
-    string Currency,
-    string Direction,
-    Guid? CategoryId,
-    DateTime OccurredAt,
-    string? Description,
-    Guid? ReversesId,
-    Guid? TransferId,
-    decimal? AppliedRate,
-    string? RateSource,
-    DateTime CreatedAt);
-
-public sealed record RegisterTransactionRequest(
-    Guid AccountId,
-    decimal Amount,
-    TransactionDirection Direction,
-    Guid? CategoryId = null,
-    DateTime? OccurredAt = null,
-    string? Description = null,
-    decimal? AppliedRate = null,
-    string? RateSource = null);
-
-public sealed record RegisterTransferRequest(
-    Guid SourceAccountId,
-    decimal SourceAmount,
-    Guid DestinationAccountId,
-    decimal DestinationAmount,
-    DateTime? OccurredAt = null,
-    decimal? AppliedRate = null,
-    string? RateSource = null,
-    string? Description = null);
-
-public sealed record ReverseTransactionRequest(string? Reason);

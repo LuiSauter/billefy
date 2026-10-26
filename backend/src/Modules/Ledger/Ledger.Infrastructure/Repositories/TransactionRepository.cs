@@ -58,6 +58,26 @@ public sealed class TransactionRepository : ITransactionRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<decimal> CalculateBalanceAsync(Guid accountId, CancellationToken cancellationToken = default)
+    {
+        var account = await _context.Accounts.FirstOrDefaultAsync(a => a.Id == accountId, cancellationToken);
+        if (account is null) return 0m;
+
+        var txns = await _context.Transactions
+            .Where(t => t.AccountId == accountId)
+            .Select(t => new { t.Amount.Amount, t.Direction })
+            .ToListAsync(cancellationToken);
+
+        var balance = account.InitialBalance.Amount;
+        foreach (var txn in txns)
+        {
+            if (txn.Direction == TransactionDirection.Income) balance += txn.Amount;
+            else balance -= txn.Amount;
+        }
+
+        return balance;
+    }
+
     public async Task AddAsync(Transaction transaction, CancellationToken cancellationToken = default)
     {
         await _context.Transactions.AddAsync(transaction, cancellationToken);

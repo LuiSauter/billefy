@@ -5,6 +5,7 @@ using Ingestion.Application.Drafts.DiscardDraft;
 using Ingestion.Application.Drafts.GetDrafts;
 using Ingestion.Application.Events.RegisterEvent;
 using Ingestion.Application.Parsing;
+using Ingestion.Application.Services;
 using Ingestion.Infrastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -38,6 +39,10 @@ public static class DependencyInjection
         services.AddScoped<GetDraftsQueryHandler>();
         services.AddScoped<ConfirmDraftCommandHandler>();
         services.AddScoped<DiscardDraftCommandHandler>();
+
+        // Application Services (Cohesive Facade for Driving Adapters)
+        services.AddScoped<IIngestionService, IngestionService>();
+        services.AddScoped<IDraftService, DraftService>();
 
         return services;
     }
