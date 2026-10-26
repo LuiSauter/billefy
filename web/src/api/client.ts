@@ -100,6 +100,37 @@ export interface ConfirmDraftRequest {
   description?: string;
 }
 
+export interface ReconcileAccountRequest {
+  realBalance: number;
+  notes?: string;
+}
+
+export interface ReconciliationResult {
+  accountId: string;
+  previousBalance: number;
+  realBalance: number;
+  difference: number;
+  adjustmentTransactionId?: string;
+}
+
+export interface ImportStatementCsvRequest {
+  accountId: string;
+  fileName: string;
+  csvContent: string;
+  currency: string;
+}
+
+export interface StatementImportResult {
+  importId: string;
+  fileName: string;
+  fileHash: string;
+  isDuplicateFile: boolean;
+  warning?: string;
+  totalRows: number;
+  draftsCreated: number;
+  duplicatesLinked: number;
+}
+
 export interface ApiProblemDetails {
   type?: string;
   title?: string;
@@ -307,6 +338,25 @@ export class BillefyApiClient {
   async discardDraft(id: string): Promise<{ message: string }> {
     return this.request<{ message: string }>(`/v1/drafts/${id}/discard`, {
       method: "POST",
+    });
+  }
+
+  async reconcileAccount(
+    accountId: string,
+    req: ReconcileAccountRequest
+  ): Promise<ReconciliationResult> {
+    return this.request<ReconciliationResult>(`/v1/accounts/${accountId}/reconcile`, {
+      method: "POST",
+      body: JSON.stringify(req),
+    });
+  }
+
+  async importStatementCsv(
+    req: ImportStatementCsvRequest
+  ): Promise<StatementImportResult> {
+    return this.request<StatementImportResult>("/v1/ingestion/statements/import-csv", {
+      method: "POST",
+      body: JSON.stringify(req),
     });
   }
 

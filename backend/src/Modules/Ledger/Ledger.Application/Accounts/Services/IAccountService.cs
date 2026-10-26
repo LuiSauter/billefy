@@ -17,8 +17,23 @@ public sealed record AccountDto(
     decimal Balance,
     DateTime CreatedAt);
 
+public sealed record ReconcileAccountRequest(
+    decimal RealBalance,
+    string? Notes = null);
+
+public sealed record ReconciliationResult(
+    Guid AccountId,
+    decimal PreviousBalance,
+    decimal RealBalance,
+    decimal Difference,
+    Guid? AdjustmentTransactionId);
+
 public interface IAccountService
 {
     Task<Result<Guid>> CreateAccountAsync(CreateAccountRequest request, CancellationToken cancellationToken = default);
     Task<Result<List<AccountDto>>> GetAccountsAsync(CancellationToken cancellationToken = default);
+    Task<Result<ReconciliationResult>> ReconcileAccountAsync(
+        Guid accountId,
+        ReconcileAccountRequest request,
+        CancellationToken cancellationToken = default);
 }

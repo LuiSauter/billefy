@@ -35,6 +35,22 @@ public static class AccountEndpoints
         .Produces<List<AccountDto>>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status401Unauthorized);
 
+        group.MapPost("/{id:guid}/reconcile", async (
+            [FromRoute] Guid id,
+            [FromBody] ReconcileAccountRequest request,
+            IAccountService service,
+            CancellationToken ct) =>
+        {
+            var result = await service.ReconcileAccountAsync(id, request, ct);
+            return result.ToHttpResult();
+        })
+        .WithName("ReconcileAccount")
+        .WithSummary("Reconcile an account balance by registering an adjustment transaction for any discrepancy (ACC-06).")
+        .Produces<ReconciliationResult>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status401Unauthorized);
+
         return group;
     }
 }

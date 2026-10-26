@@ -1,13 +1,16 @@
 using BuildingBlocks.Common;
 using BuildingBlocks.Security;
+using BuildingBlocks.ValueObjects;
 using Ledger.Application.Abstractions;
 using Ledger.Application.Accounts.CreateAccount;
+using Ledger.Domain.Transactions;
 
 namespace Ledger.Application.Accounts.Services;
 
 public sealed class AccountService(
     IAccountRepository accountRepository,
     ITransactionRepository transactionRepository,
+    IUnitOfWork unitOfWork,
     CreateAccountCommandHandler createAccountHandler,
     ICurrentUserContext userContext) : IAccountService
 {
@@ -45,5 +48,67 @@ public sealed class AccountService(
         }
 
         return Result.Success(dtos);
+    }
+
+    public async Task<Result<ReconciliationResult>> ReconcileAccountAsync(
+        Guid accountId,
+        ReconcileAccountRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (!userContext.IsAuthenticated)
+        {
+            return Result.Failure<ReconciliationResult>(
+                Error.Unauthorized("Auth.Unauthorized", "User is not authenticated."));
+        }
+
+        var account = await accountRepository.GetByIdAsync(accountId, cancellationToken);
+        if (account is null)
+        {
+            return Result.Failure<ReconciliationResult>(
+                Error.NotFound("Account.NotFound", $"Account with id {accountId} was not found."));
+        }
+
+        var currentBalance = await transactionRepository.CalculateBalanceAsync(accountId, cancellationToken);
+        var difference = request.RealBalance - currentBalance;
+
+        if (difference == decimal.Zero)
+        {
+            return Result.Success(new ReconciliationResult(
+                accountId,
+                currentBalance,
+                request.RealBalance,
+                0m,
+                null));
+        }
+
+        var direction = difference > decimal.Zero
+            ? TransactionDirection.Income
+            : TransactionDirection.Expense;
+
+        var adjustmentAmount = Math.Abs(difference);
+        var money = Money.Of(adjustmentAmount, account.Currency);
+
+        var description = !string.IsNullOrWhiteSpace(request.Notes)
+            ? $"Reconciliation adjustment: {request.Notes.Trim()}"
+            : "Reconciliation balance adjustment";
+
+        var transaction = Transaction.Create(
+            userContext.UserId!.Value,
+            accountId,
+            money,
+            direction,
+            categoryId: null,
+            DateTime.UtcNow,
+            description);
+
+        await transactionRepository.AddAsync(transaction, cancellationToken);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return Result.Success(new ReconciliationResult(
+            accountId,
+            currentBalance,
+            request.RealBalance,
+            difference,
+            transaction.Id));
     }
 }

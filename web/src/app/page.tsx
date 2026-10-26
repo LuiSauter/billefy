@@ -18,6 +18,11 @@ import { Label } from "@/components/ui/label";
 
 const DEFAULT_API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
+const SAMPLE_CSV = `Fecha,Descripción,Monto,Referencia
+2026-10-24,Pago Supermercado Farmacorp,-85.50,TX-998811
+2026-10-25,Transferencia Recibida Juan,1500.00,TR-554422
+2026-10-25,Retiro Cajero Automático,-200.00,ATM-110022`;
+
 export default function DashboardPage() {
   const [userId, setUserId] = useState<string>("");
   const [accounts, setAccounts] = useState<AccountDto[]>([]);
@@ -31,6 +36,8 @@ export default function DashboardPage() {
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
   const [isTxnModalOpen, setIsTxnModalOpen] = useState(false);
   const [isSimulateModalOpen, setIsSimulateModalOpen] = useState(false);
+  const [isReconcileModalOpen, setIsReconcileModalOpen] = useState(false);
+  const [isCsvModalOpen, setIsCsvModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   // Form states
@@ -46,6 +53,16 @@ export default function DashboardPage() {
 
   const [simulateText, setSimulateText] = useState("Transferencia recibida por Bs. 150.00 de Juan Pérez. Nro: 887711");
   const [draftAccountSelection, setDraftAccountSelection] = useState<Record<string, string>>({});
+
+  // Reconciliation state
+  const [reconcileAccount, setReconcileAccount] = useState<AccountDto | null>(null);
+  const [reconcileRealBalance, setReconcileRealBalance] = useState("");
+  const [reconcileNotes, setReconcileNotes] = useState("");
+
+  // CSV Import state
+  const [csvAccountId, setCsvAccountId] = useState("");
+  const [csvContent, setCsvContent] = useState(SAMPLE_CSV);
+  const [csvFileName, setCsvFileName] = useState("extracto_bancario.csv");
 
   // Initialize User ID from localStorage or generate fresh
   useEffect(() => {
@@ -89,13 +106,16 @@ export default function DashboardPage() {
       if (accountsData.length > 0 && !txnAccountId) {
         setTxnAccountId(accountsData[0].id);
       }
+      if (accountsData.length > 0 && !csvAccountId) {
+        setCsvAccountId(accountsData[0].id);
+      }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Error al conectar con el servidor.";
       setError(message);
     } finally {
       setLoading(false);
     }
-  }, [client, txnAccountId]);
+  }, [client, txnAccountId, csvAccountId]);
 
   useEffect(() => {
     if (client) {
@@ -205,7 +225,6 @@ export default function DashboardPage() {
   const handleConfirmDraft = async (draft: DraftDto) => {
     if (!client) return;
 
-    // Use selected account or fallback to first matching currency or first account
     const selectedAccId = draftAccountSelection[draft.id] ||
       draft.suggestedAccountId ||
       accounts.find((a) => a.currency === draft.currency)?.id ||
@@ -268,6 +287,74 @@ export default function DashboardPage() {
     }
   };
 
+  const openReconcileModal = (account: AccountDto) => {
+    setReconcileAccount(account);
+    setReconcileRealBalance(account.balance.toString());
+    setReconcileNotes("");
+    setIsReconcileModalOpen(true);
+  };
+
+  const handleReconcileSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!client || !reconcileAccount) return;
+
+    const realNum = parseFloat(reconcileRealBalance);
+    if (isNaN(realNum)) {
+      alert("Por favor ingresa un saldo real válido.");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const res = await client.reconcileAccount(reconcileAccount.id, {
+        realBalance: realNum,
+        notes: reconcileNotes.trim() || undefined,
+      });
+
+      setIsReconcileModalOpen(false);
+      if (res.difference === 0) {
+        alert("El saldo ya coincide exactamente con el Libro Mayor. No fue necesario ajuste.");
+      } else {
+        alert(`Conciliación exitosa. Se registró un ajuste de ${res.difference > 0 ? "+" : ""}${res.difference.toFixed(2)} ${reconcileAccount.currency}.`);
+      }
+      await loadData();
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Error al conciliar la cuenta.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleImportCsvSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!client || !csvAccountId || !csvContent.trim()) return;
+
+    const targetAccount = accountsMap.get(csvAccountId);
+    if (!targetAccount) return;
+
+    setSubmitting(true);
+    try {
+      const res = await client.importStatementCsv({
+        accountId: csvAccountId,
+        fileName: csvFileName.trim() || "extracto.csv",
+        csvContent: csvContent.trim(),
+        currency: targetAccount.currency,
+      });
+
+      setIsCsvModalOpen(false);
+      if (res.isDuplicateFile) {
+        alert(`Advertencia: ${res.warning}\nTotal filas: ${res.totalRows}, duplicados vinculados: ${res.duplicatesLinked}`);
+      } else {
+        alert(`Extracto importado con éxito: ${res.draftsCreated} borradores creados, ${res.duplicatesLinked} duplicados vinculados.`);
+      }
+      await loadData();
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Error al importar el extracto CSV.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <div className="max-w-5xl mx-auto p-6 md:p-8 space-y-8">
       {/* Header */}
@@ -275,7 +362,7 @@ export default function DashboardPage() {
         <div>
           <h1 className="text-3xl font-extrabold tracking-tight text-foreground">Billefy</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Gestor de finanzas personales multimoneda · Smart Capture & Ledger Inmutable
+            Gestor de finanzas personales multimoneda · Smart Capture, Extractos & Reconciliación
           </p>
         </div>
         <div className="bg-muted px-4 py-2.5 rounded-lg text-sm border shadow-xs">
@@ -353,11 +440,19 @@ export default function DashboardPage() {
           + Registrar Movimiento
         </Button>
         <Button
+          onClick={() => setIsCsvModalOpen(true)}
+          disabled={accounts.length === 0}
+          variant="outline"
+          className="gap-2"
+        >
+          📁 Importar Extracto CSV
+        </Button>
+        <Button
           onClick={() => setIsSimulateModalOpen(true)}
           variant="outline"
           className="gap-2 border-indigo-200 text-indigo-700 hover:bg-indigo-50 dark:border-indigo-800 dark:text-indigo-300 dark:hover:bg-indigo-950"
         >
-          ⚡ Simular Notificación Bancaria
+          ⚡ Simular Notificación
         </Button>
       </div>
 
@@ -463,13 +558,23 @@ export default function DashboardPage() {
             </div>
           ) : (
             accounts.map((acc) => (
-              <div key={acc.id} className="flex justify-between items-center py-4 px-6 hover:bg-muted/10 transition-colors">
+              <div key={acc.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center py-4 px-6 hover:bg-muted/10 transition-colors gap-3">
                 <div>
                   <div className="font-semibold text-sm text-foreground">{acc.name}</div>
                   <div className="text-xs text-muted-foreground">{acc.type} · Moneda: {acc.currency}</div>
                 </div>
-                <div className={`text-base font-mono font-bold ${acc.balance.isNegative() ? "text-destructive" : "text-foreground"}`}>
-                  {acc.balance.toFixed(2)} {acc.currency}
+                <div className="flex items-center gap-4 self-end sm:self-auto">
+                  <div className={`text-base font-mono font-bold ${acc.balance.isNegative() ? "text-destructive" : "text-foreground"}`}>
+                    {acc.balance.toFixed(2)} {acc.currency}
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => openReconcileModal(acc)}
+                    className="text-xs h-7 px-2.5 text-muted-foreground hover:text-foreground"
+                  >
+                    ⚖️ Conciliar
+                  </Button>
                 </div>
               </div>
             ))
@@ -669,6 +774,132 @@ export default function DashboardPage() {
                   </Button>
                   <Button type="submit" disabled={submitting} className="bg-emerald-600 hover:bg-emerald-700 text-white">
                     {submitting ? "Registrando..." : "Confirmar Movimiento"}
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Modal: Reconcile Account (ACC-06) */}
+      {isReconcileModalOpen && reconcileAccount && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <Card className="w-full max-w-md shadow-xl bg-background border">
+            <CardHeader className="border-b">
+              <CardTitle className="text-lg">Conciliar Saldo: {reconcileAccount.name}</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <form onSubmit={handleReconcileSubmit} className="space-y-4">
+                <div className="p-3 bg-muted rounded-md text-xs space-y-1">
+                  <div>Saldo actual en el Libro Mayor: <span className="font-mono font-bold">{reconcileAccount.balance.toFixed(2)} {reconcileAccount.currency}</span></div>
+                  <div className="text-muted-foreground">Si el saldo real de tu extracto difiere, el sistema registrará un movimiento de ajuste automático (ACC-06).</div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="reconcileRealBalance">Saldo Real Verificado ({reconcileAccount.currency})</Label>
+                  <Input
+                    id="reconcileRealBalance"
+                    type="number"
+                    step="0.01"
+                    required
+                    value={reconcileRealBalance}
+                    onChange={(e) => setReconcileRealBalance(e.target.value)}
+                  />
+                </div>
+
+                {(() => {
+                  const realVal = parseFloat(reconcileRealBalance);
+                  if (isNaN(realVal)) return null;
+                  const diff = realVal - reconcileAccount.balance.toNumber();
+                  return (
+                    <div className={`text-xs font-mono font-semibold ${diff === 0 ? "text-muted-foreground" : diff > 0 ? "text-emerald-600" : "text-rose-600"}`}>
+                      Diferencia calculada: {diff > 0 ? "+" : ""}{diff.toFixed(2)} {reconcileAccount.currency}
+                    </div>
+                  );
+                })()}
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="reconcileNotes">Nota o motivo de la conciliación (opcional)</Label>
+                  <Input
+                    id="reconcileNotes"
+                    type="text"
+                    value={reconcileNotes}
+                    onChange={(e) => setReconcileNotes(e.target.value)}
+                    placeholder="Ej. Extracto mensual del banco"
+                  />
+                </div>
+
+                <div className="flex justify-end gap-2 pt-4 border-t">
+                  <Button type="button" variant="outline" onClick={() => setIsReconcileModalOpen(false)}>
+                    Cancelar
+                  </Button>
+                  <Button type="submit" disabled={submitting}>
+                    {submitting ? "Conciliando..." : "Aplicar Ajuste"}
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Modal: Import CSV Statement (ING-11) */}
+      {isCsvModalOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <Card className="w-full max-w-lg shadow-xl bg-background border">
+            <CardHeader className="border-b">
+              <CardTitle className="text-lg">Importar Extracto Bancario CSV</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <form onSubmit={handleImportCsvSubmit} className="space-y-4">
+                <p className="text-xs text-muted-foreground">
+                  Carga los movimientos de tu banco. El motor deduplicará automáticamente contra movimientos ya capturados por notificaciones (ING-11).
+                </p>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="csvAccount">Imputar a la cuenta</Label>
+                  <select
+                    id="csvAccount"
+                    value={csvAccountId}
+                    onChange={(e) => setCsvAccountId(e.target.value)}
+                    className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  >
+                    {accounts.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.name} ({a.currency})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="csvFileName">Nombre del archivo</Label>
+                  <Input
+                    id="csvFileName"
+                    value={csvFileName}
+                    onChange={(e) => setCsvFileName(e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="csvContent">Contenido CSV (Fecha, Descripción, Monto, Referencia)</Label>
+                  <textarea
+                    id="csvContent"
+                    rows={6}
+                    required
+                    value={csvContent}
+                    onChange={(e) => setCsvContent(e.target.value)}
+                    className="w-full rounded-md border border-input bg-transparent p-2 font-mono text-xs shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  />
+                </div>
+
+                <div className="flex justify-end gap-2 pt-4 border-t">
+                  <Button type="button" variant="outline" onClick={() => setIsCsvModalOpen(false)}>
+                    Cancelar
+                  </Button>
+                  <Button type="submit" disabled={submitting}>
+                    {submitting ? "Importando..." : "Importar y Deduplicar"}
                   </Button>
                 </div>
               </form>

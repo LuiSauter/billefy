@@ -39,7 +39,7 @@ namespace Ingestion.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("confirmed_account_id");
 
-                    b.Property<DateTimeOffset?>("ConfirmedAt")
+                    b.Property<DateTime?>("ConfirmedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("confirmed_at");
 
@@ -57,11 +57,11 @@ namespace Ingestion.Infrastructure.Migrations
                         .HasColumnType("character varying(20)")
                         .HasColumnName("direction");
 
-                    b.Property<DateTimeOffset?>("DiscardedAt")
+                    b.Property<DateTime?>("DiscardedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("discarded_at");
 
-                    b.Property<DateTimeOffset>("EstimatedDate")
+                    b.Property<DateTime>("EstimatedDate")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("estimated_date");
 
@@ -145,7 +145,7 @@ namespace Ingestion.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("event_id");
 
-                    b.Property<DateTimeOffset>("LinkedAt")
+                    b.Property<DateTime>("LinkedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("linked_at");
 
@@ -170,7 +170,7 @@ namespace Ingestion.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
-                    b.Property<DateTimeOffset>("DecidedAt")
+                    b.Property<DateTime>("DecidedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("decided_at");
 
@@ -198,6 +198,63 @@ namespace Ingestion.Infrastructure.Migrations
                     b.ToTable("financial_sources", (string)null);
                 });
 
+            modelBuilder.Entity("Ingestion.Domain.Imports.StatementImport", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("FileHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("file_hash");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("file_name");
+
+                    b.Property<string>("Format")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("format");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("status");
+
+                    b.Property<string>("SummaryJson")
+                        .HasColumnType("text")
+                        .HasColumnName("summary_json");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "AccountId");
+
+                    b.HasIndex("UserId", "FileHash")
+                        .IsUnique();
+
+                    b.ToTable("imports", (string)null);
+                });
+
             modelBuilder.Entity("Ingestion.Domain.RawEvents.RawEvent", b =>
                 {
                     b.Property<Guid>("Id")
@@ -223,11 +280,11 @@ namespace Ingestion.Infrastructure.Migrations
                         .HasColumnType("text")
                         .HasColumnName("masked_text");
 
-                    b.Property<DateTimeOffset>("PurgeAfter")
+                    b.Property<DateTime>("PurgeAfter")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("purge_after");
 
-                    b.Property<DateTimeOffset>("ReceivedAt")
+                    b.Property<DateTime>("ReceivedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("received_at");
 

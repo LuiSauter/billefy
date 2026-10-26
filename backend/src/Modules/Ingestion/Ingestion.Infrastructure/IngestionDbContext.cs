@@ -1,6 +1,7 @@
 using BuildingBlocks.Security;
 using Ingestion.Domain.Drafts;
 using Ingestion.Domain.FinancialSources;
+using Ingestion.Domain.Imports;
 using Ingestion.Domain.RawEvents;
 using Microsoft.EntityFrameworkCore;
 
@@ -14,6 +15,7 @@ public class IngestionDbContext : DbContext
     public DbSet<Draft> Drafts => Set<Draft>();
     public DbSet<DraftEvent> DraftEvents => Set<DraftEvent>();
     public DbSet<FinancialSource> FinancialSources => Set<FinancialSource>();
+    public DbSet<StatementImport> Imports => Set<StatementImport>();
 
     public IngestionDbContext(
         DbContextOptions<IngestionDbContext> options,
@@ -32,5 +34,6 @@ public class IngestionDbContext : DbContext
         modelBuilder.Entity<RawEvent>().HasQueryFilter(e => !_currentUserContext.IsAuthenticated || e.UserId == _currentUserContext.UserId!.Value);
         modelBuilder.Entity<Draft>().HasQueryFilter(d => !_currentUserContext.IsAuthenticated || d.UserId == _currentUserContext.UserId!.Value);
         modelBuilder.Entity<FinancialSource>().HasQueryFilter(f => !_currentUserContext.IsAuthenticated || f.UserId == _currentUserContext.UserId!.Value);
+        modelBuilder.Entity<StatementImport>().HasQueryFilter(i => !_currentUserContext.IsAuthenticated || i.UserId == _currentUserContext.UserId!.Value);
     }
 }

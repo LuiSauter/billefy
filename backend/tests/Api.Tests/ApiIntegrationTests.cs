@@ -10,6 +10,7 @@ using Ledger.Domain.Accounts;
 using Ledger.Domain.Transactions;
 using Ledger.Application.Accounts.Services;
 using Ledger.Application.Transactions.Services;
+using Ingestion.Application.Services;
 using Ledger.Infrastructure;
 using Ingestion.Contracts;
 using Ingestion.Infrastructure;
@@ -356,6 +357,104 @@ public class ApiIntegrationTests : IClassFixture<CustomWebApplicationFactory>
         var draftsRes = await _client.SendAsync(getDraftsMsg);
         var drafts = await draftsRes.Content.ReadFromJsonAsync<List<DraftDto>>();
         drafts.Should().NotContain(d => d.Id == draftId);
+    }
+
+    [Fact]
+    public async Task AccountReconciliation_ShouldCreateAdjustmentTransaction_ToMatchRealBalance()
+    {
+        // 1. Create account with initial balance 100
+        var createAccReq = new CreateAccountRequest("Cuenta Reconciliación", AccountType.Bank, "BOB", 100m);
+        using var accMsg = new HttpRequestMessage(HttpMethod.Post, "/v1/accounts")
+        {
+            Content = JsonContent.Create(createAccReq)
+        };
+        accMsg.Headers.Add("X-User-Id", _testUserId.ToString());
+        var accRes = await _client.SendAsync(accMsg);
+        var createdAcc = await accRes.Content.ReadFromJsonAsync<CreatedAccountResponse>();
+        var accountId = createdAcc!.Id;
+
+        // 2. Reconcile with real balance 80 (difference of -20 BOB)
+        var reconcileReq = new ReconcileAccountRequest(80m, "Ajuste extracto bancario");
+        using var recMsg = new HttpRequestMessage(HttpMethod.Post, $"/v1/accounts/{accountId}/reconcile")
+        {
+            Content = JsonContent.Create(reconcileReq)
+        };
+        recMsg.Headers.Add("X-User-Id", _testUserId.ToString());
+
+        var recRes = await _client.SendAsync(recMsg);
+        recRes.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var recResult = await recRes.Content.ReadFromJsonAsync<ReconciliationResult>();
+        recResult.Should().NotBeNull();
+        recResult!.PreviousBalance.Should().Be(100m);
+        recResult.RealBalance.Should().Be(80m);
+        recResult.Difference.Should().Be(-20m);
+        recResult.AdjustmentTransactionId.Should().NotBeNull();
+
+        // 3. Check derived balance of the account is now exactly 80
+        using var getAccMsg = new HttpRequestMessage(HttpMethod.Get, "/v1/accounts");
+        getAccMsg.Headers.Add("X-User-Id", _testUserId.ToString());
+        var getAccRes = await _client.SendAsync(getAccMsg);
+        var accounts = await getAccRes.Content.ReadFromJsonAsync<List<AccountDto>>();
+        var updatedAcc = accounts!.First(a => a.Id == accountId);
+        updatedAcc.Balance.Should().Be(80m, "Reconciliation must adjust derived account balance to match real balance (ACC-06).");
+    }
+
+    [Fact]
+    public async Task StatementImportCsv_ShouldParseRows_AndWarnOnDuplicateFile()
+    {
+        // 1. Create account
+        var createAccReq = new CreateAccountRequest("Cuenta Extracto CSV", AccountType.Bank, "BOB", 0m);
+        using var accMsg = new HttpRequestMessage(HttpMethod.Post, "/v1/accounts")
+        {
+            Content = JsonContent.Create(createAccReq)
+        };
+        accMsg.Headers.Add("X-User-Id", _testUserId.ToString());
+        var accRes = await _client.SendAsync(accMsg);
+        var createdAcc = await accRes.Content.ReadFromJsonAsync<CreatedAccountResponse>();
+        var accountId = createdAcc!.Id;
+
+        // 2. CSV content with 2 movements
+        const string csvData = """
+        Fecha,Descripción,Monto,Referencia
+        2026-10-20,Pago Supermercado,-120.50,TX-CSV-01
+        2026-10-21,Depósito Sueldo,3500.00,TX-CSV-02
+        """;
+
+        var importReq = new ImportStatementCsvRequest(
+            AccountId: accountId,
+            FileName: "extracto_octubre.csv",
+            CsvContent: csvData,
+            Currency: "BOB");
+
+        using var postImportMsg = new HttpRequestMessage(HttpMethod.Post, "/v1/ingestion/statements/import-csv")
+        {
+            Content = JsonContent.Create(importReq)
+        };
+        postImportMsg.Headers.Add("X-User-Id", _testUserId.ToString());
+
+        var importRes = await _client.SendAsync(postImportMsg);
+        importRes.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var result = await importRes.Content.ReadFromJsonAsync<StatementImportResult>();
+        result.Should().NotBeNull();
+        result!.TotalRows.Should().Be(2);
+        result.DraftsCreated.Should().Be(2);
+        result.IsDuplicateFile.Should().BeFalse();
+
+        // 3. Re-import identical file -> warning triggered (ING-11)
+        using var retryImportMsg = new HttpRequestMessage(HttpMethod.Post, "/v1/ingestion/statements/import-csv")
+        {
+            Content = JsonContent.Create(importReq)
+        };
+        retryImportMsg.Headers.Add("X-User-Id", _testUserId.ToString());
+
+        var retryRes = await _client.SendAsync(retryImportMsg);
+        retryRes.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var retryResult = await retryRes.Content.ReadFromJsonAsync<StatementImportResult>();
+        retryResult!.IsDuplicateFile.Should().BeTrue("Repeated file import must trigger duplicate warning (ING-11).");
+        retryResult.Warning.Should().NotBeNullOrEmpty();
     }
 
     private sealed record CreatedAccountResponse(Guid Id);

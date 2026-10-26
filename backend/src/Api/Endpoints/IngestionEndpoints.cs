@@ -31,6 +31,20 @@ public static class IngestionEndpoints
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status401Unauthorized);
 
+        group.MapPost("/statements/import-csv", async (
+            [FromBody] ImportStatementCsvRequest request,
+            IStatementImportService service,
+            CancellationToken ct) =>
+        {
+            var result = await service.ImportCsvAsync(request, ct);
+            return result.ToHttpResult();
+        })
+        .WithName("ImportStatementCsv")
+        .WithSummary("Import bank statement movements from a CSV file with automatic deduplication (ING-11).")
+        .Produces<StatementImportResult>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized);
+
         return group;
     }
 }

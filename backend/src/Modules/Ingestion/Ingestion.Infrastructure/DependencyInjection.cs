@@ -28,6 +28,7 @@ public static class DependencyInjection
         services.AddScoped<IDraftRepository, DraftRepository>();
         services.AddScoped<IRawEventRepository, RawEventRepository>();
         services.AddScoped<IFinancialSourceRepository, FinancialSourceRepository>();
+        services.AddScoped<IStatementImportRepository, StatementImportRepository>();
         services.AddScoped<IIngestionUnitOfWork, IngestionUnitOfWork>();
 
         // Parsing & Deduplication Services
@@ -43,6 +44,7 @@ public static class DependencyInjection
         // Application Services (Cohesive Facade for Driving Adapters)
         services.AddScoped<IIngestionService, IngestionService>();
         services.AddScoped<IDraftService, DraftService>();
+        services.AddScoped<IStatementImportService, StatementImportService>();
 
         return services;
     }
