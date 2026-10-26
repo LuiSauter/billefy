@@ -1,0 +1,102 @@
+@startuml secuencia-bot-whatsapp
+title Bot de WhatsApp: vinculación y registro por mensaje\n(solo responde a mensajes iniciados por el usuario)
+
+skinparam shadowing false
+skinparam defaultFontName Helvetica
+skinparam defaultFontSize 12
+skinparam sequenceMessageAlign left
+skinparam responseMessageBelowArrow true
+skinparam maxMessageSize 230
+skinparam NoteBackgroundColor #FFFBEA
+skinparam NoteBorderColor #BA7517
+autonumber
+
+actor "Usuario" as U
+participant "WhatsApp\n(proveedor)" as WAp
+
+box "Backend ASP.NET Core" #E1F5EE
+  participant "API HTTP\n(webhook)" as A
+  participant "Adaptador\nIMessagingGateway" as AD
+  participant "Módulo\nBot" as B
+  participant "Módulo\nIngesta" as I
+  participant "Módulo\nMovimientos" as M
+end box
+
+participant "API de LLM" as LLM
+database "PostgreSQL" as DB
+
+== 1. Vinculación del número ==
+U -> A : (desde la app) POST /whatsapp/vinculo {numero}
+A -> DB : INSERT vinculo_whatsapp (estado = pendiente)
+A --> U : "Envía «Si, confirmo» al número del bot"
+U -> WAp : "Si, confirmo"
+WAp -> A : webhook (payload del proveedor)
+A -> AD : normalizar(payload)
+AD --> A : MensajeEntrante(id, numero, texto)
+A -> B : procesar(mensaje)
+B -> DB : INSERT mensaje_whatsapp (proveedor_msg_id)\nON CONFLICT DO NOTHING
+alt mensaje repetido (webhook reintentado)
+  DB --> B : 0 filas insertadas
+  B --> A : ignorar
+else mensaje nuevo
+  B -> DB : buscar vínculo pendiente por número
+  alt el número coincide y el texto es la confirmación
+    B -> DB : UPDATE vinculo_whatsapp SET estado = activo
+    B -> AD : enviarTexto(numero, "Listo, ya puedes registrar movimientos")
+    AD -> WAp : enviar texto (respuesta)
+    WAp -> U : mensaje de bienvenida
+  end
+end
+
+== 2. Registro de un movimiento por mensaje ==
+U -> WAp : "gasté 50 bs en taxi"
+WAp -> A : webhook
+A -> AD : normalizar(payload)
+A -> B : procesar(mensaje)
+B -> DB : registrar mensaje (idempotente) y buscar vínculo activo
+alt sin vínculo activo
+  B -> AD : enviarTexto(numero, "Vincula tu número desde la app")
+else vínculo activo
+  B -> B : interpretar con reglas simples
+  opt reglas sin resultado y hay consentimiento
+    B -> LLM : interpretar texto (enmascarado)
+    LLM --> B : estructura + confianza
+  end
+  B -> I : crearBorrador(usuario, datos, fuente = whatsapp)\n(con deduplicación)
+  I -> DB : INSERT borrador (estado = pendiente)
+  B -> DB : vincular el mensaje con el borrador
+  B -> AD : enviarTexto(numero, "Gasto de Bs 50 en Transporte.\nResponde 1 para confirmar o 2 para cancelar")
+  AD -> WAp : enviar texto (respuesta)
+  WAp -> U : resumen del borrador
+end
+
+== 3. Confirmación ==
+U -> WAp : "1"
+WAp -> A : webhook
+A -> AD : normalizar(payload)
+A -> B : procesar(mensaje)
+B -> DB : buscar el borrador del último mensaje saliente
+B -> I : confirmar(borrador_id)
+I -> M : registrarMovimiento(datos)
+M -> DB : BEGIN\nINSERT movimiento\nUPDATE borrador SET estado = confirmado\nCOMMIT
+B -> AD : enviarTexto(numero, "Registrado")
+AD -> WAp : enviar texto (respuesta)
+WAp -> U : confirmación
+
+== 4. Fallo de envío ==
+opt falla el envío de la respuesta
+  AD --> B : error
+  B -> B : reintentar con espera creciente (máximo 3)
+  B -> DB : marcar el mensaje saliente como fallido\n(el movimiento ya quedó registrado)
+end
+
+note over B, AD
+  El sistema nunca inicia una conversación: cada envío
+  responde a un mensaje entrante del usuario.
+end note
+
+note over AD
+  Solo el adaptador conoce al proveedor.
+  Migrar a la API oficial = reemplazar este adaptador.
+end note
+@enduml

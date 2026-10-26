@@ -1,0 +1,127 @@
+@startuml secuencia-ingesta
+title Ingesta y deduplicación de movimientos\n(notificación en Android → borrador → movimiento)
+
+skinparam shadowing false
+skinparam defaultFontName Helvetica
+skinparam defaultFontSize 12
+skinparam sequenceMessageAlign left
+skinparam responseMessageBelowArrow true
+skinparam maxMessageSize 230
+skinparam NoteBackgroundColor #FFFBEA
+skinparam NoteBorderColor #BA7517
+autonumber
+
+actor "Usuario" as U
+participant "App del banco\no billetera" as Bank
+
+box "App Android (KMP)" #E6F1FB
+  participant "Lector de\nnotificaciones" as L
+  participant "Detector\nfinanciero" as D
+  participant "Cola local" as O
+end box
+
+box "Backend ASP.NET Core" #E1F5EE
+  participant "API HTTP" as A
+  participant "Módulo\nIngesta" as I
+  participant "Worker\n(Hangfire)" as W
+  participant "Módulo\nMovimientos" as M
+  participant "Notificaciones" as N
+end box
+
+database "PostgreSQL" as DB
+
+== 1. Captura y filtro en el dispositivo ==
+Bank -> L : notificación del sistema
+L -> D : evaluar(paquete, texto)
+D -> D : ¿hay un monto con moneda y una palabra clave\n(recibiste, transferencia, depósito, pago...)?
+alt no parece financiera
+  D -> D : descartar\n(nada sale del teléfono ni se guarda)
+else parece financiera
+  D -> D : consultar la decisión del usuario sobre esta app
+  alt sin decisión previa
+    D -> U : "¿Esta app es una fuente financiera?"
+    U --> D : sí o no (la respuesta se recuerda)
+  end
+  alt app rechazada por el usuario
+    D -> D : descartar
+  else app aceptada
+    D -> O : guardar evento\n(event_id UUID, paquete, texto, fecha)
+  end
+end
+
+== 2. Envío idempotente ==
+O -> A : POST /ingesta/eventos\nIdempotency-Key = event_id
+A -> I : registrarEvento(usuario, evento)
+I -> DB : INSERT evento_crudo\nON CONFLICT (usuario_id, event_id) DO NOTHING
+alt conflicto: reintento del mismo evento
+  DB --> I : 0 filas insertadas
+  I --> A : ya recibido
+  A --> O : 200 OK
+else evento nuevo
+  DB --> I : 1 fila insertada
+  I -> W : encolar trabajo "parsear" (evento_id)
+  I --> A : aceptado
+  A --> O : 202 Accepted
+end
+O -> O : marcar evento como enviado
+note right of W
+  El trabajo se persiste en PostgreSQL
+  (almacenamiento de Hangfire).
+end note
+
+== 3. Parseo y normalización (asíncrono) ==
+W -> DB : leer evento_crudo
+W -> W : extraer monto, moneda, sentido,\nreferencia y fecha con reglas genéricas
+opt reglas sin resultado y el usuario dio su consentimiento
+  W -> W : enmascarar números de cuenta y nombres
+  W -> W : consultar LLM de respaldo\n(salida estructurada + confianza)
+end
+note right of W
+  Resultado normalizado: sentido (ingreso o gasto),
+  monto, moneda, referencia, fecha y cuenta.
+  Si no se interpreta, se crea un borrador en estado
+  "revisar" (sin deduplicar) para completarlo a mano.
+end note
+
+== 4. Deduplicación lógica ==
+W -> I : resolverDuplicado(movimientoNormalizado)
+I -> I : calcular huella = hash(usuario, cuenta, monto,\nmoneda, sentido, referencia o ventana de ±5 min)
+I -> DB : buscar borrador o movimiento\ncon la misma referencia o la misma huella
+alt existe coincidencia
+  DB --> I : coincidencia encontrada
+  I -> DB : vincular como fuente adicional\n(no crea borrador nuevo)
+else sin coincidencia
+  DB --> I : sin resultados
+  I -> DB : INSERT borrador\n(estado = pendiente)
+  I -> N : avisar nuevo borrador
+  N -> U : push y correo según preferencias\n"1 movimiento por confirmar"
+end
+note over DB
+  Índice único parcial sobre (usuario_id, huella)
+  para borradores pendientes y movimientos confirmados:
+  evita duplicados aunque dos trabajos corran a la vez.
+end note
+
+== 5. Confirmación por el usuario ==
+U -> A : confirmar borrador\n(categoría, cuenta, detalle)
+A -> I : confirmar(borrador_id, datos)
+I -> M : registrarMovimiento(datos)
+M -> DB : leer última tasa del mercado paralelo\n(compra si la cuenta es en moneda local, venta si es en dólares)
+M -> DB : BEGIN\nINSERT movimiento (monto, moneda, tasa aplicada, fuente)\nUPDATE borrador SET estado = confirmado\nCOMMIT
+M --> I : movimiento creado
+I --> A : ok
+A --> U : movimiento confirmado
+opt el usuario descarta el borrador
+  U -> A : descartar borrador
+  A -> I : descartar(borrador_id)
+  I -> DB : UPDATE estado = descartado\n(conserva la huella)
+end
+
+== 6. Retención ==
+W -> DB : job recurrente diario: borrar el texto de los eventos\ncon más de 30 días (se conservan los campos normalizados)
+
+note over I, W
+  Los pasos 4 y 5 son los mismos para borradores
+  del bot de WhatsApp y de extractos importados (CSV/PDF).
+end note
+@enduml

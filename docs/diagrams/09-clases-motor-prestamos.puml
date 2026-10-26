@@ -1,0 +1,185 @@
+@startuml clases-motor-prestamos
+title Motor de préstamos\nDiagrama de clases (dominio, C#)
+
+skinparam shadowing false
+skinparam defaultFontName Helvetica
+skinparam defaultFontSize 12
+skinparam roundCorner 6
+skinparam classAttributeIconSize 0
+skinparam ArrowColor #555555
+skinparam NoteBackgroundColor #FFFBEA
+skinparam NoteBorderColor #BA7517
+skinparam class {
+  BackgroundColor #FFFFFF
+  BorderColor #444441
+  BackgroundColor<<enum>> #F1EFE8
+  BackgroundColor<<valor>> #E6F1FB
+}
+
+hide empty members
+
+package "Prestamos (dominio)" {
+
+  interface IEsquemaPrestamo {
+    +GenerarCronograma(parametros : ParametrosPrestamo) : Cronograma
+  }
+
+  class EsquemaSinInteres
+  class EsquemaInteresFijoSobreCapital
+  class EsquemaInteresSimpleSobreSaldo
+  class EsquemaCuotaFija
+  class EsquemaSoloIntereses
+  class EsquemaPagoUnicoCapitalizado
+
+  IEsquemaPrestamo <|.. EsquemaSinInteres
+  IEsquemaPrestamo <|.. EsquemaInteresFijoSobreCapital
+  IEsquemaPrestamo <|.. EsquemaInteresSimpleSobreSaldo
+  IEsquemaPrestamo <|.. EsquemaCuotaFija
+  IEsquemaPrestamo <|.. EsquemaSoloIntereses
+  IEsquemaPrestamo <|.. EsquemaPagoUnicoCapitalizado
+
+  class EsquemaFactory {
+    +Crear(plantilla : PlantillaPrestamo) : IEsquemaPrestamo
+  }
+  EsquemaFactory ..> IEsquemaPrestamo : crea
+  EsquemaFactory ..> PlantillaPrestamo
+
+  class ParametrosPrestamo <<valor>> {
+    +Capital : decimal
+    +Tasa : decimal
+    +UnidadTasa : UnidadTasa
+    +BaseDias : BaseDias
+    +Frecuencia : Frecuencia
+    +Capitalizacion : Frecuencia?
+    +NumeroCuotas : int
+    +FechaDesembolso : DateOnly
+  }
+
+  class Cronograma <<valor>> {
+    +Cuotas : IReadOnlyList<CuotaProgramada>
+    +TotalIntereses : decimal
+    +TasaEfectivaAnual : decimal
+  }
+
+  class CuotaProgramada <<valor>> {
+    +Numero : int
+    +VenceEl : DateOnly
+    +Capital : decimal
+    +Interes : decimal
+    +SaldoDespues : decimal
+  }
+
+  IEsquemaPrestamo ..> ParametrosPrestamo : usa
+  IEsquemaPrestamo ..> Cronograma : produce
+  Cronograma "1" *-- "1..*" CuotaProgramada
+
+  class Redondeo {
+    +Aplicar(valor : decimal, escala : int = 2) : decimal
+    +AjustarUltimaCuota(cuotas : List<CuotaProgramada>) : void
+  }
+
+  class CalculadoraTasaEfectiva {
+    +Calcular(flujos : IEnumerable<decimal>, fechas : IEnumerable<DateOnly>) : decimal
+  }
+
+  class CalculadoraMora {
+    +Calcular(cuota : CuotaProgramada, fechaPago : DateOnly, politica : PoliticaMora) : decimal
+  }
+
+  class PoliticaMora <<valor>> {
+    +TasaMora : decimal
+    +DiasGracia : int
+  }
+
+  class AplicadorDePagos {
+    +Aplicar(monto : decimal, cuotas : IList<Cuota>, orden : OrdenImputacion,\n  adelanto : PoliticaAdelanto) : IReadOnlyList<AplicacionPago>
+  }
+
+  class AplicacionPago <<valor>> {
+    +CuotaId : Guid
+    +AMora : decimal
+    +AInteres : decimal
+    +ACapital : decimal
+  }
+
+  class Cuota {
+    +Id : Guid
+    +Programada : CuotaProgramada
+    +Estado : EstadoCuota
+    +Saldo() : decimal
+  }
+
+  EsquemaCuotaFija ..> Redondeo
+  EsquemaInteresFijoSobreCapital ..> Redondeo
+  EsquemaInteresSimpleSobreSaldo ..> Redondeo
+  Cronograma ..> CalculadoraTasaEfectiva : TEA
+  CalculadoraMora ..> PoliticaMora
+  AplicadorDePagos ..> AplicacionPago : produce
+  AplicadorDePagos ..> Cuota : actualiza
+  AplicadorDePagos ..> CalculadoraMora
+  Cuota *-- CuotaProgramada
+
+  enum PlantillaPrestamo <<enum>> {
+    SinInteres
+    InteresFijoSobreCapital
+    InteresSimpleSobreSaldo
+    CuotaFija
+    SoloIntereses
+    PagoUnicoCapitalizado
+  }
+  enum UnidadTasa <<enum>> {
+    Mensual
+    Anual
+  }
+  enum BaseDias <<enum>> {
+    Treinta360
+    Real365
+  }
+  enum Frecuencia <<enum>> {
+    Mensual
+    Quincenal
+    Semanal
+    VencimientoUnico
+  }
+  enum OrdenImputacion <<enum>> {
+    MoraInteresCapital
+    InteresCapitalMora
+  }
+  enum PoliticaAdelanto <<enum>> {
+    ReducirPlazo
+    ReducirCuota
+    AdelantarCuotas
+  }
+  enum EstadoCuota <<enum>> {
+    Pendiente
+    Vencida
+    PagadaParcialmente
+    Pagada
+    Condonada
+  }
+}
+
+note bottom of IEsquemaPrestamo
+  Patrón estrategia: cada plantilla es un esquema
+  intercambiable. Agregar una plantilla nueva no
+  modifica el resto del motor.
+end note
+
+note right of Redondeo
+  Todo el cálculo usa decimal (nunca double),
+  redondeo MidpointRounding.AwayFromZero y la
+  última cuota absorbe la diferencia.
+end note
+
+note right of CalculadoraTasaEfectiva
+  Resuelve la TIR de los flujos con un método
+  iterativo y la anualiza (TEA) para mostrar el
+  costo real al usuario antes de guardar.
+end note
+
+note bottom of EsquemaFactory
+  Casos dorados (entradas y resultados esperados)
+  compartidos con el cliente KMP para garantizar
+  que ambos calculen exactamente lo mismo.
+end note
+@enduml

@@ -1,0 +1,103 @@
+@startuml casos-de-uso
+title Gestor de finanzas personales\nDiagrama de casos de uso (UML 2.5)
+
+skinparam shadowing false
+skinparam defaultFontName Helvetica
+skinparam defaultFontSize 12
+skinparam roundCorner 8
+skinparam packageStyle rectangle
+skinparam ArrowColor #555555
+skinparam ArrowFontSize 11
+skinparam NoteBackgroundColor #FFFBEA
+skinparam NoteBorderColor #BA7517
+skinparam usecase {
+  BackgroundColor #E1F5EE
+  BorderColor #0F6E56
+}
+
+left to right direction
+
+actor "Usuario" as U
+actor "Proveedor de identidad\n(Google · Apple)" as IdP <<sistema>>
+actor "Binance P2P" as Bin <<sistema>>
+actor "Proveedor de WhatsApp" as WAp <<sistema>>
+actor "Servicios de notificación\n(push · correo)" as Ntf <<sistema>>
+
+rectangle "Gestor de finanzas personales" {
+
+  package "Acceso" {
+    usecase "Iniciar sesión" as UC_login
+    usecase "Eliminar cuenta\ny datos" as UC_borrar
+  }
+
+  package "Cuentas y movimientos" {
+    usecase "Gestionar cuentas\ny billeteras" as UC_cuentas
+    usecase "Registrar movimiento\n(manual o con plantilla)" as UC_mov
+    usecase "Importar extracto\n(CSV/PDF)" as UC_import
+    usecase "Sincronizar Binance\n(solo lectura)" as UC_binance
+    usecase "Ver tipo de cambio\nparalelo" as UC_fx
+  }
+
+  package "Captura asistida" {
+    usecase "Detectar movimiento en\nnotificaciones (solo Android)" as UC_notif
+    usecase "Registrar por WhatsApp" as UC_wa
+    usecase "Crear borrador" as UC_borrador
+    usecase "Revisar y confirmar\nborrador" as UC_confirmar
+  }
+
+  package "Deudas y préstamos" {
+    usecase "Gestionar préstamo\no deuda" as UC_prest
+    usecase "Elegir plantilla\ny parámetros" as UC_plantilla
+    usecase "Ver cronograma\ny tasa efectiva" as UC_crono
+    usecase "Registrar pago" as UC_pago
+    usecase "Marcar aceptación\nde la contraparte" as UC_acepta
+  }
+
+  package "Planificación y análisis" {
+    usecase "Definir presupuestos\ny metas" as UC_pres
+    usecase "Ver dashboard\ny reportes" as UC_dash
+    usecase "Recibir alertas\ny recordatorios" as UC_alertas
+  }
+}
+
+' ---------- Asociaciones ----------
+U --> UC_login
+U --> UC_borrar
+U --> UC_cuentas
+U --> UC_mov
+U --> UC_import
+U --> UC_binance
+U --> UC_fx
+U --> UC_wa
+U --> UC_confirmar
+U --> UC_prest
+U --> UC_pres
+U --> UC_dash
+U --> UC_alertas
+
+UC_login -- IdP
+UC_fx -- Bin
+UC_binance -- Bin
+UC_wa -- WAp
+UC_alertas -- Ntf
+
+' ---------- Include / extend ----------
+UC_notif .> UC_borrador : <<include>>
+UC_wa .> UC_borrador : <<include>>
+UC_import .> UC_borrador : <<include>>
+UC_prest .> UC_plantilla : <<include>>
+UC_plantilla .> UC_crono : <<include>>
+UC_pago .> UC_prest : <<extend>>
+UC_acepta .> UC_prest : <<extend>>
+
+note right of UC_notif
+  Se activa solo si el usuario concede el permiso
+  de acceso a notificaciones. Nunca se envían al
+  servidor las notificaciones no financieras.
+end note
+
+note bottom of UC_acepta
+  La contraparte no usa la app: el usuario
+  registra manualmente su aceptación.
+end note
+@enduml

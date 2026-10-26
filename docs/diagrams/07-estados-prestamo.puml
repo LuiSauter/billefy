@@ -1,0 +1,74 @@
+@startuml estados-prestamo
+title Ciclo de vida de un préstamo y de sus cuotas (UML 2.5, máquina de estados)
+
+skinparam shadowing false
+skinparam defaultFontName Helvetica
+skinparam defaultFontSize 12
+skinparam roundCorner 8
+skinparam ArrowColor #555555
+skinparam ArrowFontSize 11
+skinparam NoteBackgroundColor #FFFBEA
+skinparam NoteBorderColor #BA7517
+skinparam state {
+  BackgroundColor #FAEEDA
+  BorderColor #854F0B
+}
+
+hide empty description
+
+state "Préstamo" as Prestamo {
+  state "Simulado" as Simulado
+  state "Pendiente de aceptación" as PendAcept
+  state "Activo" as Activo
+  state "En mora" as EnMora
+  state "Pagado" as Pagado
+  state "Condonado" as Condonado
+  state "Cancelado" as Cancelado
+
+  [*] --> Simulado
+  Simulado --> PendAcept : guardar y compartir el resumen
+  Simulado --> Activo : préstamo ya acordado\n(registro directo)
+  PendAcept --> Activo : la contraparte acepta\n(se registra el desembolso)
+  PendAcept --> Cancelado : el usuario cancela o\nla contraparte rechaza
+  Activo --> EnMora : cuota vencida más allá\nde los días de gracia
+  EnMora --> Activo : se regulariza la mora
+  Activo --> Pagado : saldo = 0
+  EnMora --> Pagado : saldo = 0
+  Activo --> Condonado : el usuario condona el saldo
+  EnMora --> Condonado : el usuario condona el saldo
+  Pagado --> [*]
+  Condonado --> [*]
+  Cancelado --> [*]
+}
+
+state "Cuota" as Cuota {
+  state "Pendiente" as CPendiente
+  state "Vencida" as CVencida
+  state "Pagada parcialmente" as CParcial
+  state "Pagada" as CPagada
+  state "Condonada" as CCondonada
+
+  [*] --> CPendiente
+  CPendiente --> CParcial : pago menor al total
+  CPendiente --> CPagada : pago completo
+  CPendiente --> CVencida : pasa la fecha de vencimiento
+  CVencida --> CParcial : pago menor al total
+  CVencida --> CPagada : pago completo
+  CParcial --> CPagada : se completa el pago
+  CParcial --> CVencida : pasa la fecha de vencimiento
+  CPendiente --> CCondonada : el usuario condona
+  CVencida --> CCondonada : el usuario condona
+  CPagada --> [*]
+  CCondonada --> [*]
+}
+
+note right of EnMora
+  La mora se calcula según la política elegida:
+  tasa moratoria simple y días de gracia.
+end note
+
+note right of Activo
+  Cada pago se reparte con el orden de imputación
+  del préstamo (por defecto: mora, interés, capital).
+end note
+@enduml

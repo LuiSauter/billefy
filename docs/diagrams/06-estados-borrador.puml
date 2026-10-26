@@ -1,0 +1,54 @@
+@startuml estados-borrador
+title Ciclo de vida de un evento y su borrador (UML 2.5, máquina de estados)
+
+skinparam shadowing false
+skinparam defaultFontName Helvetica
+skinparam defaultFontSize 12
+skinparam roundCorner 8
+skinparam ArrowColor #555555
+skinparam ArrowFontSize 11
+skinparam NoteBackgroundColor #FFFBEA
+skinparam NoteBorderColor #BA7517
+skinparam state {
+  BackgroundColor #E1F5EE
+  BorderColor #0F6E56
+}
+
+hide empty description
+
+state "Recibido" as Recibido
+state "En parseo" as Parseo
+state "Revisar" as Revisar
+state "Pendiente" as Pendiente
+state "Duplicado" as Duplicado
+state "Confirmado" as Confirmado
+state "Descartado" as Descartado
+
+[*] --> Recibido : evento aceptado (idempotente)
+Recibido --> Parseo : trabajo encolado
+Parseo --> Pendiente : interpretado y sin coincidencias
+Parseo --> Revisar : no interpretable
+Parseo --> Duplicado : misma referencia o misma huella
+Revisar --> Pendiente : el usuario completa los datos
+Revisar --> Descartado : el usuario descarta
+Pendiente --> Confirmado : el usuario confirma\n(crea el movimiento)
+Pendiente --> Descartado : el usuario descarta
+Duplicado --> [*] : se vincula como fuente adicional
+Confirmado --> [*]
+Descartado --> [*]
+
+note right of Pendiente
+  No expira: el usuario recibe recordatorios
+  de borradores sin revisar.
+end note
+
+note right of Descartado
+  Se conserva la huella para que el mismo
+  movimiento no vuelva a aparecer como borrador.
+end note
+
+note left of Duplicado
+  Ocurre cuando el mismo movimiento llega por
+  otro canal (notificación, WhatsApp o extracto).
+end note
+@enduml

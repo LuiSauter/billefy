@@ -1,0 +1,178 @@
+@startuml componentes
+title Gestor de finanzas personales\nDiagrama de componentes (vista lógica, UML 2.5)
+
+skinparam shadowing false
+skinparam componentStyle uml2
+skinparam defaultFontName Helvetica
+skinparam defaultFontSize 12
+skinparam roundCorner 8
+skinparam packageStyle rectangle
+skinparam ArrowColor #555555
+skinparam ArrowFontSize 11
+skinparam NoteBackgroundColor #FFFBEA
+skinparam NoteBorderColor #BA7517
+
+skinparam component {
+  BackgroundColor #FFFFFF
+  BorderColor #444441
+  BackgroundColor<<cliente>> #E6F1FB
+  BorderColor<<cliente>> #185FA5
+  BackgroundColor<<dominio>> #E1F5EE
+  BorderColor<<dominio>> #0F6E56
+  BackgroundColor<<soporte>> #EEEDFE
+  BorderColor<<soporte>> #534AB7
+  BackgroundColor<<adaptador>> #FBEAF0
+  BorderColor<<adaptador>> #993556
+  BackgroundColor<<externo>> #F1EFE8
+  BorderColor<<externo>> #5F5E5A
+}
+
+' ================= CLIENTES =================
+package "Cliente móvil (Kotlin Multiplatform)" {
+  component "Módulo compartido (commonMain)\nUI Compose · modelos · cliente API" as KMP <<cliente>>
+  component "iosMain\nhost SwiftUI" as IOS <<cliente>>
+  package "androidMain (específico de Android)" {
+    component "Lector de notificaciones\n(NotificationListenerService)" as Listener <<cliente>>
+    component "Detector financiero\n(reglas en el dispositivo)" as Detector <<cliente>>
+    component "Cola local de envío\n(reintentos sin conexión)" as Outbox <<cliente>>
+  }
+}
+
+package "Cliente web" {
+  component "App web\n(Next.js)" as Web <<cliente>>
+}
+
+' ================= INTERFACES =================
+() "REST + OpenAPI\n(HTTPS · JSON)" as IRest
+() "Webhook de mensajes" as IWebhook
+() "IMessagingGateway\n(enviar texto · normalizar entrante)" as IMsg
+() "IRateSource\n(tasas de compra y venta)" as IRates
+() "IJobScheduler\n(encolar y programar)" as ISched
+
+' ================= BACKEND =================
+package "Backend: ASP.NET Core (monolito modular)" {
+  component "API HTTP\n(endpoints · autenticación · validación · límites)" as Api <<soporte>>
+  component "Autenticación\n(OIDC Google · Apple · sesiones)" as Auth <<dominio>>
+  component "Movimientos\n(cuentas · libro mayor)" as Ledger <<dominio>>
+  component "Ingesta\n(borradores · parseo · deduplicación)" as Ingest <<dominio>>
+  component "Préstamos y deudas\n(plantillas · cronogramas · pagos)" as Loans <<dominio>>
+  component "Presupuestos y metas\n(reglas · alertas)" as Budget <<dominio>>
+  component "Tipos de cambio\n(mercado paralelo · histórico)" as Fx <<dominio>>
+  component "Analítica\n(reportes · predicciones)" as Analytics <<dominio>>
+  component "Bot de WhatsApp\n(conversación · confirmación)" as Bot <<dominio>>
+  component "Notificaciones\n(push · correo · preferencias)" as Notif <<dominio>>
+  component "Repositorios\n(EF Core · Npgsql · transacciones)" as Repo <<soporte>>
+}
+
+package "Adaptadores de integración" {
+  component "Adaptador WhatsApp\nno oficial" as WAUnoff <<adaptador>>
+  component "Adaptador WhatsApp\nCloud API (futuro)" as WAOff <<adaptador>>
+  component "Adaptador Binance P2P" as BinAd <<adaptador>>
+}
+
+package "Procesamiento asíncrono" {
+  component "Procesador de trabajos\n(Hangfire · en cola y recurrentes)" as Jobs <<soporte>>
+}
+
+' ================= ALMACENAMIENTO =================
+package "Almacenamiento" {
+  database "PostgreSQL\n(datos y cola de trabajos)" as PG #FAEEDA
+  storage "Almacén de objetos S3\n(extractos CSV/PDF)" as Files #FAEEDA
+}
+
+' ================= EXTERNOS =================
+cloud "Servicios externos" {
+  component "Google Identity" as Google <<externo>>
+  component "Sign in with Apple" as Apple <<externo>>
+  component "Binance P2P\n(endpoint no oficial)" as Binance <<externo>>
+  component "FCM · APNs · Web Push" as Push <<externo>>
+  component "Proveedor de correo (SMTP)" as Mail <<externo>>
+  component "Proveedor de WhatsApp" as WA <<externo>>
+  component "API de LLM" as LLM <<externo>>
+}
+
+' ================= RELACIONES: CLIENTES =================
+Listener ..> Detector : notificación
+Detector ..> Outbox : evento financiero
+Outbox ..> KMP : usa cliente API
+IOS ..> KMP
+KMP ..> IRest
+Web ..> IRest
+IRest - Api
+
+' ================= RELACIONES: WHATSAPP =================
+WA ..> IWebhook : mensaje del usuario
+IWebhook - Api
+Api ..> Bot : mensaje normalizado
+Bot ..> IMsg : responde con texto
+IMsg - WAUnoff
+IMsg - WAOff
+WAUnoff ..> WA : envía texto
+WAOff ..> WA : migración futura
+
+' ================= RELACIONES: API Y DOMINIO =================
+Api ..> Auth
+Api ..> Ledger
+Api ..> Ingest
+Api ..> Loans
+Api ..> Budget
+Api ..> Analytics
+
+Auth ..> Google : valida token
+Auth ..> Apple : valida token
+Ingest ..> Ledger : confirma y crea movimiento
+Loans ..> Ledger : registra pagos
+Budget ..> Ledger : lee gasto
+Analytics ..> Ledger : lee historial
+Ledger ..> Fx : convierte monedas
+Fx ..> IRates
+IRates - BinAd
+BinAd ..> Binance : consulta P2P
+Bot ..> Ingest : crea borradores
+Bot ..> Loans : registra deudas
+Bot ..> LLM : interpretación de respaldo
+Ingest ..> LLM : parseo de respaldo
+Analytics ..> LLM : recomendaciones
+Loans ..> Notif : recordatorios al usuario
+Budget ..> Notif : alertas
+Notif ..> Push
+Notif ..> Mail
+Ingest ..> Files : extractos
+
+' ================= RELACIONES: ASÍNCRONO Y DATOS =================
+Ingest ..> ISched : encola parseo
+ISched - Jobs
+Jobs ..> Ingest : ejecuta parseo y purga
+Jobs ..> Fx : actualiza tasas
+Jobs ..> Loans : vencimientos
+Jobs ..> Budget : evalúa alertas
+Jobs ..> Notif : envía
+Jobs ..> PG : cola persistente
+
+Ledger ..> Repo
+Ingest ..> Repo
+Loans ..> Repo
+Budget ..> Repo
+Repo ..> PG
+
+note right of Ingest
+  Todo lo automático entra como **borrador**.
+  Solo al confirmarlo se crea el movimiento.
+end note
+
+note bottom of Repo
+  Los demás módulos de dominio también persisten
+  mediante repositorios (dependencias omitidas
+  por claridad). Sin Redis: caché en memoria.
+end note
+
+legend right
+  |= Color |= Capa |
+  |<#E6F1FB>   | Clientes |
+  |<#E1F5EE>   | Módulos de dominio |
+  |<#EEEDFE>   | Soporte y procesamiento |
+  |<#FBEAF0>   | Adaptadores (puertos y adaptadores) |
+  |<#FAEEDA>   | Almacenamiento |
+  |<#F1EFE8>   | Servicios externos |
+endlegend
+@enduml

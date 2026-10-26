@@ -1,0 +1,88 @@
+@startuml despliegue
+title Gestor de finanzas personales\nDiagrama de despliegue (UML 2.5)
+
+skinparam shadowing false
+skinparam defaultFontName Helvetica
+skinparam defaultFontSize 12
+skinparam roundCorner 8
+skinparam ArrowColor #555555
+skinparam ArrowFontSize 11
+skinparam NoteBackgroundColor #FFFBEA
+skinparam NoteBorderColor #BA7517
+
+' ---------- Dispositivos de usuario ----------
+node "Dispositivo Android" as DAndroid <<device>> #E6F1FB {
+  artifact "app-android\n(Kotlin Multiplatform · AAB)" as ApkA
+}
+node "Dispositivo iOS" as DIos <<device>> #E6F1FB {
+  artifact "app-ios\n(KMP + host SwiftUI · IPA)" as Ipa
+}
+node "Navegador" as DWeb <<device>> #E6F1FB {
+  artifact "Interfaz web" as UiWeb
+}
+
+' ---------- Servidor ----------
+node "Servidor VPS (Docker + Coolify)" as VPS <<execution environment>> #E1F5EE {
+  artifact "Proxy inverso\n(Traefik · TLS)" as Proxy
+
+  node "contenedor web" as CWeb <<Docker>> {
+    artifact "Next.js (SSR)" as AWeb
+  }
+  node "contenedor api" as CApi <<Docker>> {
+    artifact "ASP.NET Core (Kestrel)" as AApi
+  }
+  node "contenedor worker" as CWorker <<Docker>> {
+    artifact "Worker .NET\n(Hangfire Server)" as AWorker
+  }
+  node "contenedor postgres" as CPg <<Docker>> {
+    database "PostgreSQL\n(datos + cola Hangfire)" as PG
+  }
+}
+
+storage "Almacén de objetos S3\n(extractos · respaldos)" as S3 #FAEEDA
+
+' ---------- Servicios externos ----------
+cloud "Servicios externos" {
+  node "Google Identity" as Google <<servicio>>
+  node "Sign in with Apple" as Apple <<servicio>>
+  node "Binance P2P" as Binance <<servicio>>
+  node "FCM · APNs · Web Push" as Push <<servicio>>
+  node "Proveedor de correo" as Mail <<servicio>>
+  node "Servidor de WhatsApp\n(API no oficial)" as WA <<servicio>>
+  node "API de LLM" as LLM <<servicio>>
+}
+
+' ---------- Comunicación ----------
+ApkA --> Proxy : HTTPS
+Ipa --> Proxy : HTTPS
+UiWeb --> Proxy : HTTPS
+Proxy --> AWeb : HTTP
+Proxy --> AApi : HTTP
+
+AApi --> PG : TCP 5432 (Npgsql)
+AApi --> S3 : S3 API
+AWorker --> PG : TCP 5432\ncola y datos
+PG ..> S3 : respaldo diario
+
+AApi --> Google : HTTPS
+AApi --> Apple : HTTPS
+AApi --> LLM : HTTPS
+AWorker --> LLM : HTTPS
+AWorker --> Binance : HTTPS
+AWorker --> Push : HTTPS
+AWorker --> Mail : SMTP/HTTPS
+
+WA --> Proxy : webhook HTTPS
+AApi --> WA : respuesta al usuario
+
+note bottom of AApi
+  Inicio: una sola máquina.
+  API y worker escalan por separado
+  (más réplicas) cuando haga falta.
+end note
+
+note bottom of PG
+  Sin Redis: la cola de trabajos vive en
+  PostgreSQL y la caché es en memoria.
+end note
+@enduml

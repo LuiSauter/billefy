@@ -1,0 +1,440 @@
+@startuml modelo-de-datos
+title Gestor de finanzas personales\nModelo de datos (PostgreSQL · notación pata de gallo)
+
+skinparam shadowing false
+skinparam defaultFontName Helvetica
+skinparam defaultFontSize 11
+skinparam roundCorner 6
+skinparam linetype ortho
+skinparam packageStyle rectangle
+skinparam ArrowColor #555555
+skinparam NoteBackgroundColor #FFFBEA
+skinparam NoteBorderColor #BA7517
+skinparam entity {
+  BackgroundColor #FFFFFF
+  BorderColor #444441
+}
+
+hide circle
+
+' ================= IDENTIDAD Y PLATAFORMA =================
+package "Identidad y plataforma" #F1EFE8 {
+  entity usuario {
+    * id : uuid <<PK>>
+    --
+    * email : text <<unique>>
+    nombre : text
+    * moneda_base : varchar(10)
+    * zona_horaria : text
+    consentimiento_llm : boolean
+    creado_en : timestamptz
+    eliminado_en : timestamptz
+  }
+  entity dispositivo {
+    * id : uuid <<PK>>
+    --
+    * usuario_id : uuid <<FK>>
+    * plataforma : text
+    token_push : text
+    ultima_actividad : timestamptz
+  }
+  entity identidad_externa {
+    * id : uuid <<PK>>
+    --
+    * usuario_id : uuid <<FK>>
+    * proveedor : text
+    * sub : text
+    email_proveedor : text
+  }
+  entity sesion {
+    * id : uuid <<PK>>
+    --
+    * usuario_id : uuid <<FK>>
+    dispositivo_id : uuid <<FK>>
+    * refresh_token_hash : text
+    * expira_en : timestamptz
+    revocada_en : timestamptz
+  }
+  entity preferencia_notificacion {
+    * usuario_id : uuid <<PK,FK>>
+    * tipo : text <<PK>>
+    --
+    push : boolean
+    correo : boolean
+    silencio_desde : time
+    silencio_hasta : time
+  }
+  entity notificacion {
+    * id : uuid <<PK>>
+    --
+    * usuario_id : uuid <<FK>>
+    * tipo : text
+    * canal : text
+    clave_dedup : text
+    payload : jsonb
+    programada_para : timestamptz
+    enviada_en : timestamptz
+    * estado : text
+  }
+  entity vinculo_whatsapp {
+    * id : uuid <<PK>>
+    --
+    * usuario_id : uuid <<FK>>
+    * numero : text <<unique>>
+    * estado : text
+    confirmado_en : timestamptz
+  }
+  entity mensaje_whatsapp {
+    * id : uuid <<PK>>
+    --
+    * vinculo_id : uuid <<FK>>
+    * proveedor_msg_id : text <<unique>>
+    * direccion : text
+    texto : text
+    borrador_id : uuid <<FK>>
+    * creado_en : timestamptz
+  }
+  entity integracion_binance {
+    * id : uuid <<PK>>
+    --
+    * usuario_id : uuid <<FK>>
+    * api_key_cifrada : bytea
+    * estado : text
+    ultima_sincronizacion : timestamptz
+  }
+  entity auditoria {
+    * id : bigint <<PK>>
+    --
+    usuario_id : uuid <<FK>>
+    * entidad : text
+    * entidad_id : uuid
+    * accion : text
+    antes : jsonb
+    despues : jsonb
+    * en : timestamptz
+  }
+}
+
+' ================= CUENTAS Y MOVIMIENTOS =================
+package "Cuentas y movimientos" #E1F5EE {
+  entity cuenta {
+    * id : uuid <<PK>>
+    --
+    * usuario_id : uuid <<FK>>
+    * nombre : text
+    * tipo : text
+    * moneda : varchar(10)
+    * saldo_inicial : numeric(20,6)
+    * activa : boolean
+  }
+  entity categoria {
+    * id : uuid <<PK>>
+    --
+    usuario_id : uuid <<FK>>
+    padre_id : uuid <<FK>>
+    * nombre : text
+    * sentido : text
+  }
+  entity movimiento {
+    * id : uuid <<PK>>
+    --
+    * usuario_id : uuid <<FK>>
+    * cuenta_id : uuid <<FK>>
+    categoria_id : uuid <<FK>>
+    borrador_id : uuid <<FK>>
+    revierte_id : uuid <<FK>>
+    transferencia_id : uuid
+    referencia_externa : text
+    clave_idempotencia : uuid
+    * sentido : text
+    * monto : numeric(20,6)
+    * moneda : varchar(10)
+    * fecha_operacion : timestamptz
+    descripcion : text
+    * fuente : text
+    tasa_aplicada : numeric(20,6)
+    tasa_fuente : text
+    * creado_en : timestamptz
+  }
+  entity tasa_cambio {
+    * id : uuid <<PK>>
+    --
+    usuario_id : uuid <<FK>>
+    * moneda_local : varchar(10)
+    * lado : text
+    * valor : numeric(20,6)
+    * fuente : text
+    muestras : int
+    * obtenida_en : timestamptz
+  }
+  entity plantilla_movimiento {
+    * id : uuid <<PK>>
+    --
+    * usuario_id : uuid <<FK>>
+    cuenta_id : uuid <<FK>>
+    categoria_id : uuid <<FK>>
+    * nombre : text
+    * sentido : text
+    monto : numeric(20,6)
+    descripcion : text
+  }
+}
+
+' ================= INGESTA =================
+package "Ingesta" #EEEDFE {
+  entity fuente_financiera {
+    * id : uuid <<PK>>
+    --
+    * usuario_id : uuid <<FK>>
+    * origen_id : text
+    alias : text
+    * decision : text
+    * decidida_en : timestamptz
+  }
+  entity evento_crudo {
+    * id : uuid <<PK>>
+    --
+    * usuario_id : uuid <<FK>>
+    * event_id : uuid
+    * canal : text
+    origen_id : text
+    texto_enmascarado : text
+    * recibido_en : timestamptz
+    * purgar_despues_de : timestamptz
+  }
+  entity borrador {
+    * id : uuid <<PK>>
+    --
+    * usuario_id : uuid <<FK>>
+    importacion_id : uuid <<FK>>
+    cuenta_sugerida_id : uuid <<FK>>
+    categoria_sugerida_id : uuid <<FK>>
+    * estado : text
+    * fuente : text
+    sentido : text
+    monto : numeric(20,6)
+    moneda : varchar(10)
+    fecha_estimada : timestamptz
+    referencia : text
+    huella : text
+    confianza : numeric(3,2)
+    * creado_en : timestamptz
+  }
+  entity borrador_evento {
+    * borrador_id : uuid <<PK,FK>>
+    * evento_id : uuid <<PK,FK>>
+  }
+  entity importacion {
+    * id : uuid <<PK>>
+    --
+    * usuario_id : uuid <<FK>>
+    * cuenta_id : uuid <<FK>>
+    * formato : text
+    * archivo_ref : text
+    * hash_archivo : text
+    * estado : text
+    resumen : jsonb
+    * creado_en : timestamptz
+  }
+}
+
+' ================= PRÉSTAMOS Y DEUDAS =================
+package "Préstamos y deudas" #FAEEDA {
+  entity contraparte {
+    * id : uuid <<PK>>
+    --
+    * usuario_id : uuid <<FK>>
+    * nombre : text
+    notas : text
+  }
+  entity prestamo {
+    * id : uuid <<PK>>
+    --
+    * usuario_id : uuid <<FK>>
+    * contraparte_id : uuid <<FK>>
+    clave_idempotencia : uuid
+    cuenta_id : uuid <<FK>>
+    * rol : text
+    * plantilla : text
+    * moneda : varchar(10)
+    * capital : numeric(20,6)
+    * tasa : numeric(12,8)
+    * unidad_tasa : text
+    * base_dias : text
+    * frecuencia : text
+    capitalizacion : text
+    * num_cuotas : int
+    * fecha_desembolso : date
+    tasa_mora : numeric(12,8)
+    * dias_gracia : int
+    * orden_imputacion : text
+    * politica_adelanto : text
+    * estado : text
+    * aceptado_por_contraparte : boolean
+    aceptado_en : date
+    tea : numeric(12,8)
+  }
+  entity cuota {
+    * id : uuid <<PK>>
+    --
+    * prestamo_id : uuid <<FK>>
+    * numero : int
+    * vence_el : date
+    * capital : numeric(20,6)
+    * interes : numeric(20,6)
+    * saldo_despues : numeric(20,6)
+    * estado : text
+  }
+  entity pago {
+    * id : uuid <<PK>>
+    --
+    * prestamo_id : uuid <<FK>>
+    movimiento_id : uuid <<FK>>
+    clave_idempotencia : uuid
+    * fecha : date
+    * monto : numeric(20,6)
+  }
+  entity aplicacion_pago {
+    * pago_id : uuid <<PK,FK>>
+    * cuota_id : uuid <<PK,FK>>
+    --
+    * a_mora : numeric(20,6)
+    * a_interes : numeric(20,6)
+    * a_capital : numeric(20,6)
+  }
+}
+
+' ================= PLANIFICACIÓN =================
+package "Planificación" #FBEAF0 {
+  entity presupuesto {
+    * id : uuid <<PK>>
+    --
+    * usuario_id : uuid <<FK>>
+    categoria_id : uuid <<FK>>
+    * periodo : text
+    * monto_limite : numeric(20,6)
+    * moneda : varchar(10)
+    * umbral_alerta : numeric(3,2)
+    * activo : boolean
+  }
+  entity meta {
+    * id : uuid <<PK>>
+    --
+    * usuario_id : uuid <<FK>>
+    cuenta_id : uuid <<FK>>
+    * nombre : text
+    * monto_objetivo : numeric(20,6)
+    * moneda : varchar(10)
+    fecha_objetivo : date
+  }
+}
+
+' ================= RELACIONES =================
+usuario ||--o{ dispositivo
+usuario ||--o{ identidad_externa
+usuario ||--o{ sesion
+dispositivo |o--o{ sesion
+usuario ||--o{ plantilla_movimiento
+cuenta |o--o{ plantilla_movimiento
+categoria |o--o{ plantilla_movimiento
+usuario ||--o{ importacion
+cuenta ||--o{ importacion
+importacion |o--o{ borrador
+usuario ||--o{ preferencia_notificacion
+usuario ||--o{ notificacion
+usuario ||--o| vinculo_whatsapp
+usuario ||--o| integracion_binance
+usuario |o--o{ auditoria
+vinculo_whatsapp ||--o{ mensaje_whatsapp
+borrador |o--o{ mensaje_whatsapp
+
+usuario ||--o{ cuenta
+usuario ||--o{ categoria
+usuario ||--o{ movimiento
+usuario |o--o{ tasa_cambio
+cuenta ||--o{ movimiento
+categoria |o--o{ movimiento
+categoria |o--o{ categoria : padre
+movimiento |o--o{ movimiento : revierte
+borrador |o--o| movimiento : origina
+
+usuario ||--o{ fuente_financiera
+usuario ||--o{ evento_crudo
+usuario ||--o{ borrador
+evento_crudo ||--o{ borrador_evento
+borrador ||--o{ borrador_evento
+
+usuario ||--o{ contraparte
+contraparte ||--o{ prestamo
+usuario ||--o{ prestamo
+cuenta |o--o{ prestamo
+prestamo ||--o{ cuota
+prestamo ||--o{ pago
+pago ||--o{ aplicacion_pago
+cuota ||--o{ aplicacion_pago
+pago |o--o| movimiento : registra
+
+usuario ||--o{ presupuesto
+categoria |o--o{ presupuesto
+usuario ||--o{ meta
+cuenta |o--o{ meta
+
+' ================= NOTAS DE DISEÑO =================
+note right of movimiento
+  Inmutable: las correcciones se hacen con un
+  movimiento de reversa (revierte_id).
+  Transferencias: dos movimientos con el mismo
+  transferencia_id. monto > 0; el sentido define
+  el signo. Saldo = saldo_inicial + movimientos.
+end note
+
+note right of evento_crudo
+  UNIQUE (usuario_id, event_id): idempotencia.
+  texto_enmascarado se borra al llegar a
+  purgar_despues_de (30 días).
+end note
+
+note right of borrador
+  Índice único parcial sobre (usuario_id, huella)
+  para estados pendiente y confirmado.
+  estado: revisar, pendiente, confirmado,
+  descartado. Un descartado conserva la huella.
+end note
+
+note right of tasa_cambio
+  lado: compra o venta. fuente: binance_p2p o manual.
+  usuario_id solo se usa en tasas manuales.
+  Historial inmutable: se inserta, no se actualiza.
+end note
+
+note right of prestamo
+  plantilla, unidad_tasa, base_dias, frecuencia,
+  orden_imputacion y politica_adelanto se validan
+  con enumeraciones en la aplicación.
+end note
+
+note left of movimiento
+  Índices únicos: (usuario_id, clave_idempotencia) y,
+  parcial, (cuenta_id, referencia_externa) cuando no es nula.
+  Lo mismo aplica a clave_idempotencia en pago y prestamo.
+end note
+
+note right of identidad_externa
+  UNIQUE (proveedor, sub).
+end note
+
+note right of notificacion
+  UNIQUE (usuario_id, clave_dedup): evita alertas repetidas.
+end note
+
+note right of importacion
+  UNIQUE (usuario_id, hash_archivo) para detectar
+  extractos ya importados.
+end note
+
+note bottom of usuario
+  Todas las tablas de negocio llevan usuario_id
+  (multiusuario futuro y borrado completo de datos).
+  moneda: código ISO 4217 (BOB, USD) o de activo (USDT).
+end note
+@enduml
