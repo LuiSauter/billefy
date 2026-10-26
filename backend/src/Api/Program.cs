@@ -3,6 +3,7 @@ using Api.Security;
 using BuildingBlocks.Security;
 using BuildingBlocks.Time;
 using Fx.Infrastructure;
+using Ingestion.Infrastructure;
 using Ledger.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 
@@ -19,6 +20,7 @@ builder.Services.AddProblemDetails();
 // Modular Monolith Modules
 builder.Services.AddLedgerModule(builder.Configuration);
 builder.Services.AddFxModule(builder.Configuration);
+builder.Services.AddIngestionModule(builder.Configuration);
 
 // OpenAPI Documentation
 builder.Services.AddEndpointsApiExplorer();
@@ -44,6 +46,12 @@ if (!string.IsNullOrWhiteSpace(builder.Configuration.GetConnectionString("Postgr
         if (fxDb.Database.IsRelational())
         {
             fxDb.Database.Migrate();
+        }
+
+        var ingestionDb = scope.ServiceProvider.GetRequiredService<IngestionDbContext>();
+        if (ingestionDb.Database.IsRelational())
+        {
+            ingestionDb.Database.Migrate();
         }
     }
     catch (Exception ex)

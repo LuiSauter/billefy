@@ -24,6 +24,7 @@
     <Project Path="src/Modules/Ingestion/Ingestion.Application/Ingestion.Application.csproj" />
     <Project Path="src/Modules/Ingestion/Ingestion.Contracts/Ingestion.Contracts.csproj" />
     <Project Path="src/Modules/Ingestion/Ingestion.Domain/Ingestion.Domain.csproj" />
+    <Project Path="src/Modules/Ingestion/Ingestion.Infrastructure/Ingestion.Infrastructure.csproj" />
   </Folder>
   <Folder Name="/src/Modules/Ledger/">
     <Project Path="src/Modules/Ledger/Ledger.Application/Ledger.Application.csproj" />
