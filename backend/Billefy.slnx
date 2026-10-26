@@ -1,0 +1,39 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Api/Api.csproj" />
+    <Project Path="src/BuildingBlocks/BuildingBlocks.csproj" />
+    <Project Path="src/Worker/Worker.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/" />
+  <Folder Name="/src/Modules/Analytics/">
+    <Project Path="src/Modules/Analytics/Analytics.Contracts/Analytics.Contracts.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Fx/">
+    <Project Path="src/Modules/Fx/Fx.Contracts/Fx.Contracts.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Identity/">
+    <Project Path="src/Modules/Identity/Identity.Contracts/Identity.Contracts.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Ingestion/">
+    <Project Path="src/Modules/Ingestion/Ingestion.Contracts/Ingestion.Contracts.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Ledger/">
+    <Project Path="src/Modules/Ledger/Ledger.Contracts/Ledger.Contracts.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Lending/">
+    <Project Path="src/Modules/Lending/Lending.Contracts/Lending.Contracts.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Messaging/">
+    <Project Path="src/Modules/Messaging/Messaging.Contracts/Messaging.Contracts.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Notifications/">
+    <Project Path="src/Modules/Notifications/Notifications.Contracts/Notifications.Contracts.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Planning/">
+    <Project Path="src/Modules/Planning/Planning.Contracts/Planning.Contracts.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Architecture.Tests/Architecture.Tests.csproj" />
+    <Project Path="tests/BuildingBlocks.Tests/BuildingBlocks.Tests.csproj" />
+  </Folder>
+</Solution>
