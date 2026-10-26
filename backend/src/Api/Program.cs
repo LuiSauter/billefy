@@ -71,6 +71,8 @@ app.UseHttpsRedirection();
 app.MapAccountEndpoints();
 app.MapTransactionEndpoints();
 app.MapRateEndpoints();
+app.MapIngestionEndpoints();
+app.MapDraftEndpoints();
 
 app.Run();
 

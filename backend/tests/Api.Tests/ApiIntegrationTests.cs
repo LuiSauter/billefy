@@ -9,6 +9,8 @@ using Fx.Infrastructure;
 using Ledger.Domain.Accounts;
 using Ledger.Domain.Transactions;
 using Ledger.Infrastructure;
+using Ingestion.Contracts;
+using Ingestion.Infrastructure;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Data.Sqlite;
@@ -22,11 +24,13 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 {
     private readonly SqliteConnection _ledgerConnection = new("DataSource=:memory:");
     private readonly SqliteConnection _fxConnection = new("DataSource=:memory:");
+    private readonly SqliteConnection _ingestionConnection = new("DataSource=:memory:");
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         _ledgerConnection.Open();
         _fxConnection.Open();
+        _ingestionConnection.Open();
 
         // Clear connection string so Npgsql is not registered by default
         builder.UseSetting("ConnectionStrings:PostgreSQL", string.Empty);
@@ -36,6 +40,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             // Register SQLite in-memory DbContexts
             services.AddDbContext<LedgerDbContext>(options => options.UseSqlite(_ledgerConnection));
             services.AddDbContext<FxDbContext>(options => options.UseSqlite(_fxConnection));
+            services.AddDbContext<IngestionDbContext>(options => options.UseSqlite(_ingestionConnection));
 
             // Ensure databases created and seed Fx market rate
             var sp = services.BuildServiceProvider();
@@ -53,6 +58,9 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
                 source: "DolarApi:BinanceP2P",
                 fetchedAt: DateTime.UtcNow));
             fxDb.SaveChanges();
+
+            var ingestionDb = scope.ServiceProvider.GetRequiredService<IngestionDbContext>();
+            ingestionDb.Database.EnsureCreated();
         });
     }
 
@@ -61,6 +69,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
         base.Dispose(disposing);
         _ledgerConnection.Dispose();
         _fxConnection.Dispose();
+        _ingestionConnection.Dispose();
     }
 }
 
