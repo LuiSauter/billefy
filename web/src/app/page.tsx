@@ -9,6 +9,10 @@ import {
   TransactionDirection,
   RateSnapshotDto,
 } from "../api/client";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 const DEFAULT_API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
@@ -161,257 +165,258 @@ export default function DashboardPage() {
   };
 
   return (
-    <div style={{ maxWidth: "1000px", margin: "0 auto", padding: "2rem", fontFamily: "system-ui, -apple-system, sans-serif", color: "#1a1a1a" }}>
+    <div className="max-w-5xl mx-auto p-6 md:p-8 space-y-8">
       {/* Header */}
-      <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid #e5e7eb", paddingBottom: "1rem", marginBottom: "2rem" }}>
+      <header className="flex flex-col md:flex-row justify-between items-start md:items-center pb-6 border-b gap-4">
         <div>
-          <h1 style={{ fontSize: "1.75rem", fontWeight: "700", margin: 0, color: "#111827" }}>Billefy</h1>
-          <p style={{ margin: "0.25rem 0 0 0", color: "#6b7280", fontSize: "0.875rem" }}>
+          <h1 className="text-3xl font-extrabold tracking-tight text-foreground">Billefy</h1>
+          <p className="text-sm text-muted-foreground mt-1">
             Gestor de finanzas personales multimoneda · Ledger Inmutable
           </p>
         </div>
-        <div style={{ background: "#f3f4f6", padding: "0.5rem 1rem", borderRadius: "8px", fontSize: "0.85rem", textAlign: "right" }}>
+        <div className="bg-muted px-4 py-2.5 rounded-lg text-sm border shadow-xs">
           {rate ? (
-            <>
-              <div><strong>Cotización P2P:</strong> {rate.appliedRate.toFixed(2)} BOB/USD {rate.isStale && <span style={{ color: "#d97706" }}>(Desactualizada)</span>}</div>
-              <div style={{ color: "#6b7280", fontSize: "0.75rem" }}>Fuente: {rate.rateSource} · {new Date(rate.fetchedAt).toLocaleTimeString()}</div>
-            </>
+            <div className="space-y-0.5">
+              <div className="font-semibold text-xs md:text-sm">
+                Cotización P2P: <span className="text-primary font-mono">{rate.appliedRate.toFixed(2)}</span> BOB/USD{" "}
+                {rate.isStale && <span className="text-amber-600 text-xs">(Desactualizada)</span>}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                Fuente: {rate.rateSource} · {new Date(rate.fetchedAt).toLocaleTimeString()}
+              </div>
+            </div>
           ) : (
-            <div style={{ color: "#6b7280" }}>Sin cotización disponible</div>
+            <div className="text-xs text-muted-foreground">Sin cotización disponible</div>
           )}
         </div>
       </header>
 
-      {/* Error state */}
+      {/* Error alert */}
       {error && (
-        <div style={{ background: "#fee2e2", border: "1px solid #f87171", color: "#991b1b", padding: "0.75rem 1rem", borderRadius: "8px", marginBottom: "1.5rem" }}>
+        <div className="p-4 bg-destructive/10 border border-destructive/20 text-destructive rounded-lg text-sm">
           {error}
         </div>
       )}
 
-      {/* Balance Summary Cards */}
-      <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: "1rem", marginBottom: "2rem" }}>
-        <div style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: "10px", padding: "1.25rem" }}>
-          <div style={{ color: "#6b7280", fontSize: "0.875rem", marginBottom: "0.5rem" }}>Saldo Total en Bolivianos</div>
-          <div style={{ fontSize: "1.5rem", fontWeight: "700", color: "#065f46" }}>
-            {totals.bobTotal.toFixed(2)} BOB
-          </div>
-        </div>
-        <div style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: "10px", padding: "1.25rem" }}>
-          <div style={{ color: "#6b7280", fontSize: "0.875rem", marginBottom: "0.5rem" }}>Saldo Total en Dólares</div>
-          <div style={{ fontSize: "1.5rem", fontWeight: "700", color: "#1e40af" }}>
-            {totals.usdTotal.toFixed(2)} USD
-          </div>
-        </div>
-        <div style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: "10px", padding: "1.25rem" }}>
-          <div style={{ color: "#1e3a8a", fontSize: "0.875rem", marginBottom: "0.5rem" }}>Patrimonio Consolidado (USD)</div>
-          <div style={{ fontSize: "1.5rem", fontWeight: "700", color: "#1e3a8a" }}>
-            {totals.consolidatedUsd.toFixed(2)} USD
-          </div>
-          <div style={{ fontSize: "0.75rem", color: "#3b82f6", marginTop: "0.25rem" }}>Valuado a tasa de compra P2P (Regla 19)</div>
-        </div>
+      {/* Balance Summary Cards using shadcn Card */}
+      <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="border-border shadow-xs">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xs font-medium text-muted-foreground">Saldo Total en Bolivianos</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-emerald-700 dark:text-emerald-500 font-mono">
+              {totals.bobTotal.toFixed(2)} BOB
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border shadow-xs">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xs font-medium text-muted-foreground">Saldo Total en Dólares</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-700 dark:text-blue-500 font-mono">
+              {totals.usdTotal.toFixed(2)} USD
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-blue-200 bg-blue-50/50 dark:bg-blue-950/20 shadow-xs">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xs font-medium text-blue-900 dark:text-blue-300">Patrimonio Consolidado (USD)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-950 dark:text-blue-200 font-mono">
+              {totals.consolidatedUsd.toFixed(2)} USD
+            </div>
+            <p className="text-[11px] text-blue-600 dark:text-blue-400 mt-1">Valuado a tasa de compra P2P (Regla 19)</p>
+          </CardContent>
+        </Card>
       </section>
 
-      {/* Action Buttons */}
-      <div style={{ display: "flex", gap: "0.75rem", marginBottom: "1.5rem" }}>
-        <button
-          onClick={() => setIsAccountModalOpen(true)}
-          style={{ background: "#111827", color: "#fff", border: "none", padding: "0.6rem 1.2rem", borderRadius: "6px", cursor: "pointer", fontWeight: "500" }}
-        >
+      {/* Action Buttons using shadcn Button */}
+      <div className="flex gap-3">
+        <Button onClick={() => setIsAccountModalOpen(true)} className="gap-2">
           + Nueva Cuenta
-        </button>
-        <button
+        </Button>
+        <Button
           onClick={() => setIsTxnModalOpen(true)}
           disabled={accounts.length === 0}
-          style={{
-            background: accounts.length === 0 ? "#9ca3af" : "#059669",
-            color: "#fff",
-            border: "none",
-            padding: "0.6rem 1.2rem",
-            borderRadius: "6px",
-            cursor: accounts.length === 0 ? "not-allowed" : "pointer",
-            fontWeight: "500",
-          }}
+          variant="secondary"
+          className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
         >
           + Registrar Movimiento
-        </button>
+        </Button>
       </div>
 
-      {/* Accounts List */}
-      <section style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: "10px", overflow: "hidden" }}>
-        <div style={{ padding: "1rem 1.25rem", borderBottom: "1px solid #e5e7eb", fontWeight: "600", display: "flex", justifyContent: "space-between" }}>
-          <span>Tus Cuentas ({accounts.length})</span>
-          {loading && <span style={{ color: "#6b7280", fontWeight: "normal", fontSize: "0.875rem" }}>Cargando datos del servidor...</span>}
-        </div>
-        <div>
+      {/* Accounts List using shadcn Card */}
+      <Card className="overflow-hidden shadow-xs">
+        <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/30 py-3 px-6">
+          <CardTitle className="text-base font-semibold">Tus Cuentas ({accounts.length})</CardTitle>
+          {loading && <span className="text-xs text-muted-foreground animate-pulse">Cargando del servidor...</span>}
+        </CardHeader>
+        <CardContent className="p-0 divide-y">
           {accounts.length === 0 && !loading ? (
-            <div style={{ padding: "3rem 1rem", textAlign: "center", color: "#6b7280" }}>
-              <p style={{ margin: "0 0 0.5rem 0", fontSize: "1.1rem" }}>No tenés cuentas creadas aún.</p>
-              <p style={{ margin: 0, fontSize: "0.875rem" }}>Creá tu primera cuenta bancaria, billetera o efectivo para comenzar a registrar movimientos.</p>
+            <div className="py-12 px-4 text-center text-muted-foreground space-y-2">
+              <p className="text-base font-medium">No tenés cuentas creadas aún.</p>
+              <p className="text-xs text-muted-foreground">Creá tu primera cuenta bancaria o billetera para comenzar a registrar movimientos reales.</p>
             </div>
           ) : (
             accounts.map((acc) => (
-              <div
-                key={acc.id}
-                style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "1rem 1.25rem", borderBottom: "1px solid #f3f4f6" }}
-              >
+              <div key={acc.id} className="flex justify-between items-center py-4 px-6 hover:bg-muted/10 transition-colors">
                 <div>
-                  <div style={{ fontWeight: "600", color: "#111827" }}>{acc.name}</div>
-                  <div style={{ fontSize: "0.8rem", color: "#6b7280" }}>{acc.type} · Moneda: {acc.currency}</div>
+                  <div className="font-semibold text-sm text-foreground">{acc.name}</div>
+                  <div className="text-xs text-muted-foreground">{acc.type} · Moneda: {acc.currency}</div>
                 </div>
-                <div style={{ fontSize: "1.2rem", fontWeight: "700", color: acc.balance.isNegative() ? "#dc2626" : "#111827" }}>
+                <div className={`text-base font-mono font-bold ${acc.balance.isNegative() ? "text-destructive" : "text-foreground"}`}>
                   {acc.balance.toFixed(2)} {acc.currency}
                 </div>
               </div>
             ))
           )}
-        </div>
-      </section>
+        </CardContent>
+      </Card>
 
-      {/* Modal: Create Account */}
+      {/* Create Account Modal */}
       {isAccountModalOpen && (
-        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem" }}>
-          <div style={{ background: "#fff", borderRadius: "10px", padding: "1.5rem", width: "100%", maxWidth: "450px" }}>
-            <h3 style={{ margin: "0 0 1rem 0" }}>Crear Nueva Cuenta</h3>
-            <form onSubmit={handleCreateAccount} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-              <div>
-                <label style={{ display: "block", fontSize: "0.875rem", marginBottom: "0.25rem" }}>Nombre</label>
-                <input
-                  type="text"
-                  required
-                  value={newAccountName}
-                  onChange={(e) => setNewAccountName(e.target.value)}
-                  placeholder="Ej. Banco Unión, Billetera USDT"
-                  style={{ width: "100%", padding: "0.5rem", borderRadius: "6px", border: "1px solid #d1d5db" }}
-                />
-              </div>
-              <div>
-                <label style={{ display: "block", fontSize: "0.875rem", marginBottom: "0.25rem" }}>Tipo</label>
-                <select
-                  value={newAccountType}
-                  onChange={(e) => setNewAccountType(e.target.value as AccountType)}
-                  style={{ width: "100%", padding: "0.5rem", borderRadius: "6px", border: "1px solid #d1d5db" }}
-                >
-                  <option value="Bank">Banco</option>
-                  <option value="Wallet">Billetera Digital</option>
-                  <option value="Cash">Efectivo</option>
-                  <option value="Exchange">Exchange (Crypto)</option>
-                </select>
-              </div>
-              <div>
-                <label style={{ display: "block", fontSize: "0.875rem", marginBottom: "0.25rem" }}>Moneda</label>
-                <select
-                  value={newAccountCurrency}
-                  onChange={(e) => setNewAccountCurrency(e.target.value)}
-                  style={{ width: "100%", padding: "0.5rem", borderRadius: "6px", border: "1px solid #d1d5db" }}
-                >
-                  <option value="BOB">Bolivianos (BOB)</option>
-                  <option value="USD">Dólares (USD)</option>
-                  <option value="USDT">Tether (USDT)</option>
-                </select>
-              </div>
-              <div>
-                <label style={{ display: "block", fontSize: "0.875rem", marginBottom: "0.25rem" }}>Saldo Inicial</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={newAccountBalance}
-                  onChange={(e) => setNewAccountBalance(e.target.value)}
-                  style={{ width: "100%", padding: "0.5rem", borderRadius: "6px", border: "1px solid #d1d5db" }}
-                />
-              </div>
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem", marginTop: "1rem" }}>
-                <button
-                  type="button"
-                  onClick={() => setIsAccountModalOpen(false)}
-                  style={{ background: "#e5e7eb", border: "none", padding: "0.5rem 1rem", borderRadius: "6px", cursor: "pointer" }}
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  style={{ background: "#111827", color: "#fff", border: "none", padding: "0.5rem 1rem", borderRadius: "6px", cursor: "pointer" }}
-                >
-                  {submitting ? "Guardando..." : "Guardar en Base de Datos"}
-                </button>
-              </div>
-            </form>
-          </div>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <Card className="w-full max-w-md shadow-xl bg-background border">
+            <CardHeader className="border-b">
+              <CardTitle className="text-lg">Crear Nueva Cuenta</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <form onSubmit={handleCreateAccount} className="space-y-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="accountName">Nombre de la cuenta</Label>
+                  <Input
+                    id="accountName"
+                    required
+                    value={newAccountName}
+                    onChange={(e) => setNewAccountName(e.target.value)}
+                    placeholder="Ej. Banco Unión, Billetera USDT"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="accountType">Tipo de cuenta</Label>
+                  <select
+                    id="accountType"
+                    value={newAccountType}
+                    onChange={(e) => setNewAccountType(e.target.value as AccountType)}
+                    className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  >
+                    <option value="Bank">Banco</option>
+                    <option value="Wallet">Billetera Digital</option>
+                    <option value="Cash">Efectivo</option>
+                    <option value="Exchange">Exchange (Crypto)</option>
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="accountCurrency">Moneda</Label>
+                  <select
+                    id="accountCurrency"
+                    value={newAccountCurrency}
+                    onChange={(e) => setNewAccountCurrency(e.target.value)}
+                    className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  >
+                    <option value="BOB">Bolivianos (BOB)</option>
+                    <option value="USD">Dólares (USD)</option>
+                    <option value="USDT">Tether (USDT)</option>
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="initialBalance">Saldo Inicial</Label>
+                  <Input
+                    id="initialBalance"
+                    type="number"
+                    step="0.01"
+                    value={newAccountBalance}
+                    onChange={(e) => setNewAccountBalance(e.target.value)}
+                  />
+                </div>
+                <div className="flex justify-end gap-2 pt-4 border-t">
+                  <Button type="button" variant="outline" onClick={() => setIsAccountModalOpen(false)}>
+                    Cancelar
+                  </Button>
+                  <Button type="submit" disabled={submitting}>
+                    {submitting ? "Guardando..." : "Guardar en Base de Datos"}
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
         </div>
       )}
 
-      {/* Modal: Register Transaction */}
+      {/* Register Transaction Modal */}
       {isTxnModalOpen && (
-        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem" }}>
-          <div style={{ background: "#fff", borderRadius: "10px", padding: "1.5rem", width: "100%", maxWidth: "450px" }}>
-            <h3 style={{ margin: "0 0 1rem 0" }}>Registrar Movimiento en Servidor</h3>
-            <form onSubmit={handleRegisterTxn} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-              <div>
-                <label style={{ display: "block", fontSize: "0.875rem", marginBottom: "0.25rem" }}>Cuenta</label>
-                <select
-                  value={txnAccountId}
-                  onChange={(e) => setTxnAccountId(e.target.value)}
-                  style={{ width: "100%", padding: "0.5rem", borderRadius: "6px", border: "1px solid #d1d5db" }}
-                >
-                  {accounts.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.name} ({a.currency})
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label style={{ display: "block", fontSize: "0.875rem", marginBottom: "0.25rem" }}>Tipo de Movimiento</label>
-                <select
-                  value={txnDirection}
-                  onChange={(e) => setTxnDirection(e.target.value as TransactionDirection)}
-                  style={{ width: "100%", padding: "0.5rem", borderRadius: "6px", border: "1px solid #d1d5db" }}
-                >
-                  <option value="Expense">Gasto (-)</option>
-                  <option value="Income">Ingreso (+)</option>
-                </select>
-              </div>
-              <div>
-                <label style={{ display: "block", fontSize: "0.875rem", marginBottom: "0.25rem" }}>Monto</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  required
-                  value={txnAmount}
-                  onChange={(e) => setTxnAmount(e.target.value)}
-                  placeholder="0.00"
-                  style={{ width: "100%", padding: "0.5rem", borderRadius: "6px", border: "1px solid #d1d5db" }}
-                />
-              </div>
-              <div>
-                <label style={{ display: "block", fontSize: "0.875rem", marginBottom: "0.25rem" }}>Descripción</label>
-                <input
-                  type="text"
-                  value={txnDescription}
-                  onChange={(e) => setTxnDescription(e.target.value)}
-                  placeholder="Ej. Almuerzo, Taxi, Sueldo"
-                  style={{ width: "100%", padding: "0.5rem", borderRadius: "6px", border: "1px solid #d1d5db" }}
-                />
-              </div>
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem", marginTop: "1rem" }}>
-                <button
-                  type="button"
-                  onClick={() => setIsTxnModalOpen(false)}
-                  style={{ background: "#e5e7eb", border: "none", padding: "0.5rem 1rem", borderRadius: "6px", cursor: "pointer" }}
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  style={{ background: "#059669", color: "#fff", border: "none", padding: "0.5rem 1rem", borderRadius: "6px", cursor: "pointer" }}
-                >
-                  {submitting ? "Registrando..." : "Confirmar Movimiento"}
-                </button>
-              </div>
-            </form>
-          </div>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <Card className="w-full max-w-md shadow-xl bg-background border">
+            <CardHeader className="border-b">
+              <CardTitle className="text-lg">Registrar Movimiento en Servidor</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <form onSubmit={handleRegisterTxn} className="space-y-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="txnAccount">Cuenta</Label>
+                  <select
+                    id="txnAccount"
+                    value={txnAccountId}
+                    onChange={(e) => setTxnAccountId(e.target.value)}
+                    className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  >
+                    {accounts.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.name} ({a.currency})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="txnDirection">Tipo de Movimiento</Label>
+                  <select
+                    id="txnDirection"
+                    value={txnDirection}
+                    onChange={(e) => setTxnDirection(e.target.value as TransactionDirection)}
+                    className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  >
+                    <option value="Expense">Gasto (-)</option>
+                    <option value="Income">Ingreso (+)</option>
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="txnAmount">Monto</Label>
+                  <Input
+                    id="txnAmount"
+                    type="number"
+                    step="0.01"
+                    required
+                    value={txnAmount}
+                    onChange={(e) => setTxnAmount(e.target.value)}
+                    placeholder="0.00"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="txnDesc">Descripción</Label>
+                  <Input
+                    id="txnDesc"
+                    type="text"
+                    value={txnDescription}
+                    onChange={(e) => setTxnDescription(e.target.value)}
+                    placeholder="Ej. Almuerzo, Taxi, Sueldo"
+                  />
+                </div>
+                <div className="flex justify-end gap-2 pt-4 border-t">
+                  <Button type="button" variant="outline" onClick={() => setIsTxnModalOpen(false)}>
+                    Cancelar
+                  </Button>
+                  <Button type="submit" disabled={submitting} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+                    {submitting ? "Registrando..." : "Confirmar Movimiento"}
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
         </div>
       )}
     </div>

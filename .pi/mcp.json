@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "shadcn": {
+      "command": "npx",
+      "args": ["shadcn@latest", "mcp"],
+      "cwd": "web",
+      "description": "shadcn registry MCP server to browse, search, and install components"
+    }
+  }
+}

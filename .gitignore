@@ -45,5 +45,6 @@ local.properties
 
 # Tools & Temporary
 .atl/
-.pi/
+.pi/*
+!.pi/mcp.json
 *.log
