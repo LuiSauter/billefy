@@ -9,6 +9,7 @@ import {
   TransactionDirection,
   RateSnapshotDto,
   TransactionDto,
+  DraftDto,
 } from "../api/client";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -21,6 +22,7 @@ export default function DashboardPage() {
   const [userId, setUserId] = useState<string>("");
   const [accounts, setAccounts] = useState<AccountDto[]>([]);
   const [transactions, setTransactions] = useState<TransactionDto[]>([]);
+  const [drafts, setDrafts] = useState<DraftDto[]>([]);
   const [rate, setRate] = useState<RateSnapshotDto | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -28,6 +30,7 @@ export default function DashboardPage() {
   // Modals state
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
   const [isTxnModalOpen, setIsTxnModalOpen] = useState(false);
+  const [isSimulateModalOpen, setIsSimulateModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   // Form states
@@ -40,6 +43,9 @@ export default function DashboardPage() {
   const [txnAmount, setTxnAmount] = useState("");
   const [txnDirection, setTxnDirection] = useState<TransactionDirection>("Expense");
   const [txnDescription, setTxnDescription] = useState("");
+
+  const [simulateText, setSimulateText] = useState("Transferencia recibida por Bs. 150.00 de Juan Pérez. Nro: 887711");
+  const [draftAccountSelection, setDraftAccountSelection] = useState<Record<string, string>>({});
 
   // Initialize User ID from localStorage or generate fresh
   useEffect(() => {
@@ -68,14 +74,16 @@ export default function DashboardPage() {
     setError(null);
 
     try {
-      const [accountsData, txnsData, rateData] = await Promise.all([
+      const [accountsData, txnsData, draftsData, rateData] = await Promise.all([
         client.getAccounts(),
         client.getTransactions({ limit: 20 }),
+        client.getDrafts(),
         client.getLatestRate("BOB", "USD").catch(() => null),
       ]);
 
       setAccounts(accountsData);
       setTransactions(txnsData);
+      setDrafts(draftsData);
       setRate(rateData);
 
       if (accountsData.length > 0 && !txnAccountId) {
@@ -103,6 +111,11 @@ export default function DashboardPage() {
     }
     return map;
   }, [accounts]);
+
+  // Filter pending/review drafts
+  const pendingDrafts = useMemo(() => {
+    return drafts.filter((d) => d.status === "Pending" || d.status === "Review");
+  }, [drafts]);
 
   // Consolidated balances calculation
   const totals = useMemo(() => {
@@ -189,6 +202,72 @@ export default function DashboardPage() {
     }
   };
 
+  const handleConfirmDraft = async (draft: DraftDto) => {
+    if (!client) return;
+
+    // Use selected account or fallback to first matching currency or first account
+    const selectedAccId = draftAccountSelection[draft.id] ||
+      draft.suggestedAccountId ||
+      accounts.find((a) => a.currency === draft.currency)?.id ||
+      accounts[0]?.id;
+
+    if (!selectedAccId) {
+      alert("Debes crear al menos una cuenta antes de confirmar un borrador.");
+      return;
+    }
+
+    try {
+      await client.confirmDraft(draft.id, {
+        accountId: selectedAccId,
+        description: draft.reference ? `Ref: ${draft.reference}` : "Captura confirmada",
+      });
+      await loadData();
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Error al confirmar el borrador.");
+    }
+  };
+
+  const handleDiscardDraft = async (draftId: string) => {
+    if (!client) return;
+    try {
+      await client.discardDraft(draftId);
+      await loadData();
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Error al descartar el borrador.");
+    }
+  };
+
+  const handleSimulateCapture = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!client || !simulateText.trim()) return;
+
+    setSubmitting(true);
+    try {
+      const eventId = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : "11111111-1111-1111-1111-111111111111";
+      await fetch(`${DEFAULT_API_URL}/v1/ingestion/events`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-User-Id": userId,
+          "Idempotency-Key": eventId,
+        },
+        body: JSON.stringify({
+          eventId,
+          channel: "notification",
+          sourceId: "com.banco.union",
+          maskedText: simulateText.trim(),
+        }),
+      });
+
+      setIsSimulateModalOpen(false);
+      await loadData();
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Error al simular la captura.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <div className="max-w-5xl mx-auto p-6 md:p-8 space-y-8">
       {/* Header */}
@@ -196,7 +275,7 @@ export default function DashboardPage() {
         <div>
           <h1 className="text-3xl font-extrabold tracking-tight text-foreground">Billefy</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Gestor de finanzas personales multimoneda · Ledger Inmutable
+            Gestor de finanzas personales multimoneda · Smart Capture & Ledger Inmutable
           </p>
         </div>
         <div className="bg-muted px-4 py-2.5 rounded-lg text-sm border shadow-xs">
@@ -261,7 +340,7 @@ export default function DashboardPage() {
       </section>
 
       {/* Action Buttons */}
-      <div className="flex gap-3">
+      <div className="flex flex-wrap gap-3">
         <Button onClick={() => setIsAccountModalOpen(true)} className="gap-2">
           + Nueva Cuenta
         </Button>
@@ -273,7 +352,102 @@ export default function DashboardPage() {
         >
           + Registrar Movimiento
         </Button>
+        <Button
+          onClick={() => setIsSimulateModalOpen(true)}
+          variant="outline"
+          className="gap-2 border-indigo-200 text-indigo-700 hover:bg-indigo-50 dark:border-indigo-800 dark:text-indigo-300 dark:hover:bg-indigo-950"
+        >
+          ⚡ Simular Notificación Bancaria
+        </Button>
       </div>
+
+      {/* Smart Capture Inbox: Pending Drafts */}
+      {pendingDrafts.length > 0 && (
+        <Card className="border-indigo-300 bg-indigo-50/30 dark:bg-indigo-950/20 shadow-xs overflow-hidden">
+          <CardHeader className="flex flex-row items-center justify-between border-b border-indigo-100 dark:border-indigo-900/50 py-3 px-6">
+            <div className="flex items-center gap-2">
+              <span className="flex h-2.5 w-2.5 rounded-full bg-indigo-600 animate-pulse" />
+              <CardTitle className="text-base font-semibold text-indigo-950 dark:text-indigo-200">
+                Bandeja de Entrada: Movimientos Detectados ({pendingDrafts.length})
+              </CardTitle>
+            </div>
+            <span className="text-xs text-indigo-600 dark:text-indigo-400 font-medium">Requiere tu confirmación (Regla 9)</span>
+          </CardHeader>
+          <CardContent className="p-0 divide-y divide-indigo-100 dark:divide-indigo-900/30">
+            {pendingDrafts.map((draft) => {
+              const isIncome = draft.direction === "Income";
+              const selectedAccId = draftAccountSelection[draft.id] ||
+                draft.suggestedAccountId ||
+                accounts.find((a) => a.currency === draft.currency)?.id ||
+                accounts[0]?.id || "";
+
+              return (
+                <div key={draft.id} className="flex flex-col md:flex-row justify-between items-start md:items-center py-3.5 px-6 gap-3">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${isIncome ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-400" : "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-400"}`}>
+                        {isIncome ? "Ingreso detectado" : "Gasto detectado"}
+                      </span>
+                      <span className="text-xs px-1.5 py-0.5 bg-muted text-muted-foreground rounded-md">
+                        {draft.source}
+                      </span>
+                      {draft.reference && (
+                        <span className="text-xs font-mono text-muted-foreground">
+                          Ref: {draft.reference}
+                        </span>
+                      )}
+                      <span className="text-xs text-muted-foreground">
+                        {Math.round(draft.confidence * 100)}% confianza
+                      </span>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      Fecha detectada: {new Date(draft.estimatedDate).toLocaleString()} · {draft.linkedEventsCount} evento(s) vinculado(s)
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-3 w-full md:w-auto justify-between md:justify-end">
+                    <span className={`text-base font-mono font-bold ${isIncome ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
+                      {isIncome ? "+" : "-"}{draft.amount.toFixed(2)} {draft.currency}
+                    </span>
+
+                    <div className="flex items-center gap-2">
+                      {accounts.length > 0 && (
+                        <select
+                          value={selectedAccId}
+                          onChange={(e) => setDraftAccountSelection({ ...draftAccountSelection, [draft.id]: e.target.value })}
+                          className="h-8 rounded-md border border-input bg-background px-2 text-xs shadow-xs"
+                        >
+                          {accounts.map((a) => (
+                            <option key={a.id} value={a.id}>
+                              {a.name} ({a.currency})
+                            </option>
+                          ))}
+                        </select>
+                      )}
+
+                      <Button
+                        size="sm"
+                        onClick={() => handleConfirmDraft(draft)}
+                        className="h-8 px-3 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+                      >
+                        Confirmar
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleDiscardDraft(draft.id)}
+                        className="h-8 px-2 text-xs text-muted-foreground hover:text-destructive"
+                      >
+                        Descartar
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Accounts List */}
       <Card className="overflow-hidden shadow-xs">
@@ -495,6 +669,42 @@ export default function DashboardPage() {
                   </Button>
                   <Button type="submit" disabled={submitting} className="bg-emerald-600 hover:bg-emerald-700 text-white">
                     {submitting ? "Registrando..." : "Confirmar Movimiento"}
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Modal: Simulate Bank Notification */}
+      {isSimulateModalOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <Card className="w-full max-w-md shadow-xl bg-background border">
+            <CardHeader className="border-b">
+              <CardTitle className="text-lg">Simular Notificación Bancaria</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <form onSubmit={handleSimulateCapture} className="space-y-4">
+                <p className="text-xs text-muted-foreground">
+                  Ingresá el texto de una notificación bancaria de prueba (Android). El motor extraerá monto, moneda y sentido con reglas y creará un borrador en tu bandeja.
+                </p>
+                <div className="space-y-1.5">
+                  <Label htmlFor="simulateText">Texto de la notificación</Label>
+                  <Input
+                    id="simulateText"
+                    required
+                    value={simulateText}
+                    onChange={(e) => setSimulateText(e.target.value)}
+                    placeholder="Ej. Transferencia recibida por Bs. 150.00 de Juan. Ref: 887711"
+                  />
+                </div>
+                <div className="flex justify-end gap-2 pt-4 border-t">
+                  <Button type="button" variant="outline" onClick={() => setIsSimulateModalOpen(false)}>
+                    Cancelar
+                  </Button>
+                  <Button type="submit" disabled={submitting} className="bg-indigo-600 hover:bg-indigo-700 text-white">
+                    {submitting ? "Capturando..." : "Ingestar Evento"}
                   </Button>
                 </div>
               </form>

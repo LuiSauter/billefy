@@ -72,6 +72,34 @@ export interface GetTransactionsFilter {
   limit?: number;
 }
 
+export interface DraftDto {
+  id: string;
+  source: string;
+  status: "Review" | "Pending" | "Confirmed" | "Discarded";
+  direction: "Income" | "Expense";
+  amount: Decimal;
+  currency: string;
+  estimatedDate: string;
+  reference?: string;
+  fingerprint: string;
+  confidence: number;
+  suggestedAccountId?: string;
+  suggestedCategoryId?: string;
+  confirmedAccountId?: string;
+  confirmedCategoryId?: string;
+  ledgerTransactionId?: string;
+  createdAt: string;
+  confirmedAt?: string;
+  discardedAt?: string;
+  linkedEventsCount: number;
+}
+
+export interface ConfirmDraftRequest {
+  accountId: string;
+  categoryId?: string;
+  description?: string;
+}
+
 export interface ApiProblemDetails {
   type?: string;
   title?: string;
@@ -225,6 +253,61 @@ export class BillefyApiClient {
       ...t,
       amount: new Decimal(t.amount),
     }));
+  }
+
+  async getDrafts(
+    status?: "Pending" | "Review" | "Confirmed" | "Discarded",
+    limit?: number
+  ): Promise<DraftDto[]> {
+    interface RawDraftDto {
+      id: string;
+      source: string;
+      status: "Review" | "Pending" | "Confirmed" | "Discarded";
+      direction: "Income" | "Expense";
+      amount: number;
+      currency: string;
+      estimatedDate: string;
+      reference?: string;
+      fingerprint: string;
+      confidence: number;
+      suggestedAccountId?: string;
+      suggestedCategoryId?: string;
+      confirmedAccountId?: string;
+      confirmedCategoryId?: string;
+      ledgerTransactionId?: string;
+      createdAt: string;
+      confirmedAt?: string;
+      discardedAt?: string;
+      linkedEventsCount: number;
+    }
+
+    const params = new URLSearchParams();
+    if (status) params.set("status", status);
+    if (limit) params.set("limit", limit.toString());
+
+    const query = params.toString() ? `?${params.toString()}` : "";
+    const raw = await this.request<RawDraftDto[]>(`/v1/drafts${query}`);
+
+    return raw.map((d) => ({
+      ...d,
+      amount: new Decimal(d.amount),
+    }));
+  }
+
+  async confirmDraft(
+    id: string,
+    req: ConfirmDraftRequest
+  ): Promise<{ transactionId: string }> {
+    return this.request<{ transactionId: string }>(`/v1/drafts/${id}/confirm`, {
+      method: "POST",
+      body: JSON.stringify(req),
+    });
+  }
+
+  async discardDraft(id: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>(`/v1/drafts/${id}/discard`, {
+      method: "POST",
+    });
   }
 
   async getLatestRate(currency: string, baseCurrency: string = "USD"): Promise<RateSnapshotDto> {
