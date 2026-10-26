@@ -11,6 +11,7 @@
   <Folder Name="/src/Modules/Fx/">
     <Project Path="src/Modules/Fx/Fx.Contracts/Fx.Contracts.csproj" />
     <Project Path="src/Modules/Fx/Fx.Domain/Fx.Domain.csproj" />
+    <Project Path="src/Modules/Fx/Fx.Infrastructure/Fx.Infrastructure.csproj" />
   </Folder>
   <Folder Name="/src/Modules/Identity/">
     <Project Path="src/Modules/Identity/Identity.Contracts/Identity.Contracts.csproj" />
