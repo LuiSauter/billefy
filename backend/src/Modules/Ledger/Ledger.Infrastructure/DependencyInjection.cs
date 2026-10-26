@@ -1,8 +1,10 @@
 using Ledger.Application.Abstractions;
 using Ledger.Application.Accounts.CreateAccount;
+using Ledger.Application.Services;
 using Ledger.Application.Transactions.RegisterTransaction;
 using Ledger.Application.Transactions.RegisterTransfer;
 using Ledger.Application.Transactions.ReverseTransaction;
+using Ledger.Contracts;
 using Ledger.Infrastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -31,6 +33,9 @@ public static class DependencyInjection
         services.AddScoped<RegisterTransactionCommandHandler>();
         services.AddScoped<ReverseTransactionCommandHandler>();
         services.AddScoped<RegisterTransferCommandHandler>();
+
+        // Module interop contract
+        services.AddScoped<ILedgerModule, LedgerModule>();
 
         return services;
     }
