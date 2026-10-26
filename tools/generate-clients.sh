@@ -3,25 +3,18 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-echo "==> Building backend API to ensure OpenAPI specification is current..."
-dotnet build "${ROOT_DIR}/backend/src/Api/Api.csproj" -c Release --nologo
+echo "==> Exporting latest OpenAPI contract from API test harness..."
+dotnet test "${ROOT_DIR}/backend/tests/Api.Tests/Api.Tests.csproj" \
+  --filter "OpenApi_ShouldExposeValidSpecification" \
+  -c Release \
+  --nologo \
+  --verbosity quiet
 
 OPENAPI_PATH="${ROOT_DIR}/docs/openapi.json"
-echo "==> OpenAPI contract path: ${OPENAPI_PATH}"
-
-# Placeholder for Phase 1 openapi exporter & openapi-generator CLI
-if [ ! -f "${OPENAPI_PATH}" ]; then
-  echo "==> Initializing baseline openapi.json placeholder..."
-  cat <<'EOF' > "${OPENAPI_PATH}"
-{
-  "openapi": "3.0.1",
-  "info": {
-    "title": "Billefy API",
-    "version": "v1"
-  },
-  "paths": {}
-}
-EOF
+if [ ! -s "${OPENAPI_PATH}" ]; then
+  echo "Error: ${OPENAPI_PATH} was not generated or is empty." >&2
+  exit 1
 fi
 
-echo "==> API contract verified. Client generation will execute against ${OPENAPI_PATH}."
+echo "==> OpenAPI specification successfully exported to ${OPENAPI_PATH}."
+echo "==> Ready for client generation (TypeScript / Kotlin Multiplatform)."

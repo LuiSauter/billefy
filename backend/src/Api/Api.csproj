@@ -12,6 +12,11 @@
 
   <ItemGroup>
     <ProjectReference Include="..\BuildingBlocks\BuildingBlocks.csproj" />
+    <ProjectReference Include="..\Modules\Ledger\Ledger.Application\Ledger.Application.csproj" />
+    <ProjectReference Include="..\Modules\Ledger\Ledger.Infrastructure\Ledger.Infrastructure.csproj" />
+    <ProjectReference Include="..\Modules\Fx\Fx.Application\Fx.Application.csproj" />
+    <ProjectReference Include="..\Modules\Fx\Fx.Infrastructure\Fx.Infrastructure.csproj" />
+    <ProjectReference Include="..\Integrations\Billefy.Integrations.Fx\Billefy.Integrations.Fx.csproj" />
   </ItemGroup>
 
 </Project>

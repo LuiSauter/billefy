@@ -42,6 +42,7 @@
     <Project Path="src/Modules/Planning/Planning.Contracts/Planning.Contracts.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/Api.Tests/Api.Tests.csproj" />
     <Project Path="tests/Architecture.Tests/Architecture.Tests.csproj" />
     <Project Path="tests/BuildingBlocks.Tests/BuildingBlocks.Tests.csproj" />
     <Project Path="tests/Fx.Domain.Tests/Fx.Domain.Tests.csproj" />
