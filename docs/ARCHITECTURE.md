@@ -184,13 +184,13 @@ Source ─► Capture ─► Raw event ─► Parse ─► Normalize ─► Dedu
 
 ### 7.2 Exchange rates
 
-- A recurring job asks the `IRateSource` port for P2P ads per supported local currency and side (buy, sell). The Binance adapter implements the port against the unofficial endpoint.
-- Filter ads by minimum order amount and verified merchants, then take the **median of the first 10 to 20 ads**. Store the result in `exchange_rates` with source, side, sample size, and time. History is append-only.
+- A recurring job asks the `IRateSource` port for parallel rates (and market rates for single-rate countries). The primary adapter consumes **DolarApi** (e.g. `bo.dolarapi.com/v1/dolares/binance` for Binance P2P in Bolivia; `mx.dolarapi.com`, `br.dolarapi.com` for respective market rates), with direct Binance P2P scraping as a secondary/fallback adapter to avoid cloud datacenter IP blocks.
+- Rates with dual markets store explicit `buy` and `sell` rates in `exchange_rates` with source, side, sample size, and timestamp. History is append-only.
 - **Reading rule:** a user holding local currency sees the **buy** rate; a user holding US dollars sees the **sell** rate. Valuing local currency in dollars uses buy; valuing dollars in local currency uses sell.
 - **Staleness:** the API returns `stale = true` when the latest rate is older than a threshold. Clients show the timestamp and a warning.
-- **Fallback:** if the source fails, keep the last rate. Users can enter a manual rate (`source = manual`, scoped to the user).
-- **Support list:** a currency is offered with live rates only if a recent parallel rate exists for it. Others are shown without conversion.
-- Official rates are never used. Only the local currency and US dollars are converted in the MVP; other currencies are shown unconverted.
+- **Fallback:** if the source fails, keep the last rate in the database. Users can enter a manual rate (`source = manual`, scoped to the user).
+- **Support list:** a currency is offered with live rates only if a recent rate exists for it. Others are shown without conversion.
+- Official rates are never used for dual-currency markets (e.g., Bolivia). Only local currency and US dollars are converted in the MVP; other currencies are shown unconverted.
 
 ### 7.3 Lending
 
@@ -284,7 +284,7 @@ mobile/
 
 | Integration | Port | Failure strategy |
 |---|---|---|
-| Binance P2P rates | `IRateSource` | Keep last rate, mark stale, allow manual rate |
+| Parallel & Market FX (DolarApi / Binance P2P) | `IRateSource` | Keep last rate in DB, mark stale, allow manual rate |
 | Binance account (read-only) | `IExchangeAccountClient` | Backoff on rate limits, mark integration `error` on invalid keys, ask the user to reconnect |
 | WhatsApp | `IMessagingGateway` | Retry with backoff, mark message failed, continue without the bot |
 | LLM | `ILlmClient` | Fall back to review drafts, apply per-user daily caps, enforce consent and masking |

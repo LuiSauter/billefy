@@ -47,7 +47,7 @@ To change an accepted decision, add a new record that supersedes it. Do not edit
 
 ## ADR-004: Hangfire on PostgreSQL, no Redis
 
-**Status:** Proposed
+**Status:** Accepted
 
 **Context.** The system needs queued and recurring jobs (parsing, rate refresh, reminders, purges). Redis would add another service to operate.
 
@@ -59,7 +59,7 @@ To change an accepted decision, add a new record that supersedes it. Do not edit
 
 ## ADR-005: Immutable ledger with derived balances
 
-**Status:** Proposed
+**Status:** Accepted
 
 **Context.** Financial data must be auditable and consistent. Editing amounts in place hides history and creates reconciliation problems.
 
@@ -71,7 +71,7 @@ To change an accepted decision, add a new record that supersedes it. Do not edit
 
 ## ADR-006: Money is decimal; the server owns loan calculations
 
-**Status:** Proposed
+**Status:** Accepted
 
 **Context.** Rounding errors and divergent implementations in money logic erode trust.
 
@@ -105,15 +105,15 @@ To change an accepted decision, add a new record that supersedes it. Do not edit
 
 ---
 
-## ADR-009: Parallel-market rates from Binance P2P only
+## ADR-009: Parallel-market rates via IRateSource (DolarApi & Binance P2P)
 
 **Status:** Accepted
 
-**Context.** The product owner wants only parallel-market rates, never official ones. Binance P2P has no official public API for ads, so the endpoint is unofficial. A buy and sell distinction depends on the currency the user holds.
+**Context.** The product owner wants only parallel-market rates for currencies with dual markets (e.g., Bolivia), never official rates. Querying Binance P2P directly from a cloud VPS risks datacenter IP blocks and anti-bot challenges. A buy and sell distinction depends on the currency the user holds.
 
-**Decision.** Fetch rates through an `IRateSource` port with a Binance P2P adapter. Use the median of the first 10 to 20 filtered ads. Users holding local currency see buy; users holding US dollars see sell. Store history, show source and time, mark stale rates, and allow manual rates.
+**Decision.** Fetch rates through an `IRateSource` port. Use DolarApi (`bo.dolarapi.com/v1/dolares/binance` for Bolivia's Binance P2P rate; regional market endpoints for other countries) as the primary provider adapter, with direct Binance P2P scraping as an optional/secondary adapter. Users holding local currency see buy; users holding US dollars see sell. Store history in PostgreSQL, show source and time, mark stale rates, and allow manual rates.
 
-**Consequences.** Rates reflect the real market but depend on an unofficial source. The port, cache, history, and manual fallback limit the impact of changes or blocks. Only local currency and US dollars are converted at first.
+**Consequences.** Avoids datacenter IP scraping blocks from Binance by consuming DolarApi's normalized feeds. If DolarApi is unavailable, cached database rates and manual fallback take over. The port insulates domain logic from provider changes. Only local currency and US dollars are converted at first.
 
 ---
 
@@ -179,7 +179,7 @@ To change an accepted decision, add a new record that supersedes it. Do not edit
 
 ## ADR-015: Idempotency everywhere
 
-**Status:** Proposed
+**Status:** Accepted
 
 **Context.** Mobile clients retry, webhooks are redelivered, and jobs can run twice. Duplicates in financial data are costly.
 
