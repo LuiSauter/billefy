@@ -131,6 +131,121 @@ export interface StatementImportResult {
   duplicatesLinked: number;
 }
 
+export interface SimulateLoanRequest {
+  principal: number;
+  rate: number;
+  rateUnit?: "Monthly" | "Annual";
+  dayCount?: "Thirty360" | "Actual365";
+  frequency?: "Monthly" | "Biweekly" | "Weekly" | "Single";
+  template: "NoInterest" | "FlatOnInitialCapital" | "SimpleOnBalance" | "FixedInstallment" | "InterestOnly" | "SinglePaymentCompound";
+  totalInstallments: number;
+  disbursementDate?: string;
+  graceDays?: number;
+  lateRate?: number;
+}
+
+export interface InstallmentScheduleDto {
+  number: number;
+  dueDate: string;
+  principal: number;
+  interest: number;
+  total: number;
+  balanceAfter: number;
+}
+
+export interface LoanScheduleDto {
+  installments: InstallmentScheduleDto[];
+  totalPrincipal: number;
+  totalInterest: number;
+  totalToPay: number;
+  annualEffectiveRate: number;
+}
+
+export interface CreateLoanRequest {
+  counterpartyName: string;
+  type: "Lent" | "Borrowed";
+  template: string;
+  principal: number;
+  currency: string;
+  interestRate: number;
+  rateUnit?: string;
+  dayCount?: string;
+  frequency?: string;
+  totalInstallments: number;
+  disbursementDate?: string;
+  disbursementAccountId?: string;
+  counterpartyNotes?: string;
+  graceDays?: number;
+  lateRate?: number;
+}
+
+export interface LoanSummaryDto {
+  id: string;
+  counterpartyId: string;
+  counterpartyName: string;
+  type: "Lent" | "Borrowed";
+  template: string;
+  status: string;
+  principal: Decimal;
+  currency: string;
+  interestRate: number;
+  annualEffectiveRate: number;
+  remainingPrincipal: Decimal;
+  disbursementDate: string;
+  firstDueDate: string;
+  totalInstallments: number;
+  createdAt: string;
+}
+
+export interface PaymentAllocationDto {
+  installmentId: string;
+  installmentNumber: number;
+  toLateInterest: number;
+  toInterest: number;
+  toPrincipal: number;
+  remainingBalanceAfter: number;
+}
+
+export interface LoanDetailDto {
+  summary: LoanSummaryDto;
+  installments: {
+    id: string;
+    number: number;
+    dueDate: string;
+    expectedPrincipal: Decimal;
+    expectedInterest: Decimal;
+    expectedTotal: Decimal;
+    paidPrincipal: Decimal;
+    paidInterest: Decimal;
+    paidLateInterest: Decimal;
+    remainingPrincipal: Decimal;
+    status: string;
+  }[];
+  payments: {
+    id: string;
+    amount: Decimal;
+    currency: string;
+    paymentDate: string;
+    note?: string;
+    allocations: PaymentAllocationDto[];
+  }[];
+}
+
+export interface RegisterLoanPaymentRequest {
+  amount: number;
+  paymentDate?: string;
+  accountId?: string;
+  note?: string;
+}
+
+export interface LoanPaymentResultDto {
+  paymentId: string;
+  amountPaid: number;
+  remainingPrincipal: number;
+  loanStatus: string;
+  allocations: PaymentAllocationDto[];
+}
+
 export interface ApiProblemDetails {
   type?: string;
   title?: string;
@@ -355,6 +470,137 @@ export class BillefyApiClient {
     req: ImportStatementCsvRequest
   ): Promise<StatementImportResult> {
     return this.request<StatementImportResult>("/v1/ingestion/statements/import-csv", {
+      method: "POST",
+      body: JSON.stringify(req),
+    });
+  }
+
+  async simulateLoan(req: SimulateLoanRequest): Promise<LoanScheduleDto> {
+    return this.request<LoanScheduleDto>("/v1/loans/simulate", {
+      method: "POST",
+      body: JSON.stringify(req),
+    });
+  }
+
+  async createLoan(req: CreateLoanRequest): Promise<{ id: string }> {
+    return this.request<{ id: string }>("/v1/loans", {
+      method: "POST",
+      body: JSON.stringify(req),
+    });
+  }
+
+  async getLoans(type?: "Lent" | "Borrowed", status?: string): Promise<LoanSummaryDto[]> {
+    interface RawLoanSummary {
+      id: string;
+      counterpartyId: string;
+      counterpartyName: string;
+      type: "Lent" | "Borrowed";
+      template: string;
+      status: string;
+      principal: number;
+      currency: string;
+      interestRate: number;
+      annualEffectiveRate: number;
+      remainingPrincipal: number;
+      disbursementDate: string;
+      firstDueDate: string;
+      totalInstallments: number;
+      createdAt: string;
+    }
+
+    const params = new URLSearchParams();
+    if (type) params.set("type", type);
+    if (status) params.set("status", status);
+
+    const query = params.toString() ? `?${params.toString()}` : "";
+    const raw = await this.request<RawLoanSummary[]>(`/v1/loans${query}`);
+
+    return raw.map((l) => ({
+      ...l,
+      principal: new Decimal(l.principal),
+      remainingPrincipal: new Decimal(l.remainingPrincipal),
+    }));
+  }
+
+  async getLoanById(id: string): Promise<LoanDetailDto> {
+    interface RawLoanDetail {
+      summary: {
+        id: string;
+        counterpartyId: string;
+        counterpartyName: string;
+        type: "Lent" | "Borrowed";
+        template: string;
+        status: string;
+        principal: number;
+        currency: string;
+        interestRate: number;
+        annualEffectiveRate: number;
+        remainingPrincipal: number;
+        disbursementDate: string;
+        firstDueDate: string;
+        totalInstallments: number;
+        createdAt: string;
+      };
+      installments: {
+        id: string;
+        number: number;
+        dueDate: string;
+        expectedPrincipal: number;
+        expectedInterest: number;
+        expectedTotal: number;
+        paidPrincipal: number;
+        paidInterest: number;
+        paidLateInterest: number;
+        remainingPrincipal: number;
+        status: string;
+      }[];
+      payments: {
+        id: string;
+        amount: number;
+        currency: string;
+        paymentDate: string;
+        note?: string;
+        allocations: {
+          installmentId: string;
+          installmentNumber: number;
+          toLateInterest: number;
+          toInterest: number;
+          toPrincipal: number;
+          remainingBalanceAfter: number;
+        }[];
+      }[];
+    }
+
+    const raw = await this.request<RawLoanDetail>(`/v1/loans/${id}`);
+
+    return {
+      summary: {
+        ...raw.summary,
+        principal: new Decimal(raw.summary.principal),
+        remainingPrincipal: new Decimal(raw.summary.remainingPrincipal),
+      },
+      installments: raw.installments.map((i) => ({
+        ...i,
+        expectedPrincipal: new Decimal(i.expectedPrincipal),
+        expectedInterest: new Decimal(i.expectedInterest),
+        expectedTotal: new Decimal(i.expectedTotal),
+        paidPrincipal: new Decimal(i.paidPrincipal),
+        paidInterest: new Decimal(i.paidInterest),
+        paidLateInterest: new Decimal(i.paidLateInterest),
+        remainingPrincipal: new Decimal(i.remainingPrincipal),
+      })),
+      payments: raw.payments.map((p) => ({
+        ...p,
+        amount: new Decimal(p.amount),
+      })),
+    };
+  }
+
+  async registerLoanPayment(
+    loanId: string,
+    req: RegisterLoanPaymentRequest
+  ): Promise<LoanPaymentResultDto> {
+    return this.request<LoanPaymentResultDto>(`/v1/loans/${loanId}/payments`, {
       method: "POST",
       body: JSON.stringify(req),
     });

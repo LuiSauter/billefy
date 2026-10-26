@@ -33,8 +33,10 @@
     <Project Path="src/Modules/Ledger/Ledger.Infrastructure/Ledger.Infrastructure.csproj" />
   </Folder>
   <Folder Name="/src/Modules/Lending/">
+    <Project Path="src/Modules/Lending/Lending.Application/Lending.Application.csproj" />
     <Project Path="src/Modules/Lending/Lending.Contracts/Lending.Contracts.csproj" />
     <Project Path="src/Modules/Lending/Lending.Domain/Lending.Domain.csproj" />
+    <Project Path="src/Modules/Lending/Lending.Infrastructure/Lending.Infrastructure.csproj" />
   </Folder>
   <Folder Name="/src/Modules/Messaging/">
     <Project Path="src/Modules/Messaging/Messaging.Contracts/Messaging.Contracts.csproj" />

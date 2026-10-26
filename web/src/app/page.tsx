@@ -10,6 +10,10 @@ import {
   RateSnapshotDto,
   TransactionDto,
   DraftDto,
+  LoanSummaryDto,
+  LoanDetailDto,
+  LoanScheduleDto,
+  SimulateLoanRequest,
 } from "../api/client";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -28,6 +32,7 @@ export default function DashboardPage() {
   const [accounts, setAccounts] = useState<AccountDto[]>([]);
   const [transactions, setTransactions] = useState<TransactionDto[]>([]);
   const [drafts, setDrafts] = useState<DraftDto[]>([]);
+  const [loans, setLoans] = useState<LoanSummaryDto[]>([]);
   const [rate, setRate] = useState<RateSnapshotDto | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -38,6 +43,9 @@ export default function DashboardPage() {
   const [isSimulateModalOpen, setIsSimulateModalOpen] = useState(false);
   const [isReconcileModalOpen, setIsReconcileModalOpen] = useState(false);
   const [isCsvModalOpen, setIsCsvModalOpen] = useState(false);
+  const [isLoanModalOpen, setIsLoanModalOpen] = useState(false);
+  const [isLoanPaymentModalOpen, setIsLoanPaymentModalOpen] = useState(false);
+  const [isLoanDetailModalOpen, setIsLoanDetailModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   // Form states
@@ -63,6 +71,24 @@ export default function DashboardPage() {
   const [csvAccountId, setCsvAccountId] = useState("");
   const [csvContent, setCsvContent] = useState(SAMPLE_CSV);
   const [csvFileName, setCsvFileName] = useState("extracto_bancario.csv");
+
+  // Loan state
+  const [loanCounterparty, setLoanCounterparty] = useState("");
+  const [loanType, setLoanType] = useState<"Lent" | "Borrowed">("Lent");
+  const [loanTemplate, setLoanTemplate] = useState("FixedInstallment");
+  const [loanPrincipal, setLoanPrincipal] = useState("1000");
+  const [loanCurrency, setLoanCurrency] = useState("BOB");
+  const [loanRate, setLoanRate] = useState("0.02");
+  const [loanInstallments, setLoanInstallments] = useState("12");
+  const [loanDisbursementAcc, setLoanDisbursementAcc] = useState("");
+  const [simulatedSchedule, setSimulatedSchedule] = useState<LoanScheduleDto | null>(null);
+
+  // Selected Loan for Payment / Detail
+  const [selectedLoanId, setSelectedLoanId] = useState("");
+  const [selectedLoanDetail, setSelectedLoanDetail] = useState<LoanDetailDto | null>(null);
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [paymentAccountId, setPaymentAccountId] = useState("");
+  const [paymentNote, setPaymentNote] = useState("");
 
   // Initialize User ID from localStorage or generate fresh
   useEffect(() => {
@@ -91,16 +117,18 @@ export default function DashboardPage() {
     setError(null);
 
     try {
-      const [accountsData, txnsData, draftsData, rateData] = await Promise.all([
+      const [accountsData, txnsData, draftsData, loansData, rateData] = await Promise.all([
         client.getAccounts(),
         client.getTransactions({ limit: 20 }),
         client.getDrafts(),
+        client.getLoans(),
         client.getLatestRate("BOB", "USD").catch(() => null),
       ]);
 
       setAccounts(accountsData);
       setTransactions(txnsData);
       setDrafts(draftsData);
+      setLoans(loansData);
       setRate(rateData);
 
       if (accountsData.length > 0 && !txnAccountId) {
@@ -152,7 +180,6 @@ export default function DashboardPage() {
 
     let consolidatedUsd = usdTotal;
     if (rate && rate.appliedRate > 0) {
-      // Rule 19: BOB in USD uses Buy rate: bob / buyRate
       const bobValuedInUsd = bobTotal.dividedBy(new Decimal(rate.appliedRate));
       consolidatedUsd = usdTotal.plus(bobValuedInUsd);
     }
@@ -355,6 +382,111 @@ export default function DashboardPage() {
     }
   };
 
+  // Loan simulation
+  const handleSimulateSchedule = async () => {
+    if (!client) return;
+
+    const principal = parseFloat(loanPrincipal);
+    const rateVal = parseFloat(loanRate);
+    const installments = parseInt(loanInstallments, 10);
+
+    if (isNaN(principal) || principal <= 0 || isNaN(installments) || installments < 1) {
+      alert("Por favor verifica los datos del préstamo.");
+      return;
+    }
+
+    try {
+      const schedule = await client.simulateLoan({
+        principal,
+        rate: isNaN(rateVal) ? 0 : rateVal,
+        template: loanTemplate as SimulateLoanRequest["template"],
+        totalInstallments: installments,
+      });
+      setSimulatedSchedule(schedule);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Error al simular el cronograma.");
+    }
+  };
+
+  const handleCreateLoanSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!client || !loanCounterparty.trim()) return;
+
+    const principal = parseFloat(loanPrincipal);
+    const rateVal = parseFloat(loanRate);
+    const installments = parseInt(loanInstallments, 10);
+
+    setSubmitting(true);
+    try {
+      await client.createLoan({
+        counterpartyName: loanCounterparty.trim(),
+        type: loanType,
+        template: loanTemplate,
+        principal,
+        currency: loanCurrency,
+        interestRate: isNaN(rateVal) ? 0 : rateVal,
+        totalInstallments: installments,
+        disbursementAccountId: loanDisbursementAcc || undefined,
+      });
+
+      setIsLoanModalOpen(false);
+      setSimulatedSchedule(null);
+      setLoanCounterparty("");
+      await loadData();
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Error al crear el préstamo.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const openLoanDetails = async (loanId: string) => {
+    if (!client) return;
+    try {
+      const detail = await client.getLoanById(loanId);
+      setSelectedLoanDetail(detail);
+      setIsLoanDetailModalOpen(true);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Error al cargar el detalle del préstamo.");
+    }
+  };
+
+  const openPaymentModal = (loanId: string) => {
+    setSelectedLoanId(loanId);
+    setPaymentAmount("");
+    setPaymentNote("");
+    setPaymentAccountId(accounts[0]?.id || "");
+    setIsLoanPaymentModalOpen(true);
+  };
+
+  const handleLoanPaymentSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!client || !selectedLoanId) return;
+
+    const amount = parseFloat(paymentAmount);
+    if (isNaN(amount) || amount <= 0) {
+      alert("Ingresa un monto de pago válido.");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const res = await client.registerLoanPayment(selectedLoanId, {
+        amount,
+        accountId: paymentAccountId || undefined,
+        note: paymentNote.trim() || undefined,
+      });
+
+      setIsLoanPaymentModalOpen(false);
+      alert(`Pago registrado con éxito. Capital amortizado: ${res.allocations.reduce((sum, a) => sum + a.toPrincipal, 0).toFixed(2)}. Saldo restante: ${res.remainingPrincipal.toFixed(2)}.`);
+      await loadData();
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Error al registrar el pago.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <div className="max-w-5xl mx-auto p-6 md:p-8 space-y-8">
       {/* Header */}
@@ -362,7 +494,7 @@ export default function DashboardPage() {
         <div>
           <h1 className="text-3xl font-extrabold tracking-tight text-foreground">Billefy</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Gestor de finanzas personales multimoneda · Smart Capture, Extractos & Reconciliación
+            Gestor de finanzas personales multimoneda · Smart Capture, Préstamos (Lending) & Ledger Inmutable
           </p>
         </div>
         <div className="bg-muted px-4 py-2.5 rounded-lg text-sm border shadow-xs">
@@ -438,6 +570,16 @@ export default function DashboardPage() {
           className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
         >
           + Registrar Movimiento
+        </Button>
+        <Button
+          onClick={() => {
+            setSimulatedSchedule(null);
+            setIsLoanModalOpen(true);
+          }}
+          variant="outline"
+          className="gap-2 border-amber-300 text-amber-800 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-300 dark:hover:bg-amber-950"
+        >
+          🤝 Nuevo Préstamo / Simular
         </Button>
         <Button
           onClick={() => setIsCsvModalOpen(true)}
@@ -543,6 +685,85 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Lending Section: Active Loans and Debts */}
+      <Card className="overflow-hidden shadow-xs">
+        <CardHeader className="flex flex-row items-center justify-between border-b bg-amber-50/40 dark:bg-amber-950/20 py-3 px-6">
+          <div>
+            <CardTitle className="text-base font-semibold text-amber-950 dark:text-amber-200">
+              Préstamos y Deudas ({loans.length})
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">Amortización exacta, cuotas y TEA</p>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              setSimulatedSchedule(null);
+              setIsLoanModalOpen(true);
+            }}
+            className="text-xs h-7"
+          >
+            + Simular / Crear
+          </Button>
+        </CardHeader>
+        <CardContent className="p-0 divide-y">
+          {loans.length === 0 && !loading ? (
+            <div className="py-8 px-4 text-center text-muted-foreground text-sm">
+              No tienes préstamos ni deudas registradas.
+            </div>
+          ) : (
+            loans.map((loan) => {
+              const isLent = loan.type === "Lent";
+              return (
+                <div key={loan.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center py-4 px-6 hover:bg-muted/10 transition-colors gap-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${isLent ? "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300" : "bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300"}`}>
+                        {isLent ? "Dinero Prestado (Cobrar)" : "Deuda (Pagar)"}
+                      </span>
+                      <span className="font-semibold text-sm text-foreground">{loan.counterpartyName}</span>
+                      <span className="text-xs font-mono text-muted-foreground">
+                        TEA: {(loan.annualEffectiveRate * 100).toFixed(2)}%
+                      </span>
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-0.5">
+                      {loan.template} · {loan.totalInstallments} cuotas · Desembolso: {loan.disbursementDate} · Estado: {loan.status}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4 self-end sm:self-auto">
+                    <div className="text-right">
+                      <div className="text-xs text-muted-foreground">Saldo Restante</div>
+                      <div className="text-base font-mono font-bold text-foreground">
+                        {loan.remainingPrincipal.toFixed(2)} {loan.currency}
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => openLoanDetails(loan.id)}
+                        className="text-xs h-8 px-2.5"
+                      >
+                        Ver Cuotas
+                      </Button>
+                      {loan.status !== "Paid" && loan.status !== "Cancelled" && (
+                        <Button
+                          size="sm"
+                          onClick={() => openPaymentModal(loan.id)}
+                          className="text-xs h-8 px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+                        >
+                          Registrar Pago
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </CardContent>
+      </Card>
 
       {/* Accounts List */}
       <Card className="overflow-hidden shadow-xs">
@@ -900,6 +1121,319 @@ export default function DashboardPage() {
                   </Button>
                   <Button type="submit" disabled={submitting}>
                     {submitting ? "Importando..." : "Importar y Deduplicar"}
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Modal: Create / Simulate Loan */}
+      {isLoanModalOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
+          <Card className="w-full max-w-2xl shadow-xl bg-background border my-8">
+            <CardHeader className="border-b">
+              <CardTitle className="text-lg">Simular y Registrar Préstamo / Deuda</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <form onSubmit={handleCreateLoanSubmit} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="loanCounterparty">Nombre de la Persona / Contraparte</Label>
+                    <Input
+                      id="loanCounterparty"
+                      required
+                      value={loanCounterparty}
+                      onChange={(e) => setLoanCounterparty(e.target.value)}
+                      placeholder="Ej. Carlos Méndez"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="loanType">Tipo de Operación</Label>
+                    <select
+                      id="loanType"
+                      value={loanType}
+                      onChange={(e) => setLoanType(e.target.value as "Lent" | "Borrowed")}
+                      className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    >
+                      <option value="Lent">Dinero que yo presto (Cobrar)</option>
+                      <option value="Borrowed">Dinero que me prestaron (Pagar)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="loanPrincipal">Monto Capital</Label>
+                    <Input
+                      id="loanPrincipal"
+                      type="number"
+                      step="0.01"
+                      required
+                      value={loanPrincipal}
+                      onChange={(e) => setLoanPrincipal(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="loanCurrency">Moneda</Label>
+                    <select
+                      id="loanCurrency"
+                      value={loanCurrency}
+                      onChange={(e) => setLoanCurrency(e.target.value)}
+                      className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    >
+                      <option value="BOB">Bolivianos (BOB)</option>
+                      <option value="USD">Dólares (USD)</option>
+                      <option value="USDT">Tether (USDT)</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="loanTemplate">Sistema de Amortización</Label>
+                    <select
+                      id="loanTemplate"
+                      value={loanTemplate}
+                      onChange={(e) => setLoanTemplate(e.target.value)}
+                      className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    >
+                      <option value="FixedInstallment">Cuota Fija (Francés)</option>
+                      <option value="SimpleOnBalance">Capital Fijo (Alemán)</option>
+                      <option value="FlatOnInitialCapital">Interés Fijo s/ Capital (Flat)</option>
+                      <option value="InterestOnly">Solo Intereses (Americano)</option>
+                      <option value="NoInterest">Sin Interés</option>
+                      <option value="SinglePaymentCompound">Pago Único Capitalizado</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="loanRate">Tasa de Interés Mensual (ej. 0.02 = 2%)</Label>
+                    <Input
+                      id="loanRate"
+                      type="number"
+                      step="0.001"
+                      value={loanRate}
+                      onChange={(e) => setLoanRate(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="loanInstallments">Número de Cuotas</Label>
+                    <Input
+                      id="loanInstallments"
+                      type="number"
+                      min="1"
+                      max="120"
+                      value={loanInstallments}
+                      onChange={(e) => setLoanInstallments(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="loanDisbursementAcc">Cuenta de desembolso en el Libro Mayor (opcional)</Label>
+                  <select
+                    id="loanDisbursementAcc"
+                    value={loanDisbursementAcc}
+                    onChange={(e) => setLoanDisbursementAcc(e.target.value)}
+                    className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  >
+                    <option value="">(Sin imputar en cuenta del Libro Mayor)</option>
+                    {accounts.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.name} ({a.currency} - Saldo: {a.balance.toFixed(2)})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex gap-2 pt-2">
+                  <Button type="button" variant="outline" onClick={handleSimulateSchedule} className="text-xs">
+                    🔍 Calcular Cronograma y TEA
+                  </Button>
+                </div>
+
+                {/* Simulated Schedule Preview */}
+                {simulatedSchedule && (
+                  <div className="mt-4 p-4 bg-muted/40 rounded-lg border space-y-3">
+                    <div className="flex justify-between items-center text-xs font-semibold">
+                      <span>Total Intereses: <span className="font-mono text-primary">{simulatedSchedule.totalInterest.toFixed(2)} {loanCurrency}</span></span>
+                      <span>Total a Pagar: <span className="font-mono text-primary">{simulatedSchedule.totalToPay.toFixed(2)} {loanCurrency}</span></span>
+                      <span>TEA (Costo Real): <span className="font-mono text-amber-600 font-bold">{(simulatedSchedule.annualEffectiveRate * 100).toFixed(2)}%</span></span>
+                    </div>
+
+                    <div className="max-h-48 overflow-y-auto divide-y text-xs font-mono">
+                      <div className="grid grid-cols-5 font-bold py-1 text-muted-foreground">
+                        <span>#</span>
+                        <span>Vencimiento</span>
+                        <span>Capital</span>
+                        <span>Interés</span>
+                        <span>Total Cuota</span>
+                      </div>
+                      {simulatedSchedule.installments.map((inst) => (
+                        <div key={inst.number} className="grid grid-cols-5 py-1">
+                          <span>Cuota {inst.number}</span>
+                          <span>{inst.dueDate}</span>
+                          <span>{inst.principal.toFixed(2)}</span>
+                          <span>{inst.interest.toFixed(2)}</span>
+                          <span className="font-bold">{inst.total.toFixed(2)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex justify-end gap-2 pt-4 border-t">
+                  <Button type="button" variant="outline" onClick={() => setIsLoanModalOpen(false)}>
+                    Cancelar
+                  </Button>
+                  <Button type="submit" disabled={submitting}>
+                    {submitting ? "Creando..." : "Guardar Préstamo"}
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Modal: Loan Installments Details */}
+      {isLoanDetailModalOpen && selectedLoanDetail && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
+          <Card className="w-full max-w-3xl shadow-xl bg-background border my-8">
+            <CardHeader className="border-b flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-lg">Detalle del Préstamo: {selectedLoanDetail.summary.counterpartyName}</CardTitle>
+                <p className="text-xs text-muted-foreground">
+                  {selectedLoanDetail.summary.type === "Lent" ? "Dinero que presté" : "Deuda"} · {selectedLoanDetail.summary.template} · TEA: {(selectedLoanDetail.summary.annualEffectiveRate * 100).toFixed(2)}%
+                </p>
+              </div>
+              <Button size="sm" variant="ghost" onClick={() => setIsLoanDetailModalOpen(false)}>
+                ✕
+              </Button>
+            </CardHeader>
+            <CardContent className="pt-6 space-y-4">
+              <div className="grid grid-cols-3 gap-4 p-3 bg-muted/40 rounded-lg text-xs">
+                <div>Capital Inicial: <span className="font-mono font-bold">{selectedLoanDetail.summary.principal.toFixed(2)} {selectedLoanDetail.summary.currency}</span></div>
+                <div>Saldo Pendiente: <span className="font-mono font-bold text-amber-600">{selectedLoanDetail.summary.remainingPrincipal.toFixed(2)} {selectedLoanDetail.summary.currency}</span></div>
+                <div>Cuotas Totales: <span className="font-bold">{selectedLoanDetail.summary.totalInstallments}</span></div>
+              </div>
+
+              <div className="space-y-2">
+                <h4 className="text-sm font-semibold">Cronograma de Cuotas</h4>
+                <div className="max-h-60 overflow-y-auto border rounded-md divide-y text-xs font-mono">
+                  <div className="grid grid-cols-6 font-bold py-2 px-3 bg-muted/30 text-muted-foreground">
+                    <span>#</span>
+                    <span>Vence</span>
+                    <span>Esperado</span>
+                    <span>Cap. Pagado</span>
+                    <span>Int. Pagado</span>
+                    <span>Estado</span>
+                  </div>
+                  {selectedLoanDetail.installments.map((inst) => (
+                    <div key={inst.id} className="grid grid-cols-6 py-2 px-3 items-center">
+                      <span>Cuota {inst.number}</span>
+                      <span>{inst.dueDate}</span>
+                      <span>{inst.expectedTotal.toFixed(2)}</span>
+                      <span>{inst.paidPrincipal.toFixed(2)}</span>
+                      <span>{inst.paidInterest.toFixed(2)}</span>
+                      <span className={`px-1.5 py-0.5 rounded text-[10px] w-fit font-sans font-semibold ${inst.status === "Paid" ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300" : inst.status === "Overdue" ? "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300" : "bg-muted text-muted-foreground"}`}>
+                        {inst.status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {selectedLoanDetail.payments.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="text-sm font-semibold">Pagos Registrados ({selectedLoanDetail.payments.length})</h4>
+                  <div className="max-h-40 overflow-y-auto border rounded-md divide-y text-xs font-mono">
+                    {selectedLoanDetail.payments.map((pay) => (
+                      <div key={pay.id} className="py-2 px-3 flex justify-between items-center">
+                        <div>
+                          <div>Fecha: {new Date(pay.paymentDate).toLocaleDateString()} {pay.note && `· ${pay.note}`}</div>
+                          <div className="text-[11px] text-muted-foreground">
+                            {pay.allocations.map((a) => `Cuota ${a.installmentNumber}: Cap ${a.toPrincipal.toFixed(2)} + Int ${a.toInterest.toFixed(2)}`).join(" | ")}
+                          </div>
+                        </div>
+                        <div className="font-bold text-emerald-600">
+                          +{pay.amount.toFixed(2)} {pay.currency}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Modal: Register Loan Payment */}
+      {isLoanPaymentModalOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <Card className="w-full max-w-md shadow-xl bg-background border">
+            <CardHeader className="border-b">
+              <CardTitle className="text-lg">Registrar Pago a Préstamo</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <form onSubmit={handleLoanPaymentSubmit} className="space-y-4">
+                <p className="text-xs text-muted-foreground">
+                  El pago se imputará en cascada estricta (Mora $\rightarrow$ Interés Corriente $\rightarrow$ Capital) cubriendo las cuotas más antiguas primero (LOAN_ENGINE.md).
+                </p>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="paymentAmount">Monto Pagado</Label>
+                  <Input
+                    id="paymentAmount"
+                    type="number"
+                    step="0.01"
+                    required
+                    value={paymentAmount}
+                    onChange={(e) => setPaymentAmount(e.target.value)}
+                    placeholder="0.00"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="paymentAccount">Imputar en Cuenta del Libro Mayor (opcional)</Label>
+                  <select
+                    id="paymentAccount"
+                    value={paymentAccountId}
+                    onChange={(e) => setPaymentAccountId(e.target.value)}
+                    className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  >
+                    <option value="">(Sin registrar movimiento en cuenta bancaria)</option>
+                    {accounts.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.name} ({a.currency})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="paymentNote">Nota del Pago (opcional)</Label>
+                  <Input
+                    id="paymentNote"
+                    type="text"
+                    value={paymentNote}
+                    onChange={(e) => setPaymentNote(e.target.value)}
+                    placeholder="Ej. Pago cuota 1 en efectivo"
+                  />
+                </div>
+
+                <div className="flex justify-end gap-2 pt-4 border-t">
+                  <Button type="button" variant="outline" onClick={() => setIsLoanPaymentModalOpen(false)}>
+                    Cancelar
+                  </Button>
+                  <Button type="submit" disabled={submitting} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+                    {submitting ? "Aplicando..." : "Confirmar Pago"}
                   </Button>
                 </div>
               </form>

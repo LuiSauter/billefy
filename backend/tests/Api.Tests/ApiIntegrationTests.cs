@@ -14,6 +14,8 @@ using Ingestion.Application.Services;
 using Ledger.Infrastructure;
 using Ingestion.Contracts;
 using Ingestion.Infrastructure;
+using Lending.Contracts;
+using Lending.Infrastructure;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Data.Sqlite;
@@ -28,12 +30,14 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
     private readonly SqliteConnection _ledgerConnection = new("DataSource=:memory:");
     private readonly SqliteConnection _fxConnection = new("DataSource=:memory:");
     private readonly SqliteConnection _ingestionConnection = new("DataSource=:memory:");
+    private readonly SqliteConnection _lendingConnection = new("DataSource=:memory:");
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         _ledgerConnection.Open();
         _fxConnection.Open();
         _ingestionConnection.Open();
+        _lendingConnection.Open();
 
         // Clear connection string so Npgsql is not registered by default
         builder.UseSetting("ConnectionStrings:PostgreSQL", string.Empty);
@@ -44,6 +48,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             services.AddDbContext<LedgerDbContext>(options => options.UseSqlite(_ledgerConnection));
             services.AddDbContext<FxDbContext>(options => options.UseSqlite(_fxConnection));
             services.AddDbContext<IngestionDbContext>(options => options.UseSqlite(_ingestionConnection));
+            services.AddDbContext<LendingDbContext>(options => options.UseSqlite(_lendingConnection));
 
             // Ensure databases created and seed Fx market rate
             var sp = services.BuildServiceProvider();
@@ -64,6 +69,9 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 
             var ingestionDb = scope.ServiceProvider.GetRequiredService<IngestionDbContext>();
             ingestionDb.Database.EnsureCreated();
+
+            var lendingDb = scope.ServiceProvider.GetRequiredService<LendingDbContext>();
+            lendingDb.Database.EnsureCreated();
         });
     }
 
@@ -73,6 +81,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
         _ledgerConnection.Dispose();
         _fxConnection.Dispose();
         _ingestionConnection.Dispose();
+        _lendingConnection.Dispose();
     }
 }
 
@@ -457,6 +466,96 @@ public class ApiIntegrationTests : IClassFixture<CustomWebApplicationFactory>
         retryResult.Warning.Should().NotBeNullOrEmpty();
     }
 
+    [Fact]
+    public async Task LoanLifecycle_SimulateCreateAndRegisterPayment_ShouldCascadeAllocate()
+    {
+        // 1. Simulate Loan
+        var simReq = new SimulateLoanRequest(
+            Principal: 1000m,
+            Rate: 0.05m,
+            RateUnit: "Monthly",
+            DayCount: "Thirty360",
+            Frequency: "Monthly",
+            Template: "SimpleOnBalance",
+            TotalInstallments: 4,
+            DisbursementDate: new DateOnly(2026, 1, 1));
+
+        using var simMsg = new HttpRequestMessage(HttpMethod.Post, "/v1/loans/simulate")
+        {
+            Content = JsonContent.Create(simReq)
+        };
+        var simRes = await _client.SendAsync(simMsg);
+        simRes.StatusCode.Should().Be(HttpStatusCode.OK);
+        var simSchedule = await simRes.Content.ReadFromJsonAsync<LoanScheduleDto>();
+        simSchedule!.TotalInterest.Should().Be(125.00m);
+        simSchedule.AnnualEffectiveRate.Should().Be(0.795856m);
+
+        // 2. Create Loan (Vector C)
+        var createLoanReq = new CreateLoanRequest(
+            CounterpartyName: "Carlos Méndez",
+            Type: "Lent",
+            Template: "SimpleOnBalance",
+            Principal: 1000m,
+            Currency: "BOB",
+            InterestRate: 0.05m,
+            RateUnit: "Monthly",
+            DayCount: "Thirty360",
+            Frequency: "Monthly",
+            TotalInstallments: 4,
+            DisbursementDate: new DateOnly(2026, 1, 1),
+            LateRate: 0.03m,
+            GraceDays: 0);
+
+        using var createMsg = new HttpRequestMessage(HttpMethod.Post, "/v1/loans")
+        {
+            Content = JsonContent.Create(createLoanReq)
+        };
+        createMsg.Headers.Add("X-User-Id", _testUserId.ToString());
+        var createRes = await _client.SendAsync(createMsg);
+        createRes.StatusCode.Should().Be(HttpStatusCode.Created);
+        var createdLoan = await createRes.Content.ReadFromJsonAsync<CreatedLoanResponse>();
+        var loanId = createdLoan!.Id;
+
+        // 3. Query Loan details
+        using var getLoanMsg = new HttpRequestMessage(HttpMethod.Get, $"/v1/loans/{loanId}");
+        getLoanMsg.Headers.Add("X-User-Id", _testUserId.ToString());
+        var getLoanRes = await _client.SendAsync(getLoanMsg);
+        getLoanRes.StatusCode.Should().Be(HttpStatusCode.OK);
+        var loanDetails = await getLoanRes.Content.ReadFromJsonAsync<LoanDetailDto>();
+        loanDetails!.Summary.RemainingPrincipal.Should().Be(1000m);
+        loanDetails.Installments.Should().HaveCount(4);
+
+        // 4. Register Payment 10 days late (Vector H)
+        // Installment 1 due on 2026-02-01, payment on 2026-02-11 (10 days late)
+        var payReq = new RegisterLoanPaymentRequest(
+            Amount: 100.00m,
+            PaymentDate: new DateTime(2026, 2, 11, 12, 0, 0, DateTimeKind.Utc),
+            AccountId: null,
+            Note: "Primer pago parcial");
+
+        using var payMsg = new HttpRequestMessage(HttpMethod.Post, $"/v1/loans/{loanId}/payments")
+        {
+            Content = JsonContent.Create(payReq)
+        };
+        payMsg.Headers.Add("X-User-Id", _testUserId.ToString());
+        var payRes = await _client.SendAsync(payMsg);
+        if (payRes.StatusCode != HttpStatusCode.OK)
+        {
+            var err = await payRes.Content.ReadAsStringAsync();
+            throw new Exception($"Pay error: {err}");
+        }
+
+        var payResult = await payRes.Content.ReadFromJsonAsync<LoanPaymentResultDto>();
+        payResult.Should().NotBeNull();
+        payResult!.Allocations.Should().HaveCount(1);
+        var alloc = payResult.Allocations[0];
+        alloc.ToLateInterest.Should().Be(2.50m);
+        alloc.ToInterest.Should().Be(50.00m);
+        alloc.ToPrincipal.Should().Be(47.50m);
+        payResult.RemainingPrincipal.Should().Be(952.50m); // 1000 - 47.50
+    }
+
     private sealed record CreatedAccountResponse(Guid Id);
     private sealed record CreatedTransactionResponse(Guid Id);
+    private sealed record CreatedLoanResponse(Guid Id);
 }

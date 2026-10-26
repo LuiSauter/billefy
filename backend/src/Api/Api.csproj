@@ -22,6 +22,8 @@
     <ProjectReference Include="..\Modules\Fx\Fx.Infrastructure\Fx.Infrastructure.csproj" />
     <ProjectReference Include="..\Modules\Ingestion\Ingestion.Application\Ingestion.Application.csproj" />
     <ProjectReference Include="..\Modules\Ingestion\Ingestion.Infrastructure\Ingestion.Infrastructure.csproj" />
+    <ProjectReference Include="..\Modules\Lending\Lending.Application\Lending.Application.csproj" />
+    <ProjectReference Include="..\Modules\Lending\Lending.Infrastructure\Lending.Infrastructure.csproj" />
     <ProjectReference Include="..\Integrations\Billefy.Integrations.Fx\Billefy.Integrations.Fx.csproj" />
   </ItemGroup>
 
