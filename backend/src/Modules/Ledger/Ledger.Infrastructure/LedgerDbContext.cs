@@ -27,9 +27,9 @@ public class LedgerDbContext : DbContext
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(LedgerDbContext).Assembly);
 
         // Global query filters for multi-tenant isolation by user_id
-        modelBuilder.Entity<Account>().HasQueryFilter(a => !_currentUserContext.IsAuthenticated || a.UserId == _currentUserContext.UserId!.Value);
-        modelBuilder.Entity<Category>().HasQueryFilter(c => !_currentUserContext.IsAuthenticated || c.UserId == _currentUserContext.UserId!.Value);
-        modelBuilder.Entity<Transaction>().HasQueryFilter(t => !_currentUserContext.IsAuthenticated || t.UserId == _currentUserContext.UserId!.Value);
+        modelBuilder.Entity<Account>().HasQueryFilter(a => !_currentUserContext.IsAuthenticated || a.UserId == _currentUserContext.UserId.GetValueOrDefault());
+        modelBuilder.Entity<Category>().HasQueryFilter(c => !_currentUserContext.IsAuthenticated || c.UserId == _currentUserContext.UserId.GetValueOrDefault());
+        modelBuilder.Entity<Transaction>().HasQueryFilter(t => !_currentUserContext.IsAuthenticated || t.UserId == _currentUserContext.UserId.GetValueOrDefault());
     }
 
     public override int SaveChanges(bool acceptAllChangesOnSuccess)

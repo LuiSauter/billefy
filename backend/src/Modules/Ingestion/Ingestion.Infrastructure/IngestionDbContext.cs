@@ -31,9 +31,9 @@ public class IngestionDbContext : DbContext
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(IngestionDbContext).Assembly);
 
         // Global query filters for user_id multi-tenancy isolation
-        modelBuilder.Entity<RawEvent>().HasQueryFilter(e => !_currentUserContext.IsAuthenticated || e.UserId == _currentUserContext.UserId!.Value);
-        modelBuilder.Entity<Draft>().HasQueryFilter(d => !_currentUserContext.IsAuthenticated || d.UserId == _currentUserContext.UserId!.Value);
-        modelBuilder.Entity<FinancialSource>().HasQueryFilter(f => !_currentUserContext.IsAuthenticated || f.UserId == _currentUserContext.UserId!.Value);
-        modelBuilder.Entity<StatementImport>().HasQueryFilter(i => !_currentUserContext.IsAuthenticated || i.UserId == _currentUserContext.UserId!.Value);
+        modelBuilder.Entity<RawEvent>().HasQueryFilter(e => !_currentUserContext.IsAuthenticated || e.UserId == _currentUserContext.UserId.GetValueOrDefault());
+        modelBuilder.Entity<Draft>().HasQueryFilter(d => !_currentUserContext.IsAuthenticated || d.UserId == _currentUserContext.UserId.GetValueOrDefault());
+        modelBuilder.Entity<FinancialSource>().HasQueryFilter(f => !_currentUserContext.IsAuthenticated || f.UserId == _currentUserContext.UserId.GetValueOrDefault());
+        modelBuilder.Entity<StatementImport>().HasQueryFilter(i => !_currentUserContext.IsAuthenticated || i.UserId == _currentUserContext.UserId.GetValueOrDefault());
     }
 }

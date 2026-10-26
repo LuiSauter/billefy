@@ -45,6 +45,7 @@ public static class DependencyInjection
         services.AddScoped<IIngestionService, IngestionService>();
         services.AddScoped<IDraftService, DraftService>();
         services.AddScoped<IStatementImportService, StatementImportService>();
+        services.AddScoped<IBinanceSyncService, BinanceSyncService>();
 
         return services;
     }

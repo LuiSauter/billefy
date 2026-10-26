@@ -25,17 +25,23 @@ public sealed class AccountService(
         return createAccountHandler.HandleAsync(command, cancellationToken);
     }
 
-    public async Task<Result<List<AccountDto>>> GetAccountsAsync(CancellationToken cancellationToken = default)
+    public Task<Result<List<AccountDto>>> GetAccountsAsync(CancellationToken cancellationToken = default)
     {
         if (!userContext.IsAuthenticated)
         {
-            return Result.Failure<List<AccountDto>>(Error.Unauthorized("Auth.Unauthorized", "User is not authenticated."));
+            return Task.FromResult(Result.Failure<List<AccountDto>>(Error.Unauthorized("Auth.Unauthorized", "User is not authenticated.")));
         }
 
+        return GetAccountsByUserIdAsync(userContext.UserId!.Value, cancellationToken);
+    }
+
+    public async Task<Result<List<AccountDto>>> GetAccountsByUserIdAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
         var accounts = await accountRepository.GetAllAsync(includeArchived: false, cancellationToken);
+        var userAccounts = accounts.Where(a => a.UserId == userId).ToList();
         var dtos = new List<AccountDto>();
 
-        foreach (var account in accounts)
+        foreach (var account in userAccounts)
         {
             var balance = await transactionRepository.CalculateBalanceAsync(account.Id, cancellationToken);
             dtos.Add(new AccountDto(

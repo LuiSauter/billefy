@@ -18,6 +18,9 @@ using Lending.Contracts;
 using Lending.Infrastructure;
 using Planning.Contracts;
 using Planning.Infrastructure;
+using Planning.Application.Services;
+using Messaging.Contracts;
+using Messaging.Infrastructure;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Data.Sqlite;
@@ -34,6 +37,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
     private readonly SqliteConnection _ingestionConnection = new("DataSource=:memory:");
     private readonly SqliteConnection _lendingConnection = new("DataSource=:memory:");
     private readonly SqliteConnection _planningConnection = new("DataSource=:memory:");
+    private readonly SqliteConnection _messagingConnection = new("DataSource=:memory:");
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -42,6 +46,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
         _ingestionConnection.Open();
         _lendingConnection.Open();
         _planningConnection.Open();
+        _messagingConnection.Open();
 
         // Clear connection string so Npgsql is not registered by default
         builder.UseSetting("ConnectionStrings:PostgreSQL", string.Empty);
@@ -54,6 +59,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             services.AddDbContext<IngestionDbContext>(options => options.UseSqlite(_ingestionConnection));
             services.AddDbContext<LendingDbContext>(options => options.UseSqlite(_lendingConnection));
             services.AddDbContext<PlanningDbContext>(options => options.UseSqlite(_planningConnection));
+            services.AddDbContext<MessagingDbContext>(options => options.UseSqlite(_messagingConnection));
 
             // Ensure databases created and seed Fx market rate
             var sp = services.BuildServiceProvider();
@@ -80,6 +86,9 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 
             var planningDb = scope.ServiceProvider.GetRequiredService<PlanningDbContext>();
             planningDb.Database.EnsureCreated();
+
+            var messagingDb = scope.ServiceProvider.GetRequiredService<MessagingDbContext>();
+            messagingDb.Database.EnsureCreated();
         });
     }
 
@@ -91,6 +100,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
         _ingestionConnection.Dispose();
         _lendingConnection.Dispose();
         _planningConnection.Dispose();
+        _messagingConnection.Dispose();
     }
 }
 
@@ -626,6 +636,127 @@ public class ApiIntegrationTests : IClassFixture<CustomWebApplicationFactory>
         var health = await healthRes.Content.ReadFromJsonAsync<FinancialHealthDto>();
         health.Should().NotBeNull();
         health!.Split503020.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task WhatsAppBot_LinkingAndMovementWorkflow_ShouldWorkEndToEnd()
+    {
+        // 0. Ensure user has at least one account to impute confirmed movements
+        var createAccReq = new CreateAccountRequest("Billetera WhatsApp", AccountType.Wallet, "BOB", 500m);
+        using var accMsg = new HttpRequestMessage(HttpMethod.Post, "/v1/accounts")
+        {
+            Content = JsonContent.Create(createAccReq)
+        };
+        accMsg.Headers.Add("X-User-Id", _testUserId.ToString());
+        await _client.SendAsync(accMsg);
+
+        // 1. Link WhatsApp number from app
+        var linkReq = new LinkWhatsAppRequest("+591 700 11223");
+        using var linkMsg = new HttpRequestMessage(HttpMethod.Post, "/v1/messaging/whatsapp/link")
+        {
+            Content = JsonContent.Create(linkReq)
+        };
+        linkMsg.Headers.Add("X-User-Id", _testUserId.ToString());
+        var linkRes = await _client.SendAsync(linkMsg);
+        linkRes.StatusCode.Should().Be(HttpStatusCode.OK);
+        var linkData = await linkRes.Content.ReadFromJsonAsync<LinkWhatsAppResponse>();
+        var code = linkData!.VerificationCode;
+
+        // 2. Incoming message with verification code -> activates link (BOT-01)
+        var verifyWebhook = new WhatsAppWebhookRequest("MSG-001", "+59170011223", code);
+        using var verifyMsg = new HttpRequestMessage(HttpMethod.Post, "/v1/messaging/whatsapp/webhook")
+        {
+            Content = JsonContent.Create(verifyWebhook)
+        };
+        var verifyRes = await _client.SendAsync(verifyMsg);
+        verifyRes.StatusCode.Should().Be(HttpStatusCode.OK);
+        var verifyResult = await verifyRes.Content.ReadFromJsonAsync<WhatsAppWebhookResponse>();
+        verifyResult!.ActionTaken.Should().Be("LinkActivated");
+
+        // 3. User sends "gasto 60 bs en almuerzo" (BOT-03)
+        var expenseWebhook = new WhatsAppWebhookRequest("MSG-002", "+59170011223", "Gasto 60 Bs en almuerzo");
+        using var expenseMsg = new HttpRequestMessage(HttpMethod.Post, "/v1/messaging/whatsapp/webhook")
+        {
+            Content = JsonContent.Create(expenseWebhook)
+        };
+        var expenseRes = await _client.SendAsync(expenseMsg);
+        expenseRes.StatusCode.Should().Be(HttpStatusCode.OK);
+        var expenseResult = await expenseRes.Content.ReadFromJsonAsync<WhatsAppWebhookResponse>();
+        expenseResult!.ActionTaken.Should().Be("DraftCreated");
+
+        // 4. User replies "1" to confirm draft into Ledger (BOT-06)
+        var confirmWebhook = new WhatsAppWebhookRequest("MSG-003", "+59170011223", "1");
+        using var confirmMsg = new HttpRequestMessage(HttpMethod.Post, "/v1/messaging/whatsapp/webhook")
+        {
+            Content = JsonContent.Create(confirmWebhook)
+        };
+        var confirmRes = await _client.SendAsync(confirmMsg);
+        confirmRes.StatusCode.Should().Be(HttpStatusCode.OK);
+        var confirmResult = await confirmRes.Content.ReadFromJsonAsync<WhatsAppWebhookResponse>();
+        confirmResult!.ActionTaken.Should().Be("DraftConfirmed");
+
+        // 5. User asks "Saldo" (BOT-04)
+        var saldoWebhook = new WhatsAppWebhookRequest("MSG-004", "+59170011223", "Saldo");
+        using var saldoMsg = new HttpRequestMessage(HttpMethod.Post, "/v1/messaging/whatsapp/webhook")
+        {
+            Content = JsonContent.Create(saldoWebhook)
+        };
+        var saldoRes = await _client.SendAsync(saldoMsg);
+        var saldoResult = await saldoRes.Content.ReadFromJsonAsync<WhatsAppWebhookResponse>();
+        saldoResult!.ActionTaken.Should().Be("BalanceQuery");
+        saldoResult.ReplyText.Should().Contain("Saldos");
+
+        // 6. User asks "Cotizacion" (BOT-05)
+        var rateWebhook = new WhatsAppWebhookRequest("MSG-005", "+59170011223", "Cotización");
+        using var rateMsg = new HttpRequestMessage(HttpMethod.Post, "/v1/messaging/whatsapp/webhook")
+        {
+            Content = JsonContent.Create(rateWebhook)
+        };
+        var rateRes = await _client.SendAsync(rateMsg);
+        var rateResult = await rateRes.Content.ReadFromJsonAsync<WhatsAppWebhookResponse>();
+        rateResult!.ActionTaken.Should().Be("RateQuery");
+        rateResult.ReplyText.Should().Contain("BOB/USD");
+    }
+
+    [Fact]
+    public async Task BinanceSync_SecurityGuard_ShouldRejectUnsafeKeys()
+    {
+        // 1. Unsafe key with trading permissions enabled -> Rejected (Rule 18, ING-14)
+        var unsafeReq = new ConnectBinanceKeyRequest("test_key", "test_secret", PermitsTrading: true);
+        using var unsafeMsg = new HttpRequestMessage(HttpMethod.Post, "/v1/integrations/binance/connect")
+        {
+            Content = JsonContent.Create(unsafeReq)
+        };
+        unsafeMsg.Headers.Add("X-User-Id", _testUserId.ToString());
+        var unsafeRes = await _client.SendAsync(unsafeMsg);
+        unsafeRes.StatusCode.Should().Be(HttpStatusCode.BadRequest, "Trading permissions on Binance keys must be rejected (Rule 18).");
+
+        // 2. Safe read-only key -> Accepted
+        var safeReq = new ConnectBinanceKeyRequest("test_key", "test_secret", PermitsTrading: false, PermitsWithdrawals: false);
+        using var safeMsg = new HttpRequestMessage(HttpMethod.Post, "/v1/integrations/binance/connect")
+        {
+            Content = JsonContent.Create(safeReq)
+        };
+        safeMsg.Headers.Add("X-User-Id", _testUserId.ToString());
+        var safeRes = await _client.SendAsync(safeMsg);
+        safeRes.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task IncomeDistribution_ShouldPropose503020_AdjustedForDebts()
+    {
+        var req = new ProposeIncomeDistributionRequest(5000m, "BOB");
+        using var msg = new HttpRequestMessage(HttpMethod.Post, "/v1/planning/income-distribution/propose")
+        {
+            Content = JsonContent.Create(req)
+        };
+        msg.Headers.Add("X-User-Id", _testUserId.ToString());
+        var res = await _client.SendAsync(msg);
+        res.StatusCode.Should().Be(HttpStatusCode.OK);
+        var proposal = await res.Content.ReadFromJsonAsync<IncomeDistributionProposal>();
+        proposal.Should().NotBeNull();
+        proposal!.TotalIncome.Should().Be(5000m);
+        proposal.NeedsAmount.Should().Be(2500m); // 50%
     }
 
     private sealed record CreatedAccountResponse(Guid Id);

@@ -17,6 +17,8 @@ import {
   BudgetDto,
   GoalDto,
   FinancialHealthDto,
+  LinkWhatsAppResponse,
+  IncomeDistributionProposal,
 } from "../api/client";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -54,6 +56,9 @@ export default function DashboardPage() {
   const [isLoanDetailModalOpen, setIsLoanDetailModalOpen] = useState(false);
   const [isBudgetModalOpen, setIsBudgetModalOpen] = useState(false);
   const [isGoalModalOpen, setIsGoalModalOpen] = useState(false);
+  const [isWhatsAppModalOpen, setIsWhatsAppModalOpen] = useState(false);
+  const [isBinanceModalOpen, setIsBinanceModalOpen] = useState(false);
+  const [isDistributeModalOpen, setIsDistributeModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   // Form states
@@ -109,6 +114,23 @@ export default function DashboardPage() {
   const [goalCurrency, setGoalCurrency] = useState("BOB");
   const [goalTargetDate, setGoalTargetDate] = useState("");
   const [goalAccountId, setGoalAccountId] = useState("");
+
+  // WhatsApp Bot state
+  const [waPhoneNumber, setWaPhoneNumber] = useState("+591 700 00000");
+  const [waLinkData, setWaLinkData] = useState<LinkWhatsAppResponse | null>(null);
+  const [waInputMessage, setWaInputMessage] = useState("Gasto 45 bs en taxi");
+  const [waChatHistory, setWaChatHistory] = useState<{ from: "user" | "bot"; text: string }[]>([]);
+
+  // Binance state
+  const [binanceApiKey, setBinanceApiKey] = useState("");
+  const [binanceApiSecret, setBinanceApiSecret] = useState("");
+  const [binanceAccountId, setBinanceAccountId] = useState("");
+  const [binanceConnected, setBinanceConnected] = useState(false);
+
+  // Income Distribution state
+  const [distributeIncomeAmount, setDistributeIncomeAmount] = useState("4500");
+  const [distributeCurrency, setDistributeCurrency] = useState("BOB");
+  const [incomeProposal, setIncomeProposal] = useState<IncomeDistributionProposal | null>(null);
 
   // Initialize User ID from localStorage or generate fresh
   useEffect(() => {
@@ -166,13 +188,16 @@ export default function DashboardPage() {
       if (accountsData.length > 0 && !goalAccountId) {
         setGoalAccountId(accountsData[0].id);
       }
+      if (accountsData.length > 0 && !binanceAccountId) {
+        setBinanceAccountId(accountsData[0].id);
+      }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Error al conectar con el servidor.";
       setError(message);
     } finally {
       setLoading(false);
     }
-  }, [client, txnAccountId, csvAccountId, goalAccountId]);
+  }, [client, txnAccountId, csvAccountId, goalAccountId, binanceAccountId]);
 
   useEffect(() => {
     if (client) {
@@ -562,6 +587,108 @@ export default function DashboardPage() {
     }
   };
 
+  // WhatsApp bot handlers
+  const handleLinkWhatsApp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!client || !waPhoneNumber.trim()) return;
+
+    setSubmitting(true);
+    try {
+      const res = await client.linkWhatsApp({ phoneNumber: waPhoneNumber.trim() });
+      setWaLinkData(res);
+      setWaChatHistory([
+        { from: "bot", text: `Para vincular tu cuenta, envía el código «${res.verificationCode}» o «CONFIRMAR» por este chat.` }
+      ]);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Error al vincular WhatsApp.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleSendWhatsAppChat = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!client || !waInputMessage.trim()) return;
+
+    const msg = waInputMessage.trim();
+    setWaChatHistory((prev) => [...prev, { from: "user", text: msg }]);
+    setWaInputMessage("");
+
+    try {
+      const msgId = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : "msg-test";
+      const res = await client.sendWhatsAppWebhook({
+        providerMessageId: msgId,
+        fromNumber: waPhoneNumber.trim(),
+        messageText: msg,
+      });
+
+      if (res.replyText) {
+        setWaChatHistory((prev) => [...prev, { from: "bot", text: res.replyText! }]);
+      }
+      await loadData();
+    } catch {
+      setWaChatHistory((prev) => [...prev, { from: "bot", text: "Error procesando el mensaje." }]);
+    }
+  };
+
+  // Binance sync handlers
+  const handleConnectBinance = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!client || !binanceApiKey.trim() || !binanceApiSecret.trim()) return;
+
+    setSubmitting(true);
+    try {
+      const res = await client.connectBinanceKey({
+        apiKey: binanceApiKey.trim(),
+        apiSecret: binanceApiSecret.trim(),
+        permitsTrading: false,
+        permitsWithdrawals: false,
+      });
+      setBinanceConnected(true);
+      alert(res.message);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Error conectando Binance.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleSyncBinance = async () => {
+    if (!client || !binanceAccountId) return;
+    setSubmitting(true);
+    try {
+      const res = await client.syncBinance({ accountId: binanceAccountId });
+      alert(`Sincronización completada. Borradores creados: ${res.draftsCreated}, duplicados vinculados: ${res.duplicatesLinked}`);
+      await loadData();
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Error sincronizando Binance.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Income distribution handler
+  const handleProposeDistribution = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!client) return;
+
+    const inc = parseFloat(distributeIncomeAmount);
+    if (isNaN(inc) || inc <= 0) return;
+
+    setSubmitting(true);
+    try {
+      const res = await client.proposeIncomeDistribution({
+        incomeAmount: inc,
+        currency: distributeCurrency,
+      });
+      setIncomeProposal(res);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Error al calcular propuesta.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <div className="max-w-5xl mx-auto p-6 md:p-8 space-y-8">
       {/* Header */}
@@ -569,7 +696,7 @@ export default function DashboardPage() {
         <div>
           <h1 className="text-3xl font-extrabold tracking-tight text-foreground">Billefy</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Gestor de finanzas personales multimoneda · Smart Capture, Préstamos & Planificación
+            Gestor de finanzas personales multimoneda · Smart Capture, Préstamos, Bot WhatsApp & Binance
           </p>
         </div>
         <div className="bg-muted px-4 py-2.5 rounded-lg text-sm border shadow-xs">
@@ -687,18 +814,25 @@ export default function DashboardPage() {
           + Registrar Movimiento
         </Button>
         <Button
-          onClick={() => setIsBudgetModalOpen(true)}
+          onClick={() => setIsWhatsAppModalOpen(true)}
           variant="outline"
-          className="gap-2"
+          className="gap-2 border-green-300 text-green-800 hover:bg-green-50 dark:border-green-800 dark:text-green-300"
         >
-          🎯 Nuevo Presupuesto
+          💬 Bot WhatsApp
         </Button>
         <Button
-          onClick={() => setIsGoalModalOpen(true)}
+          onClick={() => setIsBinanceModalOpen(true)}
           variant="outline"
-          className="gap-2"
+          className="gap-2 border-yellow-400 text-yellow-800 hover:bg-yellow-50 dark:border-yellow-700 dark:text-yellow-300"
         >
-          🏆 Nueva Meta
+          🟡 Binance Read-Only
+        </Button>
+        <Button
+          onClick={() => setIsDistributeModalOpen(true)}
+          variant="outline"
+          className="gap-2 border-indigo-200 text-indigo-700 hover:bg-indigo-50 dark:border-indigo-800 dark:text-indigo-300"
+        >
+          💡 Distribuir Ingreso
         </Button>
         <Button
           onClick={() => {
@@ -709,6 +843,20 @@ export default function DashboardPage() {
           className="gap-2 border-amber-300 text-amber-800 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-300 dark:hover:bg-amber-950"
         >
           🤝 Préstamo / Simular
+        </Button>
+        <Button
+          onClick={() => setIsBudgetModalOpen(true)}
+          variant="outline"
+          className="gap-2"
+        >
+          🎯 Presupuesto
+        </Button>
+        <Button
+          onClick={() => setIsGoalModalOpen(true)}
+          variant="outline"
+          className="gap-2"
+        >
+          🏆 Meta
         </Button>
         <Button
           onClick={() => setIsCsvModalOpen(true)}
@@ -837,7 +985,6 @@ export default function DashboardPage() {
                       {b.spentAmount.toFixed(2)} / {b.limitAmount.toFixed(2)} {b.currency} ({b.percentageUsed.toFixed(0)}%)
                     </span>
                   </div>
-                  {/* Progress bar */}
                   <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
                     <div
                       className={`h-full rounded-full transition-all ${b.isExceeded ? "bg-rose-600" : b.isAlertTriggered ? "bg-amber-500" : "bg-emerald-600"}`}
@@ -1067,6 +1214,229 @@ export default function DashboardPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Modal: WhatsApp Bot Simulator (BOT-01 to BOT-09) */}
+      {isWhatsAppModalOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <Card className="w-full max-w-lg shadow-xl bg-background border">
+            <CardHeader className="border-b">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <span>💬</span> Bot de WhatsApp (Simulador)
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-6 space-y-4">
+              {!waLinkData ? (
+                <form onSubmit={handleLinkWhatsApp} className="space-y-4">
+                  <p className="text-xs text-muted-foreground">
+                    Vincula tu número de teléfono. El bot responderá exclusivamente a los mensajes que tú inicies (Regla 21).
+                  </p>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="waPhone">Número de WhatsApp</Label>
+                    <Input
+                      id="waPhone"
+                      required
+                      value={waPhoneNumber}
+                      onChange={(e) => setWaPhoneNumber(e.target.value)}
+                      placeholder="+59170011223"
+                    />
+                  </div>
+                  <div className="flex justify-end gap-2 pt-2">
+                    <Button type="button" variant="outline" onClick={() => setIsWhatsAppModalOpen(false)}>
+                      Cerrar
+                    </Button>
+                    <Button type="submit" disabled={submitting}>
+                      Generar Código de Vinculación
+                    </Button>
+                  </div>
+                </form>
+              ) : (
+                <div className="space-y-4">
+                  <div className="p-3 bg-muted rounded-md text-xs space-y-1">
+                    <div>Código asignado: <span className="font-mono font-bold text-primary">{waLinkData.verificationCode}</span></div>
+                    <div className="text-muted-foreground">{waLinkData.instructions}</div>
+                  </div>
+
+                  {/* Chat interface */}
+                  <div className="h-64 border rounded-md p-3 overflow-y-auto space-y-2 bg-muted/20 text-xs">
+                    {waChatHistory.map((c, i) => (
+                      <div key={i} className={`flex ${c.from === "user" ? "justify-end" : "justify-start"}`}>
+                        <div className={`p-2.5 rounded-lg max-w-[85%] whitespace-pre-line ${c.from === "user" ? "bg-primary text-primary-foreground" : "bg-card border text-card-foreground shadow-xs"}`}>
+                          {c.text}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <form onSubmit={handleSendWhatsAppChat} className="flex gap-2">
+                    <Input
+                      value={waInputMessage}
+                      onChange={(e) => setWaInputMessage(e.target.value)}
+                      placeholder="Escribe un mensaje (ej. 1, Saldo, Gasto 40 bs)..."
+                      className="text-xs"
+                    />
+                    <Button type="submit" size="sm">
+                      Enviar
+                    </Button>
+                  </form>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Modal: Binance Read-Only Sync (ING-14, ING-15) */}
+      {isBinanceModalOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <Card className="w-full max-w-md shadow-xl bg-background border">
+            <CardHeader className="border-b">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <span>🟡</span> Sincronización Binance (Read-Only)
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-6 space-y-4">
+              <div className="p-3 bg-amber-50 dark:bg-amber-950/20 text-amber-900 dark:text-amber-200 border border-amber-200 dark:border-amber-900/50 rounded-md text-xs">
+                Por seguridad estricta (Regla 18), se rechazan claves API que tengan permisos de trading o retiros habilitados.
+              </div>
+
+              {!binanceConnected ? (
+                <form onSubmit={handleConnectBinance} className="space-y-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="binanceKey">Binance API Key</Label>
+                    <Input
+                      id="binanceKey"
+                      required
+                      value={binanceApiKey}
+                      onChange={(e) => setBinanceApiKey(e.target.value)}
+                      placeholder="Clave de solo lectura"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="binanceSecret">Binance API Secret</Label>
+                    <Input
+                      id="binanceSecret"
+                      type="password"
+                      required
+                      value={binanceApiSecret}
+                      onChange={(e) => setBinanceApiSecret(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="flex justify-end gap-2 pt-2">
+                    <Button type="button" variant="outline" onClick={() => setIsBinanceModalOpen(false)}>
+                      Cancelar
+                    </Button>
+                    <Button type="submit" disabled={submitting}>
+                      Verificar y Conectar
+                    </Button>
+                  </div>
+                </form>
+              ) : (
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="binanceAcc">Cuenta destino para órdenes P2P</Label>
+                    <select
+                      id="binanceAcc"
+                      value={binanceAccountId}
+                      onChange={(e) => setBinanceAccountId(e.target.value)}
+                      className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    >
+                      {accounts.map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {a.name} ({a.currency})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <Button onClick={handleSyncBinance} disabled={submitting} className="w-full">
+                    Sincronizar Órdenes P2P y Depósitos
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Modal: Income Distribution Proposal (BUD-05) */}
+      {isDistributeModalOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <Card className="w-full max-w-lg shadow-xl bg-background border">
+            <CardHeader className="border-b">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <span>💡</span> Asistente de Distribución de Ingresos
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-6 space-y-4">
+              <form onSubmit={handleProposeDistribution} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="distributeIncome">Monto de Ingreso / Sueldo</Label>
+                    <Input
+                      id="distributeIncome"
+                      type="number"
+                      step="0.01"
+                      required
+                      value={distributeIncomeAmount}
+                      onChange={(e) => setDistributeIncomeAmount(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="distributeCurr">Moneda</Label>
+                    <select
+                      id="distributeCurr"
+                      value={distributeCurrency}
+                      onChange={(e) => setDistributeCurrency(e.target.value)}
+                      className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    >
+                      <option value="BOB">Bolivianos (BOB)</option>
+                      <option value="USD">Dólares (USD)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <Button type="submit" disabled={submitting} className="w-full">
+                  Calcular Propuesta
+                </Button>
+              </form>
+
+              {incomeProposal && (
+                <div className="mt-4 p-4 bg-muted/40 rounded-lg border space-y-3 text-xs">
+                  <p className="text-muted-foreground">{incomeProposal.rationale}</p>
+                  <div className="grid grid-cols-2 gap-3 pt-2">
+                    <div className="p-2.5 bg-background border rounded-md">
+                      <div className="text-muted-foreground font-semibold">Necesidades ({incomeProposal.needsPercentage}%)</div>
+                      <div className="text-base font-bold font-mono text-primary mt-0.5">{incomeProposal.needsAmount.toFixed(2)} {incomeProposal.currency}</div>
+                    </div>
+                    <div className="p-2.5 bg-background border rounded-md">
+                      <div className="text-muted-foreground font-semibold">Deseos ({incomeProposal.wantsPercentage}%)</div>
+                      <div className="text-base font-bold font-mono text-amber-600 mt-0.5">{incomeProposal.wantsAmount.toFixed(2)} {incomeProposal.currency}</div>
+                    </div>
+                    {incomeProposal.debtPercentage > 0 && (
+                      <div className="p-2.5 bg-background border rounded-md">
+                        <div className="text-muted-foreground font-semibold">Deudas ({incomeProposal.debtPercentage}%)</div>
+                        <div className="text-base font-bold font-mono text-purple-600 mt-0.5">{incomeProposal.debtPaymentAmount.toFixed(2)} {incomeProposal.currency}</div>
+                      </div>
+                    )}
+                    <div className="p-2.5 bg-background border rounded-md">
+                      <div className="text-muted-foreground font-semibold">Ahorro ({incomeProposal.savingsPercentage}%)</div>
+                      <div className="text-base font-bold font-mono text-emerald-600 mt-0.5">{incomeProposal.savingsAmount.toFixed(2)} {incomeProposal.currency}</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-end pt-2 border-t">
+                <Button variant="outline" onClick={() => setIsDistributeModalOpen(false)}>
+                  Cerrar
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Modal: Create Account */}
       {isAccountModalOpen && (
@@ -1612,7 +1982,6 @@ export default function DashboardPage() {
                   </Button>
                 </div>
 
-                {/* Simulated Schedule Preview */}
                 {simulatedSchedule && (
                   <div className="mt-4 p-4 bg-muted/40 rounded-lg border space-y-3">
                     <div className="flex justify-between items-center text-xs font-semibold">

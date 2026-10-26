@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\BuildingBlocks\BuildingBlocks.csproj" />
+    <ProjectReference Include="..\..\Ingestion\Ingestion.Application\Ingestion.Application.csproj" />
+    <ProjectReference Include="..\..\Ingestion\Ingestion.Contracts\Ingestion.Contracts.csproj" />
+    <ProjectReference Include="..\..\Ledger\Ledger.Application\Ledger.Application.csproj" />
+    <ProjectReference Include="..\..\Ledger\Ledger.Contracts\Ledger.Contracts.csproj" />
+    <ProjectReference Include="..\..\Fx\Fx.Contracts\Fx.Contracts.csproj" />
+    <ProjectReference Include="..\Messaging.Contracts\Messaging.Contracts.csproj" />
+    <ProjectReference Include="..\Messaging.Domain\Messaging.Domain.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>

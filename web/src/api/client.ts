@@ -311,6 +311,72 @@ export interface FinancialHealthDto {
   split503020: BudgetSplit503020Dto;
 }
 
+export interface LinkWhatsAppRequest {
+  phoneNumber: string;
+}
+
+export interface LinkWhatsAppResponse {
+  linkId: string;
+  phoneNumber: string;
+  verificationCode: string;
+  status: string;
+  instructions: string;
+}
+
+export interface WhatsAppWebhookRequest {
+  providerMessageId: string;
+  fromNumber: string;
+  messageText: string;
+}
+
+export interface WhatsAppWebhookResponse {
+  processed: boolean;
+  replyText?: string;
+  actionTaken?: string;
+}
+
+export interface ConnectBinanceKeyRequest {
+  apiKey: string;
+  apiSecret: string;
+  permitsTrading?: boolean;
+  permitsWithdrawals?: boolean;
+}
+
+export interface ConnectBinanceKeyResponse {
+  connected: boolean;
+  status: string;
+  message: string;
+}
+
+export interface SyncBinanceRequest {
+  accountId: string;
+}
+
+export interface SyncBinanceResponse {
+  draftsCreated: number;
+  duplicatesLinked: number;
+  status: string;
+}
+
+export interface ProposeIncomeDistributionRequest {
+  incomeAmount: number;
+  currency?: string;
+}
+
+export interface IncomeDistributionProposal {
+  totalIncome: number;
+  currency: string;
+  needsAmount: number;
+  wantsAmount: number;
+  debtPaymentAmount: number;
+  savingsAmount: number;
+  needsPercentage: number;
+  wantsPercentage: number;
+  debtPercentage: number;
+  savingsPercentage: number;
+  rationale: string;
+}
+
 export interface ApiProblemDetails {
   type?: string;
   title?: string;
@@ -707,6 +773,41 @@ export class BillefyApiClient {
 
   async getFinancialHealth(): Promise<FinancialHealthDto> {
     return this.request<FinancialHealthDto>("/v1/planning/financial-health");
+  }
+
+  async linkWhatsApp(req: LinkWhatsAppRequest): Promise<LinkWhatsAppResponse> {
+    return this.request<LinkWhatsAppResponse>("/v1/messaging/whatsapp/link", {
+      method: "POST",
+      body: JSON.stringify(req),
+    });
+  }
+
+  async sendWhatsAppWebhook(req: WhatsAppWebhookRequest): Promise<WhatsAppWebhookResponse> {
+    return this.request<WhatsAppWebhookResponse>("/v1/messaging/whatsapp/webhook", {
+      method: "POST",
+      body: JSON.stringify(req),
+    });
+  }
+
+  async connectBinanceKey(req: ConnectBinanceKeyRequest): Promise<ConnectBinanceKeyResponse> {
+    return this.request<ConnectBinanceKeyResponse>("/v1/integrations/binance/connect", {
+      method: "POST",
+      body: JSON.stringify(req),
+    });
+  }
+
+  async syncBinance(req: SyncBinanceRequest): Promise<SyncBinanceResponse> {
+    return this.request<SyncBinanceResponse>("/v1/integrations/binance/sync", {
+      method: "POST",
+      body: JSON.stringify(req),
+    });
+  }
+
+  async proposeIncomeDistribution(req: ProposeIncomeDistributionRequest): Promise<IncomeDistributionProposal> {
+    return this.request<IncomeDistributionProposal>("/v1/planning/income-distribution/propose", {
+      method: "POST",
+      body: JSON.stringify(req),
+    });
   }
 
   async getLatestRate(currency: string, baseCurrency: string = "USD"): Promise<RateSnapshotDto> {

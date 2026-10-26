@@ -11,7 +11,7 @@ public sealed partial class RuleBasedFinancialParser : IFinancialTextParser
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     private static readonly Regex ExpenseRegex = new(
-        @"\b(pagaste|pago\s+realizado|compra|retiro|transferencia enviada|transferiste|d[eé]bito|consumo|paid|spent|withdrew|sent|payment|debit)\b",
+        @"\b(gast[oóeé]|pagaste|pago\s+realizado|pago|compra|retiro|transferencia enviada|transferiste|d[eé]bito|consumo|paid|spent|withdrew|sent|payment|debit)\b",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     private static readonly Regex ReferenceRegex = new(

@@ -15,7 +15,18 @@ public interface IDraftService
         ConfirmDraftRequest request,
         CancellationToken cancellationToken = default);
 
+    Task<Result<Guid>> ConfirmDraftForUserAsync(
+        Guid userId,
+        Guid draftId,
+        ConfirmDraftRequest request,
+        CancellationToken cancellationToken = default);
+
     Task<Result> DiscardDraftAsync(
+        Guid draftId,
+        CancellationToken cancellationToken = default);
+
+    Task<Result> DiscardDraftForUserAsync(
+        Guid userId,
         Guid draftId,
         CancellationToken cancellationToken = default);
 }

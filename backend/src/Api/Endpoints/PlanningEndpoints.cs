@@ -107,6 +107,19 @@ public static class PlanningEndpoints
         .Produces<FinancialHealthDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status401Unauthorized);
 
+        group.MapPost("/income-distribution/propose", async (
+            [FromBody] ProposeIncomeDistributionRequest request,
+            IIncomeDistributionService service,
+            CancellationToken ct) =>
+        {
+            var result = await service.ProposeDistributionAsync(request, ct);
+            return result.ToHttpResult();
+        })
+        .WithName("ProposeIncomeDistribution")
+        .WithSummary("Generate an income distribution proposal based on 50/30/20 guideline and active debt obligations (BUD-05).")
+        .Produces<IncomeDistributionProposal>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest);
+
         return group;
     }
 }

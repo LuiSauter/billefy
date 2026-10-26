@@ -26,7 +26,7 @@ public class PlanningDbContext : DbContext
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(PlanningDbContext).Assembly);
 
         // Global query filters for user_id multi-tenancy isolation
-        modelBuilder.Entity<Budget>().HasQueryFilter(b => !_currentUserContext.IsAuthenticated || b.UserId == _currentUserContext.UserId!.Value);
-        modelBuilder.Entity<Goal>().HasQueryFilter(g => !_currentUserContext.IsAuthenticated || g.UserId == _currentUserContext.UserId!.Value);
+        modelBuilder.Entity<Budget>().HasQueryFilter(b => !_currentUserContext.IsAuthenticated || b.UserId == _currentUserContext.UserId.GetValueOrDefault());
+        modelBuilder.Entity<Goal>().HasQueryFilter(g => !_currentUserContext.IsAuthenticated || g.UserId == _currentUserContext.UserId.GetValueOrDefault());
     }
 }

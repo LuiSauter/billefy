@@ -47,7 +47,16 @@ public sealed class DraftService(
                 Error.Unauthorized("Auth.Unauthorized", "User is not authenticated.")));
         }
 
-        var command = new ConfirmDraftCommand(userContext.UserId!.Value, draftId, request);
+        return ConfirmDraftForUserAsync(userContext.UserId!.Value, draftId, request, cancellationToken);
+    }
+
+    public Task<Result<Guid>> ConfirmDraftForUserAsync(
+        Guid userId,
+        Guid draftId,
+        ConfirmDraftRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var command = new ConfirmDraftCommand(userId, draftId, request);
         return confirmDraftHandler.HandleAsync(command, cancellationToken);
     }
 
@@ -61,7 +70,15 @@ public sealed class DraftService(
                 Error.Unauthorized("Auth.Unauthorized", "User is not authenticated.")));
         }
 
-        var command = new DiscardDraftCommand(userContext.UserId!.Value, draftId);
+        return DiscardDraftForUserAsync(userContext.UserId!.Value, draftId, cancellationToken);
+    }
+
+    public Task<Result> DiscardDraftForUserAsync(
+        Guid userId,
+        Guid draftId,
+        CancellationToken cancellationToken = default)
+    {
+        var command = new DiscardDraftCommand(userId, draftId);
         return discardDraftHandler.HandleAsync(command, cancellationToken);
     }
 }

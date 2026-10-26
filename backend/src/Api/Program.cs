@@ -6,6 +6,7 @@ using Fx.Infrastructure;
 using Ingestion.Infrastructure;
 using Ledger.Infrastructure;
 using Lending.Infrastructure;
+using Messaging.Infrastructure;
 using Planning.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 
@@ -25,6 +26,7 @@ builder.Services.AddFxModule(builder.Configuration);
 builder.Services.AddIngestionModule(builder.Configuration);
 builder.Services.AddLendingModule(builder.Configuration);
 builder.Services.AddPlanningModule(builder.Configuration);
+builder.Services.AddMessagingModule(builder.Configuration);
 
 // OpenAPI Documentation
 builder.Services.AddEndpointsApiExplorer();
@@ -69,6 +71,12 @@ if (!string.IsNullOrWhiteSpace(builder.Configuration.GetConnectionString("Postgr
         {
             planningDb.Database.Migrate();
         }
+
+        var messagingDb = scope.ServiceProvider.GetRequiredService<MessagingDbContext>();
+        if (messagingDb.Database.IsRelational())
+        {
+            messagingDb.Database.Migrate();
+        }
     }
     catch (Exception ex)
     {
@@ -91,6 +99,8 @@ app.MapIngestionEndpoints();
 app.MapDraftEndpoints();
 app.MapLoanEndpoints();
 app.MapPlanningEndpoints();
+app.MapMessagingEndpoints();
+app.MapBinanceEndpoints();
 
 app.Run();
 

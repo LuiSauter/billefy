@@ -1294,6 +1294,241 @@
           }
         }
       }
+    },
+    "/v1/planning/income-distribution/propose": {
+      "post": {
+        "tags": [
+          "Planning"
+        ],
+        "summary": "Generate an income distribution proposal based on 50/30/20 guideline and active debt obligations (BUD-05).",
+        "operationId": "ProposeIncomeDistribution",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProposeIncomeDistributionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IncomeDistributionProposal"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/messaging/whatsapp/link": {
+      "post": {
+        "tags": [
+          "Messaging"
+        ],
+        "summary": "Generate verification code to bind WhatsApp phone number with user account (BOT-01).",
+        "operationId": "LinkWhatsAppNumber",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LinkWhatsAppRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LinkWhatsAppResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/messaging/whatsapp/webhook": {
+      "post": {
+        "tags": [
+          "Messaging"
+        ],
+        "summary": "Webhook endpoint for inbound WhatsApp messages (BOT-02 to BOT-09). Strictly replies to incoming messages.",
+        "operationId": "WhatsAppInboundWebhook",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WhatsAppWebhookRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WhatsAppWebhookResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/integrations/binance/connect": {
+      "post": {
+        "tags": [
+          "Binance"
+        ],
+        "summary": "Connect a read-only Binance API key. Rejects keys with trading or withdrawal permissions (Rule 18, ING-14).",
+        "operationId": "ConnectBinanceKey",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConnectBinanceKeyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConnectBinanceKeyResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/integrations/binance/sync": {
+      "post": {
+        "tags": [
+          "Binance"
+        ],
+        "summary": "Sync completed P2P orders and deposits as drafts with automatic deduplication (ING-15).",
+        "operationId": "SyncBinanceOrders",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SyncBinanceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncBinanceResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1494,6 +1729,48 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "ConnectBinanceKeyRequest": {
+        "required": [
+          "apiKey",
+          "apiSecret"
+        ],
+        "type": "object",
+        "properties": {
+          "apiKey": {
+            "type": "string"
+          },
+          "apiSecret": {
+            "type": "string"
+          },
+          "permitsTrading": {
+            "type": "boolean",
+            "default": false
+          },
+          "permitsWithdrawals": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
+      "ConnectBinanceKeyResponse": {
+        "required": [
+          "connected",
+          "status",
+          "message"
+        ],
+        "type": "object",
+        "properties": {
+          "connected": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
           }
         }
       },
@@ -2096,6 +2373,102 @@
           }
         }
       },
+      "IncomeDistributionProposal": {
+        "required": [
+          "totalIncome",
+          "currency",
+          "needsAmount",
+          "wantsAmount",
+          "debtPaymentAmount",
+          "savingsAmount",
+          "needsPercentage",
+          "wantsPercentage",
+          "debtPercentage",
+          "savingsPercentage",
+          "rationale"
+        ],
+        "type": "object",
+        "properties": {
+          "totalIncome": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "needsAmount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "wantsAmount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "debtPaymentAmount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "savingsAmount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "needsPercentage": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "wantsPercentage": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "debtPercentage": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "savingsPercentage": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "rationale": {
+            "type": "string"
+          }
+        }
+      },
       "InstallmentScheduleDto": {
         "required": [
           "number",
@@ -2150,6 +2523,45 @@
               "string"
             ],
             "format": "double"
+          }
+        }
+      },
+      "LinkWhatsAppRequest": {
+        "required": [
+          "phoneNumber"
+        ],
+        "type": "object",
+        "properties": {
+          "phoneNumber": {
+            "type": "string"
+          }
+        }
+      },
+      "LinkWhatsAppResponse": {
+        "required": [
+          "linkId",
+          "phoneNumber",
+          "verificationCode",
+          "status",
+          "instructions"
+        ],
+        "type": "object",
+        "properties": {
+          "linkId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "phoneNumber": {
+            "type": "string"
+          },
+          "verificationCode": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "instructions": {
+            "type": "string"
           }
         }
       },
@@ -2595,6 +3007,26 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "ProposeIncomeDistributionRequest": {
+        "required": [
+          "incomeAmount"
+        ],
+        "type": "object",
+        "properties": {
+          "incomeAmount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "currency": {
+            "type": "string",
+            "default": "BOB"
           }
         }
       },
@@ -3056,6 +3488,47 @@
           }
         }
       },
+      "SyncBinanceRequest": {
+        "required": [
+          "accountId"
+        ],
+        "type": "object",
+        "properties": {
+          "accountId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "SyncBinanceResponse": {
+        "required": [
+          "draftsCreated",
+          "duplicatesLinked",
+          "status"
+        ],
+        "type": "object",
+        "properties": {
+          "draftsCreated": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "duplicatesLinked": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
       "TransactionDirection": {
         "type": "integer"
       },
@@ -3150,6 +3623,50 @@
             "format": "date-time"
           }
         }
+      },
+      "WhatsAppWebhookRequest": {
+        "required": [
+          "providerMessageId",
+          "fromNumber",
+          "messageText"
+        ],
+        "type": "object",
+        "properties": {
+          "providerMessageId": {
+            "type": "string"
+          },
+          "fromNumber": {
+            "type": "string"
+          },
+          "messageText": {
+            "type": "string"
+          }
+        }
+      },
+      "WhatsAppWebhookResponse": {
+        "required": [
+          "processed",
+          "replyText",
+          "actionTaken"
+        ],
+        "type": "object",
+        "properties": {
+          "processed": {
+            "type": "boolean"
+          },
+          "replyText": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "actionTaken": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
       }
     }
   },
@@ -3174,6 +3691,12 @@
     },
     {
       "name": "Planning"
+    },
+    {
+      "name": "Messaging"
+    },
+    {
+      "name": "Binance"
     }
   ]
 }

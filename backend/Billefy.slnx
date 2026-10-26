@@ -39,7 +39,10 @@
     <Project Path="src/Modules/Lending/Lending.Infrastructure/Lending.Infrastructure.csproj" />
   </Folder>
   <Folder Name="/src/Modules/Messaging/">
+    <Project Path="src/Modules/Messaging/Messaging.Application/Messaging.Application.csproj" />
     <Project Path="src/Modules/Messaging/Messaging.Contracts/Messaging.Contracts.csproj" />
+    <Project Path="src/Modules/Messaging/Messaging.Domain/Messaging.Domain.csproj" />
+    <Project Path="src/Modules/Messaging/Messaging.Infrastructure/Messaging.Infrastructure.csproj" />
   </Folder>
   <Folder Name="/src/Modules/Notifications/">
     <Project Path="src/Modules/Notifications/Notifications.Contracts/Notifications.Contracts.csproj" />
