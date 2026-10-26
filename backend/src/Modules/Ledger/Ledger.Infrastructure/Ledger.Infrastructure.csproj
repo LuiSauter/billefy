@@ -3,6 +3,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Ledger.Domain\Ledger.Domain.csproj" />
     <ProjectReference Include="..\..\..\BuildingBlocks\BuildingBlocks.csproj" />
+    <ProjectReference Include="..\Ledger.Application\Ledger.Application.csproj" />
   </ItemGroup>
 
   <ItemGroup>
