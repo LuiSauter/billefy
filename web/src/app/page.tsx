@@ -1,46 +1,28 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import Decimal from "decimal.js";
-import { AccountDto, AccountType, TransactionDirection } from "../api/client";
+import {
+  BillefyApiClient,
+  AccountDto,
+  AccountType,
+  TransactionDirection,
+  RateSnapshotDto,
+} from "../api/client";
+
+const DEFAULT_API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
 export default function DashboardPage() {
-  const [accounts, setAccounts] = useState<AccountDto[]>([
-    {
-      id: "acc-1",
-      name: "Banco Unión (Ahorros)",
-      type: "Bank",
-      currency: "BOB",
-      balance: new Decimal(4500.0),
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: "acc-2",
-      name: "Efectivo Billetera",
-      type: "Cash",
-      currency: "BOB",
-      balance: new Decimal(350.0),
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: "acc-3",
-      name: "Billetera Dólares",
-      type: "Wallet",
-      currency: "USD",
-      balance: new Decimal(820.0),
-      createdAt: new Date().toISOString(),
-    },
-  ]);
+  const [userId, setUserId] = useState<string>("");
+  const [accounts, setAccounts] = useState<AccountDto[]>([]);
+  const [rate, setRate] = useState<RateSnapshotDto | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const [rate] = useState({
-    buyRate: 11.96,
-    sellRate: 12.0,
-    source: "Binance P2P (DolarApi)",
-    updatedAt: "Hace 5 minutos",
-  });
-
+  // Modals state
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
   const [isTxnModalOpen, setIsTxnModalOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   // Form states
   const [newAccountName, setNewAccountName] = useState("");
@@ -48,12 +30,63 @@ export default function DashboardPage() {
   const [newAccountCurrency, setNewAccountCurrency] = useState("BOB");
   const [newAccountBalance, setNewAccountBalance] = useState("0");
 
-  const [txnAccountId, setTxnAccountId] = useState("acc-1");
+  const [txnAccountId, setTxnAccountId] = useState("");
   const [txnAmount, setTxnAmount] = useState("");
   const [txnDirection, setTxnDirection] = useState<TransactionDirection>("Expense");
   const [txnDescription, setTxnDescription] = useState("");
 
-  // Consolidated balances
+  // Initialize User ID from localStorage or generate fresh
+  useEffect(() => {
+    let storedId = "";
+    try {
+      storedId = localStorage.getItem("billefy_user_id") || "";
+      if (!storedId) {
+        storedId = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : "00000000-0000-0000-0000-000000000001";
+        localStorage.setItem("billefy_user_id", storedId);
+      }
+    } catch {
+      storedId = "00000000-0000-0000-0000-000000000001";
+    }
+    setUserId(storedId);
+  }, []);
+
+  const client = useMemo(() => {
+    if (!userId) return null;
+    return new BillefyApiClient({ baseUrl: DEFAULT_API_URL, userId });
+  }, [userId]);
+
+  const loadData = useCallback(async () => {
+    if (!client) return;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const [accountsData, rateData] = await Promise.all([
+        client.getAccounts(),
+        client.getLatestRate("BOB", "USD").catch(() => null),
+      ]);
+
+      setAccounts(accountsData);
+      setRate(rateData);
+      if (accountsData.length > 0 && !txnAccountId) {
+        setTxnAccountId(accountsData[0].id);
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Error al conectar con el servidor.";
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
+  }, [client, txnAccountId]);
+
+  useEffect(() => {
+    if (client) {
+      loadData();
+    }
+  }, [client, loadData]);
+
+  // Consolidated balances calculation
   const totals = useMemo(() => {
     let bobTotal = new Decimal(0);
     let usdTotal = new Decimal(0);
@@ -66,55 +99,65 @@ export default function DashboardPage() {
       }
     }
 
-    // Rule 19: BOB in USD uses Buy rate: bob / buyRate
-    const bobValuedInUsd = bobTotal.dividedBy(new Decimal(rate.buyRate));
-    const consolidatedUsd = usdTotal.plus(bobValuedInUsd);
+    let consolidatedUsd = usdTotal;
+    if (rate && rate.appliedRate > 0) {
+      // Rule 19: BOB in USD uses Buy rate: bob / buyRate
+      const bobValuedInUsd = bobTotal.dividedBy(new Decimal(rate.appliedRate));
+      consolidatedUsd = usdTotal.plus(bobValuedInUsd);
+    }
 
     return { bobTotal, usdTotal, consolidatedUsd };
-  }, [accounts, rate.buyRate]);
+  }, [accounts, rate]);
 
-  const handleCreateAccount = (e: React.FormEvent) => {
+  const handleCreateAccount = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newAccountName.trim()) return;
+    if (!client || !newAccountName.trim()) return;
 
-    const newAcc: AccountDto = {
-      id: `acc-${Date.now()}`,
-      name: newAccountName.trim(),
-      type: newAccountType,
-      currency: newAccountCurrency,
-      balance: new Decimal(newAccountBalance || "0"),
-      createdAt: new Date().toISOString(),
-    };
+    setSubmitting(true);
+    try {
+      await client.createAccount({
+        name: newAccountName.trim(),
+        type: newAccountType,
+        currency: newAccountCurrency,
+        initialBalance: newAccountBalance,
+      });
 
-    setAccounts([...accounts, newAcc]);
-    setNewAccountName("");
-    setNewAccountBalance("0");
-    setIsAccountModalOpen(false);
+      setNewAccountName("");
+      setNewAccountBalance("0");
+      setIsAccountModalOpen(false);
+      await loadData();
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Error al crear la cuenta.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const handleRegisterTxn = (e: React.FormEvent) => {
+  const handleRegisterTxn = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!client || !txnAccountId) return;
+
     const amountNum = parseFloat(txnAmount);
     if (isNaN(amountNum) || amountNum <= 0) return;
 
-    const decimalAmount = new Decimal(amountNum);
+    setSubmitting(true);
+    try {
+      await client.registerTransaction({
+        accountId: txnAccountId,
+        amount: txnAmount,
+        direction: txnDirection,
+        description: txnDescription.trim() || undefined,
+      });
 
-    setAccounts(
-      accounts.map((acc) => {
-        if (acc.id === txnAccountId) {
-          const newBalance =
-            txnDirection === "Income"
-              ? acc.balance.plus(decimalAmount)
-              : acc.balance.minus(decimalAmount);
-          return { ...acc, balance: newBalance };
-        }
-        return acc;
-      })
-    );
-
-    setTxnAmount("");
-    setTxnDescription("");
-    setIsTxnModalOpen(false);
+      setTxnAmount("");
+      setTxnDescription("");
+      setIsTxnModalOpen(false);
+      await loadData();
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Error al registrar el movimiento.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -128,10 +171,23 @@ export default function DashboardPage() {
           </p>
         </div>
         <div style={{ background: "#f3f4f6", padding: "0.5rem 1rem", borderRadius: "8px", fontSize: "0.85rem", textAlign: "right" }}>
-          <div><strong>Cotización Paralela:</strong> Compra {rate.buyRate.toFixed(2)} / Venta {rate.sellRate.toFixed(2)} BOB/USD</div>
-          <div style={{ color: "#6b7280", fontSize: "0.75rem" }}>Fuente: {rate.source} · {rate.updatedAt}</div>
+          {rate ? (
+            <>
+              <div><strong>Cotización P2P:</strong> {rate.appliedRate.toFixed(2)} BOB/USD {rate.isStale && <span style={{ color: "#d97706" }}>(Desactualizada)</span>}</div>
+              <div style={{ color: "#6b7280", fontSize: "0.75rem" }}>Fuente: {rate.rateSource} · {new Date(rate.fetchedAt).toLocaleTimeString()}</div>
+            </>
+          ) : (
+            <div style={{ color: "#6b7280" }}>Sin cotización disponible</div>
+          )}
         </div>
       </header>
+
+      {/* Error state */}
+      {error && (
+        <div style={{ background: "#fee2e2", border: "1px solid #f87171", color: "#991b1b", padding: "0.75rem 1rem", borderRadius: "8px", marginBottom: "1.5rem" }}>
+          {error}
+        </div>
+      )}
 
       {/* Balance Summary Cards */}
       <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: "1rem", marginBottom: "2rem" }}>
@@ -166,7 +222,16 @@ export default function DashboardPage() {
         </button>
         <button
           onClick={() => setIsTxnModalOpen(true)}
-          style={{ background: "#059669", color: "#fff", border: "none", padding: "0.6rem 1.2rem", borderRadius: "6px", cursor: "pointer", fontWeight: "500" }}
+          disabled={accounts.length === 0}
+          style={{
+            background: accounts.length === 0 ? "#9ca3af" : "#059669",
+            color: "#fff",
+            border: "none",
+            padding: "0.6rem 1.2rem",
+            borderRadius: "6px",
+            cursor: accounts.length === 0 ? "not-allowed" : "pointer",
+            fontWeight: "500",
+          }}
         >
           + Registrar Movimiento
         </button>
@@ -174,24 +239,32 @@ export default function DashboardPage() {
 
       {/* Accounts List */}
       <section style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: "10px", overflow: "hidden" }}>
-        <div style={{ padding: "1rem 1.25rem", borderBottom: "1px solid #e5e7eb", fontWeight: "600" }}>
-          Tus Cuentas ({accounts.length})
+        <div style={{ padding: "1rem 1.25rem", borderBottom: "1px solid #e5e7eb", fontWeight: "600", display: "flex", justifyContent: "space-between" }}>
+          <span>Tus Cuentas ({accounts.length})</span>
+          {loading && <span style={{ color: "#6b7280", fontWeight: "normal", fontSize: "0.875rem" }}>Cargando datos del servidor...</span>}
         </div>
         <div>
-          {accounts.map((acc) => (
-            <div
-              key={acc.id}
-              style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "1rem 1.25rem", borderBottom: "1px solid #f3f4f6" }}
-            >
-              <div>
-                <div style={{ fontWeight: "600", color: "#111827" }}>{acc.name}</div>
-                <div style={{ fontSize: "0.8rem", color: "#6b7280" }}>{acc.type} · Moneda: {acc.currency}</div>
-              </div>
-              <div style={{ fontSize: "1.2rem", fontWeight: "700", color: acc.balance.isNegative() ? "#dc2626" : "#111827" }}>
-                {acc.balance.toFixed(2)} {acc.currency}
-              </div>
+          {accounts.length === 0 && !loading ? (
+            <div style={{ padding: "3rem 1rem", textAlign: "center", color: "#6b7280" }}>
+              <p style={{ margin: "0 0 0.5rem 0", fontSize: "1.1rem" }}>No tenés cuentas creadas aún.</p>
+              <p style={{ margin: 0, fontSize: "0.875rem" }}>Creá tu primera cuenta bancaria, billetera o efectivo para comenzar a registrar movimientos.</p>
             </div>
-          ))}
+          ) : (
+            accounts.map((acc) => (
+              <div
+                key={acc.id}
+                style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "1rem 1.25rem", borderBottom: "1px solid #f3f4f6" }}
+              >
+                <div>
+                  <div style={{ fontWeight: "600", color: "#111827" }}>{acc.name}</div>
+                  <div style={{ fontSize: "0.8rem", color: "#6b7280" }}>{acc.type} · Moneda: {acc.currency}</div>
+                </div>
+                <div style={{ fontSize: "1.2rem", fontWeight: "700", color: acc.balance.isNegative() ? "#dc2626" : "#111827" }}>
+                  {acc.balance.toFixed(2)} {acc.currency}
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </section>
 
@@ -257,9 +330,10 @@ export default function DashboardPage() {
                 </button>
                 <button
                   type="submit"
+                  disabled={submitting}
                   style={{ background: "#111827", color: "#fff", border: "none", padding: "0.5rem 1rem", borderRadius: "6px", cursor: "pointer" }}
                 >
-                  Guardar Cuenta
+                  {submitting ? "Guardando..." : "Guardar en Base de Datos"}
                 </button>
               </div>
             </form>
@@ -271,7 +345,7 @@ export default function DashboardPage() {
       {isTxnModalOpen && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem" }}>
           <div style={{ background: "#fff", borderRadius: "10px", padding: "1.5rem", width: "100%", maxWidth: "450px" }}>
-            <h3 style={{ margin: "0 0 1rem 0" }}>Registrar Movimiento</h3>
+            <h3 style={{ margin: "0 0 1rem 0" }}>Registrar Movimiento en Servidor</h3>
             <form onSubmit={handleRegisterTxn} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
               <div>
                 <label style={{ display: "block", fontSize: "0.875rem", marginBottom: "0.25rem" }}>Cuenta</label>
@@ -330,9 +404,10 @@ export default function DashboardPage() {
                 </button>
                 <button
                   type="submit"
+                  disabled={submitting}
                   style={{ background: "#059669", color: "#fff", border: "none", padding: "0.5rem 1rem", borderRadius: "6px", cursor: "pointer" }}
                 >
-                  Confirmar Movimiento
+                  {submitting ? "Registrando..." : "Confirmar Movimiento"}
                 </button>
               </div>
             </form>

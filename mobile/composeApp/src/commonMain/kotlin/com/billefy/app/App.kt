@@ -16,14 +16,16 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.billefy.shared.model.AccountDto
-import com.billefy.shared.model.Money
 
 @Composable
-fun App() {
+fun App(accounts: List<AccountDto> = emptyList()) {
     MaterialTheme {
         Surface(modifier = Modifier.fillMaxSize()) {
             Column(modifier = Modifier.padding(16.dp)) {
@@ -38,38 +40,50 @@ fun App() {
                 )
                 Spacer(modifier = Modifier.height(16.dp))
 
-                val sampleAccounts = remember {
-                    listOf(
-                        AccountDto("1", "Banco Unión", "Bank", "BOB", Money.of("4500.0", "BOB"), "2026-10-26"),
-                        AccountDto("2", "Efectivo", "Cash", "BOB", Money.of("350.0", "BOB"), "2026-10-26"),
-                        AccountDto("3", "Billetera USD", "Wallet", "USD", Money.of("820.0", "USD"), "2026-10-26")
-                    )
-                }
-
                 Text(
-                    text = "Tus Cuentas",
+                    text = "Tus Cuentas (${accounts.size})",
                     style = MaterialTheme.typography.titleMedium
                 )
                 Spacer(modifier = Modifier.height(8.dp))
 
-                LazyColumn {
-                    items(sampleAccounts) { acc ->
-                        Card(
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth().padding(16.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween
+                if (accounts.isEmpty()) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text(
+                                text = "No tienes cuentas creadas aún.",
+                                style = MaterialTheme.typography.titleSmall
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Crea tu primera cuenta bancaria o billetera desde la aplicación.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                } else {
+                    LazyColumn {
+                        items(accounts) { acc ->
+                            Card(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                             ) {
-                                Column {
-                                    Text(acc.name, style = MaterialTheme.typography.titleSmall)
-                                    Text("${acc.type} · ${acc.currency}", style = MaterialTheme.typography.bodySmall)
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Column {
+                                        Text(acc.name, style = MaterialTheme.typography.titleSmall)
+                                        Text("${acc.type} · ${acc.currency}", style = MaterialTheme.typography.bodySmall)
+                                    }
+                                    Text(
+                                        "${acc.balance.displayAmount} ${acc.currency}",
+                                        style = MaterialTheme.typography.titleSmall
+                                    )
                                 }
-                                Text(
-                                    "${acc.balance.displayAmount} ${acc.currency}",
-                                    style = MaterialTheme.typography.titleSmall
-                                )
                             }
                         }
                     }
