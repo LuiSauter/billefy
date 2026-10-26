@@ -21,6 +21,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Modules\Ingestion\Ingestion.Domain\Ingestion.Domain.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Ingestion\Ingestion.Application\Ingestion.Application.csproj" />
     <ProjectReference Include="..\..\src\BuildingBlocks\BuildingBlocks.csproj" />
   </ItemGroup>
 

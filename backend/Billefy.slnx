@@ -21,6 +21,7 @@
     <Project Path="src/Modules/Identity/Identity.Contracts/Identity.Contracts.csproj" />
   </Folder>
   <Folder Name="/src/Modules/Ingestion/">
+    <Project Path="src/Modules/Ingestion/Ingestion.Application/Ingestion.Application.csproj" />
     <Project Path="src/Modules/Ingestion/Ingestion.Contracts/Ingestion.Contracts.csproj" />
     <Project Path="src/Modules/Ingestion/Ingestion.Domain/Ingestion.Domain.csproj" />
   </Folder>
