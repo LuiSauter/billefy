@@ -206,4 +206,51 @@ public class LedgerIntegrationTests
         var allTxns = await txnRepo.GetByAccountIdAsync(accountId);
         allTxns.Should().HaveCount(2, "Original transaction and reversal both remain permanently in ledger.");
     }
+
+    [Fact]
+    public async Task RegisterTransaction_WithoutExplicitRate_ShouldCaptureSnapshotFromFxContracts()
+    {
+        var dbName = Guid.NewGuid().ToString();
+        var userContext = new TestUserContext();
+        var clock = new TestClock();
+        var (context, connection) = CreateDbContext(userContext);
+        using var _ = connection;
+        using var __ = context;
+
+        var accountRepo = new AccountRepository(context);
+        var txnRepo = new TransactionRepository(context);
+        var unitOfWork = new UnitOfWork(context);
+
+        // Mock IRateSnapshotProvider
+        var snapshotProvider = new MockSnapshotProvider(new Fx.Contracts.RateSnapshotDto(12.00m, "DolarApi:BinanceP2P", clock.UtcNow, false));
+
+        var createAccountHandler = new CreateAccountCommandHandler(accountRepo, userContext, clock, unitOfWork);
+        var createResult = await createAccountHandler.HandleAsync(new CreateAccountCommand("Banco", AccountType.Bank, "BOB", 100m));
+        var accountId = createResult.Value;
+
+        var registerHandler = new RegisterTransactionCommandHandler(accountRepo, txnRepo, userContext, clock, unitOfWork, snapshotProvider);
+        var txnResult = await registerHandler.HandleAsync(new RegisterTransactionCommand(
+            accountId,
+            50m,
+            TransactionDirection.Expense,
+            null,
+            clock.UtcNow,
+            "Alquiler"));
+
+        txnResult.IsSuccess.Should().BeTrue();
+        var txn = await txnRepo.GetByIdAsync(txnResult.Value);
+
+        txn.Should().NotBeNull();
+        txn!.AppliedRate.Should().Be(12.00m);
+        txn.RateSource.Should().Be("DolarApi:BinanceP2P");
+    }
+
+    private class MockSnapshotProvider : Fx.Contracts.IRateSnapshotProvider
+    {
+        private readonly Fx.Contracts.RateSnapshotDto _dto;
+        public MockSnapshotProvider(Fx.Contracts.RateSnapshotDto dto) => _dto = dto;
+
+        public Task<Fx.Contracts.RateSnapshotDto?> GetSnapshotAsync(string currencyCode, string baseCurrencyCode, Guid? userId = null, CancellationToken cancellationToken = default) =>
+            Task.FromResult<Fx.Contracts.RateSnapshotDto?>(_dto);
+    }
 }

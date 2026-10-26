@@ -1,20 +1,9 @@
 using BuildingBlocks.Currencies;
+using Fx.Application.Abstractions;
 using Fx.Domain.Rates;
 using Microsoft.EntityFrameworkCore;
 
 namespace Fx.Infrastructure.Repositories;
-
-public interface IExchangeRateRepository
-{
-    Task<ExchangeRate?> GetLatestRateAsync(
-        Currency currency,
-        Currency baseCurrency,
-        Guid? userId = null,
-        CancellationToken cancellationToken = default);
-
-    Task AddAsync(ExchangeRate rate, CancellationToken cancellationToken = default);
-    Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
-}
 
 public sealed class ExchangeRateRepository : IExchangeRateRepository
 {

@@ -12,6 +12,7 @@
     <Project Path="src/Modules/Analytics/Analytics.Contracts/Analytics.Contracts.csproj" />
   </Folder>
   <Folder Name="/src/Modules/Fx/">
+    <Project Path="src/Modules/Fx/Fx.Application/Fx.Application.csproj" />
     <Project Path="src/Modules/Fx/Fx.Contracts/Fx.Contracts.csproj" />
     <Project Path="src/Modules/Fx/Fx.Domain/Fx.Domain.csproj" />
     <Project Path="src/Modules/Fx/Fx.Infrastructure/Fx.Infrastructure.csproj" />

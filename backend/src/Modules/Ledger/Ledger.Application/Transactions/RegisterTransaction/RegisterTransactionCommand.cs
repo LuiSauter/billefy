@@ -2,6 +2,7 @@ using BuildingBlocks.Common;
 using BuildingBlocks.Security;
 using BuildingBlocks.Time;
 using BuildingBlocks.ValueObjects;
+using Fx.Contracts;
 using Ledger.Application.Abstractions;
 using Ledger.Domain.Transactions;
 
@@ -24,19 +25,22 @@ public sealed class RegisterTransactionCommandHandler
     private readonly ICurrentUserContext _currentUserContext;
     private readonly IClock _clock;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IRateSnapshotProvider? _rateSnapshotProvider;
 
     public RegisterTransactionCommandHandler(
         IAccountRepository accountRepository,
         ITransactionRepository transactionRepository,
         ICurrentUserContext currentUserContext,
         IClock clock,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        IRateSnapshotProvider? rateSnapshotProvider = null)
     {
         _accountRepository = accountRepository;
         _transactionRepository = transactionRepository;
         _currentUserContext = currentUserContext;
         _clock = clock;
         _unitOfWork = unitOfWork;
+        _rateSnapshotProvider = rateSnapshotProvider;
     }
 
     public async Task<Result<Guid>> HandleAsync(RegisterTransactionCommand command, CancellationToken cancellationToken = default)
@@ -57,6 +61,25 @@ public sealed class RegisterTransactionCommandHandler
             return Result.Failure<Guid>(Error.NotFound("Account.NotFound", $"Account with id {command.AccountId} was not found."));
         }
 
+        var appliedRate = command.AppliedRate;
+        var rateSource = command.RateSource;
+
+        // If rate is not explicitly provided, snapshot from Fx module contracts
+        if (!appliedRate.HasValue && _rateSnapshotProvider is not null && account.Currency.Code != "USD")
+        {
+            var snapshot = await _rateSnapshotProvider.GetSnapshotAsync(
+                account.Currency.Code,
+                "USD",
+                _currentUserContext.UserId,
+                cancellationToken);
+
+            if (snapshot is not null)
+            {
+                appliedRate = snapshot.AppliedRate;
+                rateSource = snapshot.RateSource;
+            }
+        }
+
         var money = Money.Of(command.Amount, account.Currency);
 
         var transaction = Transaction.Create(
@@ -67,8 +90,8 @@ public sealed class RegisterTransactionCommandHandler
             command.CategoryId,
             command.OccurredAt,
             command.Description,
-            command.AppliedRate,
-            command.RateSource,
+            appliedRate,
+            rateSource,
             _clock.UtcNow);
 
         await _transactionRepository.AddAsync(transaction, cancellationToken);

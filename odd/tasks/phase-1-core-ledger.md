@@ -25,18 +25,27 @@ Rule 6 and Rule 7 of AGENTS.md mandate that transactions are immutable, correcti
 
 ## Tasks
 
+### Slice 1.1 & 1.2: Core Ledger
 - [x] Task 1: Base Data Access & User Context — `ICurrentUserContext`, `Entity` base class with `user_id`, EF Core Npgsql packages in backend.
 - [x] Task 2: Ledger Domain Modeling — `Account`, `Category`, `Transaction`, and domain invariants with unit tests.
 - [x] Task 3: Ledger Infrastructure & EF Core Persistence — `LedgerDbContext`, entity configurations, global query filters, and balance queries.
 - [x] Task 4: Ledger Application Use Cases — Handlers for `CreateAccount`, `RegisterTransaction`, `ReverseTransaction`, `RegisterTransfer`.
 - [x] Task 5: Ledger Integration Tests & Verification — In-memory/Postgres integration tests verifying immutability, reversal restoring balance, and user isolation.
 
+### Slice 1.3: Fx Module & DolarApi Rate Source
+- [x] Task 6: Fx Domain & Conversion Rules — `ExchangeRate`, `RateSide`, `IRateSource` port, and buy/sell rate conversion service with unit tests.
+- [x] Task 7: Fx Persistence & Infrastructure — `FxDbContext` mapping to `exchange_rates`, repository for latest rates and history.
+- [x] Task 8: DolarApi Integration Adapter — `DolarApiRateSource` consuming DolarApi endpoints with resiliency and tests.
+- [/] Task 9: Fx Application & Ledger Rate Snapshot Integration — Use cases for querying rates, manual overrides, and transaction rate snapshots.
+
 ## Acceptance Criteria & Checks
 1. `dotnet build backend/` succeeds with 0 warnings. (PASS)
-2. `dotnet test backend/` passes all domain and integration tests (29/29 tests passed). (PASS)
+2. `dotnet test backend/` passes all domain and integration tests. (PASS)
 3. Transactions cannot be updated or deleted; attempting to modify an existing transaction throws an exception or fails validation (verified in ImmutabilityGuard tests). (PASS)
 4. Reversal transactions cancel the effect on the derived balance without altering the original row (verified in DerivedBalance test). (PASS)
 5. Queries for user A never return user B's accounts or transactions (verified in MultiTenantIsolation test). (PASS)
+6. Exchange rate rule strictly adheres to Rule 19: user holding local currency sees buy rate; holding USD sees sell rate.
+7. DolarApi adapter maps `compra`/`venta` correctly and handles network timeouts gracefully.
 
 ## Progress & Evidence
 - Branch `feat/phase-1-core-ledger` created.
@@ -45,6 +54,9 @@ Rule 6 and Rule 7 of AGENTS.md mandate that transactions are immutable, correcti
 - Task 3 completed: LedgerDbContext with Npgsql mapping, global user_id filter, and transaction immutability enforcement (commit `d2f93ee`).
 - Task 4 completed: Ledger.Application use cases with repository and unit of work implementations (commit `d678d49`).
 - Task 5 completed: Ledger integration tests covering immutability, reversals, derived balance, and user isolation (commit `4a2d4ae`).
+- Task 6 completed: Fx.Domain with ExchangeRate, IRateSource port, ExchangeRateConverter and 5 unit tests (commit `9f12c55`).
+- Task 7 completed: FxDbContext mapping exchange_rates with composite indexes and ExchangeRateRepository (commit `06063ad`).
+- Task 8 completed: DolarApiRateSource integration adapter consuming Binance P2P and tests (commit `2420cfc`).
 
 ## Next Step
-Slice 1.1 and 1.2 completed. Next slice: Slice 1.3 (Fx Module & DolarApi Rate Source integration).
+Implement Task 9: Fx Application & Rate Snapshot Integration.
