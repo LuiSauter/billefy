@@ -36,8 +36,6 @@ web/src/
 
 ## 2. Requisitos Previos
 
-Antes de ejecutar el frontend web, asegúrate de contar con:
-
 1. **Node.js** 20.10.0 o superior (LTS recomendado):
    ```bash
    node --version
@@ -47,41 +45,42 @@ Antes de ejecutar el frontend web, asegúrate de contar con:
    pnpm --version
    ```
    *(Si no tienes pnpm instalado: `npm install -g pnpm`)*
-3. **Backend de Billefy** corriendo en `http://localhost:5000` (o la dirección que configures).
+3. **Backend de Billefy** corriendo en `http://localhost:5267` (o el puerto configurado).
 
 ---
 
-## 3. Configuración de Variables de Entorno
-
-**No hay URLs ni credenciales harcodeadas en el código.**
+## 3. Variables de Entorno (.env.local) — Copiar y Pegar
 
 El cliente web se conecta al backend mediante la variable `NEXT_PUBLIC_API_URL`.
 
-### Opción A: Archivo local `.env.local`
-Copia la plantilla `env.example` ubicada en este directorio a `.env.local`:
+### Opción A: Crear tu archivo `.env.local` en la terminal (macOS / Linux)
+
+Ubicado en la carpeta `web/`, pegá este bloque en tu terminal:
+
 ```bash
-cp env.example .env.local
-```
-Contenido de `.env.local`:
-```env
-NEXT_PUBLIC_API_URL=http://localhost:5000
+cat << 'EOF' > .env.local
+# URL de la API del Backend ASP.NET Core (.NET 10)
+NEXT_PUBLIC_API_URL=http://localhost:5267
+EOF
 ```
 
-### Opción B: Variables de entorno del sistema
+---
+
+### Opción B: Exportar en la Sesión de Terminal
 
 #### macOS y Linux (Bash / Zsh)
 ```bash
-export NEXT_PUBLIC_API_URL="http://localhost:5000"
+export NEXT_PUBLIC_API_URL="http://localhost:5267"
 ```
 
 #### Windows (PowerShell)
 ```powershell
-$env:NEXT_PUBLIC_API_URL="http://localhost:5000"
+$env:NEXT_PUBLIC_API_URL="http://localhost:5267"
 ```
 
 #### Windows (Command Prompt / CMD)
 ```cmd
-set NEXT_PUBLIC_API_URL=http://localhost:5000
+set NEXT_PUBLIC_API_URL=http://localhost:5267
 ```
 
 ---
