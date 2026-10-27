@@ -22,10 +22,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -33,17 +29,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.billefy.app.state.rememberWalletAppState
 import com.billefy.app.ui.BudgetsMobileView
 import com.billefy.app.ui.ConnectedAccountsHorizontalRow
-import com.billefy.app.ui.ContributeGoalDialog
 import com.billefy.app.ui.DarkHeroBalanceCard
-import com.billefy.app.ui.DraftsReviewDialog
 import com.billefy.app.ui.FinancialGoalsMobileView
-import com.billefy.app.ui.LoanCollectionDialog
 import com.billefy.app.ui.MobileAuthScreen
-import com.billefy.app.ui.ProminentDisclosureDialog
+import com.billefy.app.ui.MobileDialogsHost
 import com.billefy.app.ui.QuickActionsRow
-import com.billefy.app.ui.QuickMovementKeypadDialog
 import com.billefy.app.ui.RecentActivityMobileSection
 import com.billefy.app.ui.RecurringPaymentsMobileView
 import com.billefy.app.ui.SlateGrayText
@@ -58,21 +51,9 @@ fun App(
     accounts: List<AccountDto> = emptyList(),
     onRequestNotificationPermission: () -> Unit = {}
 ) {
-    // Auth State
-    var isAuthenticated by remember { mutableStateOf(true) }
+    val state = rememberWalletAppState()
 
-    // Current Active Tab
-    var currentTab by remember { mutableStateOf("Billetera") }
-
-    // Dialogs / Sheets State
-    var showNewMovementDialog by remember { mutableStateOf(false) }
-    var showDraftsDialog by remember { mutableStateOf(false) }
-    var showLoanDialog by remember { mutableStateOf(false) }
-    var showContributeDialog by remember { mutableStateOf(false) }
-    var selectedGoalName by remember { mutableStateOf("🛡️ Fondo de Emergencia") }
-    var showDisclosure by remember { mutableStateOf(false) }
-
-    // Default accounts for visual richness
+    // Fallback display accounts
     val displayAccounts = if (accounts.isNotEmpty()) {
         accounts
     } else {
@@ -105,8 +86,8 @@ fun App(
     }
 
     MaterialTheme {
-        if (!isAuthenticated) {
-            MobileAuthScreen(onLoginSuccess = { isAuthenticated = true })
+        if (!state.isAuthenticated) {
+            MobileAuthScreen(onLoginSuccess = { state.isAuthenticated = true })
         } else {
             Surface(
                 modifier = Modifier.fillMaxSize(),
@@ -119,16 +100,16 @@ fun App(
                             .padding(horizontal = 16.dp, vertical = 10.dp)
                             .verticalScroll(rememberScrollState())
                     ) {
-                        // 1. Dynamic Island Top Bar with live P2P rate (OpenPencil 02)
+                        // 1. Top status bar with live P2P rate (OpenPencil 02)
                         TopStatusBar(p2pRate = "9.85")
 
-                        // 2. User Profile Header with avatar & QR action
+                        // 2. User profile header with QR shortcut
                         UserProfileHeader(
                             userName = "Franco Dev",
-                            onScanQrClick = { showNewMovementDialog = true }
+                            onScanQrClick = { state.showNewMovementDialog = true }
                         )
 
-                        // Tab Navigation Row (OpenPencil Modules)
+                        // 3. Tab Navigation Chips
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -138,13 +119,13 @@ fun App(
                             horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
                             listOf("Billetera", "Metas", "Presupuestos", "Recurrentes", "Captura").forEach { tab ->
-                                val isSelected = currentTab == tab
+                                val isSelected = state.currentTab == tab
                                 Box(
                                     modifier = Modifier
                                         .weight(1f)
                                         .clip(RoundedCornerShape(10.dp))
                                         .background(if (isSelected) Color.White else Color.Transparent)
-                                        .clickable { currentTab = tab }
+                                        .clickable { state.currentTab = tab }
                                         .padding(vertical = 7.dp),
                                     contentAlignment = Alignment.Center
                                 ) {
@@ -161,8 +142,8 @@ fun App(
 
                         Spacer(modifier = Modifier.height(14.dp))
 
-                        // Dynamic Module Content
-                        when (currentTab) {
+                        // Dynamic Tab Screen
+                        when (state.currentTab) {
                             "Billetera" -> {
                                 DarkHeroBalanceCard(
                                     totalBob = "86,450.00",
@@ -172,10 +153,10 @@ fun App(
                                 Spacer(modifier = Modifier.height(12.dp))
 
                                 QuickActionsRow(
-                                    onTransferClick = { showNewMovementDialog = true },
-                                    onCollectLoanClick = { showLoanDialog = true },
-                                    onNewMovementClick = { showNewMovementDialog = true },
-                                    onDraftsClick = { showDraftsDialog = true },
+                                    onTransferClick = { state.showNewMovementDialog = true },
+                                    onCollectLoanClick = { state.showLoanDialog = true },
+                                    onNewMovementClick = { state.showNewMovementDialog = true },
+                                    onDraftsClick = { state.showDraftsDialog = true },
                                     draftsCount = 3
                                 )
 
@@ -183,7 +164,7 @@ fun App(
 
                                 ConnectedAccountsHorizontalRow(
                                     accounts = displayAccounts,
-                                    onLinkAccountClick = { showNewMovementDialog = true }
+                                    onLinkAccountClick = { state.showNewMovementDialog = true }
                                 )
 
                                 Spacer(modifier = Modifier.height(12.dp))
@@ -195,17 +176,17 @@ fun App(
 
                             "Metas" -> {
                                 FinancialGoalsMobileView(
-                                    onNewGoalClick = { showNewMovementDialog = true },
+                                    onNewGoalClick = { state.showNewMovementDialog = true },
                                     onContributeClick = { goalName ->
-                                        selectedGoalName = goalName
-                                        showContributeDialog = true
+                                        state.selectedGoalName = goalName
+                                        state.showContributeDialog = true
                                     }
                                 )
                             }
 
                             "Presupuestos" -> {
                                 BudgetsMobileView(
-                                    onNewBudgetClick = { showNewMovementDialog = true }
+                                    onNewBudgetClick = { state.showNewMovementDialog = true }
                                 )
                             }
 
@@ -251,7 +232,7 @@ fun App(
                                             )
                                             Spacer(modifier = Modifier.height(14.dp))
                                             Button(
-                                                onClick = { showDisclosure = true },
+                                                onClick = { state.showDisclosure = true },
                                                 colors = ButtonDefaults.buttonColors(containerColor = VibrantBlue),
                                                 shape = RoundedCornerShape(14.dp),
                                                 modifier = Modifier.fillMaxWidth().height(46.dp)
@@ -265,78 +246,11 @@ fun App(
                         }
                     }
 
-                    // Dialogs & Sheets
-                    if (showNewMovementDialog) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(Color.Black.copy(alpha = 0.5f))
-                                .clickable { showNewMovementDialog = false },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            QuickMovementKeypadDialog(
-                                onDismiss = { showNewMovementDialog = false },
-                                onConfirm = { _, _, _ -> showNewMovementDialog = false }
-                            )
-                        }
-                    }
-
-                    if (showDraftsDialog) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(Color.Black.copy(alpha = 0.5f))
-                                .clickable { showDraftsDialog = false },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            DraftsReviewDialog(
-                                onDismiss = { showDraftsDialog = false },
-                                onApproveAll = { showDraftsDialog = false },
-                                onApproveItem = { _ -> showDraftsDialog = false }
-                            )
-                        }
-                    }
-
-                    if (showLoanDialog) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(Color.Black.copy(alpha = 0.5f))
-                                .clickable { showLoanDialog = false },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            LoanCollectionDialog(
-                                onDismiss = { showLoanDialog = false },
-                                onCollect = { showLoanDialog = false }
-                            )
-                        }
-                    }
-
-                    if (showContributeDialog) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(Color.Black.copy(alpha = 0.5f))
-                                .clickable { showContributeDialog = false },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            ContributeGoalDialog(
-                                goalName = selectedGoalName,
-                                onDismiss = { showContributeDialog = false },
-                                onConfirm = { _ -> showContributeDialog = false }
-                            )
-                        }
-                    }
-
-                    if (showDisclosure) {
-                        ProminentDisclosureDialog(
-                            onAccept = {
-                                showDisclosure = false
-                                onRequestNotificationPermission()
-                            },
-                            onDismiss = { showDisclosure = false }
-                        )
-                    }
+                    // Dialogs & Overlays Host
+                    MobileDialogsHost(
+                        state = state,
+                        onRequestNotificationPermission = onRequestNotificationPermission
+                    )
                 }
             }
         }
