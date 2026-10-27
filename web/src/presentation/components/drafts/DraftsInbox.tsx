@@ -1,13 +1,14 @@
-import { useState } from "react";
+"use client";
+
 import { DraftDto, AccountDto } from "@/domain/models/types";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Check, X, Sparkles } from "lucide-react";
 
 interface DraftsInboxProps {
   drafts: DraftDto[];
   accounts: AccountDto[];
   onConfirmDraft: (draft: DraftDto, selectedAccountId: string) => void;
   onDiscardDraft: (draftId: string) => void;
+  onConfirmAll?: () => void;
 }
 
 export function DraftsInbox({
@@ -15,117 +16,116 @@ export function DraftsInbox({
   accounts,
   onConfirmDraft,
   onDiscardDraft,
+  onConfirmAll,
 }: DraftsInboxProps) {
-  const [accountSelection, setAccountSelection] = useState<Record<string, string>>({});
+  if (drafts.length === 0) {
+    return (
+      <div className="p-6 rounded-2xl bg-white border border-slate-200/80 shadow-xs flex flex-col items-center justify-center text-center">
+        <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 mb-2">
+          <Sparkles className="w-5 h-5" />
+        </div>
+        <h3 className="text-sm font-bold text-slate-900">Bandeja al día (Inbox Zero)</h3>
+        <p className="text-xs text-slate-400 mt-0.5">
+          Todas las notificaciones y capturas bancarias fueron confirmadas.
+        </p>
+      </div>
+    );
+  }
 
-  if (drafts.length === 0) return null;
+  const resolveAccountId = (draft: DraftDto): string => {
+    return (
+      draft.suggestedAccountId ||
+      accounts.find((a) => a.currency === draft.currency)?.id ||
+      accounts[0]?.id ||
+      ""
+    );
+  };
+
+  const getAccountName = (draft: DraftDto): string => {
+    const accId = resolveAccountId(draft);
+    const acc = accounts.find((a) => a.id === accId);
+    return acc ? acc.name : draft.source;
+  };
+
+  const handleConfirmAll = () => {
+    if (onConfirmAll) {
+      onConfirmAll();
+    } else {
+      drafts.forEach((d) => onConfirmDraft(d, resolveAccountId(d)));
+    }
+  };
 
   return (
-    <Card className="border-indigo-300 bg-indigo-50/30 dark:bg-indigo-950/20 shadow-xs overflow-hidden">
-      <CardHeader className="flex flex-row items-center justify-between border-b border-indigo-100 dark:border-indigo-900/50 py-3 px-6">
+    <div className="p-6 rounded-2xl bg-white border border-slate-200/80 shadow-xs flex flex-col justify-between">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <span className="flex h-2.5 w-2.5 rounded-full bg-indigo-600 animate-pulse" />
-          <CardTitle className="text-base font-semibold text-indigo-950 dark:text-indigo-200">
-            Bandeja de Entrada: Movimientos Detectados ({drafts.length})
-          </CardTitle>
+          <h2 className="text-base font-bold text-slate-900 tracking-tight">
+            Borradores Detectados ({drafts.length})
+          </h2>
         </div>
-        <span className="text-xs text-indigo-600 dark:text-indigo-400 font-medium">
-          Requiere tu confirmación (Regla 9)
-        </span>
-      </CardHeader>
-      <CardContent className="p-0 divide-y divide-indigo-100 dark:divide-indigo-900/30">
-        {drafts.map((draft) => {
+        <button
+          onClick={handleConfirmAll}
+          className="text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline transition"
+        >
+          Aprobar Todo 1-Tap
+        </button>
+      </div>
+
+      {/* Drafts List */}
+      <div className="space-y-2.5">
+        {drafts.slice(0, 4).map((draft) => {
           const isIncome = draft.direction === "Income";
-          const selectedAccId =
-            accountSelection[draft.id] ||
-            draft.suggestedAccountId ||
-            accounts.find((a) => a.currency === draft.currency)?.id ||
-            accounts[0]?.id ||
-            "";
+          const accountName = getAccountName(draft);
+          const formattedAmount = `${isIncome ? "+" : "-"}${draft.currency === "BOB" ? "Bs " : ""}${draft.amount.toFixed(2)}${draft.currency !== "BOB" ? ` ${draft.currency}` : ""}`;
 
           return (
             <div
               key={draft.id}
-              className="flex flex-col md:flex-row justify-between items-start md:items-center py-3.5 px-6 gap-3"
+              className="p-3.5 rounded-xl border border-slate-100 bg-slate-50/60 hover:bg-slate-50 hover:border-slate-200 transition flex items-center justify-between gap-3 group"
             >
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                      isIncome
-                        ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-400"
-                        : "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-400"
-                    }`}
-                  >
-                    {isIncome ? "Ingreso detectado" : "Gasto detectado"}
-                  </span>
-                  <span className="text-xs px-1.5 py-0.5 bg-muted text-muted-foreground rounded-md">
-                    {draft.source}
-                  </span>
-                  {draft.reference && (
-                    <span className="text-xs font-mono text-muted-foreground">
-                      Ref: {draft.reference}
-                    </span>
-                  )}
-                  <span className="text-xs text-muted-foreground">
-                    {Math.round(draft.confidence * 100)}% confianza
-                  </span>
+              <div className="min-w-0 flex-1">
+                <div className="text-xs font-bold text-slate-900 truncate">
+                  {draft.reference || "Movimiento Detectado"}
                 </div>
-                <div className="text-xs text-muted-foreground">
-                  Fecha detectada: {new Date(draft.estimatedDate).toLocaleString()} · {draft.linkedEventsCount} evento(s) vinculado(s)
+                <div className="text-[11px] text-slate-500 truncate mt-0.5">
+                  {accountName} · {draft.source}
                 </div>
               </div>
 
-              <div className="flex flex-wrap items-center gap-3 w-full md:w-auto justify-between md:justify-end">
+              <div className="flex items-center gap-3 shrink-0">
                 <span
-                  className={`text-base font-mono font-bold ${
-                    isIncome
-                      ? "text-emerald-600 dark:text-emerald-400"
-                      : "text-rose-600 dark:text-rose-400"
+                  className={`text-xs font-extrabold font-mono ${
+                    isIncome ? "text-emerald-600" : "text-slate-900"
                   }`}
                 >
-                  {isIncome ? "+" : "-"}
-                  {draft.amount.toFixed(2)} {draft.currency}
+                  {formattedAmount}
                 </span>
 
-                <div className="flex items-center gap-2">
-                  {accounts.length > 0 && (
-                    <select
-                      value={selectedAccId}
-                      onChange={(e) =>
-                        setAccountSelection({ ...accountSelection, [draft.id]: e.target.value })
-                      }
-                      className="h-8 rounded-md border border-input bg-background px-2 text-xs shadow-xs"
-                    >
-                      {accounts.map((a) => (
-                        <option key={a.id} value={a.id}>
-                          {a.name} ({a.currency})
-                        </option>
-                      ))}
-                    </select>
-                  )}
-
-                  <Button
-                    size="sm"
-                    onClick={() => onConfirmDraft(draft, selectedAccId)}
-                    className="h-8 px-3 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
-                  >
-                    Confirmar
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
+                <div className="flex items-center gap-1">
+                  {/* Discard button on hover */}
+                  <button
                     onClick={() => onDiscardDraft(draft.id)}
-                    className="h-8 px-2 text-xs text-muted-foreground hover:text-destructive"
+                    title="Descartar borrador"
+                    className="p-1.5 rounded-lg text-slate-300 hover:text-rose-600 hover:bg-rose-50 transition opacity-0 group-hover:opacity-100"
                   >
-                    Descartar
-                  </Button>
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+
+                  {/* 1-Tap Approve Button */}
+                  <button
+                    onClick={() => onConfirmDraft(draft, resolveAccountId(draft))}
+                    title="Confirmar en 1-Tap"
+                    className="w-7 h-7 rounded-lg bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-white flex items-center justify-center transition shadow-xs"
+                  >
+                    <Check className="w-4 h-4 stroke-[2.5]" />
+                  </button>
                 </div>
               </div>
             </div>
           );
         })}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

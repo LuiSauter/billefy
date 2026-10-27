@@ -2,16 +2,23 @@
 
 import { useState } from "react";
 import { useDashboardData } from "@/application/hooks/useDashboardData";
-import { Header } from "@/presentation/components/dashboard/Header";
+import { Sidebar, NavigationTab } from "@/presentation/components/navigation/Sidebar";
+import { Topbar } from "@/presentation/components/navigation/Topbar";
+import { AuthScreen } from "@/presentation/components/auth/AuthScreen";
 import { BalanceSummaryCards } from "@/presentation/components/dashboard/BalanceSummaryCards";
 import { HealthIndicatorsCard } from "@/presentation/components/dashboard/HealthIndicatorsCard";
-import { ActionToolbar } from "@/presentation/components/dashboard/ActionToolbar";
-import { DraftsInbox } from "@/presentation/components/drafts/DraftsInbox";
-import { BudgetsAndGoalsSection } from "@/presentation/components/planning/BudgetsAndGoalsSection";
-import { LoansList } from "@/presentation/components/lending/LoansList";
 import { AccountsList } from "@/presentation/components/accounts/AccountsList";
+import { DraftsInbox } from "@/presentation/components/drafts/DraftsInbox";
 import { TransactionsList } from "@/presentation/components/transactions/TransactionsList";
+import { MonthlyBudgetView } from "@/presentation/components/planning/MonthlyBudgetView";
+import { FinancialGoalsView } from "@/presentation/components/planning/FinancialGoalsView";
+import { RecurringPaymentsView, RecurringItem } from "@/presentation/components/recurring/RecurringPaymentsView";
+import { LoansList } from "@/presentation/components/lending/LoansList";
 
+// Modals
+import { FxTransferModal } from "@/presentation/components/modals/FxTransferModal";
+import { DraftsDrawerModal } from "@/presentation/components/modals/DraftsDrawerModal";
+import { ReschedulePaymentModal } from "@/presentation/components/modals/ReschedulePaymentModal";
 import { CreateAccountModal } from "@/presentation/components/modals/CreateAccountModal";
 import { RegisterTransactionModal } from "@/presentation/components/modals/RegisterTransactionModal";
 import { ReconcileModal } from "@/presentation/components/modals/ReconcileModal";
@@ -62,7 +69,17 @@ export default function DashboardPage() {
     simulateRawEvent,
   } = useDashboardData();
 
+  // Navigation & Auth State
+  const [isAuthenticated, setIsAuthenticated] = useState(true);
+  const [activeTab, setActiveTab] = useState<NavigationTab>("inicio");
+  const [searchQuery, setSearchQuery] = useState("");
+
   // Modals visibility state
+  const [isFxTransferModalOpen, setIsFxTransferModalOpen] = useState(false);
+  const [isDraftsDrawerOpen, setIsDraftsDrawerOpen] = useState(false);
+  const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false);
+  const [selectedRecurringItem, setSelectedRecurringItem] = useState<RecurringItem | null>(null);
+
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
   const [isTxnModalOpen, setIsTxnModalOpen] = useState(false);
   const [isSimulateModalOpen, setIsSimulateModalOpen] = useState(false);
@@ -82,6 +99,9 @@ export default function DashboardPage() {
   const [selectedLoanId, setSelectedLoanId] = useState("");
   const [selectedLoanDetail, setSelectedLoanDetail] = useState<LoanDetailDto | null>(null);
 
+  const p2pRate = rate?.appliedRate || 9.85;
+
+  // Handlers
   const handleOpenLoanDetail = async (loanId: string) => {
     try {
       const detail = await getLoanById(loanId);
@@ -102,84 +122,264 @@ export default function DashboardPage() {
     setIsReconcileModalOpen(true);
   };
 
+  const handleConfirmAllDrafts = async () => {
+    for (const draft of pendingDrafts) {
+      const accId =
+        draft.suggestedAccountId ||
+        accounts.find((a) => a.currency === draft.currency)?.id ||
+        accounts[0]?.id ||
+        "";
+      if (accId) {
+        await confirmDraft(draft.id, {
+          accountId: accId,
+          description: draft.reference ? `Ref: ${draft.reference}` : "Captura 1-Tap",
+        });
+      }
+    }
+  };
+
+  // If not authenticated, show OpenPencil 01 Auth screen
+  if (!isAuthenticated) {
+    return (
+      <AuthScreen
+        onLogin={() => setIsAuthenticated(true)}
+        p2pRate={p2pRate}
+      />
+    );
+  }
+
+  // Filtered transactions for search
+  const filteredTransactions = transactions.filter((t) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    const account = accountsMap.get(t.accountId);
+    return (
+      (t.description || "").toLowerCase().includes(q) ||
+      (account?.name || "").toLowerCase().includes(q) ||
+      t.currency.toLowerCase().includes(q) ||
+      t.amount.toString().includes(q)
+    );
+  });
+
   return (
-    <div className="max-w-5xl mx-auto p-6 md:p-8 space-y-8">
-      {/* 1. Header with Parallel FX Rate */}
-      <Header rate={rate} />
-
-      {/* Global Error Banner */}
-      {error && (
-        <div className="p-4 bg-destructive/10 border border-destructive/20 text-destructive rounded-lg text-sm">
-          {error}
-        </div>
-      )}
-
-      {/* 2. Consolidated Balance Summary Cards */}
-      <BalanceSummaryCards
-        bobTotal={totals.bobTotal}
-        usdTotal={totals.usdTotal}
-        consolidatedUsd={totals.consolidatedUsd}
+    <div className="min-h-screen bg-slate-50 flex font-sans text-slate-900">
+      {/* 1. Sidebar Navigation (OpenPencil 02) */}
+      <Sidebar
+        activeTab={activeTab}
+        onTabChange={(tab) => {
+          if (tab === "borradores") {
+            setIsDraftsDrawerOpen(true);
+          } else {
+            setActiveTab(tab);
+          }
+        }}
+        draftsCount={pendingDrafts.length}
+        p2pRate={p2pRate}
+        onLogout={() => setIsAuthenticated(false)}
       />
 
-      {/* 3. Financial Health Indicators */}
-      <HealthIndicatorsCard health={health} />
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* 2. Topbar Header */}
+        <Topbar
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          onOpenFxTransfer={() => setIsFxTransferModalOpen(true)}
+          onOpenNewTransaction={() => setIsTxnModalOpen(true)}
+          onOpenWhatsApp={() => setIsWhatsAppModalOpen(true)}
+          onOpenBinance={() => setIsBinanceModalOpen(true)}
+        />
 
-      {/* 4. Action Toolbar */}
-      <ActionToolbar
-        hasAccounts={accounts.length > 0}
-        onOpenAccountModal={() => setIsAccountModalOpen(true)}
-        onOpenTxnModal={() => setIsTxnModalOpen(true)}
-        onOpenWhatsAppModal={() => setIsWhatsAppModalOpen(true)}
-        onOpenBinanceModal={() => setIsBinanceModalOpen(true)}
-        onOpenDistributeModal={() => setIsDistributeModalOpen(true)}
-        onOpenLoanModal={() => setIsLoanModalOpen(true)}
-        onOpenBudgetModal={() => setIsBudgetModalOpen(true)}
-        onOpenGoalModal={() => setIsGoalModalOpen(true)}
-        onOpenCsvModal={() => setIsCsvModalOpen(true)}
-        onOpenSimulateModal={() => setIsSimulateModalOpen(true)}
+        {/* Global Error Banner */}
+        {error && (
+          <div className="mx-6 lg:mx-8 mt-4 p-4 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-semibold">
+            {error}
+          </div>
+        )}
+
+        {/* Dynamic View Body */}
+        <main className="flex-1 p-6 lg:p-8 space-y-6 max-w-7xl w-full mx-auto">
+          {/* TAB: INICIO (OpenPencil 02 Master Dashboard) */}
+          {activeTab === "inicio" && (
+            <>
+              {/* Top 4 KPI Summary Cards */}
+              <BalanceSummaryCards
+                bobTotal={totals.bobTotal}
+                usdTotal={totals.usdTotal}
+                consolidatedUsd={totals.consolidatedUsd}
+                accounts={accounts}
+                loans={loans}
+                p2pRate={p2pRate}
+              />
+
+              {/* Middle Section: Accounts (Left) & Drafts (Right) */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <AccountsList
+                  accounts={accounts}
+                  loading={loading}
+                  onOpenCreateAccountModal={() => setIsAccountModalOpen(true)}
+                  onOpenReconcileModal={handleOpenReconcile}
+                />
+
+                <DraftsInbox
+                  drafts={pendingDrafts}
+                  accounts={accounts}
+                  onConfirmDraft={(draft, accountId) =>
+                    confirmDraft(draft.id, {
+                      accountId,
+                      description: draft.reference ? `Ref: ${draft.reference}` : "Captura 1-Tap",
+                    })
+                  }
+                  onDiscardDraft={discardDraft}
+                  onConfirmAll={handleConfirmAllDrafts}
+                />
+              </div>
+
+              {/* Bottom Section: Actividad Reciente & Auditoría de Tasas P2P */}
+              <TransactionsList
+                transactions={filteredTransactions}
+                accountsMap={accountsMap}
+                loading={loading}
+                onReverseTxn={reverseTransaction}
+                p2pRate={p2pRate}
+              />
+            </>
+          )}
+
+          {/* TAB: MIS CUENTAS */}
+          {activeTab === "cuentas" && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h1 className="text-xl font-bold tracking-tight text-slate-900">
+                    Mis Cuentas & Billeteras
+                  </h1>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Conciliación bancaria y saldos en vivo multimoneda
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setIsCsvModalOpen(true)}
+                    className="px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
+                  >
+                    📄 Importar Extracto CSV
+                  </button>
+                  <button
+                    onClick={() => setIsAccountModalOpen(true)}
+                    className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition shadow-md shadow-blue-500/25"
+                  >
+                    + Nueva Cuenta
+                  </button>
+                </div>
+              </div>
+
+              <AccountsList
+                accounts={accounts}
+                loading={loading}
+                onOpenCreateAccountModal={() => setIsAccountModalOpen(true)}
+                onOpenReconcileModal={handleOpenReconcile}
+              />
+            </div>
+          )}
+
+          {/* TAB: PRÉSTAMOS (Lending Engine) */}
+          {activeTab === "prestamos" && (
+            <div className="space-y-6">
+              <LoansList
+                loans={loans}
+                loading={loading}
+                onOpenCreateLoanModal={() => setIsLoanModalOpen(true)}
+                onOpenLoanDetails={handleOpenLoanDetail}
+                onOpenPaymentModal={handleOpenLoanPayment}
+              />
+            </div>
+          )}
+
+          {/* TAB: PRESUPUESTOS (OpenPencil 05 & 06) */}
+          {activeTab === "presupuestos" && (
+            <div className="space-y-8">
+              <MonthlyBudgetView
+                budgets={budgets}
+                onOpenCreateBudgetModal={() => setIsBudgetModalOpen(true)}
+              />
+
+              <FinancialGoalsView
+                goals={goals}
+                health={health}
+                onOpenCreateGoalModal={() => setIsGoalModalOpen(true)}
+                onOpenContributeModal={() => setIsTxnModalOpen(true)}
+                p2pRate={p2pRate}
+              />
+
+              <HealthIndicatorsCard health={health} />
+            </div>
+          )}
+
+          {/* TAB: RECURRENTES / ARBITRAJE P2P (OpenPencil 09) */}
+          {activeTab === "recurrentes" && (
+            <div className="space-y-6">
+              <RecurringPaymentsView
+                p2pRate={p2pRate}
+                onOpenRescheduleModal={(item) => {
+                  setSelectedRecurringItem(item);
+                  setIsRescheduleModalOpen(true);
+                }}
+                onPay1Click={(item) => {
+                  alert(`Pago de ${item.name} por Bs. ${item.amount} procesado en 1-Clic`);
+                }}
+              />
+            </div>
+          )}
+        </main>
+      </div>
+
+      {/* 3. OpenPencil Design Modals & Drawers */}
+      <FxTransferModal
+        isOpen={isFxTransferModalOpen}
+        onClose={() => setIsFxTransferModalOpen(false)}
+        accounts={accounts}
+        p2pRate={p2pRate}
+        onConfirmTransfer={async (data) => {
+          await registerTransaction({
+            accountId: data.fromAccountId,
+            amount: data.amount.toString(),
+            direction: "Expense",
+            description: data.description,
+          });
+        }}
       />
 
-      {/* 5. Smart Capture Drafts Inbox */}
-      <DraftsInbox
+      <DraftsDrawerModal
+        isOpen={isDraftsDrawerOpen}
+        onClose={() => setIsDraftsDrawerOpen(false)}
         drafts={pendingDrafts}
         accounts={accounts}
         onConfirmDraft={(draft, accountId) =>
           confirmDraft(draft.id, {
             accountId,
-            description: draft.reference ? `Ref: ${draft.reference}` : "Captura confirmada",
+            description: draft.reference ? `Ref: ${draft.reference}` : "Captura 1-Tap",
           })
         }
-        onDiscardDraft={discardDraft}
+        onConfirmAll={handleConfirmAllDrafts}
       />
 
-      {/* 6. Budgets & Goals */}
-      <BudgetsAndGoalsSection budgets={budgets} goals={goals} />
-
-      {/* 7. Lending Section (Loans and Debts) */}
-      <LoansList
-        loans={loans}
-        loading={loading}
-        onOpenCreateLoanModal={() => setIsLoanModalOpen(true)}
-        onOpenLoanDetails={handleOpenLoanDetail}
-        onOpenPaymentModal={handleOpenLoanPayment}
+      <ReschedulePaymentModal
+        isOpen={isRescheduleModalOpen}
+        onClose={() => {
+          setIsRescheduleModalOpen(false);
+          setSelectedRecurringItem(null);
+        }}
+        item={selectedRecurringItem}
+        onConfirmPay={(item) => {
+          alert(`Pago de ${item.name} por Bs. ${item.amount} confirmado en 1-Clic`);
+        }}
+        onSaveNewDate={(item, newDate) => {
+          alert(`Fecha de vencimiento de ${item.name} actualizada para ${newDate}`);
+        }}
       />
 
-      {/* 8. Accounts List */}
-      <AccountsList
-        accounts={accounts}
-        loading={loading}
-        onOpenReconcileModal={handleOpenReconcile}
-      />
-
-      {/* 9. Transactions List */}
-      <TransactionsList
-        transactions={transactions}
-        accountsMap={accountsMap}
-        loading={loading}
-        onReverseTxn={reverseTransaction}
-      />
-
-      {/* Feature Modals */}
+      {/* Remaining Feature Modals */}
       <CreateAccountModal
         isOpen={isAccountModalOpen}
         onClose={() => setIsAccountModalOpen(false)}
@@ -235,6 +435,7 @@ export default function DashboardPage() {
         accounts={accounts}
         onClose={() => setIsGoalModalOpen(false)}
         onSubmit={createGoal}
+        p2pRate={p2pRate}
       />
 
       <WhatsAppModal
