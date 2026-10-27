@@ -29,14 +29,11 @@ dotnet test backend/
 dotnet format backend/ --verify-no-changes
 
 # Mobile (KMP)
-./gradlew :shared:allTests
-./gradlew :composeApp:assembleDebug
+./mobile/gradlew -p mobile :shared:allTests
+./mobile/gradlew -p mobile :composeApp:assembleDebug
 
 # Web (Next.js)
 pnpm --dir web install && pnpm --dir web lint && pnpm --dir web test && pnpm --dir web build
-
-# API contract (OpenAPI + client regeneration)
-./tools/generate-clients.sh
 ```
 
 ## 3. Non-negotiable rules

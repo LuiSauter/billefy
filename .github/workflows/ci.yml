@@ -87,4 +87,4 @@ jobs:
 
       - name: Run shared tests
         if: hashFiles('mobile/gradlew') != ''
-        run: ./mobile/gradlew :shared:allTests
+        run: ./mobile/gradlew -p mobile :shared:allTests

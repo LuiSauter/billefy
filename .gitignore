@@ -45,6 +45,8 @@ local.properties
 
 # Tools & Temporary
 .atl/
+.agents/
+skills-lock.json
 .pi/*
 !.pi/mcp.json
 *.log
