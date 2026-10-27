@@ -8,6 +8,7 @@ using Ledger.Infrastructure;
 using Lending.Infrastructure;
 using Messaging.Infrastructure;
 using Planning.Infrastructure;
+using Billefy.Integrations.WhatsApp;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -26,6 +27,7 @@ builder.Services.AddFxModule(builder.Configuration);
 builder.Services.AddIngestionModule(builder.Configuration);
 builder.Services.AddLendingModule(builder.Configuration);
 builder.Services.AddPlanningModule(builder.Configuration);
+builder.Services.AddWhatsAppIntegration(builder.Configuration);
 builder.Services.AddMessagingModule(builder.Configuration);
 
 // OpenAPI Documentation

@@ -29,6 +29,7 @@
     <ProjectReference Include="..\Modules\Messaging\Messaging.Application\Messaging.Application.csproj" />
     <ProjectReference Include="..\Modules\Messaging\Messaging.Infrastructure\Messaging.Infrastructure.csproj" />
     <ProjectReference Include="..\Integrations\Billefy.Integrations.Fx\Billefy.Integrations.Fx.csproj" />
+    <ProjectReference Include="..\Integrations\Billefy.Integrations.WhatsApp\Billefy.Integrations.WhatsApp.csproj" />
   </ItemGroup>
 
 </Project>

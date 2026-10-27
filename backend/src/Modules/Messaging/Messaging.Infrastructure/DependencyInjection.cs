@@ -23,7 +23,11 @@ public static class DependencyInjection
         services.AddScoped<IWhatsAppLinkRepository, WhatsAppLinkRepository>();
         services.AddScoped<IWhatsAppMessageRepository, WhatsAppMessageRepository>();
         services.AddScoped<IMessagingUnitOfWork, MessagingUnitOfWork>();
-        services.AddSingleton<IMessagingGateway, SimulatedMessagingGateway>();
+
+        if (!services.Any(s => s.ServiceType == typeof(IMessagingGateway)))
+        {
+            services.AddSingleton<IMessagingGateway, SimulatedMessagingGateway>();
+        }
 
         // Application Services (Cohesive Facade for Driving Adapters)
         services.AddScoped<IWhatsAppBotService, WhatsAppBotService>();
