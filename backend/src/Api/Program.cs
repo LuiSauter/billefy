@@ -13,6 +13,13 @@ using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Configurable Port (PORT or API_PORT)
+var customPort = Environment.GetEnvironmentVariable("PORT") ?? Environment.GetEnvironmentVariable("API_PORT");
+if (!string.IsNullOrWhiteSpace(customPort) && string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("ASPNETCORE_URLS")))
+{
+    builder.WebHost.UseUrls($"http://localhost:{customPort}");
+}
+
 // Security & Base Abstractions
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserContext, HttpContextCurrentUserContext>();
@@ -20,6 +27,26 @@ builder.Services.AddSingleton<IClock>(SystemClock.Instance);
 
 // Problem Details (RFC 9457)
 builder.Services.AddProblemDetails();
+
+// CORS (Configurable Allowed Origins)
+var allowedOriginsRaw = Environment.GetEnvironmentVariable("CORS_ALLOWED_ORIGINS")
+    ?? builder.Configuration["Cors:AllowedOrigins"];
+
+var allowedOrigins = !string.IsNullOrWhiteSpace(allowedOriginsRaw)
+    ? allowedOriginsRaw.Split([',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+    : builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+      ?? ["http://localhost:3000", "http://127.0.0.1:3000"];
+
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+    {
+        policy.WithOrigins(allowedOrigins)
+              .AllowAnyMethod()
+              .AllowAnyHeader()
+              .AllowCredentials();
+    });
+});
 
 // Resolve PostgreSQL Connection String (supports DB_* individual env vars, DATABASE_URL, and ConnectionStrings:PostgreSQL)
 var resolvedConnectionString = ResolvePostgreSqlConnectionString(builder.Configuration);
@@ -44,6 +71,9 @@ builder.Services.AddOpenApi();
 var app = builder.Build();
 
 app.UseExceptionHandler();
+
+// Enable CORS
+app.UseCors();
 
 // Automatically apply relational database migrations on startup when PostgreSQL connection string is configured
 if (!string.IsNullOrWhiteSpace(builder.Configuration.GetConnectionString("PostgreSQL")))

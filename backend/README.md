@@ -34,12 +34,29 @@ El backend está organizado como un monolito modular desacoplado. Los módulos n
 
 ---
 
-## 3. Configuración de Base de Datos y Variables de Entorno
+## 3. Puerto del Servidor y Configuración de CORS
+
+### ¿En qué puerto corre la API?
+* **Puerto por defecto:** `http://localhost:5267`
+  *(Nota técnica en macOS: Se utiliza 5267 para evitar el puerto 5000, que en macOS Monterey/Ventura/Sonoma/Sequoia está reservado por el sistema para AirPlay Receiver / ControlCenter).*
+* **Cómo cambiar el puerto:**
+  Podés definir el puerto mediante cualquiera de estas dos variables de entorno:
+  * `PORT="5267"`
+  * `ASPNETCORE_URLS="http://localhost:5267"`
+
+### Orígenes Permitidos por CORS (`CORS_ALLOWED_ORIGINS`)
+* **Por defecto:** `http://localhost:3000,http://127.0.0.1:3000` (el frontend web de Next.js).
+* **Cómo configurar más URLs:**
+  Pasá una lista separada por comas en la variable `CORS_ALLOWED_ORIGINS` o en `appsettings.json` bajo `"Cors:AllowedOrigins"`.
+  * Ejemplo: `CORS_ALLOWED_ORIGINS="http://localhost:3000,http://localhost:3001,https://miapp.com"`
+
+---
+
+## 4. Configuración de Base de Datos y Variables de Entorno
 
 El backend soporta **dos formatos flexibles** de configuración para conectar tu PostgreSQL local, **sin credenciales harcodeadas**:
 
 ### Formato 1: Variables Individuales (Estilo DBngin / TablePlus)
-Si usas DBngin con TablePlus en macOS, los valores estándar son:
 ```env
 DB_CONNECTION="postgres"
 DB_HOST="localhost"
@@ -56,11 +73,11 @@ ConnectionStrings__PostgreSQL="Host=localhost;Port=5432;Database=billefy-db;User
 
 ---
 
-## 4. Configuración por Sistema Operativo
+## 5. Configuración por Sistema Operativo
 
 ### macOS y Linux (Bash / Zsh)
 ```bash
-# Opción A: Variables individuales (DBngin / TablePlus)
+# 1. Base de datos PostgreSQL local (DBngin / TablePlus)
 export DB_CONNECTION="postgres"
 export DB_HOST="localhost"
 export DB_PORT="5432"
@@ -68,69 +85,82 @@ export DB_DATABASE="billefy-db"
 export DB_USERNAME="postgres"
 export DB_PASSWORD=""
 
-# Opción B: Cadena directa
-# export ConnectionStrings__PostgreSQL="Host=localhost;Port=5432;Database=billefy-db;Username=postgres;Password="
-
-# Entorno de ejecución
-export ASPNETCORE_ENVIRONMENT="Development"
+# 2. Puerto y URL del Servidor
 export ASPNETCORE_URLS="http://localhost:5267"
+# o alternativamente: export PORT="5267"
 
-# Proveedor de WhatsApp ("Devhooh", "Meta", o "Simulated")
+# 3. Listado de URLs permitidas en CORS (separadas por comas)
+export CORS_ALLOWED_ORIGINS="http://localhost:3000,http://127.0.0.1:3000"
+
+# 4. Entorno de ejecución
+export ASPNETCORE_ENVIRONMENT="Development"
+
+# 5. Proveedor de WhatsApp ("Devhooh", "Meta", o "Simulated")
 export WhatsApp__Provider="Devhooh"
 export WhatsApp__Devhooh__BaseUrl="https://api-whp.devhooh.com"
 export WhatsApp__Devhooh__ApiKey="tu_api_key_devhooh"
 
-# Tipo de cambio paralelo
+# 6. Tipo de cambio paralelo
 export Fx__RateSourceUrl="https://bo.dolarapi.com/v1/dolares/binance"
 ```
 
 ### Windows (PowerShell)
 ```powershell
-# Variables individuales
+# 1. Base de datos PostgreSQL local
 $env:DB_HOST="localhost"
 $env:DB_PORT="5432"
 $env:DB_DATABASE="billefy-db"
 $env:DB_USERNAME="postgres"
 $env:DB_PASSWORD=""
 
-# Entorno de ejecución
-$env:ASPNETCORE_ENVIRONMENT="Development"
+# 2. Puerto y URL del Servidor
 $env:ASPNETCORE_URLS="http://localhost:5267"
 
-# Proveedor de WhatsApp
+# 3. Listado de URLs permitidas en CORS
+$env:CORS_ALLOWED_ORIGINS="http://localhost:3000,http://127.0.0.1:3000"
+
+# 4. Entorno de ejecución
+$env:ASPNETCORE_ENVIRONMENT="Development"
+
+# 5. Proveedor de WhatsApp
 $env:WhatsApp__Provider="Devhooh"
 $env:WhatsApp__Devhooh__BaseUrl="https://api-whp.devhooh.com"
 $env:WhatsApp__Devhooh__ApiKey="tu_api_key_devhooh"
 
-# Tipo de cambio paralelo
+# 6. Tipo de cambio paralelo
 $env:Fx__RateSourceUrl="https://bo.dolarapi.com/v1/dolares/binance"
 ```
 
 ### Windows (Command Prompt / CMD)
 ```cmd
-:: Variables individuales
+:: 1. Base de datos PostgreSQL local
 set DB_HOST=localhost
 set DB_PORT=5432
 set DB_DATABASE=billefy-db
 set DB_USERNAME=postgres
 set DB_PASSWORD=
 
-:: Entorno de ejecución
-set ASPNETCORE_ENVIRONMENT=Development
+:: 2. Puerto y URL del Servidor
 set ASPNETCORE_URLS=http://localhost:5267
 
-:: Proveedor de WhatsApp
+:: 3. Listado de URLs permitidas en CORS
+set CORS_ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+
+:: 4. Entorno de ejecución
+set ASPNETCORE_ENVIRONMENT=Development
+
+:: 5. Proveedor de WhatsApp
 set WhatsApp__Provider=Devhooh
 set WhatsApp__Devhooh__BaseUrl=https://api-whp.devhooh.com
 set WhatsApp__Devhooh__ApiKey=tu_api_key_devhooh
 
-:: Tipo de cambio paralelo
+:: 6. Tipo de cambio paralelo
 set Fx__RateSourceUrl=https://bo.dolarapi.com/v1/dolares/binance
 ```
 
 ---
 
-## 5. Comandos de Ejecución
+## 6. Comandos de Ejecución
 
 Ubícate en el directorio `backend/`:
 
@@ -144,7 +174,7 @@ Ubícate en el directorio `backend/`:
 
 ### B. Ejecutar la Suite de Pruebas Automatizadas
 
-Ejecuta todas las pruebas unitarias, de integración, golden vectors matemáticos y reglas de arquitectura:
+Ejecuta todas las pruebas unitarias, de integración, preflight CORS, golden vectors matemáticos y reglas de arquitectura:
 
 * **macOS / Linux / Windows**:
   ```bash
@@ -153,7 +183,7 @@ Ejecuta todas las pruebas unitarias, de integración, golden vectors matemático
 
 ### C. Iniciar la API del Backend
 
-Al ejecutar la API, se conectará a tu PostgreSQL local (`billefy-db`) y aplicará automáticamente todas las migraciones:
+Al ejecutar la API, se conectará a tu PostgreSQL local (`billefy-db`), aplicará automáticamente todas las migraciones y escuchará en el puerto configurado (`http://localhost:5267`):
 
 * **macOS / Linux / Windows**:
   ```bash

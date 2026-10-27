@@ -759,6 +759,30 @@ public class ApiIntegrationTests : IClassFixture<CustomWebApplicationFactory>
         proposal.NeedsAmount.Should().Be(2500m); // 50%
     }
 
+    [Fact]
+    public async Task Cors_ShouldAllowConfiguredOriginsAndPreflight()
+    {
+        // 1. Preflight OPTIONS request
+        using var preflight = new HttpRequestMessage(HttpMethod.Options, "/v1/accounts");
+        preflight.Headers.Add("Origin", "http://localhost:3000");
+        preflight.Headers.Add("Access-Control-Request-Method", "GET");
+        preflight.Headers.Add("Access-Control-Request-Headers", "X-User-Id");
+
+        var preflightRes = await _client.SendAsync(preflight);
+        preflightRes.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        preflightRes.Headers.Contains("Access-Control-Allow-Origin").Should().BeTrue();
+        preflightRes.Headers.GetValues("Access-Control-Allow-Origin").First().Should().Be("http://localhost:3000");
+
+        // 2. Standard cross-origin GET request
+        using var getMsg = new HttpRequestMessage(HttpMethod.Get, "/v1/accounts");
+        getMsg.Headers.Add("Origin", "http://localhost:3000");
+        getMsg.Headers.Add("X-User-Id", _testUserId.ToString());
+
+        var getRes = await _client.SendAsync(getMsg);
+        getRes.Headers.Contains("Access-Control-Allow-Origin").Should().BeTrue();
+        getRes.Headers.GetValues("Access-Control-Allow-Origin").First().Should().Be("http://localhost:3000");
+    }
+
     private sealed record CreatedAccountResponse(Guid Id);
     private sealed record CreatedTransactionResponse(Guid Id);
     private sealed record CreatedLoanResponse(Guid Id);
