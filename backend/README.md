@@ -29,55 +29,41 @@ El backend está organizado como un monolito modular desacoplado. Los módulos n
    * En **macOS**: vía **DBngin** + **TablePlus**, **Postgres.app** o `brew services start postgresql@16`.
    * En **Linux**: servicio nativo `sudo systemctl start postgresql`.
    * En **Windows**: servicio nativo de PostgreSQL o instalador oficial.
-   * Crea una base de datos local llamada `billefy-db` (o el nombre que prefieras).
+   * Base de datos requerida: `billefy-db` (o el nombre que definas en tus variables).
    * Al iniciar la API, Entity Framework Core aplica automáticamente todas las migraciones necesarias en tu base de datos local.
 
 ---
 
-## 3. Puerto del Servidor y Configuración de CORS
+## 3. Matriz de Variables de Entorno y Configuración
 
-### ¿En qué puerto corre la API?
-* **Puerto por defecto:** `http://localhost:5267`
-  *(Nota técnica en macOS: Se utiliza 5267 para evitar el puerto 5000, que en macOS Monterey/Ventura/Sonoma/Sequoia está reservado por el sistema para AirPlay Receiver / ControlCenter).*
-* **Cómo cambiar el puerto:**
-  Podés definir el puerto mediante cualquiera de estas dos variables de entorno:
-  * `PORT="5267"`
-  * `ASPNETCORE_URLS="http://localhost:5267"`
+**Absolutamente todas las URLs, puertos, credenciales y orígenes son configurables vía variables de entorno sin valores harcodeados en el código de producción.**
 
-### Orígenes Permitidos por CORS (`CORS_ALLOWED_ORIGINS`)
-* **Por defecto:** `http://localhost:3000,http://127.0.0.1:3000` (el frontend web de Next.js).
-* **Cómo configurar más URLs:**
-  Pasá una lista separada por comas en la variable `CORS_ALLOWED_ORIGINS` o en `appsettings.json` bajo `"Cors:AllowedOrigins"`.
-  * Ejemplo: `CORS_ALLOWED_ORIGINS="http://localhost:3000,http://localhost:3001,https://miapp.com"`
+La jerarquía de `appsettings.json` se sobreescribe completamente con variables de entorno:
 
----
-
-## 4. Configuración de Base de Datos y Variables de Entorno
-
-El backend soporta **dos formatos flexibles** de configuración para conectar tu PostgreSQL local, **sin credenciales harcodeadas**:
-
-### Formato 1: Variables Individuales (Estilo DBngin / TablePlus)
-```env
-DB_CONNECTION="postgres"
-DB_HOST="localhost"
-DB_PORT="5432"
-DB_DATABASE="billefy-db"
-DB_USERNAME="postgres"
-DB_PASSWORD=""
-```
-
-### Formato 2: Cadena de Conexión Estándar (.NET)
-```env
-ConnectionStrings__PostgreSQL="Host=localhost;Port=5432;Database=billefy-db;Username=postgres;Password="
-```
+| Variable de Entorno (.NET / Flat) | Clave en `appsettings.json` | Descripción | Valor por Defecto |
+|---|---|---|---|
+| `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD` *(o `ConnectionStrings__PostgreSQL`)* | `ConnectionStrings:PostgreSQL` | Conexión a PostgreSQL local (DBngin/TablePlus) | `Host=localhost;Port=5432;Database=billefy-db;Username=postgres;Password=` |
+| `ASPNETCORE_URLS` *(o `PORT`)* | N/A (Kestrel Host) | Protocolo, host y puerto donde escucha la API | `http://localhost:5267` |
+| `CORS_ALLOWED_ORIGINS` | `Cors:AllowedOrigins` | Lista de URLs frontend separadas por coma permitidas en CORS | `http://localhost:3000,http://127.0.0.1:3000` |
+| `ASPNETCORE_ENVIRONMENT` | N/A (Runtime) | Perfil de ejecución de .NET | `Development` |
+| `WhatsApp__Provider` *(o `WHATSAPP_PROVIDER`)* | `WhatsApp:Provider` | Pasarela de WhatsApp (`Devhooh`, `Meta`, o `Simulated`) | `Simulated` |
+| `WhatsApp__Devhooh__BaseUrl` *(o `WHATSAPP_DEVHOOH_BASEURL`)* | `WhatsApp:Devhooh:BaseUrl` | URL base de la API de mensajería Devhooh | `https://api-whp.devhooh.com` |
+| `WhatsApp__Devhooh__ApiKey` *(o `WHATSAPP_DEVHOOH_APIKEY`)* | `WhatsApp:Devhooh:ApiKey` | Token Bearer para autenticar con Devhooh | `""` |
+| `WhatsApp__Meta__BaseUrl` *(o `WHATSAPP_META_BASEURL`)* | `WhatsApp:Meta:BaseUrl` | URL base de la Graph API de Meta | `https://graph.facebook.com` |
+| `WhatsApp__Meta__ApiVersion` *(o `WHATSAPP_META_APIVERSION`)* | `WhatsApp:Meta:ApiVersion` | Versión de la Graph API de Meta | `v21.0` |
+| `WhatsApp__Meta__PhoneNumberId` *(o `WHATSAPP_META_PHONENUMBERID`)* | `WhatsApp:Meta:PhoneNumberId` | Identificador del número de teléfono en Meta Cloud | `""` |
+| `WhatsApp__Meta__AccessToken` *(o `WHATSAPP_META_ACCESSTOKEN`)* | `WhatsApp:Meta:AccessToken` | Token de acceso de sistema de Meta | `""` |
+| `Fx__RateSourceUrl` *(o `FX_RATESOURCEURL`)* | `Fx:RateSourceUrl` | Endpoint de cotización paralela BOB/USD | `https://bo.dolarapi.com/v1/dolares/binance` |
+| `Binance__ApiKey` *(o `BINANCE_APIKEY`)* | `Binance:ApiKey` | Clave API de Binance (solo lectura obligatoria) | `""` |
+| `Binance__ApiSecret` *(o `BINANCE_APISECRET`)* | `Binance:ApiSecret` | Clave secreta de Binance | `""` |
 
 ---
 
-## 5. Configuración por Sistema Operativo
+## 4. Configuración por Sistema Operativo
 
 ### macOS y Linux (Bash / Zsh)
 ```bash
-# 1. Base de datos PostgreSQL local (DBngin / TablePlus)
+# 1. Base de datos local (DBngin / TablePlus en macOS)
 export DB_CONNECTION="postgres"
 export DB_HOST="localhost"
 export DB_PORT="5432"
@@ -85,82 +71,82 @@ export DB_DATABASE="billefy-db"
 export DB_USERNAME="postgres"
 export DB_PASSWORD=""
 
-# 2. Puerto y URL del Servidor
+# 2. Puerto del Servidor
 export ASPNETCORE_URLS="http://localhost:5267"
-# o alternativamente: export PORT="5267"
+# o simplemente: export PORT="5267"
 
-# 3. Listado de URLs permitidas en CORS (separadas por comas)
+# 3. Orígenes permitidos en CORS
 export CORS_ALLOWED_ORIGINS="http://localhost:3000,http://127.0.0.1:3000"
 
 # 4. Entorno de ejecución
 export ASPNETCORE_ENVIRONMENT="Development"
 
-# 5. Proveedor de WhatsApp ("Devhooh", "Meta", o "Simulated")
+# 5. Proveedor de WhatsApp y credenciales
 export WhatsApp__Provider="Devhooh"
 export WhatsApp__Devhooh__BaseUrl="https://api-whp.devhooh.com"
 export WhatsApp__Devhooh__ApiKey="tu_api_key_devhooh"
 
-# 6. Tipo de cambio paralelo
+# 6. Cotización paralela DolarApi Binance P2P
 export Fx__RateSourceUrl="https://bo.dolarapi.com/v1/dolares/binance"
 ```
 
 ### Windows (PowerShell)
 ```powershell
-# 1. Base de datos PostgreSQL local
+# 1. Base de datos local
 $env:DB_HOST="localhost"
 $env:DB_PORT="5432"
 $env:DB_DATABASE="billefy-db"
 $env:DB_USERNAME="postgres"
 $env:DB_PASSWORD=""
 
-# 2. Puerto y URL del Servidor
+# 2. Puerto del Servidor
 $env:ASPNETCORE_URLS="http://localhost:5267"
 
-# 3. Listado de URLs permitidas en CORS
+# 3. Orígenes permitidos en CORS
 $env:CORS_ALLOWED_ORIGINS="http://localhost:3000,http://127.0.0.1:3000"
 
 # 4. Entorno de ejecución
 $env:ASPNETCORE_ENVIRONMENT="Development"
 
-# 5. Proveedor de WhatsApp
+# 5. Proveedor de WhatsApp y credenciales
 $env:WhatsApp__Provider="Devhooh"
 $env:WhatsApp__Devhooh__BaseUrl="https://api-whp.devhooh.com"
 $env:WhatsApp__Devhooh__ApiKey="tu_api_key_devhooh"
 
-# 6. Tipo de cambio paralelo
+# 6. Cotización paralela
 $env:Fx__RateSourceUrl="https://bo.dolarapi.com/v1/dolares/binance"
 ```
 
 ### Windows (Command Prompt / CMD)
 ```cmd
-:: 1. Base de datos PostgreSQL local
+:: 1. Base de datos local
 set DB_HOST=localhost
 set DB_PORT=5432
 set DB_DATABASE=billefy-db
 set DB_USERNAME=postgres
 set DB_PASSWORD=
 
-:: 2. Puerto y URL del Servidor
+:: 2. Puerto del Servidor
 set ASPNETCORE_URLS=http://localhost:5267
 
-:: 3. Listado de URLs permitidas en CORS
+:: 3. Orígenes permitidos en CORS
 set CORS_ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
 
 :: 4. Entorno de ejecución
 set ASPNETCORE_ENVIRONMENT=Development
 
-:: 5. Proveedor de WhatsApp
+:: 5. Proveedor de WhatsApp y credenciales
 set WhatsApp__Provider=Devhooh
 set WhatsApp__Devhooh__BaseUrl=https://api-whp.devhooh.com
 set WhatsApp__Devhooh__ApiKey=tu_api_key_devhooh
 
-:: 6. Tipo de cambio paralelo
+:: 6. Cotización paralela
 set Fx__RateSourceUrl=https://bo.dolarapi.com/v1/dolares/binance
 ```
 
 ---
 
-## 6. Comandos de Ejecución
+## 5. Comandos de Ejecución
 
 Ubícate en el directorio `backend/`:
 

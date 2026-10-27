@@ -23,6 +23,12 @@ public static class DependencyInjection
 
         services.AddScoped<IExchangeRateRepository, ExchangeRateRepository>();
 
+        // Register DolarApi Options from configuration/env
+        var rateSourceUrl = configuration["Fx:RateSourceUrl"]
+            ?? Environment.GetEnvironmentVariable("FX_RATESOURCEURL")
+            ?? "https://bo.dolarapi.com/v1/dolares/binance";
+        services.AddSingleton(new DolarApiOptions { RateSourceUrl = rateSourceUrl });
+
         // Register DolarApi HTTP client with 10s timeout
         services.AddHttpClient<IRateSource, DolarApiRateSource>(client =>
         {

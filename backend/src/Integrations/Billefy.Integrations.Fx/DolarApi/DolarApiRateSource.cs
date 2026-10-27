@@ -7,12 +7,16 @@ namespace Billefy.Integrations.Fx.DolarApi;
 public sealed class DolarApiRateSource : IRateSource
 {
     private readonly HttpClient _httpClient;
+    private readonly string _rateSourceUrl;
 
     public string SourceName => "DolarApi:BinanceP2P";
 
-    public DolarApiRateSource(HttpClient httpClient)
+    public DolarApiRateSource(HttpClient httpClient, DolarApiOptions? options = null)
     {
         _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
+        _rateSourceUrl = !string.IsNullOrWhiteSpace(options?.RateSourceUrl)
+            ? options.RateSourceUrl
+            : "https://bo.dolarapi.com/v1/dolares/binance";
     }
 
     public async Task<ExchangeRate?> GetRateAsync(
@@ -37,7 +41,7 @@ public sealed class DolarApiRateSource : IRateSource
         try
         {
             var response = await _httpClient.GetFromJsonAsync<DolarApiResponse>(
-                "https://bo.dolarapi.com/v1/dolares/binance",
+                _rateSourceUrl,
                 cancellationToken);
 
             if (response is null || response.Compra <= decimal.Zero || response.Venta <= decimal.Zero)

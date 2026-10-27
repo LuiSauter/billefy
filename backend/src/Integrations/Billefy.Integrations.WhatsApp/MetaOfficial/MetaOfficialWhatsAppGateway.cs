@@ -8,6 +8,7 @@ namespace Billefy.Integrations.WhatsApp.MetaOfficial;
 
 public sealed record MetaOfficialOptions
 {
+    public string BaseUrl { get; init; } = "https://graph.facebook.com";
     public string ApiVersion { get; init; } = "v21.0";
     public string PhoneNumberId { get; init; } = string.Empty;
     public string AccessToken { get; init; } = string.Empty;
@@ -42,7 +43,8 @@ public sealed class MetaOfficialWhatsAppGateway(
 
         var cleanPhone = toPhoneNumber.Trim().Replace("+", "").Replace(" ", "").Replace("-", "");
 
-        var requestUri = $"https://graph.facebook.com/{options.ApiVersion}/{options.PhoneNumberId}/messages";
+        var baseUrl = (options.BaseUrl ?? "https://graph.facebook.com").TrimEnd('/');
+        var requestUri = $"{baseUrl}/{options.ApiVersion}/{options.PhoneNumberId}/messages";
         var payload = new MetaSendMessageRequest(
             MessagingProduct: "whatsapp",
             RecipientType: "individual",
