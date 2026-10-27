@@ -7,6 +7,7 @@ import { Plus } from "lucide-react";
 interface FinancialGoalsViewProps {
   goals: GoalDto[];
   health: FinancialHealthDto | null;
+  totalSavedBob: string;
   onOpenCreateGoalModal: () => void;
   onOpenContributeModal?: (goal: GoalDto) => void;
   p2pRate: number;
@@ -15,17 +16,11 @@ interface FinancialGoalsViewProps {
 export function FinancialGoalsView({
   goals,
   health,
+  totalSavedBob,
   onOpenCreateGoalModal,
   onOpenContributeModal,
   p2pRate,
 }: FinancialGoalsViewProps) {
-  const totalSavedBob = goals.reduce((acc, g) => {
-    const cur = new Decimal(g.currentAmount);
-    return g.currency === "USDT" || g.currency === "USD"
-      ? acc.plus(cur.times(p2pRate))
-      : acc.plus(cur);
-  }, new Decimal(0));
-
   const getEmoji = (name: string) => {
     const n = name.toLowerCase();
     if (n.includes("fondo") || n.includes("emergencia") || n.includes("colchon")) return "🛡️";
@@ -97,7 +92,7 @@ export function FinancialGoalsView({
         <div>
           <div className="text-xs text-slate-400 font-medium mb-1">Total Ahorrado</div>
           <div className="text-2xl font-extrabold tracking-tight font-mono text-white">
-            Bs. {totalSavedBob.gt(0) ? totalSavedBob.toFixed(2) : "56,112.50"}
+            Bs. {totalSavedBob}
           </div>
           <p className="text-[11px] text-amber-400 font-medium mt-0.5">
             {goals.length > 0 ? goals.length : 4} Metas activas

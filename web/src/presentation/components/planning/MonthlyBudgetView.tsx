@@ -1,42 +1,20 @@
 "use client";
 
-import { useState } from "react";
-import Decimal from "decimal.js";
 import { PieChart, Plus, AlertTriangle, AlertCircle, CheckCircle2 } from "lucide-react";
 import { BudgetDto } from "@/domain/models/types";
+import { BudgetMetrics } from "@/application/hooks/useFinancialMetrics";
 
 interface MonthlyBudgetViewProps {
   budgets: BudgetDto[];
+  metrics: BudgetMetrics;
   onOpenCreateBudgetModal: () => void;
 }
 
 export function MonthlyBudgetView({
   budgets,
+  metrics,
   onOpenCreateBudgetModal,
 }: MonthlyBudgetViewProps) {
-  const [selectedMonth] = useState("Mayo 2025");
-
-  // Calculate totals
-  const totalLimit = budgets.reduce(
-    (acc, b) => acc.plus(new Decimal(b.limitAmount)),
-    new Decimal(0)
-  );
-  const totalSpent = budgets.reduce(
-    (acc, b) => acc.plus(new Decimal(b.spentAmount)),
-    new Decimal(0)
-  );
-
-  const spentRatio = totalLimit.gt(0)
-    ? totalSpent.div(totalLimit).times(100).toNumber()
-    : 0;
-
-  // Safe daily rhythm for remaining 19 days
-  const remainingDays = 19;
-  const remainingBudget = Decimal.max(0, totalLimit.minus(totalSpent));
-  const safeDailyRhythm = totalLimit.gt(0)
-    ? remainingBudget.div(remainingDays)
-    : new Decimal(200);
-
   const getCategoryEmoji = (category: string) => {
     const c = category.toLowerCase();
     if (c.includes("alimento") || c.includes("comida") || c.includes("super")) return "🍔";
@@ -73,7 +51,7 @@ export function MonthlyBudgetView({
 
         <div className="flex items-center gap-2.5">
           <div className="px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 bg-slate-50">
-            {selectedMonth} ▼
+            Mayo 2025 ▼
           </div>
           <button
             onClick={onOpenCreateBudgetModal}
@@ -96,32 +74,36 @@ export function MonthlyBudgetView({
             </span>
           </div>
           <div className="text-2xl font-extrabold text-slate-900 font-mono">
-            Bs. {totalLimit.gt(0) ? totalLimit.toFixed(2) : "18,000.00"}
+            Bs. {metrics.totalLimitBob}
           </div>
           <p className="text-[11px] text-slate-400 mt-1">Límite asignado</p>
         </div>
 
-        {/* 2. Gastado en Mayo */}
+        {/* 2. Gastado en el Mes */}
         <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-semibold text-slate-500">Gastado en el Mes</span>
             <span
               className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-                spentRatio >= 100
+                metrics.spentRatioPercentage >= 100
                   ? "bg-rose-50 text-rose-600 border border-rose-200"
-                  : spentRatio >= 80
+                  : metrics.spentRatioPercentage >= 80
                   ? "bg-amber-50 text-amber-600 border border-amber-200"
                   : "bg-emerald-50 text-emerald-600 border border-emerald-200"
               }`}
             >
-              {spentRatio >= 100 ? "Tope Alcanzado" : spentRatio >= 80 ? "Alerta 80%" : "Normal"}
+              {metrics.spentRatioPercentage >= 100
+                ? "Tope Alcanzado"
+                : metrics.spentRatioPercentage >= 80
+                ? "Alerta 80%"
+                : "Normal"}
             </span>
           </div>
           <div className="text-2xl font-extrabold text-slate-900 font-mono">
-            Bs. {totalSpent.gt(0) ? totalSpent.toFixed(2) : "14,200.00"}
+            Bs. {metrics.totalSpentBob}
           </div>
           <p className="text-[11px] text-slate-400 mt-1">
-            {spentRatio > 0 ? spentRatio.toFixed(1) : "78.8"}% del tope
+            {metrics.spentRatioPercentage.toFixed(1)}% del tope
           </p>
         </div>
 
@@ -134,9 +116,9 @@ export function MonthlyBudgetView({
             </span>
           </div>
           <div className="text-2xl font-extrabold text-slate-900 font-mono">
-            Bs. {safeDailyRhythm.toFixed(2)} / día
+            Bs. {metrics.safeDailyRhythmBob} / día
           </div>
-          <p className="text-[11px] text-slate-400 mt-1">{remainingDays} días restantes</p>
+          <p className="text-[11px] text-slate-400 mt-1">{metrics.remainingDays} días restantes</p>
         </div>
       </div>
 
@@ -164,27 +146,24 @@ export function MonthlyBudgetView({
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {budgets.map((b) => {
-                  const spent = new Decimal(b.spentAmount);
-                  const limit = new Decimal(b.limitAmount);
-                  const available = Decimal.max(0, limit.minus(spent));
-                  const percentage = limit.gt(0) ? spent.div(limit).times(100).toNumber() : 0;
+                  const spent = b.spentAmount;
+                  const limit = b.limitAmount;
+                  const available = Math.max(0, limit - spent);
+                  const percentage = limit > 0 ? (spent / limit) * 100 : 0;
                   const progressColor = getProgressBarColor(percentage);
                   const categoryName = b.categoryId || "Gastos Generales";
 
                   return (
                     <tr key={b.id} className="hover:bg-slate-50/70 transition">
-                      {/* Categoría */}
                       <td className="py-4 px-3 font-bold text-slate-900 flex items-center gap-2">
                         <span>{getCategoryEmoji(categoryName)}</span>
                         <span>{categoryName}</span>
                       </td>
 
-                      {/* Consumido / Tope */}
                       <td className="py-4 px-3 font-mono font-bold text-slate-800 whitespace-nowrap">
                         Bs {spent.toFixed(2)} / Bs {limit.toFixed(2)}
                       </td>
 
-                      {/* Barra de Consumo */}
                       <td className="py-4 px-3">
                         <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
                           <div
@@ -194,7 +173,6 @@ export function MonthlyBudgetView({
                         </div>
                       </td>
 
-                      {/* Estado / Alerta */}
                       <td className="py-4 px-3 text-center whitespace-nowrap">
                         {percentage >= 100 ? (
                           <span className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-600 bg-rose-50 border border-rose-200 px-2.5 py-0.5 rounded-full">
@@ -214,7 +192,6 @@ export function MonthlyBudgetView({
                         )}
                       </td>
 
-                      {/* Disponible */}
                       <td className="py-4 px-3 text-right font-mono font-bold text-slate-900 whitespace-nowrap">
                         Bs {available.toFixed(2)}
                       </td>
