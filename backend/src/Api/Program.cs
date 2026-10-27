@@ -21,6 +21,13 @@ builder.Services.AddSingleton<IClock>(SystemClock.Instance);
 // Problem Details (RFC 9457)
 builder.Services.AddProblemDetails();
 
+// Resolve PostgreSQL Connection String (supports DB_* individual env vars, DATABASE_URL, and ConnectionStrings:PostgreSQL)
+var resolvedConnectionString = ResolvePostgreSqlConnectionString(builder.Configuration);
+if (resolvedConnectionString != null)
+{
+    builder.Configuration["ConnectionStrings:PostgreSQL"] = resolvedConnectionString;
+}
+
 // Modular Monolith Modules
 builder.Services.AddLedgerModule(builder.Configuration);
 builder.Services.AddFxModule(builder.Configuration);
@@ -107,4 +114,56 @@ app.MapBinanceEndpoints();
 app.Run();
 
 // Required for WebApplicationFactory in integration tests
-public partial class Program;
+public partial class Program
+{
+    public static string? ResolvePostgreSqlConnectionString(IConfiguration configuration)
+    {
+        // If explicitly set to empty (such as in testing harness), respect it
+        var explicitConnStr = configuration.GetConnectionString("PostgreSQL");
+        if (explicitConnStr != null && string.IsNullOrWhiteSpace(explicitConnStr))
+        {
+            return null;
+        }
+
+        // 1. Check individual DB_* environment variables (e.g. DBngin / TablePlus local setup)
+        var dbHost = Environment.GetEnvironmentVariable("DB_HOST") ?? configuration["DB_HOST"];
+        var dbPort = Environment.GetEnvironmentVariable("DB_PORT") ?? configuration["DB_PORT"];
+        var dbDatabase = Environment.GetEnvironmentVariable("DB_DATABASE") ?? configuration["DB_DATABASE"];
+        var dbUsername = Environment.GetEnvironmentVariable("DB_USERNAME") ?? configuration["DB_USERNAME"];
+        var dbPassword = Environment.GetEnvironmentVariable("DB_PASSWORD") ?? configuration["DB_PASSWORD"];
+
+        if (!string.IsNullOrWhiteSpace(dbHost) || !string.IsNullOrWhiteSpace(dbDatabase))
+        {
+            var host = string.IsNullOrWhiteSpace(dbHost) ? "localhost" : dbHost;
+            var port = string.IsNullOrWhiteSpace(dbPort) ? "5432" : dbPort;
+            var database = string.IsNullOrWhiteSpace(dbDatabase) ? "billefy-db" : dbDatabase;
+            var user = string.IsNullOrWhiteSpace(dbUsername) ? "postgres" : dbUsername;
+            var pass = dbPassword ?? "";
+
+            return $"Host={host};Port={port};Database={database};Username={user};Password={pass};";
+        }
+
+        // 2. Check DATABASE_URL (12-factor standard URL: postgres://user:pass@host:port/dbname)
+        var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL") ?? configuration["DATABASE_URL"];
+        if (!string.IsNullOrWhiteSpace(databaseUrl) && Uri.TryCreate(databaseUrl, UriKind.Absolute, out var uri))
+        {
+            var userInfo = uri.UserInfo.Split(':');
+            var user = userInfo.Length > 0 ? Uri.UnescapeDataString(userInfo[0]) : "postgres";
+            var pass = userInfo.Length > 1 ? Uri.UnescapeDataString(userInfo[1]) : "";
+            var host = uri.Host;
+            var port = uri.Port > 0 ? uri.Port : 5432;
+            var database = uri.AbsolutePath.TrimStart('/');
+
+            return $"Host={host};Port={port};Database={database};Username={user};Password={pass};";
+        }
+
+        // 3. Fallback to ConnectionStrings:PostgreSQL
+        if (!string.IsNullOrWhiteSpace(explicitConnStr))
+        {
+            return explicitConnStr;
+        }
+
+        // 4. Default local development fallback (DBngin / Local Postgres)
+        return "Host=localhost;Port=5432;Database=billefy-db;Username=postgres;Password=;";
+    }
+}
