@@ -7,6 +7,7 @@ public interface ITransactionRepository
     Task<Transaction?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Transaction>> GetByAccountIdAsync(Guid accountId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Transaction>> GetFilteredAsync(
+        Guid? userId = null,
         Guid? accountId = null,
         TransactionDirection? direction = null,
         DateTime? from = null,

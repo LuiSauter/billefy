@@ -104,6 +104,12 @@ Jwt__Secret="billefy_super_secret_jwt_signing_key_2026_at_least_32_bytes_long!"
 Jwt__Issuer="BillefyApi"
 Jwt__Audience="BillefyClients"
 Jwt__ExpirationMinutes="60"
+
+# ------------------------------------------------------------------------------
+# 9. Google OAuth Credentials (Único proveedor de autenticación permitido)
+# ------------------------------------------------------------------------------
+Google__ClientId="TU_GOOGLE_CLIENT_ID.apps.googleusercontent.com"
+Google__ClientSecret="TU_GOOGLE_CLIENT_SECRET"
 EOF
 ```
 

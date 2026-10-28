@@ -23,6 +23,7 @@ public sealed class TransactionRepository : ITransactionRepository
             .ToListAsync(cancellationToken);
 
     public async Task<IReadOnlyList<Transaction>> GetFilteredAsync(
+        Guid? userId = null,
         Guid? accountId = null,
         TransactionDirection? direction = null,
         DateTime? from = null,
@@ -31,6 +32,11 @@ public sealed class TransactionRepository : ITransactionRepository
         CancellationToken cancellationToken = default)
     {
         var query = _context.Transactions.AsQueryable();
+
+        if (userId.HasValue)
+        {
+            query = query.Where(t => t.UserId == userId.Value);
+        }
 
         if (accountId.HasValue)
         {

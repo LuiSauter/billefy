@@ -60,7 +60,7 @@ describe("BillefyApiClient", () => {
     ).rejects.toThrow("Amount must be strictly greater than zero.");
   });
 
-  it("should handle loginWithEmail and store authToken and userId", async () => {
+  it("should handle loginWithGoogle and store authToken and userId", async () => {
     const mockAuthResponse = {
       accessToken: "mock_jwt_token_12345",
       refreshToken: "mock_refresh_token_67890",
@@ -68,8 +68,8 @@ describe("BillefyApiClient", () => {
       tokenType: "Bearer",
       user: {
         id: "22222222-2222-2222-2222-222222222222",
-        email: "franco@billefy.app",
-        fullName: "Franco Dev",
+        email: "usuario.google@billefy.app",
+        fullName: "Usuario Google",
         preferredCurrency: "BOB",
         createdAt: "2025-01-01T00:00:00Z",
       },
@@ -82,7 +82,7 @@ describe("BillefyApiClient", () => {
     });
 
     const client = new BillefyApiClient({ fetchFn: mockFetch });
-    const auth = await client.loginWithEmail("franco@billefy.app", "Franco Dev", "BOB");
+    const auth = await client.loginWithGoogle("google_id_token_xyz", "BOB");
 
     expect(auth.accessToken).toBe("mock_jwt_token_12345");
     expect(client.getAuthToken()).toBe("mock_jwt_token_12345");

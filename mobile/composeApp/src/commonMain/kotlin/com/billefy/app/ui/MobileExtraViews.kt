@@ -44,8 +44,6 @@ import androidx.compose.ui.unit.sp
 fun MobileAuthScreen(
     onLoginSuccess: () -> Unit
 ) {
-    var email by remember { mutableStateOf("franco@billefy.app") }
-
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -83,73 +81,6 @@ fun MobileAuthScreen(
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        // Button: Google
-        Button(
-            onClick = { onLoginSuccess() },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(52.dp)
-                .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(18.dp)),
-            shape = RoundedCornerShape(18.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Color.White)
-        ) {
-            Text(
-                text = "🌐 Continuar con Google",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF0F172A)
-            )
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // Button: Apple
-        Button(
-            onClick = { onLoginSuccess() },
-            modifier = Modifier.fillMaxWidth().height(52.dp),
-            shape = RoundedCornerShape(18.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = DarkNavyBg)
-        ) {
-            Text(
-                text = " Continuar con Apple",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White
-            )
-        }
-
-        Spacer(modifier = Modifier.height(20.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(modifier = Modifier.weight(1f).height(1.dp).background(Color(0xFFE2E8F0)))
-            Text(
-                text = "  o con correo  ",
-                fontSize = 12.sp,
-                color = SlateGrayText,
-                fontWeight = FontWeight.Medium
-            )
-            Box(modifier = Modifier.weight(1f).height(1.dp).background(Color(0xFFE2E8F0)))
-        }
-
-        Spacer(modifier = Modifier.height(20.dp))
-
-        // Email field
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(16.dp))
-                .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(16.dp))
-                .background(Color(0xFFF8FAFC))
-                .padding(horizontal = 16.dp, vertical = 14.dp)
-        ) {
-            Text(text = email, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0F172A))
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
         // Currency Preference (Green)
         Row(
             modifier = Modifier
@@ -168,20 +99,23 @@ fun MobileAuthScreen(
             Text(text = "Tasa P2P Activa ✓", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = EmeraldSuccess)
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(20.dp))
 
-        // Submit Button
+        // Sole Provider Button: Google OAuth
         Button(
             onClick = { onLoginSuccess() },
-            modifier = Modifier.fillMaxWidth().height(52.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp)
+                .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(18.dp)),
             shape = RoundedCornerShape(18.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = VibrantBlue)
+            colors = ButtonDefaults.buttonColors(containerColor = Color.White)
         ) {
             Text(
-                text = "Ingresar a mi Billetera",
+                text = "🌐 Continuar con Google",
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color.White
+                color = Color(0xFF0F172A)
             )
         }
     }

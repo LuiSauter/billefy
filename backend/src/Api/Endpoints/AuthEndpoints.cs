@@ -10,21 +10,9 @@ public static class AuthEndpoints
     public static IEndpointRouteBuilder MapAuthEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/v1/auth")
-            .WithTags("Identity & Authentication");
+            .WithTags("Identity & Authentication (Google OAuth Only)");
 
-        // 1. Email Sign-In / Sign-Up
-        group.MapPost("/email", async (
-            [FromBody] EmailLoginRequest request,
-            [FromServices] IIdentityModule identityModule,
-            CancellationToken ct) =>
-        {
-            var result = await identityModule.LoginWithEmailAsync(request, ct);
-            return result.ToHttpResult();
-        })
-        .WithName("LoginWithEmail")
-        .WithSummary("Inicia sesión o registra usuario mediante correo electrónico");
-
-        // 2. Google OAuth
+        // 1. Google OAuth (The sole authentication provider allowed)
         group.MapPost("/google", async (
             [FromBody] GoogleLoginRequest request,
             [FromServices] IIdentityModule identityModule,
@@ -34,21 +22,9 @@ public static class AuthEndpoints
             return result.ToHttpResult();
         })
         .WithName("LoginWithGoogle")
-        .WithSummary("Inicia sesión con Google Workspace o Google Account");
+        .WithSummary("Inicia sesión o registra usuario mediante Google OAuth (proveedor único)");
 
-        // 3. Apple Sign In
-        group.MapPost("/apple", async (
-            [FromBody] AppleLoginRequest request,
-            [FromServices] IIdentityModule identityModule,
-            CancellationToken ct) =>
-        {
-            var result = await identityModule.LoginWithAppleAsync(request, ct);
-            return result.ToHttpResult();
-        })
-        .WithName("LoginWithApple")
-        .WithSummary("Inicia sesión con Sign in with Apple");
-
-        // 4. Token Refresh (Rotation)
+        // 2. Token Refresh (Rotation)
         group.MapPost("/refresh", async (
             [FromBody] RefreshTokenRequest request,
             [FromServices] IIdentityModule identityModule,
@@ -60,7 +36,7 @@ public static class AuthEndpoints
         .WithName("RefreshToken")
         .WithSummary("Rota el Refresh Token y emite un nuevo Access Token JWT");
 
-        // 5. Logout / Revoke Token
+        // 3. Logout / Revoke Token
         group.MapPost("/logout", async (
             [FromBody] RefreshTokenRequest request,
             [FromServices] IIdentityModule identityModule,
@@ -72,40 +48,52 @@ public static class AuthEndpoints
         .WithName("Logout")
         .WithSummary("Cierra sesión y revoca el Refresh Token");
 
-        // 6. Current User Profile
+        // 4. Current User Profile (Strictly Authenticated)
         group.MapGet("/me", async (
             [FromServices] ICurrentUserContext currentUser,
             [FromServices] IIdentityModule identityModule,
             CancellationToken ct) =>
         {
-            var userId = currentUser.UserId ?? Guid.Parse("11111111-1111-1111-1111-111111111111");
-            var result = await identityModule.GetCurrentUserAsync(userId, ct);
+            if (!currentUser.IsAuthenticated)
+            {
+                return Results.Unauthorized();
+            }
+
+            var result = await identityModule.GetCurrentUserAsync(currentUser.UserId!.Value, ct);
             return result.ToHttpResult();
         })
         .WithName("GetCurrentUser")
         .WithSummary("Obtiene el perfil del usuario autenticado");
 
-        // 7. Request Account Deletion (Grace period 30 days - AUTH-06)
+        // 5. Request Account Deletion (Grace period 30 days - AUTH-06)
         group.MapDelete("/account", async (
             [FromServices] ICurrentUserContext currentUser,
             [FromServices] IIdentityModule identityModule,
             CancellationToken ct) =>
         {
-            var userId = currentUser.UserId ?? Guid.Parse("11111111-1111-1111-1111-111111111111");
-            var result = await identityModule.RequestAccountDeletionAsync(userId, ct);
+            if (!currentUser.IsAuthenticated)
+            {
+                return Results.Unauthorized();
+            }
+
+            var result = await identityModule.RequestAccountDeletionAsync(currentUser.UserId!.Value, ct);
             return result.ToHttpResult();
         })
         .WithName("RequestAccountDeletion")
         .WithSummary("Solicita la baja de la cuenta con período de gracia de 30 días (Regla AUTH-06)");
 
-        // 8. Export User Data (AUTH-07)
+        // 6. Export User Data (AUTH-07)
         group.MapGet("/export", async (
             [FromServices] ICurrentUserContext currentUser,
             [FromServices] IIdentityModule identityModule,
             CancellationToken ct) =>
         {
-            var userId = currentUser.UserId ?? Guid.Parse("11111111-1111-1111-1111-111111111111");
-            var result = await identityModule.ExportUserDataAsync(userId, ct);
+            if (!currentUser.IsAuthenticated)
+            {
+                return Results.Unauthorized();
+            }
+
+            var result = await identityModule.ExportUserDataAsync(currentUser.UserId!.Value, ct);
             return result.ToHttpResult();
         })
         .WithName("ExportUserData")

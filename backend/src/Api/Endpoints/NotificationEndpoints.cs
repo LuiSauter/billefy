@@ -19,8 +19,12 @@ public static class NotificationEndpoints
             [FromServices] INotificationsModule notificationsModule,
             CancellationToken ct) =>
         {
-            var userId = currentUser.UserId ?? Guid.Parse("11111111-1111-1111-1111-111111111111");
-            var result = await notificationsModule.RegisterDeviceAsync(userId, request, ct);
+            if (!currentUser.IsAuthenticated)
+            {
+                return Results.Unauthorized();
+            }
+
+            var result = await notificationsModule.RegisterDeviceAsync(currentUser.UserId!.Value, request, ct);
             return result.ToHttpResult();
         })
         .WithName("RegisterDevice")
@@ -32,8 +36,12 @@ public static class NotificationEndpoints
             [FromServices] INotificationsModule notificationsModule,
             CancellationToken ct) =>
         {
-            var userId = currentUser.UserId ?? Guid.Parse("11111111-1111-1111-1111-111111111111");
-            var result = await notificationsModule.GetNotificationHistoryAsync(userId, ct);
+            if (!currentUser.IsAuthenticated)
+            {
+                return Results.Unauthorized();
+            }
+
+            var result = await notificationsModule.GetNotificationHistoryAsync(currentUser.UserId!.Value, ct);
             return result.ToHttpResult();
         })
         .WithName("GetNotificationHistory")
@@ -46,8 +54,12 @@ public static class NotificationEndpoints
             [FromServices] INotificationsModule notificationsModule,
             CancellationToken ct) =>
         {
-            var userId = currentUser.UserId ?? Guid.Parse("11111111-1111-1111-1111-111111111111");
-            var result = await notificationsModule.SendPushNotificationAsync(userId, request, ct);
+            if (!currentUser.IsAuthenticated)
+            {
+                return Results.Unauthorized();
+            }
+
+            var result = await notificationsModule.SendPushNotificationAsync(currentUser.UserId!.Value, request, ct);
             return result.ToHttpResult();
         })
         .WithName("SendTestPushNotification")

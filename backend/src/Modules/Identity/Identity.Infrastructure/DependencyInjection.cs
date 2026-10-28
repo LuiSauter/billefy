@@ -1,6 +1,7 @@
 using Identity.Application.Abstractions;
 using Identity.Application.Services;
 using Identity.Contracts;
+using Identity.Infrastructure.Options;
 using Identity.Infrastructure.Repositories;
 using Identity.Infrastructure.Tokens;
 using Microsoft.EntityFrameworkCore;
@@ -22,6 +23,20 @@ public static class DependencyInjection
                 options.UseNpgsql(connectionString, npgsql =>
                     npgsql.MigrationsHistoryTable("__EFMigrationsHistory", "identity")));
         }
+
+        // Google OAuth Options
+        var googleClientId = configuration["Google:ClientId"]
+            ?? Environment.GetEnvironmentVariable("GOOGLE_CLIENT_ID")
+            ?? "";
+        var googleClientSecret = configuration["Google:ClientSecret"]
+            ?? Environment.GetEnvironmentVariable("GOOGLE_CLIENT_SECRET")
+            ?? "";
+
+        services.AddSingleton(new GoogleAuthOptions
+        {
+            ClientId = googleClientId,
+            ClientSecret = googleClientSecret
+        });
 
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();

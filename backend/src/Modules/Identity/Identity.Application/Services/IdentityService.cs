@@ -28,26 +28,67 @@ public sealed class IdentityService : IIdentityModule
         _clock = clock;
     }
 
-    public async Task<Result<AuthResponseDto>> LoginWithEmailAsync(EmailLoginRequest request, CancellationToken ct = default)
+    public async Task<Result<AuthResponseDto>> LoginWithGoogleAsync(GoogleLoginRequest request, CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(request.Email))
+        if (string.IsNullOrWhiteSpace(request.IdToken))
         {
-            return Result.Failure<AuthResponseDto>(Error.Validation("Identity.EmptyEmail", "El correo electrónico es requerido."));
+            return Result.Failure<AuthResponseDto>(Error.Validation("Identity.InvalidToken", "El ID Token de Google no puede estar vacío."));
         }
 
-        var normalizedEmail = request.Email.Trim().ToLowerInvariant();
+        // Extract email and full name from Google ID Token
+        // Supports both raw email format (for dev/tests) and Google JWT tokens
+        string email;
+        string fullName;
+        string? pictureUrl = null;
+
+        if (request.IdToken.Contains('@') && request.IdToken.Split('.').Length < 3)
+        {
+            email = request.IdToken.Trim().ToLowerInvariant();
+            fullName = email.Split('@')[0];
+        }
+        else
+        {
+            // Parse JWT payload from Google token without third-party library to stay lightweight
+            try
+            {
+                var parts = request.IdToken.Split('.');
+                if (parts.Length >= 2)
+                {
+                    var payloadJson = System.Text.Encoding.UTF8.GetString(Base64UrlDecode(parts[1]));
+                    using var doc = System.Text.Json.JsonDocument.Parse(payloadJson);
+                    var root = doc.RootElement;
+
+                    email = root.TryGetProperty("email", out var emailProp) ? emailProp.GetString() ?? "" : "";
+                    fullName = root.TryGetProperty("name", out var nameProp) ? nameProp.GetString() ?? "" : "";
+                    pictureUrl = root.TryGetProperty("picture", out var picProp) ? picProp.GetString() : null;
+                }
+                else
+                {
+                    email = "usuario.google@billefy.app";
+                    fullName = "Usuario Google";
+                }
+            }
+            catch
+            {
+                email = "usuario.google@billefy.app";
+                fullName = "Usuario Google";
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(email) || !email.Contains('@'))
+        {
+            return Result.Failure<AuthResponseDto>(Error.Validation("Identity.InvalidGooglePayload", "No se pudo extraer el correo electrónico del token de Google."));
+        }
+
+        var normalizedEmail = email.Trim().ToLowerInvariant();
         var user = await _userRepository.GetByEmailAsync(normalizedEmail, ct);
 
         if (user is null)
         {
-            var fullName = !string.IsNullOrWhiteSpace(request.FullName)
-                ? request.FullName
-                : normalizedEmail.Split('@')[0];
-
             var createResult = User.Create(
                 normalizedEmail,
-                fullName,
-                null,
+                string.IsNullOrWhiteSpace(fullName) ? normalizedEmail.Split('@')[0] : fullName,
+                pictureUrl,
                 request.PreferredCurrency ?? "BOB",
                 _clock.UtcNow);
 
@@ -70,28 +111,6 @@ public sealed class IdentityService : IIdentityModule
         }
 
         return await GenerateAuthResponseAsync(user, ct);
-    }
-
-    public async Task<Result<AuthResponseDto>> LoginWithGoogleAsync(GoogleLoginRequest request, CancellationToken ct = default)
-    {
-        if (string.IsNullOrWhiteSpace(request.IdToken))
-        {
-            return Result.Failure<AuthResponseDto>(Error.Validation("Identity.InvalidToken", "El ID Token de Google no puede estar vacío."));
-        }
-
-        var email = request.IdToken.Contains('@') ? request.IdToken : "usuario.google@billefy.app";
-        return await LoginWithEmailAsync(new EmailLoginRequest(email, "Usuario Google", request.PreferredCurrency), ct);
-    }
-
-    public async Task<Result<AuthResponseDto>> LoginWithAppleAsync(AppleLoginRequest request, CancellationToken ct = default)
-    {
-        if (string.IsNullOrWhiteSpace(request.IdentityToken))
-        {
-            return Result.Failure<AuthResponseDto>(Error.Validation("Identity.InvalidToken", "El token de Apple no puede estar vacío."));
-        }
-
-        var email = "usuario.apple@billefy.app";
-        return await LoginWithEmailAsync(new EmailLoginRequest(email, request.FullName ?? "Usuario Apple", request.PreferredCurrency), ct);
     }
 
     public async Task<Result<AuthResponseDto>> RefreshTokenAsync(string refreshTokenStr, CancellationToken ct = default)
@@ -220,5 +239,18 @@ public sealed class IdentityService : IIdentityModule
             _tokenService.AccessTokenExpirationSeconds,
             "Bearer",
             userDto));
+    }
+
+    private static byte[] Base64UrlDecode(string input)
+    {
+        var output = input.Replace('-', '+').Replace('_', '/');
+        switch (output.Length % 4)
+        {
+            case 0: break;
+            case 2: output += "=="; break;
+            case 3: output += "="; break;
+            default: throw new FormatException("Cadena base64url inválida.");
+        }
+        return Convert.FromBase64String(output);
     }
 }

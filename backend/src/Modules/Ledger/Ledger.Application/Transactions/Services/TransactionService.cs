@@ -29,6 +29,7 @@ public sealed class TransactionService(
         }
 
         var txns = await transactionRepository.GetFilteredAsync(
+            userContext.UserId!.Value,
             accountId,
             direction,
             from,

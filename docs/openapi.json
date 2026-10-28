@@ -10,36 +10,12 @@
     }
   ],
   "paths": {
-    "/api/v1/auth/email": {
-      "post": {
-        "tags": [
-          "Identity & Authentication"
-        ],
-        "summary": "Inicia sesión o registra usuario mediante correo electrónico",
-        "operationId": "LoginWithEmail",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/EmailLoginRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        }
-      }
-    },
     "/api/v1/auth/google": {
       "post": {
         "tags": [
-          "Identity & Authentication"
+          "Identity & Authentication (Google OAuth Only)"
         ],
-        "summary": "Inicia sesión con Google Workspace o Google Account",
+        "summary": "Inicia sesión o registra usuario mediante Google OAuth (proveedor único)",
         "operationId": "LoginWithGoogle",
         "requestBody": {
           "content": {
@@ -58,34 +34,10 @@
         }
       }
     },
-    "/api/v1/auth/apple": {
-      "post": {
-        "tags": [
-          "Identity & Authentication"
-        ],
-        "summary": "Inicia sesión con Sign in with Apple",
-        "operationId": "LoginWithApple",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AppleLoginRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        }
-      }
-    },
     "/api/v1/auth/refresh": {
       "post": {
         "tags": [
-          "Identity & Authentication"
+          "Identity & Authentication (Google OAuth Only)"
         ],
         "summary": "Rota el Refresh Token y emite un nuevo Access Token JWT",
         "operationId": "RefreshToken",
@@ -109,7 +61,7 @@
     "/api/v1/auth/logout": {
       "post": {
         "tags": [
-          "Identity & Authentication"
+          "Identity & Authentication (Google OAuth Only)"
         ],
         "summary": "Cierra sesión y revoca el Refresh Token",
         "operationId": "Logout",
@@ -133,7 +85,7 @@
     "/api/v1/auth/me": {
       "get": {
         "tags": [
-          "Identity & Authentication"
+          "Identity & Authentication (Google OAuth Only)"
         ],
         "summary": "Obtiene el perfil del usuario autenticado",
         "operationId": "GetCurrentUser",
@@ -147,7 +99,7 @@
     "/api/v1/auth/account": {
       "delete": {
         "tags": [
-          "Identity & Authentication"
+          "Identity & Authentication (Google OAuth Only)"
         ],
         "summary": "Solicita la baja de la cuenta con período de gracia de 30 días (Regla AUTH-06)",
         "operationId": "RequestAccountDeletion",
@@ -161,7 +113,7 @@
     "/api/v1/auth/export": {
       "get": {
         "tags": [
-          "Identity & Authentication"
+          "Identity & Authentication (Google OAuth Only)"
         ],
         "summary": "Exporta los datos completos del usuario (Regla AUTH-07)",
         "operationId": "ExportUserData",
@@ -1849,30 +1801,6 @@
       "AccountType": {
         "type": "integer"
       },
-      "AppleLoginRequest": {
-        "required": [
-          "identityToken"
-        ],
-        "type": "object",
-        "properties": {
-          "identityToken": {
-            "type": "string"
-          },
-          "fullName": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "preferredCurrency": {
-            "type": [
-              "null",
-              "string"
-            ],
-            "default": "BOB"
-          }
-        }
-      },
       "BudgetDto": {
         "required": [
           "id",
@@ -2474,30 +2402,6 @@
               "string"
             ],
             "format": "int32"
-          }
-        }
-      },
-      "EmailLoginRequest": {
-        "required": [
-          "email"
-        ],
-        "type": "object",
-        "properties": {
-          "email": {
-            "type": "string"
-          },
-          "fullName": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "preferredCurrency": {
-            "type": [
-              "null",
-              "string"
-            ],
-            "default": "BOB"
           }
         }
       },
@@ -4087,7 +3991,7 @@
   },
   "tags": [
     {
-      "name": "Identity & Authentication"
+      "name": "Identity & Authentication (Google OAuth Only)"
     },
     {
       "name": "Accounts"

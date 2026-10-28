@@ -831,10 +831,10 @@ public class ApiIntegrationTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
-    public async Task Auth_LoginWithEmail_ShouldReturnJwtTokenAndUser()
+    public async Task Auth_LoginWithGoogle_ShouldReturnJwtTokenAndUser()
     {
         var email = $"test_{Guid.NewGuid()}@billefy.app";
-        var res = await _client.PostAsJsonAsync("/api/v1/auth/email", new EmailLoginRequest(email, "Test User", "BOB"));
+        var res = await _client.PostAsJsonAsync("/api/v1/auth/google", new GoogleLoginRequest(email, "BOB"));
         res.StatusCode.Should().Be(HttpStatusCode.OK);
 
         var authRes = await res.Content.ReadFromJsonAsync<AuthResponseDto>();
@@ -842,7 +842,6 @@ public class ApiIntegrationTests : IClassFixture<CustomWebApplicationFactory>
         authRes!.AccessToken.Should().NotBeNullOrWhiteSpace();
         authRes.RefreshToken.Should().NotBeNullOrWhiteSpace();
         authRes.User.Email.Should().Be(email);
-        authRes.User.FullName.Should().Be("Test User");
         authRes.User.PreferredCurrency.Should().Be("BOB");
 
         // Refresh token rotation test

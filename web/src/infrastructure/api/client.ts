@@ -491,18 +491,8 @@ export class BillefyApiClient {
     });
   }
 
-  async loginWithEmail(email: string, fullName?: string, preferredCurrency = "BOB"): Promise<AuthResponseDto> {
-    const res = await this.request<AuthResponseDto>("/v1/auth/email", {
-      method: "POST",
-      body: JSON.stringify({ email, fullName, preferredCurrency }),
-    });
-    this.authToken = res.accessToken;
-    this.userId = res.user.id;
-    return res;
-  }
-
   async loginWithGoogle(idToken: string, preferredCurrency = "BOB"): Promise<AuthResponseDto> {
-    const res = await this.request<AuthResponseDto>("/v1/auth/google", {
+    const res = await this.request<AuthResponseDto>("/api/v1/auth/google", {
       method: "POST",
       body: JSON.stringify({ idToken, preferredCurrency }),
     });
@@ -512,7 +502,7 @@ export class BillefyApiClient {
   }
 
   async refreshToken(refreshToken: string): Promise<AuthResponseDto> {
-    const res = await this.request<AuthResponseDto>("/v1/auth/refresh", {
+    const res = await this.request<AuthResponseDto>("/api/v1/auth/refresh", {
       method: "POST",
       body: JSON.stringify({ refreshToken }),
     });
@@ -522,11 +512,11 @@ export class BillefyApiClient {
   }
 
   async getCurrentUser(): Promise<UserDto> {
-    return this.request<UserDto>("/v1/auth/me", { method: "GET" });
+    return this.request<UserDto>("/api/v1/auth/me", { method: "GET" });
   }
 
   async logout(refreshToken: string): Promise<void> {
-    await this.request<void>("/v1/auth/logout", {
+    await this.request<void>("/api/v1/auth/logout", {
       method: "POST",
       body: JSON.stringify({ refreshToken }),
     });
@@ -534,11 +524,11 @@ export class BillefyApiClient {
   }
 
   async requestAccountDeletion(): Promise<void> {
-    await this.request<void>("/v1/auth/account", { method: "DELETE" });
+    await this.request<void>("/api/v1/auth/account", { method: "DELETE" });
   }
 
   async exportUserData(): Promise<UserDataExportDto> {
-    return this.request<UserDataExportDto>("/v1/auth/export", { method: "GET" });
+    return this.request<UserDataExportDto>("/api/v1/auth/export", { method: "GET" });
   }
 
   async registerDeviceToken(req: RegisterDeviceTokenRequest): Promise<DeviceRegistrationDto> {
