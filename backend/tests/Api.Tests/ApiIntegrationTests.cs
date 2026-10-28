@@ -23,6 +23,8 @@ using Messaging.Contracts;
 using Messaging.Infrastructure;
 using Identity.Contracts;
 using Identity.Infrastructure;
+using Notifications.Contracts;
+using Notifications.Infrastructure;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Data.Sqlite;
@@ -41,6 +43,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
     private readonly SqliteConnection _planningConnection = new("DataSource=:memory:");
     private readonly SqliteConnection _messagingConnection = new("DataSource=:memory:");
     private readonly SqliteConnection _identityConnection = new("DataSource=:memory:");
+    private readonly SqliteConnection _notificationsConnection = new("DataSource=:memory:");
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -51,6 +54,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
         _planningConnection.Open();
         _messagingConnection.Open();
         _identityConnection.Open();
+        _notificationsConnection.Open();
 
         // Clear connection string so Npgsql is not registered by default
         builder.UseSetting("ConnectionStrings:PostgreSQL", string.Empty);
@@ -65,6 +69,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             services.AddDbContext<PlanningDbContext>(options => options.UseSqlite(_planningConnection));
             services.AddDbContext<MessagingDbContext>(options => options.UseSqlite(_messagingConnection));
             services.AddDbContext<IdentityDbContext>(options => options.UseSqlite(_identityConnection));
+            services.AddDbContext<NotificationsDbContext>(options => options.UseSqlite(_notificationsConnection));
 
             // Ensure databases created and seed Fx market rate
             var sp = services.BuildServiceProvider();
@@ -97,6 +102,9 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 
             var identityDb = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
             identityDb.Database.EnsureCreated();
+
+            var notificationsDb = scope.ServiceProvider.GetRequiredService<NotificationsDbContext>();
+            notificationsDb.Database.EnsureCreated();
         });
     }
 
@@ -110,6 +118,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
         _planningConnection.Dispose();
         _messagingConnection.Dispose();
         _identityConnection.Dispose();
+        _notificationsConnection.Dispose();
     }
 }
 
@@ -495,6 +504,35 @@ public class ApiIntegrationTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
+    public async Task StatementImportPdf_ShouldParseTextRows_AndCreateDrafts()
+    {
+        var accReq = new CreateAccountRequest("Banco Unión PDF", AccountType.Bank, "BOB", 0m);
+        using var createAccMsg = new HttpRequestMessage(HttpMethod.Post, "/v1/accounts")
+        {
+            Content = JsonContent.Create(accReq)
+        };
+        createAccMsg.Headers.Add("X-User-Id", _testUserId.ToString());
+        var accRes = await _client.SendAsync(createAccMsg);
+        var accDto = await accRes.Content.ReadFromJsonAsync<CreatedAccountResponse>();
+
+        var pdfText = "ESTADO DE CUENTA BANCO UNION\n2025-05-12 Farmacia Farmacorp -85.50 REF-887711\n2025-05-13 Transferencia Recibida Juan 1500.00 TR-223344\n2025-05-14 Retiro Cajero Automatico -200.00 ATM-990011";
+
+        var pdfReq = new ImportStatementPdfRequest(accDto!.Id, "extracto_mayo.pdf", pdfText, "BOB");
+        using var importMsg = new HttpRequestMessage(HttpMethod.Post, "/v1/ingestion/statements/import-pdf")
+        {
+            Content = JsonContent.Create(pdfReq)
+        };
+        importMsg.Headers.Add("X-User-Id", _testUserId.ToString());
+        var importRes = await _client.SendAsync(importMsg);
+        importRes.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var result = await importRes.Content.ReadFromJsonAsync<StatementImportResult>();
+        result.Should().NotBeNull();
+        result!.DraftsCreated.Should().Be(3);
+        result.TotalRows.Should().Be(3);
+    }
+
+    [Fact]
     public async Task LoanLifecycle_SimulateCreateAndRegisterPayment_ShouldCascadeAllocate()
     {
         // 1. Simulate Loan
@@ -823,6 +861,41 @@ public class ApiIntegrationTests : IClassFixture<CustomWebApplicationFactory>
         var exportData = await exportRes.Content.ReadFromJsonAsync<UserDataExportDto>();
         exportData.Should().NotBeNull();
         exportData!.User.Id.Should().Be(authRes.User.Id);
+    }
+
+    [Fact]
+    public async Task Notifications_RegisterDevice_And_SendPush_ShouldWork()
+    {
+        using var regMsg = new HttpRequestMessage(HttpMethod.Post, "/api/v1/notifications/devices")
+        {
+            Content = JsonContent.Create(new RegisterDeviceTokenRequest("fcm_token_test_12345", "Android"))
+        };
+        regMsg.Headers.Add("X-User-Id", _testUserId.ToString());
+        var regRes = await _client.SendAsync(regMsg);
+        regRes.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var regDto = await regRes.Content.ReadFromJsonAsync<DeviceRegistrationDto>();
+        regDto.Should().NotBeNull();
+        regDto!.Platform.Should().Be("Android");
+
+        // Send test push
+        using var pushMsg = new HttpRequestMessage(HttpMethod.Post, "/api/v1/notifications/test")
+        {
+            Content = JsonContent.Create(new PushNotificationMessage("Alerta de Prueba", "Cuerpo del mensaje"))
+        };
+        pushMsg.Headers.Add("X-User-Id", _testUserId.ToString());
+        var pushRes = await _client.SendAsync(pushMsg);
+        pushRes.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // Get notification history
+        using var histMsg = new HttpRequestMessage(HttpMethod.Get, "/api/v1/notifications");
+        histMsg.Headers.Add("X-User-Id", _testUserId.ToString());
+        var histRes = await _client.SendAsync(histMsg);
+        histRes.StatusCode.Should().Be(HttpStatusCode.OK);
+        var logs = await histRes.Content.ReadFromJsonAsync<List<NotificationLogDto>>();
+        logs.Should().NotBeNull();
+        logs!.Should().NotBeEmpty();
+        logs.First().Title.Should().Be("Alerta de Prueba");
     }
 
     private sealed record CreatedAccountResponse(Guid Id);

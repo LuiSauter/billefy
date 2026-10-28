@@ -36,6 +36,10 @@ import {
   AuthResponseDto,
   UserDto,
   UserDataExportDto,
+  RegisterDeviceTokenRequest,
+  DeviceRegistrationDto,
+  NotificationLogDto,
+  ImportStatementPdfRequest,
 } from "../../domain/models/types";
 
 export * from "../../domain/models/types";
@@ -67,6 +71,14 @@ export class BillefyApiClient {
     this.userId = config.userId;
     this.authToken = config.authToken;
     this.fetchFn = config.fetchFn || (typeof fetch !== "undefined" ? fetch : ((async () => new Response()) as typeof fetch));
+  }
+
+  getAuthToken(): string | undefined {
+    return this.authToken;
+  }
+
+  getUserId(): string | undefined {
+    return this.userId;
   }
 
   private async request<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -527,5 +539,23 @@ export class BillefyApiClient {
 
   async exportUserData(): Promise<UserDataExportDto> {
     return this.request<UserDataExportDto>("/v1/auth/export", { method: "GET" });
+  }
+
+  async registerDeviceToken(req: RegisterDeviceTokenRequest): Promise<DeviceRegistrationDto> {
+    return this.request<DeviceRegistrationDto>("/v1/notifications/devices", {
+      method: "POST",
+      body: JSON.stringify(req),
+    });
+  }
+
+  async getNotificationHistory(): Promise<NotificationLogDto[]> {
+    return this.request<NotificationLogDto[]>("/v1/notifications", { method: "GET" });
+  }
+
+  async importStatementPdf(req: ImportStatementPdfRequest): Promise<StatementImportResult> {
+    return this.request<StatementImportResult>("/v1/ingestion/statements/import-pdf", {
+      method: "POST",
+      body: JSON.stringify(req),
+    });
   }
 }

@@ -387,3 +387,31 @@ export interface UserDataExportDto {
   exportedAt: string;
   systemVersion: string;
 }
+
+export interface RegisterDeviceTokenRequest {
+  token: string;
+  platform: string;
+}
+
+export interface DeviceRegistrationDto {
+  id: string;
+  platform: string;
+  createdAt: string;
+}
+
+export interface NotificationLogDto {
+  id: string;
+  type: string;
+  channel: string;
+  title: string;
+  body: string;
+  sentAt: string;
+  status: string;
+}
+
+export interface ImportStatementPdfRequest {
+  accountId: string;
+  fileName: string;
+  pdfTextContent: string;
+  currency: string;
+}

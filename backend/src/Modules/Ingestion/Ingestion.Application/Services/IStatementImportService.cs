@@ -8,6 +8,12 @@ public sealed record ImportStatementCsvRequest(
     string CsvContent,
     string Currency);
 
+public sealed record ImportStatementPdfRequest(
+    Guid AccountId,
+    string FileName,
+    string PdfTextContent,
+    string Currency);
+
 public sealed record StatementImportResult(
     Guid ImportId,
     string FileName,
@@ -22,5 +28,9 @@ public interface IStatementImportService
 {
     Task<Result<StatementImportResult>> ImportCsvAsync(
         ImportStatementCsvRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<Result<StatementImportResult>> ImportPdfAsync(
+        ImportStatementPdfRequest request,
         CancellationToken cancellationToken = default);
 }

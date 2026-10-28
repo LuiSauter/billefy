@@ -722,6 +722,57 @@
         }
       }
     },
+    "/v1/ingestion/statements/import-pdf": {
+      "post": {
+        "tags": [
+          "Ingestion"
+        ],
+        "summary": "Import bank statement movements from a PDF statement with automatic deduplication (ING-12).",
+        "operationId": "ImportStatementPdf",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportStatementPdfRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatementImportResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/drafts": {
       "get": {
         "tags": [
@@ -1494,6 +1545,68 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/v1/notifications/devices": {
+      "post": {
+        "tags": [
+          "Notifications & Alerts"
+        ],
+        "summary": "Registra un token FCM o APNs de dispositivo para notificaciones push (Regla NOT-05)",
+        "operationId": "RegisterDevice",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterDeviceTokenRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/notifications": {
+      "get": {
+        "tags": [
+          "Notifications & Alerts"
+        ],
+        "summary": "Obtiene el historial de notificaciones y alertas del usuario",
+        "operationId": "GetNotificationHistory",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/notifications/test": {
+      "post": {
+        "tags": [
+          "Notifications & Alerts"
+        ],
+        "summary": "Envía una notificación push de prueba a los dispositivos del usuario",
+        "operationId": "SendTestPushNotification",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PushNotificationMessage"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
           }
         }
       }
@@ -2601,6 +2714,30 @@
           }
         }
       },
+      "ImportStatementPdfRequest": {
+        "required": [
+          "accountId",
+          "fileName",
+          "pdfTextContent",
+          "currency"
+        ],
+        "type": "object",
+        "properties": {
+          "accountId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "fileName": {
+            "type": "string"
+          },
+          "pdfTextContent": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          }
+        }
+      },
       "IncomeDistributionProposal": {
         "required": [
           "totalIncome",
@@ -3258,6 +3395,30 @@
           }
         }
       },
+      "PushNotificationMessage": {
+        "required": [
+          "title",
+          "body"
+        ],
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "data": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        }
+      },
       "RateSnapshotDto": {
         "required": [
           "appliedRate",
@@ -3363,6 +3524,21 @@
         "type": "object",
         "properties": {
           "refreshToken": {
+            "type": "string"
+          }
+        }
+      },
+      "RegisterDeviceTokenRequest": {
+        "required": [
+          "token",
+          "platform"
+        ],
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string"
+          },
+          "platform": {
             "type": "string"
           }
         }
@@ -3933,6 +4109,9 @@
     },
     {
       "name": "Planning"
+    },
+    {
+      "name": "Notifications & Alerts"
     },
     {
       "name": "Messaging"

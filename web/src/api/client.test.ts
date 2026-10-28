@@ -59,4 +59,53 @@ describe("BillefyApiClient", () => {
       })
     ).rejects.toThrow("Amount must be strictly greater than zero.");
   });
+
+  it("should handle loginWithEmail and store authToken and userId", async () => {
+    const mockAuthResponse = {
+      accessToken: "mock_jwt_token_12345",
+      refreshToken: "mock_refresh_token_67890",
+      expiresIn: 3600,
+      tokenType: "Bearer",
+      user: {
+        id: "22222222-2222-2222-2222-222222222222",
+        email: "franco@billefy.app",
+        fullName: "Franco Dev",
+        preferredCurrency: "BOB",
+        createdAt: "2025-01-01T00:00:00Z",
+      },
+    };
+
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => mockAuthResponse,
+    });
+
+    const client = new BillefyApiClient({ fetchFn: mockFetch });
+    const auth = await client.loginWithEmail("franco@billefy.app", "Franco Dev", "BOB");
+
+    expect(auth.accessToken).toBe("mock_jwt_token_12345");
+    expect(client.getAuthToken()).toBe("mock_jwt_token_12345");
+    expect(client.getUserId()).toBe("22222222-2222-2222-2222-222222222222");
+  });
+
+  it("should handle registerDeviceToken", async () => {
+    const mockDevice = {
+      id: "dev-1",
+      platform: "Android",
+      createdAt: "2025-01-01T00:00:00Z",
+    };
+
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => mockDevice,
+    });
+
+    const client = new BillefyApiClient({ userId, fetchFn: mockFetch });
+    const dev = await client.registerDeviceToken({ token: "fcm_token_123", platform: "Android" });
+
+    expect(dev.platform).toBe("Android");
+    expect(dev.id).toBe("dev-1");
+  });
 });

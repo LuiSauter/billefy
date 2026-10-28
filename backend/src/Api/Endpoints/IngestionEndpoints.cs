@@ -45,6 +45,20 @@ public static class IngestionEndpoints
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status401Unauthorized);
 
+        group.MapPost("/statements/import-pdf", async (
+            [FromBody] ImportStatementPdfRequest request,
+            IStatementImportService service,
+            CancellationToken ct) =>
+        {
+            var result = await service.ImportPdfAsync(request, ct);
+            return result.ToHttpResult();
+        })
+        .WithName("ImportStatementPdf")
+        .WithSummary("Import bank statement movements from a PDF statement with automatic deduplication (ING-12).")
+        .Produces<StatementImportResult>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized);
+
         return group;
     }
 }

@@ -161,6 +161,142 @@ public sealed class StatementImportService(
             duplicatesLinked));
     }
 
+    public async Task<Result<StatementImportResult>> ImportPdfAsync(
+        ImportStatementPdfRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (!userContext.IsAuthenticated)
+        {
+            return Result.Failure<StatementImportResult>(
+                Error.Unauthorized("Auth.Unauthorized", "User is not authenticated."));
+        }
+
+        if (request.AccountId == Guid.Empty)
+        {
+            return Result.Failure<StatementImportResult>(
+                Error.Validation("Import.InvalidAccount", "AccountId is required."));
+        }
+
+        if (string.IsNullOrWhiteSpace(request.PdfTextContent))
+        {
+            return Result.Failure<StatementImportResult>(
+                Error.Validation("Import.EmptyContent", "PDF text content cannot be empty."));
+        }
+
+        var userId = userContext.UserId!.Value;
+
+        // Technical SHA-256 deduplication
+        var contentBytes = Encoding.UTF8.GetBytes(request.PdfTextContent.Trim());
+        var fileHash = Convert.ToHexStringLower(SHA256.HashData(contentBytes));
+
+        var existingImport = await importRepository.GetByHashAsync(userId, fileHash, cancellationToken);
+        var isDuplicateFile = existingImport is not null;
+        string? warning = isDuplicateFile ? "This PDF statement was already imported previously." : null;
+
+        var lines = request.PdfTextContent
+            .Split(["\r\n", "\r", "\n"], StringSplitOptions.RemoveEmptyEntries)
+            .Select(l => l.Trim())
+            .Where(l => !string.IsNullOrWhiteSpace(l))
+            .ToList();
+
+        int totalRows = 0;
+        int draftsCreated = 0;
+        int duplicatesLinked = 0;
+
+        foreach (var line in lines)
+        {
+            // Match movement row: e.g. "2025-05-12 Supermercado Hipermaxi -240.00 TX-1234"
+            var tokens = line.Split([' ', '\t'], StringSplitOptions.RemoveEmptyEntries);
+            if (tokens.Length < 3) continue;
+
+            // First token date?
+            if (!DateTime.TryParse(tokens[0], CultureInfo.InvariantCulture, DateTimeStyles.None, out var occurredAt))
+            {
+                var formats = new[] { "dd/MM/yyyy", "yyyy-MM-dd", "dd-MM-yyyy" };
+                if (!DateTime.TryParseExact(tokens[0], formats, CultureInfo.InvariantCulture, DateTimeStyles.None, out occurredAt))
+                {
+                    continue; // Skip non-movement text header lines
+                }
+            }
+
+            // Find amount token (usually last or second to last token)
+            decimal amount = 0m;
+            DraftDirection direction = DraftDirection.Expense;
+            int amountIdx = -1;
+
+            for (int i = tokens.Length - 1; i >= 1; i--)
+            {
+                if (TryParseAmount(tokens[i], out amount, out direction))
+                {
+                    amountIdx = i;
+                    break;
+                }
+            }
+
+            if (amountIdx == -1 || amount <= 0) continue;
+
+            totalRows++;
+
+            var descTokens = tokens.Skip(1).Take(amountIdx - 1);
+            var description = string.Join(" ", descTokens);
+            if (string.IsNullOrWhiteSpace(description)) description = "Movimiento extracto PDF";
+
+            var reference = amountIdx < tokens.Length - 1 ? string.Join(" ", tokens.Skip(amountIdx + 1)) : null;
+
+            var currency = string.IsNullOrWhiteSpace(request.Currency) ? "BOB" : request.Currency.Trim().ToUpperInvariant();
+            var eventId = Guid.NewGuid();
+
+            var dedupResult = await deduplicationService.ProcessMovementAsync(
+                userId,
+                eventId,
+                source: DraftSource.Pdf,
+                amount,
+                currency,
+                direction,
+                occurredAt,
+                reference,
+                confidence: 0.90m,
+                suggestedAccountId: request.AccountId,
+                suggestedCategoryId: null,
+                cancellationToken: cancellationToken);
+
+            if (dedupResult.IsDuplicate)
+            {
+                duplicatesLinked++;
+            }
+            else
+            {
+                draftsCreated++;
+            }
+        }
+
+        var statementImport = StatementImport.Create(
+            userId,
+            request.AccountId,
+            format: "pdf",
+            fileName: request.FileName,
+            fileHash: fileHash,
+            status: isDuplicateFile ? "DuplicateWarning" : "Processed",
+            summaryJson: JsonSerializer.Serialize(new { totalRows, draftsCreated, duplicatesLinked, fileHash, warning }),
+            createdAt: DateTime.UtcNow);
+
+        if (!isDuplicateFile)
+        {
+            await importRepository.AddAsync(statementImport, cancellationToken);
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+
+        return Result.Success(new StatementImportResult(
+            statementImport.Id,
+            request.FileName,
+            fileHash,
+            isDuplicateFile,
+            warning,
+            totalRows,
+            draftsCreated,
+            duplicatesLinked));
+    }
+
     private static (int dateCol, int descCol, int amountCol, int refCol, bool hasHeader) DetectColumns(string firstLine)
     {
         var headers = ParseCsvLine(firstLine).Select(h => h.Trim().ToLowerInvariant()).ToList();

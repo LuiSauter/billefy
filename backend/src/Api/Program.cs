@@ -9,6 +9,7 @@ using Lending.Infrastructure;
 using Messaging.Infrastructure;
 using Planning.Infrastructure;
 using Identity.Infrastructure;
+using Notifications.Infrastructure;
 using Billefy.Integrations.WhatsApp;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -94,6 +95,7 @@ builder.Services.AddFxModule(builder.Configuration);
 builder.Services.AddIngestionModule(builder.Configuration);
 builder.Services.AddLendingModule(builder.Configuration);
 builder.Services.AddPlanningModule(builder.Configuration);
+builder.Services.AddNotificationsModule(builder.Configuration);
 builder.Services.AddWhatsAppIntegration(builder.Configuration);
 builder.Services.AddMessagingModule(builder.Configuration);
 
@@ -157,6 +159,12 @@ if (!string.IsNullOrWhiteSpace(builder.Configuration.GetConnectionString("Postgr
         {
             identityDb.Database.Migrate();
         }
+
+        var notificationsDb = scope.ServiceProvider.GetRequiredService<NotificationsDbContext>();
+        if (notificationsDb.Database.IsRelational())
+        {
+            notificationsDb.Database.Migrate();
+        }
     }
     catch (Exception ex)
     {
@@ -180,6 +188,7 @@ app.MapIngestionEndpoints();
 app.MapDraftEndpoints();
 app.MapLoanEndpoints();
 app.MapPlanningEndpoints();
+app.MapNotificationEndpoints();
 app.MapMessagingEndpoints();
 app.MapBinanceEndpoints();
 
