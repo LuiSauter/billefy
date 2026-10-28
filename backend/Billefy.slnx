@@ -19,7 +19,10 @@
     <Project Path="src/Modules/Fx/Fx.Infrastructure/Fx.Infrastructure.csproj" />
   </Folder>
   <Folder Name="/src/Modules/Identity/">
+    <Project Path="src/Modules/Identity/Identity.Application/Identity.Application.csproj" />
     <Project Path="src/Modules/Identity/Identity.Contracts/Identity.Contracts.csproj" />
+    <Project Path="src/Modules/Identity/Identity.Domain/Identity.Domain.csproj" />
+    <Project Path="src/Modules/Identity/Identity.Infrastructure/Identity.Infrastructure.csproj" />
   </Folder>
   <Folder Name="/src/Modules/Ingestion/">
     <Project Path="src/Modules/Ingestion/Ingestion.Application/Ingestion.Application.csproj" />

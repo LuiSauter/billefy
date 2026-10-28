@@ -10,6 +10,168 @@
     }
   ],
   "paths": {
+    "/api/v1/auth/email": {
+      "post": {
+        "tags": [
+          "Identity & Authentication"
+        ],
+        "summary": "Inicia sesión o registra usuario mediante correo electrónico",
+        "operationId": "LoginWithEmail",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailLoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/google": {
+      "post": {
+        "tags": [
+          "Identity & Authentication"
+        ],
+        "summary": "Inicia sesión con Google Workspace o Google Account",
+        "operationId": "LoginWithGoogle",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GoogleLoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/apple": {
+      "post": {
+        "tags": [
+          "Identity & Authentication"
+        ],
+        "summary": "Inicia sesión con Sign in with Apple",
+        "operationId": "LoginWithApple",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AppleLoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/refresh": {
+      "post": {
+        "tags": [
+          "Identity & Authentication"
+        ],
+        "summary": "Rota el Refresh Token y emite un nuevo Access Token JWT",
+        "operationId": "RefreshToken",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshTokenRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "tags": [
+          "Identity & Authentication"
+        ],
+        "summary": "Cierra sesión y revoca el Refresh Token",
+        "operationId": "Logout",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshTokenRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "tags": [
+          "Identity & Authentication"
+        ],
+        "summary": "Obtiene el perfil del usuario autenticado",
+        "operationId": "GetCurrentUser",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/account": {
+      "delete": {
+        "tags": [
+          "Identity & Authentication"
+        ],
+        "summary": "Solicita la baja de la cuenta con período de gracia de 30 días (Regla AUTH-06)",
+        "operationId": "RequestAccountDeletion",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/export": {
+      "get": {
+        "tags": [
+          "Identity & Authentication"
+        ],
+        "summary": "Exporta los datos completos del usuario (Regla AUTH-07)",
+        "operationId": "ExportUserData",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/v1/accounts": {
       "post": {
         "tags": [
@@ -1574,6 +1736,30 @@
       "AccountType": {
         "type": "integer"
       },
+      "AppleLoginRequest": {
+        "required": [
+          "identityToken"
+        ],
+        "type": "object",
+        "properties": {
+          "identityToken": {
+            "type": "string"
+          },
+          "fullName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "preferredCurrency": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "default": "BOB"
+          }
+        }
+      },
       "BudgetDto": {
         "required": [
           "id",
@@ -2178,6 +2364,30 @@
           }
         }
       },
+      "EmailLoginRequest": {
+        "required": [
+          "email"
+        ],
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "fullName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "preferredCurrency": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "default": "BOB"
+          }
+        }
+      },
       "FinancialHealthDto": {
         "required": [
           "monthlyIncome",
@@ -2346,6 +2556,24 @@
           "createdAt": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "GoogleLoginRequest": {
+        "required": [
+          "idToken"
+        ],
+        "type": "object",
+        "properties": {
+          "idToken": {
+            "type": "string"
+          },
+          "preferredCurrency": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "default": "BOB"
           }
         }
       },
@@ -3128,6 +3356,17 @@
           }
         }
       },
+      "RefreshTokenRequest": {
+        "required": [
+          "refreshToken"
+        ],
+        "type": "object",
+        "properties": {
+          "refreshToken": {
+            "type": "string"
+          }
+        }
+      },
       "RegisterEventResponse": {
         "required": [
           "eventId",
@@ -3671,6 +3910,9 @@
     }
   },
   "tags": [
+    {
+      "name": "Identity & Authentication"
+    },
     {
       "name": "Accounts"
     },

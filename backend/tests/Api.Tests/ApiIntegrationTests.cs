@@ -21,6 +21,8 @@ using Planning.Infrastructure;
 using Planning.Application.Services;
 using Messaging.Contracts;
 using Messaging.Infrastructure;
+using Identity.Contracts;
+using Identity.Infrastructure;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Data.Sqlite;
@@ -38,6 +40,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
     private readonly SqliteConnection _lendingConnection = new("DataSource=:memory:");
     private readonly SqliteConnection _planningConnection = new("DataSource=:memory:");
     private readonly SqliteConnection _messagingConnection = new("DataSource=:memory:");
+    private readonly SqliteConnection _identityConnection = new("DataSource=:memory:");
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -47,6 +50,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
         _lendingConnection.Open();
         _planningConnection.Open();
         _messagingConnection.Open();
+        _identityConnection.Open();
 
         // Clear connection string so Npgsql is not registered by default
         builder.UseSetting("ConnectionStrings:PostgreSQL", string.Empty);
@@ -60,6 +64,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             services.AddDbContext<LendingDbContext>(options => options.UseSqlite(_lendingConnection));
             services.AddDbContext<PlanningDbContext>(options => options.UseSqlite(_planningConnection));
             services.AddDbContext<MessagingDbContext>(options => options.UseSqlite(_messagingConnection));
+            services.AddDbContext<IdentityDbContext>(options => options.UseSqlite(_identityConnection));
 
             // Ensure databases created and seed Fx market rate
             var sp = services.BuildServiceProvider();
@@ -89,6 +94,9 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 
             var messagingDb = scope.ServiceProvider.GetRequiredService<MessagingDbContext>();
             messagingDb.Database.EnsureCreated();
+
+            var identityDb = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+            identityDb.Database.EnsureCreated();
         });
     }
 
@@ -101,6 +109,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
         _lendingConnection.Dispose();
         _planningConnection.Dispose();
         _messagingConnection.Dispose();
+        _identityConnection.Dispose();
     }
 }
 
@@ -781,6 +790,39 @@ public class ApiIntegrationTests : IClassFixture<CustomWebApplicationFactory>
         var getRes = await _client.SendAsync(getMsg);
         getRes.Headers.Contains("Access-Control-Allow-Origin").Should().BeTrue();
         getRes.Headers.GetValues("Access-Control-Allow-Origin").First().Should().Be("http://localhost:3000");
+    }
+
+    [Fact]
+    public async Task Auth_LoginWithEmail_ShouldReturnJwtTokenAndUser()
+    {
+        var email = $"test_{Guid.NewGuid()}@billefy.app";
+        var res = await _client.PostAsJsonAsync("/api/v1/auth/email", new EmailLoginRequest(email, "Test User", "BOB"));
+        res.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var authRes = await res.Content.ReadFromJsonAsync<AuthResponseDto>();
+        authRes.Should().NotBeNull();
+        authRes!.AccessToken.Should().NotBeNullOrWhiteSpace();
+        authRes.RefreshToken.Should().NotBeNullOrWhiteSpace();
+        authRes.User.Email.Should().Be(email);
+        authRes.User.FullName.Should().Be("Test User");
+        authRes.User.PreferredCurrency.Should().Be("BOB");
+
+        // Refresh token rotation test
+        var refreshRes = await _client.PostAsJsonAsync("/api/v1/auth/refresh", new RefreshTokenRequest(authRes.RefreshToken));
+        refreshRes.StatusCode.Should().Be(HttpStatusCode.OK);
+        var rotatedAuth = await refreshRes.Content.ReadFromJsonAsync<AuthResponseDto>();
+        rotatedAuth.Should().NotBeNull();
+        rotatedAuth!.AccessToken.Should().NotBeNullOrWhiteSpace();
+        rotatedAuth.RefreshToken.Should().NotBe(authRes.RefreshToken);
+
+        // Export data test
+        using var exportMsg = new HttpRequestMessage(HttpMethod.Get, "/api/v1/auth/export");
+        exportMsg.Headers.Add("X-User-Id", authRes.User.Id.ToString());
+        var exportRes = await _client.SendAsync(exportMsg);
+        exportRes.StatusCode.Should().Be(HttpStatusCode.OK);
+        var exportData = await exportRes.Content.ReadFromJsonAsync<UserDataExportDto>();
+        exportData.Should().NotBeNull();
+        exportData!.User.Id.Should().Be(authRes.User.Id);
     }
 
     private sealed record CreatedAccountResponse(Guid Id);

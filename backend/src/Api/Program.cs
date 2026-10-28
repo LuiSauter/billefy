@@ -8,8 +8,12 @@ using Ledger.Infrastructure;
 using Lending.Infrastructure;
 using Messaging.Infrastructure;
 using Planning.Infrastructure;
+using Identity.Infrastructure;
 using Billefy.Integrations.WhatsApp;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -55,7 +59,36 @@ if (resolvedConnectionString != null)
     builder.Configuration["ConnectionStrings:PostgreSQL"] = resolvedConnectionString;
 }
 
+// JWT Authentication & Authorization
+var jwtSecret = builder.Configuration["Jwt:Secret"]
+    ?? Environment.GetEnvironmentVariable("JWT_SECRET")
+    ?? "billefy_super_secret_jwt_signing_key_2026_at_least_32_bytes_long!";
+var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "BillefyApi";
+var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "BillefyClients";
+
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.RequireHttpsMetadata = false;
+    options.SaveToken = true;
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret)),
+        ValidateIssuer = false, // flexible for multi-client origins in dev
+        ValidateAudience = false,
+        ValidateLifetime = true,
+        ClockSkew = TimeSpan.FromSeconds(30)
+    };
+});
+builder.Services.AddAuthorization();
+
 // Modular Monolith Modules
+builder.Services.AddIdentityModule(builder.Configuration);
 builder.Services.AddLedgerModule(builder.Configuration);
 builder.Services.AddFxModule(builder.Configuration);
 builder.Services.AddIngestionModule(builder.Configuration);
@@ -74,6 +107,8 @@ app.UseExceptionHandler();
 
 // Enable CORS
 app.UseCors();
+app.UseAuthentication();
+app.UseAuthorization();
 
 // Automatically apply relational database migrations on startup when PostgreSQL connection string is configured
 if (!string.IsNullOrWhiteSpace(builder.Configuration.GetConnectionString("PostgreSQL")))
@@ -116,6 +151,12 @@ if (!string.IsNullOrWhiteSpace(builder.Configuration.GetConnectionString("Postgr
         {
             messagingDb.Database.Migrate();
         }
+
+        var identityDb = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+        if (identityDb.Database.IsRelational())
+        {
+            identityDb.Database.Migrate();
+        }
     }
     catch (Exception ex)
     {
@@ -131,6 +172,7 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 
 // Map REST API Endpoints
+app.MapAuthEndpoints();
 app.MapAccountEndpoints();
 app.MapTransactionEndpoints();
 app.MapRateEndpoints();

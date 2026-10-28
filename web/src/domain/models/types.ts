@@ -364,3 +364,26 @@ export interface IncomeDistributionProposal {
   savingsPercentage: number;
   rationale: string;
 }
+
+export interface UserDto {
+  id: string;
+  email: string;
+  fullName: string;
+  pictureUrl?: string;
+  preferredCurrency: string;
+  createdAt: string;
+}
+
+export interface AuthResponseDto {
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
+  tokenType: string;
+  user: UserDto;
+}
+
+export interface UserDataExportDto {
+  user: UserDto;
+  exportedAt: string;
+  systemVersion: string;
+}

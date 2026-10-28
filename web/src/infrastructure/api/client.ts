@@ -33,6 +33,9 @@ import {
   SyncBinanceResponse,
   ProposeIncomeDistributionRequest,
   IncomeDistributionProposal,
+  AuthResponseDto,
+  UserDto,
+  UserDataExportDto,
 } from "../../domain/models/types";
 
 export * from "../../domain/models/types";
@@ -55,8 +58,8 @@ export interface ApiProblemDetails {
 
 export class BillefyApiClient {
   private readonly baseUrl: string;
-  private readonly userId?: string;
-  private readonly authToken?: string;
+  private userId?: string;
+  private authToken?: string;
   private readonly fetchFn: typeof fetch;
 
   constructor(config: ApiClientConfig = {}) {
@@ -474,5 +477,55 @@ export class BillefyApiClient {
       method: "POST",
       body: JSON.stringify(req),
     });
+  }
+
+  async loginWithEmail(email: string, fullName?: string, preferredCurrency = "BOB"): Promise<AuthResponseDto> {
+    const res = await this.request<AuthResponseDto>("/v1/auth/email", {
+      method: "POST",
+      body: JSON.stringify({ email, fullName, preferredCurrency }),
+    });
+    this.authToken = res.accessToken;
+    this.userId = res.user.id;
+    return res;
+  }
+
+  async loginWithGoogle(idToken: string, preferredCurrency = "BOB"): Promise<AuthResponseDto> {
+    const res = await this.request<AuthResponseDto>("/v1/auth/google", {
+      method: "POST",
+      body: JSON.stringify({ idToken, preferredCurrency }),
+    });
+    this.authToken = res.accessToken;
+    this.userId = res.user.id;
+    return res;
+  }
+
+  async refreshToken(refreshToken: string): Promise<AuthResponseDto> {
+    const res = await this.request<AuthResponseDto>("/v1/auth/refresh", {
+      method: "POST",
+      body: JSON.stringify({ refreshToken }),
+    });
+    this.authToken = res.accessToken;
+    this.userId = res.user.id;
+    return res;
+  }
+
+  async getCurrentUser(): Promise<UserDto> {
+    return this.request<UserDto>("/v1/auth/me", { method: "GET" });
+  }
+
+  async logout(refreshToken: string): Promise<void> {
+    await this.request<void>("/v1/auth/logout", {
+      method: "POST",
+      body: JSON.stringify({ refreshToken }),
+    });
+    this.authToken = undefined;
+  }
+
+  async requestAccountDeletion(): Promise<void> {
+    await this.request<void>("/v1/auth/account", { method: "DELETE" });
+  }
+
+  async exportUserData(): Promise<UserDataExportDto> {
+    return this.request<UserDataExportDto>("/v1/auth/export", { method: "GET" });
   }
 }

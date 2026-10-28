@@ -96,6 +96,14 @@ Fx__RateSourceUrl="https://bo.dolarapi.com/v1/dolares/binance"
 # ------------------------------------------------------------------------------
 Binance__ApiKey="TU_BINANCE_API_KEY"
 Binance__ApiSecret="TU_BINANCE_API_SECRET"
+
+# ------------------------------------------------------------------------------
+# 8. Autenticación JWT e Identidad (AUTH-01 a AUTH-07)
+# ------------------------------------------------------------------------------
+Jwt__Secret="billefy_super_secret_jwt_signing_key_2026_at_least_32_bytes_long!"
+Jwt__Issuer="BillefyApi"
+Jwt__Audience="BillefyClients"
+Jwt__ExpirationMinutes="60"
 EOF
 ```
 
