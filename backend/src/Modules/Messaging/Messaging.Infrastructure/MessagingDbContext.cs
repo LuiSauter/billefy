@@ -24,7 +24,7 @@ public class MessagingDbContext : DbContext
         base.OnModelCreating(modelBuilder);
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(MessagingDbContext).Assembly);
 
-        // Global query filters for user_id multi-tenancy isolation
-        modelBuilder.Entity<WhatsAppLink>().HasQueryFilter(l => !_currentUserContext.IsAuthenticated || l.UserId == _currentUserContext.UserId.GetValueOrDefault());
+        // Global query filters for user_id multi-tenancy isolation (fail-closed)
+        modelBuilder.Entity<WhatsAppLink>().HasQueryFilter(l => _currentUserContext.IsAuthenticated && l.UserId == _currentUserContext.UserId.GetValueOrDefault());
     }
 }

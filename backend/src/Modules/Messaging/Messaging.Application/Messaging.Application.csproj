@@ -2,9 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\BuildingBlocks\BuildingBlocks.csproj" />
-    <ProjectReference Include="..\..\Ingestion\Ingestion.Application\Ingestion.Application.csproj" />
     <ProjectReference Include="..\..\Ingestion\Ingestion.Contracts\Ingestion.Contracts.csproj" />
-    <ProjectReference Include="..\..\Ledger\Ledger.Application\Ledger.Application.csproj" />
     <ProjectReference Include="..\..\Ledger\Ledger.Contracts\Ledger.Contracts.csproj" />
     <ProjectReference Include="..\..\Fx\Fx.Contracts\Fx.Contracts.csproj" />
     <ProjectReference Include="..\Messaging.Contracts\Messaging.Contracts.csproj" />

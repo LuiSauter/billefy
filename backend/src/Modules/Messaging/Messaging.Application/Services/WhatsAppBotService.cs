@@ -1,11 +1,10 @@
+using System.Security.Cryptography;
 using BuildingBlocks.Common;
 using BuildingBlocks.Security;
+using BuildingBlocks.Time;
 using Fx.Contracts;
-using Ingestion.Application.Deduplication;
-using Ingestion.Application.Parsing;
-using Ingestion.Application.Services;
 using Ingestion.Contracts;
-using Ledger.Application.Accounts.Services;
+using Ledger.Contracts;
 using Messaging.Application.Abstractions;
 using Messaging.Contracts;
 using Messaging.Domain.Entities;
@@ -18,12 +17,11 @@ public sealed class WhatsAppBotService(
     IWhatsAppMessageRepository messageRepository,
     IMessagingGateway messagingGateway,
     IMessagingUnitOfWork unitOfWork,
-    IFinancialTextParser parser,
-    IDeduplicationService deduplicationService,
-    IDraftService draftService,
-    IAccountService accountService,
+    IIngestionModule ingestionModule,
+    ILedgerModule ledgerModule,
     IRateSnapshotProvider rateProvider,
-    ICurrentUserContext userContext) : IWhatsAppBotService
+    ICurrentUserContext userContext,
+    IClock clock) : IWhatsAppBotService
 {
     public async Task<Result<LinkWhatsAppResponse>> LinkPhoneNumberAsync(
         LinkWhatsAppRequest request,
@@ -43,25 +41,20 @@ public sealed class WhatsAppBotService(
 
         var userId = userContext.UserId!.Value;
         var normalizedPhone = WhatsAppLink.NormalizePhoneNumber(request.PhoneNumber);
-        var verificationCode = Random.Shared.Next(100000, 999999).ToString();
+        var verificationCode = RandomNumberGenerator.GetInt32(100000, 1000000).ToString();
 
         var existing = await linkRepository.GetByUserIdAsync(userId, cancellationToken);
         WhatsAppLink link;
 
         if (existing is null)
         {
-            link = WhatsAppLink.Create(userId, normalizedPhone, verificationCode, DateTime.UtcNow);
+            link = WhatsAppLink.Create(userId, normalizedPhone, verificationCode, clock.UtcNow);
             await linkRepository.AddAsync(link, cancellationToken);
         }
         else
         {
-            link = new WhatsAppLink(
-                existing.Id,
-                userId,
-                normalizedPhone,
-                WhatsAppLinkStatus.Pending,
-                verificationCode,
-                existing.CreatedAt);
+            existing.RegenerateVerification(normalizedPhone, verificationCode);
+            link = existing;
             await linkRepository.UpdateAsync(link, cancellationToken);
         }
 
@@ -72,7 +65,7 @@ public sealed class WhatsAppBotService(
             link.PhoneNumber,
             link.VerificationCode,
             link.Status.ToString(),
-            $"Envía el código «{verificationCode}» o la palabra «CONFIRMAR» por WhatsApp al número de Billefy para activar tu cuenta."));
+            $"Envía el código «{verificationCode}» por WhatsApp al número de Billefy para activar tu cuenta."));
     }
 
     public async Task<Result<WhatsAppWebhookResponse>> ProcessInboundWebhookAsync(
@@ -106,6 +99,7 @@ public sealed class WhatsAppBotService(
             string replyText;
             string actionTaken;
             Guid? draftId = null;
+            var now = clock.UtcNow;
 
             if (link is null)
             {
@@ -119,7 +113,7 @@ public sealed class WhatsAppBotService(
                     link.Id,
                     request.ProviderMessageId,
                     request.MessageText,
-                    DateTime.UtcNow);
+                    now);
                 await messageRepository.AddAsync(inbound, cancellationToken);
 
                 var cleanText = request.MessageText.Trim();
@@ -127,17 +121,17 @@ public sealed class WhatsAppBotService(
 
                 if (link.Status == WhatsAppLinkStatus.Pending)
                 {
-                    // Check verification
-                    if (cleanText.Contains(link.VerificationCode) || upperText.Contains("CONFIRMAR") || upperText.Contains("SI"))
+                    // Strictly require the cryptographic 6-digit verification code generated in the app
+                    if (!string.IsNullOrWhiteSpace(link.VerificationCode) && cleanText.Contains(link.VerificationCode, StringComparison.Ordinal))
                     {
-                        link.Activate(DateTime.UtcNow);
+                        link.Activate(now);
                         await linkRepository.UpdateAsync(link, cancellationToken);
                         replyText = "¡Listo! Tu número ha sido verificado con éxito. Ya puedes registrar gastos escribiendo por ejemplo: «Gasto 50 bs en taxi» o consultar «Saldo».";
                         actionTaken = "LinkActivated";
                     }
                     else
                     {
-                        replyText = $"Para activar tu cuenta de Billefy, por favor envía el código de 6 dígitos ({link.VerificationCode}) que generaste en la app.";
+                        replyText = "Para activar tu cuenta de Billefy, por favor envía el código de verificación de 6 dígitos que generaste en la aplicación.";
                         actionTaken = "PendingVerification";
                     }
                 }
@@ -149,14 +143,14 @@ public sealed class WhatsAppBotService(
                         var lastOutbound = await messageRepository.GetLastOutboundWithDraftAsync(link.Id, cancellationToken);
                         if (lastOutbound?.DraftId is not null)
                         {
-                            var accountsResult = await accountService.GetAccountsByUserIdAsync(link.UserId, cancellationToken);
-                            var targetAccount = accountsResult.IsSuccess && accountsResult.Value.Count > 0
-                                ? accountsResult.Value[0].Id
+                            var accounts = await ledgerModule.GetAccountsByUserIdAsync(link.UserId, cancellationToken);
+                            var targetAccount = accounts.Count > 0
+                                ? accounts[0].Id
                                 : Guid.Empty;
 
                             if (targetAccount != Guid.Empty)
                             {
-                                var confirmResult = await draftService.ConfirmDraftForUserAsync(
+                                var confirmResult = await ingestionModule.ConfirmDraftForUserAsync(
                                     link.UserId,
                                     lastOutbound.DraftId.Value,
                                     new ConfirmDraftRequest(targetAccount, null, "Confirmado vía WhatsApp"),
@@ -191,7 +185,7 @@ public sealed class WhatsAppBotService(
                         var lastOutbound = await messageRepository.GetLastOutboundWithDraftAsync(link.Id, cancellationToken);
                         if (lastOutbound?.DraftId is not null)
                         {
-                            await draftService.DiscardDraftForUserAsync(link.UserId, lastOutbound.DraftId.Value, cancellationToken);
+                            await ingestionModule.DiscardDraftForUserAsync(link.UserId, lastOutbound.DraftId.Value, cancellationToken);
                             replyText = "🗑️ Borrador descartado. La huella ha sido conservada.";
                             actionTaken = "DraftDiscarded";
                         }
@@ -203,11 +197,11 @@ public sealed class WhatsAppBotService(
                     }
                     else if (upperText == "SALDO" || upperText == "BALANCE" || upperText == "CUENTAS")
                     {
-                        var accountsResult = await accountService.GetAccountsByUserIdAsync(link.UserId, cancellationToken);
-                        if (accountsResult.IsSuccess && accountsResult.Value.Count > 0)
+                        var accounts = await ledgerModule.GetAccountsByUserIdAsync(link.UserId, cancellationToken);
+                        if (accounts.Count > 0)
                         {
                             var sb = new System.Text.StringBuilder("💰 Tus Saldos Actuales:\n");
-                            foreach (var a in accountsResult.Value)
+                            foreach (var a in accounts)
                             {
                                 sb.AppendLine($"• {a.Name}: {a.Balance:F2} {a.Currency}");
                             }
@@ -234,25 +228,19 @@ public sealed class WhatsAppBotService(
                     }
                     else
                     {
-                        // Try parsing financial movement text (e.g. "gasté 50 bs en taxi")
-                        var parseResult = parser.Parse(cleanText, DateTime.UtcNow);
-                        if (parseResult.Success)
-                        {
-                            var dedupResult = await deduplicationService.ProcessMovementAsync(
-                                link.UserId,
-                                Guid.NewGuid(),
-                                source: "whatsapp",
-                                parseResult.Amount,
-                                parseResult.Currency,
-                                parseResult.Direction,
-                                DateTime.UtcNow,
-                                parseResult.Reference,
-                                parseResult.Confidence,
-                                cancellationToken: cancellationToken);
+                        // Try parsing financial movement text (e.g. "gasté 50 bs en taxi") via Ingestion module contract
+                        var parsed = await ingestionModule.ParseAndProcessTextMovementAsync(
+                            link.UserId,
+                            source: "whatsapp",
+                            rawText: cleanText,
+                            receivedAt: now,
+                            cancellationToken: cancellationToken);
 
-                            draftId = dedupResult.DraftId;
-                            var dirLabel = parseResult.Direction == Ingestion.Domain.Drafts.DraftDirection.Income ? "Ingreso" : "Gasto";
-                            replyText = $"📝 {dirLabel} de {parseResult.Amount:F2} {parseResult.Currency} detectado.\nResponde 1 para confirmar o 2 para descartar.";
+                        if (parsed.Success)
+                        {
+                            draftId = parsed.DraftId;
+                            var dirLabel = string.Equals(parsed.Direction, "Income", StringComparison.OrdinalIgnoreCase) ? "Ingreso" : "Gasto";
+                            replyText = $"📝 {dirLabel} de {parsed.Amount:F2} {parsed.Currency} detectado.\nResponde 1 para confirmar o 2 para descartar.";
                             actionTaken = "DraftCreated";
                         }
                         else
@@ -273,7 +261,7 @@ public sealed class WhatsAppBotService(
                     outboundMsgId,
                     replyText,
                     draftId,
-                    DateTime.UtcNow);
+                    now);
                 await messageRepository.AddAsync(outbound, cancellationToken);
             }
 
@@ -287,10 +275,10 @@ public sealed class WhatsAppBotService(
                 ReplyText: replyText,
                 ActionTaken: actionTaken));
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             return Result.Failure<WhatsAppWebhookResponse>(
-                Error.Failure("Webhook.Exception", ex.ToString()));
+                Error.Failure("Webhook.ProcessingFailed", "An unexpected error occurred while processing the webhook message."));
         }
     }
 }

@@ -56,6 +56,17 @@ public sealed class WhatsAppLink : Entity
         ConfirmedAt = confirmedAt;
     }
 
+    public void RegenerateVerification(string phoneNumber, string verificationCode)
+    {
+        if (string.IsNullOrWhiteSpace(phoneNumber))
+            throw new ArgumentException("Phone number cannot be empty.", nameof(phoneNumber));
+
+        PhoneNumber = NormalizePhoneNumber(phoneNumber);
+        VerificationCode = verificationCode.Trim();
+        Status = WhatsAppLinkStatus.Pending;
+        ConfirmedAt = null;
+    }
+
     public void Unlink()
     {
         Status = WhatsAppLinkStatus.Unlinked;
