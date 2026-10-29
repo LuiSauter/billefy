@@ -70,7 +70,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex font-sans text-slate-900">
+    <div className="min-h-screen bg-[#F8FAFC] flex font-sans text-[#0F172A]">
       <Sidebar
         activeTab={activeTab}
         onTabChange={(tab) =>
@@ -92,12 +92,12 @@ export default function DashboardPage() {
         />
 
         {dashboard.error && (
-          <div className="mx-6 lg:mx-8 mt-4 p-4 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-semibold">
+          <div className="mx-8 mt-4 p-4 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-semibold">
             {dashboard.error}
           </div>
         )}
 
-        <main className="flex-1 p-6 lg:p-8 space-y-6 max-w-7xl w-full mx-auto">
+        <main className="flex-1 px-8 pt-6 pb-10 flex flex-col gap-6 max-w-[1240px] w-full mx-auto">
           {activeTab === "inicio" && (
             <DashboardHomeView
               metrics={balanceMetrics}
