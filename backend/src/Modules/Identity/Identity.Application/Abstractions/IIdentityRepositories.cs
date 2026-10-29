@@ -28,3 +28,7 @@ public interface IIdentityUnitOfWork
 {
     Task<int> CommitAsync(CancellationToken ct = default);
 }
+
+public sealed record GoogleAuthValidationOptions(
+    string ClientId,
+    bool AllowDevPlainEmailTokens);

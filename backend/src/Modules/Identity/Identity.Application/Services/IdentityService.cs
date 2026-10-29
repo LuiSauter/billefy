@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using BuildingBlocks.Common;
 using BuildingBlocks.Time;
 using Identity.Application.Abstractions;
@@ -13,19 +15,22 @@ public sealed class IdentityService : IIdentityModule
     private readonly ITokenService _tokenService;
     private readonly IIdentityUnitOfWork _unitOfWork;
     private readonly IClock _clock;
+    private readonly GoogleAuthValidationOptions _googleOptions;
 
     public IdentityService(
         IUserRepository userRepository,
         IRefreshTokenRepository refreshTokenRepository,
         ITokenService tokenService,
         IIdentityUnitOfWork unitOfWork,
-        IClock clock)
+        IClock clock,
+        GoogleAuthValidationOptions? googleOptions = null)
     {
         _userRepository = userRepository;
         _refreshTokenRepository = refreshTokenRepository;
         _tokenService = tokenService;
         _unitOfWork = unitOfWork;
         _clock = clock;
+        _googleOptions = googleOptions ?? new GoogleAuthValidationOptions(string.Empty, AllowDevPlainEmailTokens: false);
     }
 
     public async Task<Result<AuthResponseDto>> LoginWithGoogleAsync(GoogleLoginRequest request, CancellationToken ct = default)
@@ -35,43 +40,101 @@ public sealed class IdentityService : IIdentityModule
             return Result.Failure<AuthResponseDto>(Error.Validation("Identity.InvalidToken", "El ID Token de Google no puede estar vacío."));
         }
 
-        // Extract email and full name from Google ID Token
-        // Supports both raw email format (for dev/tests) and Google JWT tokens
-        string email;
-        string fullName;
+        string email = string.Empty;
+        string fullName = string.Empty;
         string? pictureUrl = null;
 
-        if (request.IdToken.Contains('@') && request.IdToken.Split('.').Length < 3)
+        var rawToken = request.IdToken.Trim();
+
+        // Plain email tokens are ONLY permitted in Development or Testing environments
+        if (rawToken.Contains('@') && rawToken.Split('.').Length < 3)
         {
-            email = request.IdToken.Trim().ToLowerInvariant();
+            if (!_googleOptions.AllowDevPlainEmailTokens)
+            {
+                return Result.Failure<AuthResponseDto>(
+                    Error.Unauthorized("Identity.InvalidGoogleToken", "El formato de token de desarrollo no está permitido en producción."));
+            }
+
+            email = rawToken.ToLowerInvariant();
             fullName = email.Split('@')[0];
         }
         else
         {
-            // Parse JWT payload from Google token without third-party library to stay lightweight
             try
             {
-                var parts = request.IdToken.Split('.');
-                if (parts.Length >= 2)
+                var parts = rawToken.Split('.');
+                if (parts.Length != 3 || string.IsNullOrWhiteSpace(parts[2]))
                 {
-                    var payloadJson = System.Text.Encoding.UTF8.GetString(Base64UrlDecode(parts[1]));
-                    using var doc = System.Text.Json.JsonDocument.Parse(payloadJson);
-                    var root = doc.RootElement;
+                    return Result.Failure<AuthResponseDto>(
+                        Error.Unauthorized("Identity.InvalidGoogleToken", "El ID Token de Google no tiene una estructura JWT válida."));
+                }
 
-                    email = root.TryGetProperty("email", out var emailProp) ? emailProp.GetString() ?? "" : "";
-                    fullName = root.TryGetProperty("name", out var nameProp) ? nameProp.GetString() ?? "" : "";
-                    pictureUrl = root.TryGetProperty("picture", out var picProp) ? picProp.GetString() : null;
-                }
-                else
+                var payloadJson = Encoding.UTF8.GetString(Base64UrlDecode(parts[1]));
+                using var doc = System.Text.Json.JsonDocument.Parse(payloadJson);
+                var root = doc.RootElement;
+
+                // Validate issuer (iss)
+                if (root.TryGetProperty("iss", out var issProp))
                 {
-                    email = "usuario.google@billefy.app";
-                    fullName = "Usuario Google";
+                    var iss = issProp.GetString();
+                    if (iss != "https://accounts.google.com" && iss != "accounts.google.com")
+                    {
+                        return Result.Failure<AuthResponseDto>(
+                            Error.Unauthorized("Identity.InvalidGoogleIssuer", "El emisor (iss) del token no corresponde a Google."));
+                    }
                 }
+                else if (!_googleOptions.AllowDevPlainEmailTokens)
+                {
+                    return Result.Failure<AuthResponseDto>(
+                        Error.Unauthorized("Identity.MissingGoogleIssuer", "El token de Google no contiene el reclamo de emisor (iss)."));
+                }
+
+                // Validate audience (aud) when Google ClientId is configured
+                if (!string.IsNullOrWhiteSpace(_googleOptions.ClientId) &&
+                    !_googleOptions.ClientId.StartsWith("TU_GOOGLE_CLIENT_ID", StringComparison.OrdinalIgnoreCase))
+                {
+                    var aud = root.TryGetProperty("aud", out var audProp) ? audProp.GetString() : null;
+                    if (!string.Equals(aud, _googleOptions.ClientId, StringComparison.Ordinal))
+                    {
+                        return Result.Failure<AuthResponseDto>(
+                            Error.Unauthorized("Identity.InvalidGoogleAudience", "La audiencia (aud) del token de Google no es válida."));
+                    }
+                }
+
+                // Validate expiration (exp)
+                if (root.TryGetProperty("exp", out var expProp) && expProp.TryGetInt64(out var expUnix))
+                {
+                    var expiresAt = DateTimeOffset.FromUnixTimeSeconds(expUnix).UtcDateTime;
+                    if (expiresAt <= _clock.UtcNow)
+                    {
+                        return Result.Failure<AuthResponseDto>(
+                            Error.Unauthorized("Identity.ExpiredGoogleToken", "El ID Token de Google ha expirado."));
+                    }
+                }
+                else if (!_googleOptions.AllowDevPlainEmailTokens)
+                {
+                    return Result.Failure<AuthResponseDto>(
+                        Error.Unauthorized("Identity.MissingGoogleExpiration", "El token de Google no contiene fecha de expiración (exp)."));
+                }
+
+                // Validate email_verified if present
+                if (root.TryGetProperty("email_verified", out var verifiedProp) &&
+                    (verifiedProp.ValueKind == System.Text.Json.JsonValueKind.False ||
+                     (verifiedProp.ValueKind == System.Text.Json.JsonValueKind.String &&
+                      string.Equals(verifiedProp.GetString(), "false", StringComparison.OrdinalIgnoreCase))))
+                {
+                    return Result.Failure<AuthResponseDto>(
+                        Error.Unauthorized("Identity.UnverifiedGoogleEmail", "El correo electrónico de la cuenta de Google no está verificado."));
+                }
+
+                email = root.TryGetProperty("email", out var emailProp) ? emailProp.GetString() ?? "" : "";
+                fullName = root.TryGetProperty("name", out var nameProp) ? nameProp.GetString() ?? "" : "";
+                pictureUrl = root.TryGetProperty("picture", out var picProp) ? picProp.GetString() : null;
             }
             catch
             {
-                email = "usuario.google@billefy.app";
-                fullName = "Usuario Google";
+                return Result.Failure<AuthResponseDto>(
+                    Error.Unauthorized("Identity.InvalidGoogleToken", "El ID Token de Google es inválido o está corrupto."));
             }
         }
 
@@ -120,8 +183,24 @@ public sealed class IdentityService : IIdentityModule
             return Result.Failure<AuthResponseDto>(Error.Validation("Identity.InvalidRefreshToken", "El refresh token no es válido."));
         }
 
-        var token = await _refreshTokenRepository.GetByTokenAsync(refreshTokenStr, ct);
-        if (token is null || !token.IsActive(_clock.UtcNow))
+        var tokenHash = ComputeTokenHash(refreshTokenStr);
+        var token = await _refreshTokenRepository.GetByTokenAsync(tokenHash, ct)
+                    ?? await _refreshTokenRepository.GetByTokenAsync(refreshTokenStr, ct);
+
+        if (token is null)
+        {
+            return Result.Failure<AuthResponseDto>(Error.Unauthorized("Identity.ExpiredRefreshToken", "El refresh token ha expirado o fue revocado."));
+        }
+
+        // Reuse detection (SECURITY_AND_PRIVACY.md Section 3): if a revoked token is presented again, revoke all active sessions for the user
+        if (token.IsRevoked)
+        {
+            await _refreshTokenRepository.RevokeAllForUserAsync(token.UserId, ct);
+            await _unitOfWork.CommitAsync(ct);
+            return Result.Failure<AuthResponseDto>(Error.Unauthorized("Identity.RefreshTokenReused", "Se detectó reutilización de un refresh token revocado. Todas las sesiones han sido cerradas por seguridad."));
+        }
+
+        if (!token.IsActive(_clock.UtcNow))
         {
             return Result.Failure<AuthResponseDto>(Error.Unauthorized("Identity.ExpiredRefreshToken", "El refresh token ha expirado o fue revocado."));
         }
@@ -132,12 +211,13 @@ public sealed class IdentityService : IIdentityModule
             return Result.Failure<AuthResponseDto>(Error.NotFound("Identity.UserNotFound", "Usuario no encontrado o dado de baja."));
         }
 
-        // Rotate Refresh Token
+        // Rotate Refresh Token (store only SHA-256 hash in DB)
         var newRefreshToken = _tokenService.GenerateRefreshToken();
-        token.Revoke(newRefreshToken, _clock.UtcNow);
+        var newRefreshTokenHash = ComputeTokenHash(newRefreshToken);
+        token.Revoke(newRefreshTokenHash, _clock.UtcNow);
 
         var newExpiresAt = _clock.UtcNow.AddDays(30);
-        var rotatedToken = RefreshToken.Create(user.Id, newRefreshToken, newExpiresAt, _clock.UtcNow);
+        var rotatedToken = RefreshToken.Create(user.Id, newRefreshTokenHash, newExpiresAt, _clock.UtcNow);
         await _refreshTokenRepository.AddAsync(rotatedToken, ct);
         await _unitOfWork.CommitAsync(ct);
 
@@ -169,16 +249,24 @@ public sealed class IdentityService : IIdentityModule
             user.CreatedAt));
     }
 
-    public async Task<Result> LogoutAsync(string refreshTokenStr, CancellationToken ct = default)
+    public async Task<Result> LogoutAsync(string refreshTokenStr, Guid? userId = null, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(refreshTokenStr))
         {
             return Result.Success();
         }
 
-        var token = await _refreshTokenRepository.GetByTokenAsync(refreshTokenStr, ct);
+        var tokenHash = ComputeTokenHash(refreshTokenStr);
+        var token = await _refreshTokenRepository.GetByTokenAsync(tokenHash, ct)
+                    ?? await _refreshTokenRepository.GetByTokenAsync(refreshTokenStr, ct);
+
         if (token is not null && token.IsActive(_clock.UtcNow))
         {
+            if (userId.HasValue && token.UserId != userId.Value)
+            {
+                return Result.Failure(Error.Unauthorized("Identity.Forbidden", "No tienes permiso para revocar esta sesión."));
+            }
+
             token.Revoke(null, _clock.UtcNow);
             await _unitOfWork.CommitAsync(ct);
         }
@@ -219,9 +307,10 @@ public sealed class IdentityService : IIdentityModule
     {
         var accessToken = _tokenService.GenerateAccessToken(user);
         var refreshTokenStr = _tokenService.GenerateRefreshToken();
+        var refreshTokenHash = ComputeTokenHash(refreshTokenStr);
         var expiresAt = _clock.UtcNow.AddDays(30);
 
-        var refreshToken = RefreshToken.Create(user.Id, refreshTokenStr, expiresAt, _clock.UtcNow);
+        var refreshToken = RefreshToken.Create(user.Id, refreshTokenHash, expiresAt, _clock.UtcNow);
         await _refreshTokenRepository.AddAsync(refreshToken, ct);
         await _unitOfWork.CommitAsync(ct);
 
@@ -239,6 +328,12 @@ public sealed class IdentityService : IIdentityModule
             _tokenService.AccessTokenExpirationSeconds,
             "Bearer",
             userDto));
+    }
+
+    private static string ComputeTokenHash(string rawToken)
+    {
+        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(rawToken.Trim()));
+        return Convert.ToHexStringLower(bytes);
     }
 
     private static byte[] Base64UrlDecode(string input)
