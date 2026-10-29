@@ -1,5 +1,13 @@
 namespace Ledger.Contracts;
 
+public sealed record LedgerAccountSummaryDto(
+    Guid Id,
+    string Name,
+    string Type,
+    string Currency,
+    decimal Balance,
+    DateTime CreatedAt);
+
 public sealed record CreateTransactionFromDraftDto(
     Guid UserId,
     Guid AccountId,
@@ -32,5 +40,9 @@ public interface ILedgerModule
 
     Task<decimal> GetAccountBalanceAsync(
         Guid accountId,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<LedgerAccountSummaryDto>> GetAccountsByUserIdAsync(
+        Guid userId,
         CancellationToken cancellationToken = default);
 }

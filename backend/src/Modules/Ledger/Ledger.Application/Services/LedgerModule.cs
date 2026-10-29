@@ -34,8 +34,8 @@ public sealed class LedgerModule : ILedgerModule
         CreateTransactionFromDraftDto dto,
         CancellationToken cancellationToken = default)
     {
-        var account = await _accountRepository.GetByIdAsync(dto.AccountId, cancellationToken)
-            ?? throw new InvalidOperationException($"Account {dto.AccountId} does not exist.");
+        var account = await _accountRepository.GetByIdForUserAsync(dto.UserId, dto.AccountId, cancellationToken)
+            ?? throw new InvalidOperationException($"Account {dto.AccountId} does not exist or does not belong to the user.");
 
         var direction = Enum.TryParse<TransactionDirection>(dto.Direction, ignoreCase: true, out var parsedDir)
             ? parsedDir
@@ -90,6 +90,7 @@ public sealed class LedgerModule : ILedgerModule
         CancellationToken cancellationToken = default)
     {
         var txns = await _transactionRepository.GetFilteredAsync(
+            userId: userId,
             accountId: null,
             direction: null,
             from: monthStart,
@@ -117,7 +118,7 @@ public sealed class LedgerModule : ILedgerModule
             }
         }
 
-        var accounts = await _accountRepository.GetAllAsync(includeArchived: false, cancellationToken);
+        var accounts = await _accountRepository.GetByUserIdAsync(userId, includeArchived: false, cancellationToken);
         decimal totalLiquid = decimal.Zero;
         foreach (var acc in accounts)
         {
@@ -131,5 +132,27 @@ public sealed class LedgerModule : ILedgerModule
     public Task<decimal> GetAccountBalanceAsync(Guid accountId, CancellationToken cancellationToken = default)
     {
         return _transactionRepository.CalculateBalanceAsync(accountId, cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<LedgerAccountSummaryDto>> GetAccountsByUserIdAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        var accounts = await _accountRepository.GetByUserIdAsync(userId, includeArchived: false, cancellationToken);
+        var dtos = new List<LedgerAccountSummaryDto>();
+
+        foreach (var account in accounts)
+        {
+            var balance = await _transactionRepository.CalculateBalanceAsync(account.Id, cancellationToken);
+            dtos.Add(new LedgerAccountSummaryDto(
+                account.Id,
+                account.Name,
+                account.Type.ToString(),
+                account.Currency.Code,
+                balance,
+                account.CreatedAt));
+        }
+
+        return dtos;
     }
 }

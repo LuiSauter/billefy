@@ -1,5 +1,6 @@
 using BuildingBlocks.Common;
 using BuildingBlocks.Security;
+using BuildingBlocks.Time;
 using BuildingBlocks.ValueObjects;
 using Ledger.Application.Abstractions;
 using Ledger.Application.Accounts.CreateAccount;
@@ -12,7 +13,8 @@ public sealed class AccountService(
     ITransactionRepository transactionRepository,
     IUnitOfWork unitOfWork,
     CreateAccountCommandHandler createAccountHandler,
-    ICurrentUserContext userContext) : IAccountService
+    ICurrentUserContext userContext,
+    IClock clock) : IAccountService
 {
     public Task<Result<Guid>> CreateAccountAsync(CreateAccountRequest request, CancellationToken cancellationToken = default)
     {
@@ -37,8 +39,7 @@ public sealed class AccountService(
 
     public async Task<Result<List<AccountDto>>> GetAccountsByUserIdAsync(Guid userId, CancellationToken cancellationToken = default)
     {
-        var accounts = await accountRepository.GetAllAsync(includeArchived: false, cancellationToken);
-        var userAccounts = accounts.Where(a => a.UserId == userId).ToList();
+        var userAccounts = await accountRepository.GetByUserIdAsync(userId, includeArchived: false, cancellationToken);
         var dtos = new List<AccountDto>();
 
         foreach (var account in userAccounts)
@@ -104,7 +105,7 @@ public sealed class AccountService(
             money,
             direction,
             categoryId: null,
-            DateTime.UtcNow,
+            clock.UtcNow,
             description);
 
         await transactionRepository.AddAsync(transaction, cancellationToken);

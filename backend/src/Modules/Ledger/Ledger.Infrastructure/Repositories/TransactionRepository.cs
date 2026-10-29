@@ -31,12 +31,9 @@ public sealed class TransactionRepository : ITransactionRepository
         int limit = 50,
         CancellationToken cancellationToken = default)
     {
-        var query = _context.Transactions.AsQueryable();
-
-        if (userId.HasValue)
-        {
-            query = query.Where(t => t.UserId == userId.Value);
-        }
+        var query = userId.HasValue
+            ? _context.Transactions.IgnoreQueryFilters().Where(t => t.UserId == userId.Value)
+            : _context.Transactions.AsQueryable();
 
         if (accountId.HasValue)
         {
@@ -66,11 +63,14 @@ public sealed class TransactionRepository : ITransactionRepository
 
     public async Task<decimal> CalculateBalanceAsync(Guid accountId, CancellationToken cancellationToken = default)
     {
-        var account = await _context.Accounts.FirstOrDefaultAsync(a => a.Id == accountId, cancellationToken);
+        var account = await _context.Accounts
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(a => a.Id == accountId, cancellationToken);
         if (account is null) return 0m;
 
         var txns = await _context.Transactions
-            .Where(t => t.AccountId == accountId)
+            .IgnoreQueryFilters()
+            .Where(t => t.AccountId == accountId && t.UserId == account.UserId)
             .Select(t => new { t.Amount.Amount, t.Direction })
             .ToListAsync(cancellationToken);
 

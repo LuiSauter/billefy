@@ -1,5 +1,6 @@
 using BuildingBlocks.Common;
 using BuildingBlocks.Security;
+using BuildingBlocks.Time;
 using Ledger.Application.Abstractions;
 using Ledger.Application.Transactions.RegisterTransaction;
 using Ledger.Application.Transactions.RegisterTransfer;
@@ -13,7 +14,8 @@ public sealed class TransactionService(
     RegisterTransactionCommandHandler registerHandler,
     RegisterTransferCommandHandler transferHandler,
     ReverseTransactionCommandHandler reverseHandler,
-    ICurrentUserContext userContext) : ITransactionService
+    ICurrentUserContext userContext,
+    IClock clock) : ITransactionService
 {
     public async Task<Result<List<TransactionDto>>> GetTransactionsAsync(
         Guid? accountId = null,
@@ -64,7 +66,7 @@ public sealed class TransactionService(
             request.Amount,
             request.Direction,
             request.CategoryId,
-            request.OccurredAt ?? DateTime.UtcNow,
+            request.OccurredAt ?? clock.UtcNow,
             request.Description,
             request.AppliedRate,
             request.RateSource);
@@ -81,7 +83,7 @@ public sealed class TransactionService(
             request.SourceAmount,
             request.DestinationAccountId,
             request.DestinationAmount,
-            request.OccurredAt ?? DateTime.UtcNow,
+            request.OccurredAt ?? clock.UtcNow,
             request.AppliedRate,
             request.RateSource,
             request.Description);
