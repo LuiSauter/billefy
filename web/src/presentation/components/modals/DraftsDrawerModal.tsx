@@ -1,7 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import { DraftDto, AccountDto } from "@/domain/models/types";
-import { X, Check, CheckCheck } from "lucide-react";
+import { CheckCheck, Check, Inbox } from "lucide-react";
+import { cn } from "cn";
+import { Button } from "@/components/ui/button";
+import { ResponsiveDrawer } from "@/components/ui/responsive-drawer";
+import { formatSignedAmount } from "./format";
 
 interface DraftsDrawerModalProps {
   isOpen: boolean;
@@ -20,7 +25,7 @@ export function DraftsDrawerModal({
   onConfirmDraft,
   onConfirmAll,
 }: DraftsDrawerModalProps) {
-  if (!isOpen) return null;
+  const [approvingAll, setApprovingAll] = useState(false);
 
   const resolveAccountId = (draft: DraftDto): string => {
     return (
@@ -37,87 +42,99 @@ export function DraftsDrawerModal({
     return acc ? acc.name : draft.source;
   };
 
+  const handleConfirmAll = async () => {
+    setApprovingAll(true);
+    try {
+      // onConfirmAll may be async at runtime even though it is typed as void.
+      await Promise.resolve(onConfirmAll());
+      onClose();
+    } finally {
+      setApprovingAll(false);
+    }
+  };
+
+  const hasDrafts = drafts.length > 0;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-150">
-      <div className="w-full max-w-[460px] bg-white rounded-[20px] p-[24px_20px] shadow-2xl border border-border relative flex flex-col gap-4 max-h-[90vh]">
-        {/* Header (OpenPencil DH) */}
-        <div className="flex items-center justify-between">
-          <h2 className="text-[17px] font-extrabold text-foreground tracking-tight">
-            Borradores Detectados ({drafts.length})
-          </h2>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 rounded-lg text-muted-foreground hover:bg-slate-100 flex items-center justify-center transition"
+    <ResponsiveDrawer
+      open={isOpen}
+      onOpenChange={(open) => !open && onClose()}
+      size="lg"
+      title={`Borradores detectados (${drafts.length})`}
+      description="Revisalos y aprobalos para que pasen al libro mayor."
+      footer={
+        hasDrafts ? (
+          <Button
+            type="button"
+            size="lg"
+            loading={approvingAll}
+            onClick={handleConfirmAll}
+            className="w-full md:flex-1"
           >
-            <X className="w-4 h-4" />
-          </button>
+            {!approvingAll && <CheckCheck />}
+            {approvingAll ? "Aprobando..." : `Aprobar los ${drafts.length} en 1-Clic`}
+          </Button>
+        ) : undefined
+      }
+    >
+      {!hasDrafts ? (
+        <div className="flex flex-col items-center gap-3 px-2 py-10 text-center">
+          <div
+            aria-hidden="true"
+            className="flex size-14 items-center justify-center rounded-full bg-muted text-muted-foreground"
+          >
+            <Inbox className="size-7" />
+          </div>
+          <h3 className="text-base font-bold text-foreground">Sin borradores pendientes</h3>
+          <p className="max-w-sm text-sm leading-relaxed text-muted-foreground">
+            No tenés borradores pendientes de confirmación. Cuando detectemos nuevos movimientos, van a aparecer acá.
+          </p>
         </div>
+      ) : (
+        <ul className="flex flex-col gap-2.5">
+          {drafts.map((draft) => {
+            const isIncome = draft.direction === "Income";
+            const accountName = getAccountName(draft);
 
-        {/* 1-Click Approve All Button (OpenPencil BtnAppAll) */}
-        {drafts.length > 0 && (
-          <button
-            onClick={() => {
-              onConfirmAll();
-              onClose();
-            }}
-            className="w-full h-[46px] rounded-[12px] bg-primary hover:bg-blue-700 active:scale-[0.99] text-white text-[15px] font-extrabold transition flex items-center justify-center gap-2 shadow-xs"
-          >
-            <CheckCheck className="w-4 h-4" />
-            <span>Aprobar los {drafts.length} en 1-Clic</span>
-          </button>
-        )}
-
-        {/* Drafts List (OpenPencil DICard_0, 1, 2) */}
-        <div className="overflow-y-auto flex flex-col gap-2.5 pr-0.5">
-          {drafts.length === 0 ? (
-            <div className="py-8 text-center text-slate-400 text-xs">
-              No tenés borradores pendientes de confirmación.
-            </div>
-          ) : (
-            drafts.map((draft) => {
-              const isIncome = draft.direction === "Income";
-              const accountName = getAccountName(draft);
-              const formattedAmount = `${isIncome ? "+" : "-"}${draft.currency === "BOB" ? "Bs " : ""}${draft.amount.toFixed(2)}${draft.currency !== "BOB" ? ` ${draft.currency}` : ""}`;
-
-              return (
-                <div
-                  key={draft.id}
-                  className="p-3 rounded-[12px] border border-border bg-background flex items-center justify-between gap-3 hover:bg-slate-100/70 transition"
-                >
-                  {/* Left (DIL) */}
-                  <div className="min-w-0 flex-1">
-                    <div className="text-sm font-bold text-foreground truncate">
-                      {draft.reference || "Movimiento Detectado"}
-                    </div>
-                    <div className="text-xs font-medium text-muted-foreground truncate mt-0.5">
-                      {accountName} • {draft.source}
-                    </div>
+            return (
+              <li
+                key={draft.id}
+                className="flex items-center justify-between gap-3 rounded-xl border border-border bg-background p-3"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-bold text-foreground">
+                    {draft.reference || "Movimiento Detectado"}
                   </div>
-
-                  {/* Right (DIR) */}
-                  <div className="flex items-center gap-2.5 shrink-0">
-                    <span
-                      className={`text-sm font-extrabold font-mono ${
-                        isIncome ? "text-emerald-600" : "text-foreground"
-                      }`}
-                    >
-                      {formattedAmount}
-                    </span>
-
-                    <button
-                      onClick={() => onConfirmDraft(draft, resolveAccountId(draft))}
-                      title="Aprobar borrador en 1-Tap"
-                      className="w-[28px] h-[28px] rounded-[6px] bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-white flex items-center justify-center transition shadow-2xs"
-                    >
-                      <Check className="w-3.5 h-3.5 stroke-[2.5]" />
-                    </button>
+                  <div className="mt-0.5 truncate text-xs font-medium text-muted-foreground">
+                    {accountName} • {draft.source}
                   </div>
                 </div>
-              );
-            })
-          )}
-        </div>
-      </div>
-    </div>
+
+                <div className="flex shrink-0 items-center gap-3">
+                  <span
+                    className={cn(
+                      "text-sm font-extrabold tabular-nums",
+                      isIncome ? "text-success" : "text-destructive"
+                    )}
+                  >
+                    {formatSignedAmount(draft.amount, draft.currency, draft.direction)}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="success"
+                    size="icon-lg"
+                    onClick={() => onConfirmDraft(draft, resolveAccountId(draft))}
+                    aria-label={`Aprobar borrador ${draft.reference || "detectado"}`}
+                    title="Aprobar borrador en 1-Tap"
+                  >
+                    <Check className="size-5" />
+                  </Button>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </ResponsiveDrawer>
   );
 }

@@ -17,7 +17,7 @@ Redesign the Next.js web client (`web/`) for mobile and desktop, following the O
 - [x] Task 1: Foundation — Tailwind v4 migration, OpenPencil design tokens, font, readable type scale (build green)
 - [x] Task 2: Overlay + form primitives — ResponsiveDrawer (bottom drawer / centered modal), Field, Input, Select, MoneyInput, SegmentedControl, Button variants
 - [x] Task 3: Convert transaction/account modals (1-Tap, Register, CreateAccount, Reconcile, FxTransfer) to ResponsiveDrawer
-- [ ] Task 4: Convert ingestion modals (Drafts, CSV, WhatsApp, Binance, SimulateNotification, IncomeDistribution) to ResponsiveDrawer
+- [x] Task 4: Convert ingestion modals (Drafts, CSV, WhatsApp, Binance, SimulateNotification, IncomeDistribution) to ResponsiveDrawer
 - [ ] Task 5: Convert lending/planning/recurring modals (CreateLoan, LoanDetail, LoanPayment, CreateBudget, CreateGoal, Reschedule) to ResponsiveDrawer
 - [ ] Task 6: Dashboard redesign + charts (cash-flow area chart, balance by currency donut, spending trend, KPI cards)
 - [ ] Task 7: Budgets & Goals redesign + charts (50/30/20 radial/bar, budget usage bars, goal progress radials)
@@ -29,3 +29,4 @@ Redesign the Next.js web client (`web/`) for mobile and desktop, following the O
 - Task 1: 628269c (lint, 10 tests, build green; Tailwind 4.x; hex->tokens; Inter font)
 - Task 2: 3542853 (lint clean, 21 tests, build green; verifier subagent errored, run inline)
 - Task 3: 7905402 (lint clean, 35 tests, build green). Known pre-existing bug kept: 1-Tap equivalence pill treats every non-USDT account as BOB.
+- Task 4: b18152c (lint clean, 41 tests, build green)

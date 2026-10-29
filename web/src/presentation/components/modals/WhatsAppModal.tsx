@@ -1,9 +1,13 @@
-import React, { useState } from "react";
+"use client";
+
+import React, { useEffect, useRef, useState } from "react";
+import { MessageCircle, SendHorizontal } from "lucide-react";
+import { cn } from "cn";
 import { LinkWhatsAppResponse } from "@/domain/models/types";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { ResponsiveDrawer } from "@/components/ui/responsive-drawer";
 
 interface WhatsAppModalProps {
   isOpen: boolean;
@@ -11,6 +15,10 @@ interface WhatsAppModalProps {
   onLinkPhone: (phone: string) => Promise<LinkWhatsAppResponse>;
   onSendMessage: (msg: string) => Promise<string | undefined>;
 }
+
+type ChatMessage = { from: "user" | "bot"; text: string };
+
+const LINK_FORM_ID = "whatsapp-link-form";
 
 export function WhatsAppModal({
   isOpen,
@@ -21,16 +29,33 @@ export function WhatsAppModal({
   const [phoneNumber, setPhoneNumber] = useState("");
   const [linkData, setLinkData] = useState<LinkWhatsAppResponse | null>(null);
   const [inputMessage, setInputMessage] = useState("");
-  const [chatHistory, setChatHistory] = useState<{ from: "user" | "bot"; text: string }[]>([]);
+  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | undefined>();
+  const chatEndRef = useRef<HTMLDivElement>(null);
 
-  if (!isOpen) return null;
+  // Reset the flow whenever the drawer closes.
+  useEffect(() => {
+    if (!isOpen) {
+      setPhoneNumber("");
+      setLinkData(null);
+      setInputMessage("");
+      setChatHistory([]);
+      setError(undefined);
+    }
+  }, [isOpen]);
+
+  // Keep the latest message in view.
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView?.({ block: "nearest" });
+  }, [chatHistory]);
 
   const handleLink = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!phoneNumber.trim()) return;
 
     setSubmitting(true);
+    setError(undefined);
     try {
       const res = await onLinkPhone(phoneNumber.trim());
       setLinkData(res);
@@ -41,7 +66,7 @@ export function WhatsAppModal({
         },
       ]);
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "Error al vincular WhatsApp.");
+      setError(err instanceof Error ? err.message : "Error al vincular WhatsApp.");
     } finally {
       setSubmitting(false);
     }
@@ -65,103 +90,147 @@ export function WhatsAppModal({
     }
   };
 
+  const title = (
+    <span className="flex items-center gap-2">
+      <MessageCircle aria-hidden="true" className="size-5 text-success" />
+      Bot de WhatsApp e ingesta automática
+    </span>
+  );
+
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-      <Card className="w-full max-w-lg shadow-xl bg-background border">
-        <CardHeader className="border-b">
-          <CardTitle className="text-lg flex items-center gap-2">
-            <span>💬</span> Bot de WhatsApp & Ingesta Automática
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="pt-6 space-y-4">
-          {!linkData ? (
-            <form onSubmit={handleLink} className="space-y-4">
-              <p className="text-xs text-muted-foreground">
-                Ingresa tu número de teléfono con código de país para vincular tu chat de WhatsApp con Billefy.
-              </p>
-              <div className="space-y-1.5">
-                <Label htmlFor="whatsappPhone">Número con código de país</Label>
-                <Input
-                  id="whatsappPhone"
-                  required
-                  placeholder="+591 70000000"
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                />
-              </div>
-              <div className="flex justify-end gap-2 pt-2 border-t">
-                <Button type="button" variant="outline" onClick={onClose}>
-                  Cancelar
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={submitting || !phoneNumber.trim()}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                >
-                  {submitting ? "Vinculando..." : "Generar Código de Enlace"}
-                </Button>
-              </div>
+    <ResponsiveDrawer
+      open={isOpen}
+      onOpenChange={(open) => !open && onClose()}
+      title={title}
+      description={
+        linkData
+          ? "Paso 2 de 2 · Probá el chat con el bot"
+          : "Paso 1 de 2 · Vinculá tu número de teléfono"
+      }
+      footer={
+        !linkData ? (
+          <>
+            <Button
+              type="submit"
+              form={LINK_FORM_ID}
+              size="lg"
+              loading={submitting}
+              disabled={!phoneNumber.trim()}
+              className="order-1 w-full md:order-2 md:flex-1"
+            >
+              {submitting ? "Vinculando..." : "Generar Código de Enlace"}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="lg"
+              onClick={onClose}
+              className="order-2 w-full md:order-1 md:w-auto md:border-input md:bg-card"
+            >
+              Cancelar
+            </Button>
+          </>
+        ) : (
+          <div className="flex w-full flex-col gap-2">
+            <form onSubmit={handleSend} className="flex w-full items-center gap-2">
+              <Input
+                aria-label="Mensaje para el bot"
+                placeholder="Ej. Gasto 45 bs en taxi..."
+                value={inputMessage}
+                onChange={(e) => setInputMessage(e.target.value)}
+                className="flex-1"
+              />
+              <Button
+                type="submit"
+                size="icon-lg"
+                disabled={!inputMessage.trim()}
+                aria-label="Enviar mensaje"
+                className="shrink-0"
+              >
+                <SendHorizontal />
+              </Button>
             </form>
-          ) : (
-            <div className="space-y-4">
-              <div className="p-3 bg-muted rounded-lg text-xs space-y-1">
-                <div>Estado de enlace: <b>{linkData.status}</b></div>
-                <div>Código de verificación: <b className="font-mono text-sm text-primary">{linkData.verificationCode}</b></div>
-                <div className="text-muted-foreground text-xs">{linkData.instructions}</div>
-              </div>
-
-              {/* Chat Simulation Sandbox */}
-              <div className="border rounded-lg p-3 bg-background/50 h-52 overflow-y-auto space-y-2 text-xs">
-                {chatHistory.length === 0 ? (
-                  <div className="text-center text-muted-foreground py-12">
-                    Escribe un mensaje para interactuar con el bot
-                  </div>
-                ) : (
-                  chatHistory.map((item, idx) => (
-                    <div
-                      key={idx}
-                      className={`flex ${item.from === "user" ? "justify-end" : "justify-start"}`}
-                    >
-                      <div
-                        className={`max-w-[80%] rounded-lg px-3 py-1.5 ${
-                          item.from === "user"
-                            ? "bg-emerald-600 text-white"
-                            : "bg-muted text-foreground border"
-                        }`}
-                      >
-                        {item.text}
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-
-              <form onSubmit={handleSend} className="flex gap-2">
-                <Input
-                  placeholder="Ej. Gasto 45 bs en taxi..."
-                  value={inputMessage}
-                  onChange={(e) => setInputMessage(e.target.value)}
-                  className="text-xs"
-                />
-                <Button
-                  type="submit"
-                  size="sm"
-                  disabled={!inputMessage.trim()}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                >
-                  Enviar
-                </Button>
-              </form>
-
-              <div className="flex justify-end pt-2 border-t">
-                <Button type="button" variant="outline" onClick={onClose}>
-                  Cerrar
-                </Button>
-              </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="lg"
+              onClick={onClose}
+              className="w-full md:hidden"
+            >
+              Cerrar
+            </Button>
+          </div>
+        )
+      }
+    >
+      {!linkData ? (
+        <form id={LINK_FORM_ID} onSubmit={handleLink} className="flex flex-col gap-5">
+          <p className="text-sm text-muted-foreground">
+            Ingresá tu número de teléfono con código de país para vincular tu chat de WhatsApp con Billefy.
+          </p>
+          <FormField label="Número con código de país" required error={error}>
+            {(control) => (
+              <Input
+                {...control}
+                type="tel"
+                inputMode="tel"
+                autoComplete="tel"
+                placeholder="+591 70000000"
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value)}
+              />
+            )}
+          </FormField>
+        </form>
+      ) : (
+        <div className="flex flex-col gap-4">
+          <dl className="flex flex-col gap-1.5 rounded-xl border border-border bg-muted p-3 text-sm">
+            <div className="flex items-center justify-between gap-3">
+              <dt className="text-muted-foreground">Estado de enlace</dt>
+              <dd className="font-bold text-foreground">{linkData.status}</dd>
             </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+            <div className="flex items-center justify-between gap-3">
+              <dt className="text-muted-foreground">Código de verificación</dt>
+              <dd className="font-mono text-base font-bold text-primary">
+                {linkData.verificationCode}
+              </dd>
+            </div>
+            <p className="mt-1 text-sm text-muted-foreground">{linkData.instructions}</p>
+          </dl>
+
+          <div
+            role="log"
+            aria-live="polite"
+            aria-label="Conversación con el bot"
+            className="flex h-64 flex-col gap-2 overflow-y-auto rounded-xl border border-border bg-background p-3 text-sm"
+          >
+            {chatHistory.length === 0 ? (
+              <div className="my-auto text-center text-muted-foreground">
+                Escribí un mensaje para interactuar con el bot
+              </div>
+            ) : (
+              chatHistory.map((item, idx) => (
+                <div
+                  key={idx}
+                  className={cn("flex", item.from === "user" ? "justify-end" : "justify-start")}
+                >
+                  <div
+                    className={cn(
+                      "max-w-[85%] rounded-2xl px-3.5 py-2 text-sm leading-relaxed",
+                      item.from === "user"
+                        ? "rounded-br-md bg-success text-success-foreground"
+                        : "rounded-bl-md border border-border bg-muted text-foreground"
+                    )}
+                  >
+                    {item.text}
+                  </div>
+                </div>
+              ))
+            )}
+            <div ref={chatEndRef} />
+          </div>
+        </div>
+      )}
+    </ResponsiveDrawer>
   );
 }

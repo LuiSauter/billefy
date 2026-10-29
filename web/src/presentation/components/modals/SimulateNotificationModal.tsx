@@ -1,14 +1,18 @@
-import React, { useState } from "react";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+"use client";
+
+import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { FormField } from "@/components/ui/form-field";
+import { ResponsiveDrawer } from "@/components/ui/responsive-drawer";
+import { Textarea } from "@/components/ui/textarea";
 
 interface SimulateNotificationModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (text: string) => Promise<void>;
 }
+
+const FORM_ID = "simulate-notification-form";
 
 export function SimulateNotificationModal({
   isOpen,
@@ -18,11 +22,16 @@ export function SimulateNotificationModal({
   const [text, setText] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  if (!isOpen) return null;
+  // Reset the form whenever the drawer closes.
+  useEffect(() => {
+    if (!isOpen) setText("");
+  }, [isOpen]);
+
+  const isValid = text.trim().length > 0;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!text.trim()) return;
+    if (!isValid) return;
 
     setSubmitting(true);
     try {
@@ -35,41 +44,52 @@ export function SimulateNotificationModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-      <Card className="w-full max-w-md shadow-xl bg-background border">
-        <CardHeader className="border-b">
-          <CardTitle className="text-lg">Simular Notificación Bancaria</CardTitle>
-        </CardHeader>
-        <CardContent className="pt-6">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <p className="text-xs text-muted-foreground">
-              Ingresá el texto de una notificación bancaria de prueba (Android). El motor extraerá monto, moneda y sentido con reglas y creará un borrador en tu bandeja.
-            </p>
-            <div className="space-y-1.5">
-              <Label htmlFor="simulateText">Texto de la notificación</Label>
-              <Input
-                id="simulateText"
-                required
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                placeholder="Ej. Transferencia recibida por Bs. 150.00 de Juan. Ref: 887711"
-              />
-            </div>
-            <div className="flex justify-end gap-2 pt-4 border-t">
-              <Button type="button" variant="outline" onClick={onClose}>
-                Cancelar
-              </Button>
-              <Button
-                type="submit"
-                disabled={submitting || !text.trim()}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white"
-              >
-                {submitting ? "Capturando..." : "Ingestar Evento"}
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-    </div>
+    <ResponsiveDrawer
+      open={isOpen}
+      onOpenChange={(open) => !open && onClose()}
+      title="Simular notificación bancaria"
+      description="El motor extrae monto, moneda y sentido con reglas y crea un borrador en tu bandeja."
+      footer={
+        <>
+          <Button
+            type="submit"
+            form={FORM_ID}
+            size="lg"
+            loading={submitting}
+            disabled={!isValid}
+            className="order-1 w-full md:order-2 md:flex-1"
+          >
+            {submitting ? "Capturando..." : "Ingestar Evento"}
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="lg"
+            onClick={onClose}
+            className="order-2 w-full md:order-1 md:w-auto md:border-input md:bg-card"
+          >
+            Cancelar
+          </Button>
+        </>
+      }
+    >
+      <form id={FORM_ID} onSubmit={handleSubmit} className="flex flex-col gap-5">
+        <FormField
+          label="Texto de la notificación"
+          required
+          hint="Pegá el texto de una notificación bancaria de prueba (Android)."
+        >
+          {(control) => (
+            <Textarea
+              {...control}
+              rows={4}
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              placeholder="Ej. Transferencia recibida por Bs. 150.00 de Juan. Ref: 887711"
+            />
+          )}
+        </FormField>
+      </form>
+    </ResponsiveDrawer>
   );
 }

@@ -1,9 +1,14 @@
-import { useState } from "react";
+"use client";
+
+import React, { useEffect, useState } from "react";
+import { CheckCircle2, ShieldCheck } from "lucide-react";
 import { AccountDto, ConnectBinanceKeyRequest } from "@/domain/models/types";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { ResponsiveDrawer } from "@/components/ui/responsive-drawer";
+import { SelectField } from "@/components/ui/select-field";
+import { NoAccountsNotice } from "./NoAccountsNotice";
 
 interface BinanceModalProps {
   isOpen: boolean;
@@ -12,6 +17,9 @@ interface BinanceModalProps {
   onConnect: (req: ConnectBinanceKeyRequest) => Promise<unknown>;
   onSync: (accountId: string) => Promise<void>;
 }
+
+const CONNECT_FORM_ID = "binance-connect-form";
+const SYNC_FORM_ID = "binance-sync-form";
 
 export function BinanceModal({
   isOpen,
@@ -22,17 +30,31 @@ export function BinanceModal({
 }: BinanceModalProps) {
   const [apiKey, setApiKey] = useState("");
   const [apiSecret, setApiSecret] = useState("");
-  const [accountId, setAccountId] = useState(accounts[0]?.id || "");
+  const [accountId, setAccountId] = useState("");
   const [connected, setConnected] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | undefined>();
 
-  if (!isOpen) return null;
+  // Reset the flow (and wipe credentials from memory) whenever the drawer closes.
+  useEffect(() => {
+    if (!isOpen) {
+      setApiKey("");
+      setApiSecret("");
+      setAccountId("");
+      setConnected(false);
+      setError(undefined);
+    }
+  }, [isOpen]);
+
+  const effectiveAccountId = accountId || accounts[0]?.id || "";
+  const canConnect = apiKey.trim().length > 0 && apiSecret.trim().length > 0;
 
   const handleConnectSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!apiKey.trim() || !apiSecret.trim()) return;
+    if (!canConnect) return;
 
     setSubmitting(true);
+    setError(undefined);
     try {
       await onConnect({
         apiKey: apiKey.trim(),
@@ -40,98 +62,151 @@ export function BinanceModal({
         permitsTrading: false,
         permitsWithdrawals: false,
       });
+      setApiSecret("");
       setConnected(true);
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "Error conectando Binance.");
+      setError(err instanceof Error ? err.message : "Error conectando Binance.");
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleSyncSubmit = async () => {
-    if (!accountId) return;
+  const handleSyncSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!effectiveAccountId) return;
     setSubmitting(true);
+    setError(undefined);
     try {
-      await onSync(accountId);
+      await onSync(effectiveAccountId);
       onClose();
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "Error sincronizando Binance.");
+      setError(err instanceof Error ? err.message : "Error sincronizando Binance.");
     } finally {
       setSubmitting(false);
     }
   };
 
-  return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-      <Card className="w-full max-w-md shadow-xl bg-background border">
-        <CardHeader className="border-b">
-          <CardTitle className="text-lg flex items-center gap-2">
-            <span>🟡</span> Sincronización Binance (Read-Only)
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="pt-6 space-y-4">
-          <div className="p-3 bg-amber-50 dark:bg-amber-950/20 text-amber-900 dark:text-amber-200 border border-amber-200 dark:border-amber-900/50 rounded-md text-xs">
-            Por seguridad estricta (Regla 18), se rechazan claves API que tengan permisos de trading o retiros habilitados.
-          </div>
+  const cancelButton = (
+    <Button
+      type="button"
+      variant="ghost"
+      size="lg"
+      onClick={onClose}
+      className="order-2 w-full md:order-1 md:w-auto md:border-input md:bg-card"
+    >
+      Cancelar
+    </Button>
+  );
 
-          {!connected ? (
-            <form onSubmit={handleConnectSubmit} className="space-y-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="binanceKey">Binance API Key</Label>
+  return (
+    <ResponsiveDrawer
+      open={isOpen}
+      onOpenChange={(open) => !open && onClose()}
+      title="Sincronización Binance (solo lectura)"
+      description={
+        connected
+          ? "Paso 2 de 2 · Elegí la cuenta destino"
+          : "Paso 1 de 2 · Conectá tu clave API"
+      }
+      footer={
+        !connected ? (
+          <>
+            <Button
+              type="submit"
+              form={CONNECT_FORM_ID}
+              size="lg"
+              loading={submitting}
+              disabled={!canConnect}
+              className="order-1 w-full md:order-2 md:flex-1"
+            >
+              {submitting ? "Verificando..." : "Verificar y Conectar"}
+            </Button>
+            {cancelButton}
+          </>
+        ) : accounts.length > 0 ? (
+          <>
+            <Button
+              type="submit"
+              form={SYNC_FORM_ID}
+              size="lg"
+              loading={submitting}
+              disabled={!effectiveAccountId}
+              className="order-1 w-full md:order-2 md:flex-1"
+            >
+              {submitting ? "Sincronizando..." : "Sincronizar Órdenes P2P y Depósitos"}
+            </Button>
+            {cancelButton}
+          </>
+        ) : undefined
+      }
+    >
+      <div className="flex flex-col gap-5">
+        <div className="flex items-start gap-3 rounded-xl border border-warning/30 bg-warning/10 p-3.5">
+          <ShieldCheck aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-warning" />
+          <p className="text-sm leading-relaxed text-foreground">
+            Por seguridad estricta (Regla 18), se rechazan claves API que tengan permisos de trading o retiros habilitados. Creá una clave de solo lectura.
+          </p>
+        </div>
+
+        {!connected ? (
+          <form id={CONNECT_FORM_ID} onSubmit={handleConnectSubmit} className="flex flex-col gap-5">
+            <FormField label="Binance API Key" required>
+              {(control) => (
                 <Input
-                  id="binanceKey"
-                  required
+                  {...control}
+                  autoComplete="off"
+                  autoCapitalize="none"
+                  spellCheck={false}
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
                   placeholder="Clave de solo lectura"
                 />
-              </div>
+              )}
+            </FormField>
 
-              <div className="space-y-1.5">
-                <Label htmlFor="binanceSecret">Binance API Secret</Label>
+            <FormField label="Binance API Secret" required error={error}>
+              {(control) => (
                 <Input
-                  id="binanceSecret"
+                  {...control}
                   type="password"
-                  required
+                  autoComplete="off"
+                  spellCheck={false}
                   value={apiSecret}
                   onChange={(e) => setApiSecret(e.target.value)}
                 />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2">
-                <Button type="button" variant="outline" onClick={onClose}>
-                  Cancelar
-                </Button>
-                <Button type="submit" disabled={submitting}>
-                  Verificar y Conectar
-                </Button>
-              </div>
-            </form>
-          ) : (
-            <div className="space-y-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="binanceAcc">Cuenta destino para órdenes P2P</Label>
-                <select
-                  id="binanceAcc"
-                  value={accountId}
-                  onChange={(e) => setAccountId(e.target.value)}
-                  className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-2xs focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring"
-                >
-                  {accounts.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.name} ({a.currency})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <Button onClick={handleSyncSubmit} disabled={submitting} className="w-full">
-                Sincronizar Órdenes P2P y Depósitos
-              </Button>
+              )}
+            </FormField>
+          </form>
+        ) : (
+          <div className="flex flex-col gap-5">
+            <div className="flex items-center gap-2 text-sm font-semibold text-success" role="status">
+              <CheckCircle2 aria-hidden="true" className="size-5" />
+              Clave verificada y conectada
             </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+
+            {accounts.length === 0 ? (
+              <NoAccountsNotice description="Para sincronizar órdenes P2P necesitás una cuenta destino. Creala primero y volvé a conectar Binance." />
+            ) : (
+              <form id={SYNC_FORM_ID} onSubmit={handleSyncSubmit} className="flex flex-col gap-5">
+                <FormField label="Cuenta destino para órdenes P2P" error={error}>
+                  {(control) => (
+                    <SelectField
+                      {...control}
+                      value={effectiveAccountId}
+                      onChange={(e) => setAccountId(e.target.value)}
+                      options={accounts.map((a) => ({
+                        value: a.id,
+                        label: a.name,
+                        description: a.currency,
+                      }))}
+                    />
+                  )}
+                </FormField>
+              </form>
+            )}
+          </div>
+        )}
+      </div>
+    </ResponsiveDrawer>
   );
 }

@@ -1,9 +1,25 @@
-import React, { useState } from "react";
+"use client";
+
+import React, { useEffect, useState } from "react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Copy,
+  FileSpreadsheet,
+  FileText,
+  Rows3,
+  UploadCloud,
+} from "lucide-react";
+import { cn } from "cn";
 import { AccountDto, ImportStatementCsvRequest, StatementImportResult } from "@/domain/models/types";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { ResponsiveDrawer } from "@/components/ui/responsive-drawer";
+import { SelectField } from "@/components/ui/select-field";
+import { Textarea } from "@/components/ui/textarea";
+import { formatFileSize } from "./format";
+import { NoAccountsNotice } from "./NoAccountsNotice";
 
 interface CsvImportModalProps {
   isOpen: boolean;
@@ -13,6 +29,8 @@ interface CsvImportModalProps {
   onOpenCreateAccount?: () => void;
 }
 
+const FORM_ID = "csv-import-form";
+
 export function CsvImportModal({
   isOpen,
   accounts,
@@ -20,140 +38,292 @@ export function CsvImportModal({
   onSubmit,
   onOpenCreateAccount,
 }: CsvImportModalProps) {
-  const [accountId, setAccountId] = useState(accounts[0]?.id || "");
+  const [accountId, setAccountId] = useState("");
   const [fileName, setFileName] = useState("");
+  const [fileSize, setFileSize] = useState<number | null>(null);
   const [csvContent, setCsvContent] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [dragging, setDragging] = useState(false);
+  const [error, setError] = useState<string | undefined>();
+  const [result, setResult] = useState<StatementImportResult | null>(null);
 
-  if (!isOpen) return null;
+  // Reset the form whenever the drawer closes.
+  useEffect(() => {
+    if (!isOpen) {
+      setAccountId("");
+      setFileName("");
+      setFileSize(null);
+      setCsvContent("");
+      setDragging(false);
+      setError(undefined);
+      setResult(null);
+    }
+  }, [isOpen]);
 
-  if (accounts.length === 0) {
-    return (
-      <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-        <Card className="w-full max-w-md shadow-xl bg-background border p-6 text-center space-y-4">
-          <CardTitle className="text-lg">No hay cuentas disponibles</CardTitle>
-          <p className="text-xs text-muted-foreground">
-            Para importar un extracto bancario CSV, primero debes crear la cuenta bancaria de destino.
-          </p>
-          <div className="flex justify-center gap-2 pt-2">
-            <Button variant="outline" onClick={onClose}>
-              Cerrar
-            </Button>
-            {onOpenCreateAccount && (
-              <Button
-                onClick={() => {
-                  onClose();
-                  onOpenCreateAccount();
-                }}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
-              >
-                + Crear Cuenta
-              </Button>
-            )}
-          </div>
-        </Card>
-      </div>
-    );
-  }
+  const hasAccounts = accounts.length > 0;
+  const effectiveAccountId = accountId || accounts[0]?.id || "";
+  const isValid = csvContent.trim().length > 0;
+
+  const readFile = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      setCsvContent(typeof reader.result === "string" ? reader.result : "");
+      setFileName(file.name);
+      setFileSize(file.size);
+      setError(undefined);
+    };
+    reader.onerror = () => setError("No pudimos leer el archivo. Probá con otro.");
+    reader.readAsText(file);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) readFile(file);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const effectiveAccId = accountId || accounts[0]?.id;
-    if (!effectiveAccId || !csvContent.trim()) return;
+    if (!effectiveAccountId || !isValid) return;
 
-    const targetAccount = accounts.find((a) => a.id === effectiveAccId);
+    const targetAccount = accounts.find((a) => a.id === effectiveAccountId);
     if (!targetAccount) return;
 
     setSubmitting(true);
+    setError(undefined);
     try {
       const res = await onSubmit({
-        accountId: effectiveAccId,
+        accountId: effectiveAccountId,
         fileName: fileName.trim() || "extracto.csv",
         csvContent: csvContent.trim(),
         currency: targetAccount.currency,
       });
-
-      if (res.isDuplicateFile) {
-        alert(`Advertencia: ${res.warning}\nTotal filas: ${res.totalRows}, duplicados vinculados: ${res.duplicatesLinked}`);
-      } else {
-        alert(`Extracto importado con éxito: ${res.draftsCreated} borradores creados, ${res.duplicatesLinked} duplicados vinculados.`);
-      }
-      setFileName("");
-      setCsvContent("");
-      onClose();
+      setResult(res);
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "Error al importar el extracto CSV.");
+      setError(err instanceof Error ? err.message : "Error al importar el extracto CSV.");
     } finally {
       setSubmitting(false);
     }
   };
 
+  let footer: React.ReactNode;
+  if (result) {
+    footer = (
+      <Button type="button" size="lg" onClick={onClose} className="w-full md:flex-1">
+        Listo
+      </Button>
+    );
+  } else if (hasAccounts) {
+    footer = (
+      <>
+        <Button
+          type="submit"
+          form={FORM_ID}
+          size="lg"
+          loading={submitting}
+          disabled={!isValid}
+          className="order-1 w-full md:order-2 md:flex-1"
+        >
+          {submitting ? "Importando..." : "Procesar CSV"}
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="lg"
+          onClick={onClose}
+          className="order-2 w-full md:order-1 md:w-auto md:border-input md:bg-card"
+        >
+          Cancelar
+        </Button>
+      </>
+    );
+  }
+
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-      <Card className="w-full max-w-lg shadow-xl bg-background border">
-        <CardHeader className="border-b">
-          <CardTitle className="text-lg">Importar Extracto Bancario CSV</CardTitle>
-        </CardHeader>
-        <CardContent className="pt-6">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <p className="text-xs text-muted-foreground">
-              Pega el contenido CSV de tu extracto bancario. El motor de importación detectará columnas de fecha, monto y concepto generando borradores con deduplicación por fingerprint.
-            </p>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="csvAccount">Cuenta Bancaria de Destino</Label>
-              <select
-                id="csvAccount"
-                value={accountId || accounts[0]?.id || ""}
+    <ResponsiveDrawer
+      open={isOpen}
+      onOpenChange={(open) => !open && onClose()}
+      title="Importar extracto bancario CSV"
+      description="Detectamos fecha, monto y concepto, y generamos borradores sin duplicados."
+      footer={footer}
+    >
+      {!hasAccounts ? (
+        <NoAccountsNotice
+          description="Para importar un extracto bancario CSV, primero debés crear la cuenta bancaria de destino."
+          onOpenCreateAccount={
+            onOpenCreateAccount
+              ? () => {
+                  onClose();
+                  onOpenCreateAccount();
+                }
+              : undefined
+          }
+        />
+      ) : result ? (
+        <ImportResult result={result} />
+      ) : (
+        <form id={FORM_ID} onSubmit={handleSubmit} className="flex flex-col gap-5">
+          <FormField label="Cuenta bancaria de destino">
+            {(control) => (
+              <SelectField
+                {...control}
+                value={effectiveAccountId}
                 onChange={(e) => setAccountId(e.target.value)}
-                className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-2xs"
-              >
-                {accounts.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name} ({a.currency})
-                  </option>
-                ))}
-              </select>
-            </div>
+                options={accounts.map((a) => ({
+                  value: a.id,
+                  label: a.name,
+                  description: a.currency,
+                }))}
+              />
+            )}
+          </FormField>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="csvFileName">Nombre de archivo (para deduplicación)</Label>
+          <FormField label="Archivo CSV" hint="Opcional: también podés pegar el contenido más abajo.">
+            {(control) => (
+              <div className="relative">
+                <input
+                  {...control}
+                  type="file"
+                  accept=".csv,text/csv,text/plain"
+                  className="peer sr-only"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) readFile(file);
+                    e.target.value = "";
+                  }}
+                />
+                <label
+                  htmlFor={control.id}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setDragging(true);
+                  }}
+                  onDragLeave={() => setDragging(false)}
+                  onDrop={handleDrop}
+                  className={cn(
+                    "flex min-h-32 cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-5 text-center transition-colors peer-focus-visible:border-ring peer-focus-visible:ring-4 peer-focus-visible:ring-ring/15",
+                    dragging || fileSize !== null
+                      ? "border-primary bg-primary/5"
+                      : "border-input bg-card hover:bg-accent"
+                  )}
+                >
+                  {fileSize !== null ? (
+                    <>
+                      <FileSpreadsheet aria-hidden="true" className="size-8 text-primary" />
+                      <span className="max-w-full truncate text-sm font-semibold text-foreground">
+                        {fileName}
+                      </span>
+                      <span className="text-xs text-muted-foreground tabular-nums">
+                        {formatFileSize(fileSize)} · Tocá para elegir otro
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <UploadCloud aria-hidden="true" className="size-8 text-muted-foreground" />
+                      <span className="text-sm font-semibold text-foreground">
+                        Elegí un archivo o arrastralo acá
+                      </span>
+                      <span className="text-xs text-muted-foreground">Formato .csv</span>
+                    </>
+                  )}
+                </label>
+              </div>
+            )}
+          </FormField>
+
+          <FormField
+            label="Nombre de archivo"
+            hint="Se usa para detectar extractos ya importados."
+          >
+            {(control) => (
               <Input
-                id="csvFileName"
+                {...control}
                 placeholder="Ej. extracto_octubre_2026.csv"
                 value={fileName}
                 onChange={(e) => setFileName(e.target.value)}
               />
-            </div>
+            )}
+          </FormField>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="csvContent">Contenido CSV</Label>
-              <textarea
-                id="csvContent"
-                required
+          <FormField label="Contenido CSV" required error={error}>
+            {(control) => (
+              <Textarea
+                {...control}
                 rows={6}
                 value={csvContent}
                 onChange={(e) => setCsvContent(e.target.value)}
                 placeholder={"Fecha,Descripción,Monto,Referencia\n2026-10-24,Supermercado Farmacorp,-85.50,TX-998811\n..."}
-                className="w-full rounded-md border border-input bg-transparent p-2 text-xs font-mono shadow-2xs focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring"
+                className="font-mono text-sm md:text-sm"
               />
-            </div>
+            )}
+          </FormField>
+        </form>
+      )}
+    </ResponsiveDrawer>
+  );
+}
 
-            <div className="flex justify-end gap-2 pt-4 border-t">
-              <Button type="button" variant="outline" onClick={onClose}>
-                Cancelar
-              </Button>
-              <Button
-                type="submit"
-                disabled={submitting || !csvContent.trim()}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white"
-              >
-                {submitting ? "Importando..." : "Procesar CSV"}
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
+function ImportResult({ result }: { result: StatementImportResult }) {
+  const isDuplicateFile = result.isDuplicateFile;
+  return (
+    <div className="flex flex-col gap-4" role="status">
+      <div
+        className={cn(
+          "flex items-start gap-3 rounded-xl border p-4",
+          isDuplicateFile
+            ? "border-warning/30 bg-warning/10"
+            : "border-success/30 bg-success/10"
+        )}
+      >
+        {isDuplicateFile ? (
+          <AlertTriangle aria-hidden="true" className="mt-0.5 size-6 shrink-0 text-warning" />
+        ) : (
+          <CheckCircle2 aria-hidden="true" className="mt-0.5 size-6 shrink-0 text-success" />
+        )}
+        <div className="min-w-0">
+          <h3 className="text-base font-bold text-foreground">
+            {isDuplicateFile ? "Este archivo ya se importó" : "Extracto importado con éxito"}
+          </h3>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            {isDuplicateFile
+              ? result.warning ?? "Detectamos un archivo duplicado."
+              : `${result.draftsCreated} borradores creados, ${result.duplicatesLinked} duplicados vinculados.`}
+          </p>
+        </div>
+      </div>
+
+      <dl className="grid grid-cols-3 gap-2">
+        <ResultStat icon={<Rows3 aria-hidden="true" />} label="Filas" value={result.totalRows} />
+        <ResultStat
+          icon={<FileText aria-hidden="true" />}
+          label="Borradores"
+          value={result.draftsCreated}
+        />
+        <ResultStat
+          icon={<Copy aria-hidden="true" />}
+          label="Duplicados"
+          value={result.duplicatesLinked}
+        />
+      </dl>
+    </div>
+  );
+}
+
+function ResultStat({
+  icon,
+  label,
+  value,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: number;
+}) {
+  return (
+    <div className="flex flex-col items-center gap-1 rounded-xl border border-border bg-background p-3 text-center [&_svg]:size-5 [&_svg]:text-muted-foreground">
+      {icon}
+      <dt className="order-3 text-xs font-medium text-muted-foreground">{label}</dt>
+      <dd className="order-2 text-xl font-extrabold text-foreground tabular-nums">{value}</dd>
     </div>
   );
 }
