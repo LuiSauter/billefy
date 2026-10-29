@@ -19,7 +19,7 @@ Redesign the Next.js web client (`web/`) for mobile and desktop, following the O
 - [x] Task 3: Convert transaction/account modals (1-Tap, Register, CreateAccount, Reconcile, FxTransfer) to ResponsiveDrawer
 - [x] Task 4: Convert ingestion modals (Drafts, CSV, WhatsApp, Binance, SimulateNotification, IncomeDistribution) to ResponsiveDrawer
 - [x] Task 5: Convert lending/planning/recurring modals (CreateLoan, LoanDetail, LoanPayment, CreateBudget, CreateGoal, Reschedule) to ResponsiveDrawer
-- [ ] Task 6: Dashboard redesign + charts (cash-flow area chart, balance by currency donut, spending trend, KPI cards)
+- [x] Task 6: Dashboard redesign + charts (cash-flow area chart, balance by currency donut, spending trend, KPI cards)
 - [ ] Task 7: Budgets & Goals redesign + charts (50/30/20 radial/bar, budget usage bars, goal progress radials)
 - [ ] Task 8: Loans, Recurring & Auth polish + charts (amortization stacked area, principal vs interest)
 - [ ] Task 9: Final verification (lint, tests, build) and docs/README update
@@ -31,3 +31,4 @@ Redesign the Next.js web client (`web/`) for mobile and desktop, following the O
 - Task 3: 7905402 (lint clean, 35 tests, build green). Known pre-existing bug kept: 1-Tap equivalence pill treats every non-USDT account as BOB.
 - Task 4: b18152c (lint clean, 41 tests, build green)
 - Task 5: db707ee (lint clean, 44 tests, build green; alert() completely eliminated; Toaster mounted)
+- Task 6: ebd5a95 (lint clean, 44 tests, build green; CashFlowAreaChart + CurrencyDonutChart responsive in DashboardHomeView)

@@ -9,6 +9,8 @@ import { AccountsList } from "@/presentation/components/accounts/AccountsList";
 import { DraftsInbox } from "@/presentation/components/drafts/DraftsInbox";
 import { TransactionsList } from "@/presentation/components/transactions/TransactionsList";
 import { MobileWalletCard } from "@/presentation/components/dashboard/MobileWalletCard";
+import { CashFlowAreaChart } from "@/presentation/components/dashboard/CashFlowAreaChart";
+import { CurrencyDonutChart } from "@/presentation/components/dashboard/CurrencyDonutChart";
 
 interface DashboardHomeViewProps {
   metrics: BalanceMetrics;
@@ -108,6 +110,17 @@ export function DashboardHomeView({
           hasAccounts={hasAccounts}
         />
       </div>
+
+      {/* Charts section: CashFlow Area + Currency Donut */}
+      {hasAccounts && (
+        <div className="grid grid-cols-1 lg:grid-cols-[1.7fr_1.1fr] gap-4 items-start">
+          <CashFlowAreaChart
+            transactions={transactions}
+            currencySymbol={selectedCurrency === "BOB" ? "Bs." : "$"}
+          />
+          <CurrencyDonutChart accounts={accounts} p2pRate={p2pRate} />
+        </div>
+      )}
 
       {/* Middle Grid: Accounts (Left) & Drafts (Right) (OpenPencil Grid2) */}
       <div className="hidden md:grid grid-cols-1 lg:grid-cols-[1.6fr_1fr] gap-4 items-start">
