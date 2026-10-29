@@ -1824,7 +1824,12 @@
         }
       },
       "AccountType": {
-        "type": "integer"
+        "enum": [
+          "Bank",
+          "Wallet",
+          "Cash",
+          "Exchange"
+        ]
       },
       "BudgetDto": {
         "required": [
@@ -3874,7 +3879,11 @@
         }
       },
       "TransactionDirection": {
-        "type": "integer"
+        "enum": [
+          "Income",
+          "Expense",
+          null
+        ]
       },
       "TransactionDto": {
         "required": [
