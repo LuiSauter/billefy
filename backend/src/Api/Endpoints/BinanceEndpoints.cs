@@ -9,7 +9,8 @@ public static class BinanceEndpoints
     public static RouteGroupBuilder MapBinanceEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/v1/integrations/binance")
-            .WithTags("Binance");
+            .WithTags("Binance")
+            .RequireAuthorization();
 
         group.MapPost("/connect", async (
             [FromBody] ConnectBinanceKeyRequest request,

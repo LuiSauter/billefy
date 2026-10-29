@@ -10,7 +10,8 @@ public static class LoanEndpoints
     public static RouteGroupBuilder MapLoanEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/v1/loans")
-            .WithTags("Loans");
+            .WithTags("Loans")
+            .RequireAuthorization();
 
         group.MapPost("/simulate", (
             [FromBody] SimulateLoanRequest request,
@@ -22,7 +23,8 @@ public static class LoanEndpoints
         .WithName("SimulateLoanSchedule")
         .WithSummary("Simulate an amortization schedule and calculate total interest and TEA before creating a loan.")
         .Produces<LoanScheduleDto>(StatusCodes.Status200OK)
-        .ProducesProblem(StatusCodes.Status400BadRequest);
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .AllowAnonymous();
 
         group.MapPost("/", async (
             [FromBody] CreateLoanRequest request,

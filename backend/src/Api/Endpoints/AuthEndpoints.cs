@@ -22,7 +22,8 @@ public static class AuthEndpoints
             return result.ToHttpResult();
         })
         .WithName("LoginWithGoogle")
-        .WithSummary("Inicia sesión o registra usuario mediante Google OAuth (proveedor único)");
+        .WithSummary("Inicia sesión o registra usuario mediante Google OAuth (proveedor único)")
+        .AllowAnonymous();
 
         // 2. Token Refresh (Rotation)
         group.MapPost("/refresh", async (
@@ -34,7 +35,8 @@ public static class AuthEndpoints
             return result.ToHttpResult();
         })
         .WithName("RefreshToken")
-        .WithSummary("Rota el Refresh Token y emite un nuevo Access Token JWT");
+        .WithSummary("Rota el Refresh Token y emite un nuevo Access Token JWT")
+        .AllowAnonymous();
 
         // 3. Logout / Revoke Token
         group.MapPost("/logout", async (
@@ -46,7 +48,8 @@ public static class AuthEndpoints
             return result.ToHttpResult();
         })
         .WithName("Logout")
-        .WithSummary("Cierra sesión y revoca el Refresh Token");
+        .WithSummary("Cierra sesión y revoca el Refresh Token")
+        .RequireAuthorization();
 
         // 4. Current User Profile (Strictly Authenticated)
         group.MapGet("/me", async (
@@ -63,7 +66,8 @@ public static class AuthEndpoints
             return result.ToHttpResult();
         })
         .WithName("GetCurrentUser")
-        .WithSummary("Obtiene el perfil del usuario autenticado");
+        .WithSummary("Obtiene el perfil del usuario autenticado")
+        .RequireAuthorization();
 
         // 5. Request Account Deletion (Grace period 30 days - AUTH-06)
         group.MapDelete("/account", async (
@@ -80,7 +84,8 @@ public static class AuthEndpoints
             return result.ToHttpResult();
         })
         .WithName("RequestAccountDeletion")
-        .WithSummary("Solicita la baja de la cuenta con período de gracia de 30 días (Regla AUTH-06)");
+        .WithSummary("Solicita la baja de la cuenta con período de gracia de 30 días (Regla AUTH-06)")
+        .RequireAuthorization();
 
         // 6. Export User Data (AUTH-07)
         group.MapGet("/export", async (
@@ -97,7 +102,8 @@ public static class AuthEndpoints
             return result.ToHttpResult();
         })
         .WithName("ExportUserData")
-        .WithSummary("Exporta los datos completos del usuario (Regla AUTH-07)");
+        .WithSummary("Exporta los datos completos del usuario (Regla AUTH-07)")
+        .RequireAuthorization();
 
         return app;
     }

@@ -15,8 +15,6 @@ public sealed class NotificationsDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.HasDefaultSchema("notifications");
-
         modelBuilder.ApplyConfiguration(new DeviceTokenConfiguration());
         modelBuilder.ApplyConfiguration(new NotificationLogConfiguration());
 
@@ -31,14 +29,15 @@ public sealed class DeviceTokenConfiguration : IEntityTypeConfiguration<DeviceTo
         builder.ToTable("device_tokens");
 
         builder.HasKey(dt => dt.Id);
-        builder.Property(dt => dt.UserId).IsRequired();
-        builder.Property(dt => dt.Token).HasMaxLength(500).IsRequired();
+        builder.Property(dt => dt.Id).HasColumnName("id");
+        builder.Property(dt => dt.UserId).HasColumnName("user_id").IsRequired();
+        builder.Property(dt => dt.Token).HasColumnName("token").HasMaxLength(500).IsRequired();
         builder.HasIndex(dt => dt.Token).IsUnique();
 
-        builder.Property(dt => dt.Platform).HasMaxLength(50).IsRequired();
-        builder.Property(dt => dt.CreatedAt).IsRequired();
-        builder.Property(dt => dt.LastActiveAt).IsRequired();
-        builder.Property(dt => dt.IsActive).IsRequired();
+        builder.Property(dt => dt.Platform).HasColumnName("platform").HasMaxLength(50).IsRequired();
+        builder.Property(dt => dt.CreatedAt).HasColumnName("created_at").IsRequired();
+        builder.Property(dt => dt.LastActiveAt).HasColumnName("last_active_at").IsRequired();
+        builder.Property(dt => dt.IsActive).HasColumnName("is_active").IsRequired();
 
         builder.HasIndex(dt => dt.UserId);
     }
@@ -51,14 +50,15 @@ public sealed class NotificationLogConfiguration : IEntityTypeConfiguration<Noti
         builder.ToTable("notification_logs");
 
         builder.HasKey(nl => nl.Id);
-        builder.Property(nl => nl.UserId).IsRequired();
-        builder.Property(nl => nl.Type).IsRequired();
-        builder.Property(nl => nl.Channel).HasMaxLength(50).IsRequired();
-        builder.Property(nl => nl.Title).HasMaxLength(255).IsRequired();
-        builder.Property(nl => nl.Body).HasMaxLength(2000).IsRequired();
-        builder.Property(nl => nl.Status).HasMaxLength(50).IsRequired();
-        builder.Property(nl => nl.ErrorDetails).HasMaxLength(2000);
-        builder.Property(nl => nl.CreatedAt).IsRequired();
+        builder.Property(nl => nl.Id).HasColumnName("id");
+        builder.Property(nl => nl.UserId).HasColumnName("user_id").IsRequired();
+        builder.Property(nl => nl.Type).HasColumnName("type").IsRequired();
+        builder.Property(nl => nl.Channel).HasColumnName("channel").HasMaxLength(50).IsRequired();
+        builder.Property(nl => nl.Title).HasColumnName("title").HasMaxLength(255).IsRequired();
+        builder.Property(nl => nl.Body).HasColumnName("body").HasMaxLength(2000).IsRequired();
+        builder.Property(nl => nl.Status).HasColumnName("status").HasMaxLength(50).IsRequired();
+        builder.Property(nl => nl.ErrorDetails).HasColumnName("error_details").HasMaxLength(2000);
+        builder.Property(nl => nl.CreatedAt).HasColumnName("created_at").IsRequired();
 
         builder.HasIndex(nl => nl.UserId);
     }

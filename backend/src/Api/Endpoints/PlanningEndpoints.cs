@@ -10,7 +10,8 @@ public static class PlanningEndpoints
     public static RouteGroupBuilder MapPlanningEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/v1/planning")
-            .WithTags("Planning");
+            .WithTags("Planning")
+            .RequireAuthorization();
 
         // Budgets
         group.MapPost("/budgets", async (

@@ -10,7 +10,8 @@ public static class MessagingEndpoints
     public static RouteGroupBuilder MapMessagingEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/v1/messaging/whatsapp")
-            .WithTags("Messaging");
+            .WithTags("Messaging")
+            .RequireAuthorization();
 
         group.MapPost("/link", async (
             [FromBody] LinkWhatsAppRequest request,
@@ -37,7 +38,8 @@ public static class MessagingEndpoints
         .WithName("WhatsAppInboundWebhook")
         .WithSummary("Webhook endpoint for inbound WhatsApp messages (BOT-02 to BOT-09). Strictly replies to incoming messages.")
         .Produces<WhatsAppWebhookResponse>(StatusCodes.Status200OK)
-        .ProducesProblem(StatusCodes.Status400BadRequest);
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .AllowAnonymous();
 
         return group;
     }

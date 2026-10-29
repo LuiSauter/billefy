@@ -20,8 +20,7 @@ public static class DependencyInjection
         if (!string.IsNullOrWhiteSpace(connectionString))
         {
             services.AddDbContext<IdentityDbContext>(options =>
-                options.UseNpgsql(connectionString, npgsql =>
-                    npgsql.MigrationsHistoryTable("__EFMigrationsHistory", "identity")));
+                options.UseNpgsql(connectionString));
         }
 
         // Google OAuth Options

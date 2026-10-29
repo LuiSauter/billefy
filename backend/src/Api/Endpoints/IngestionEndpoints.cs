@@ -10,7 +10,8 @@ public static class IngestionEndpoints
     public static RouteGroupBuilder MapIngestionEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/v1/ingestion")
-            .WithTags("Ingestion");
+            .WithTags("Ingestion")
+            .RequireAuthorization();
 
         group.MapPost("/events", async (
             [FromHeader(Name = "Idempotency-Key")] Guid? idempotencyKey,

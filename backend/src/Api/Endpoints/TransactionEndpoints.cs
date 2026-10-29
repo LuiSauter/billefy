@@ -10,7 +10,8 @@ public static class TransactionEndpoints
     public static RouteGroupBuilder MapTransactionEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/v1/transactions")
-            .WithTags("Transactions");
+            .WithTags("Transactions")
+            .RequireAuthorization();
 
         group.MapGet("/", async (
             [FromQuery] Guid? accountId,

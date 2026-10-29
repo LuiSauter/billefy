@@ -10,7 +10,8 @@ public static class DraftEndpoints
     public static RouteGroupBuilder MapDraftEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/v1/drafts")
-            .WithTags("Drafts");
+            .WithTags("Drafts")
+            .RequireAuthorization();
 
         group.MapGet("/", async (
             [FromQuery] string? status,

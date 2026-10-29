@@ -844,6 +844,15 @@ public class ApiIntegrationTests : IClassFixture<CustomWebApplicationFactory>
         authRes.User.Email.Should().Be(email);
         authRes.User.PreferredCurrency.Should().Be("BOB");
 
+        // Test creating account with Bearer token
+        using var createAccWithBearer = new HttpRequestMessage(HttpMethod.Post, "/v1/accounts")
+        {
+            Content = JsonContent.Create(new CreateAccountRequest("Banco ganadero", AccountType.Bank, "BOB", 140m))
+        };
+        createAccWithBearer.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", authRes.AccessToken);
+        var createAccRes = await _client.SendAsync(createAccWithBearer);
+        createAccRes.StatusCode.Should().Be(HttpStatusCode.Created);
+
         // Refresh token rotation test
         var refreshRes = await _client.PostAsJsonAsync("/api/v1/auth/refresh", new RefreshTokenRequest(authRes.RefreshToken));
         refreshRes.StatusCode.Should().Be(HttpStatusCode.OK);

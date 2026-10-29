@@ -15,8 +15,6 @@ public sealed class IdentityDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.HasDefaultSchema("identity");
-
         modelBuilder.ApplyConfiguration(new UserConfiguration());
         modelBuilder.ApplyConfiguration(new RefreshTokenConfiguration());
 
@@ -31,16 +29,17 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
         builder.ToTable("users");
 
         builder.HasKey(u => u.Id);
-        builder.Property(u => u.Email).HasMaxLength(255).IsRequired();
+        builder.Property(u => u.Id).HasColumnName("id");
+        builder.Property(u => u.Email).HasColumnName("email").HasMaxLength(255).IsRequired();
         builder.HasIndex(u => u.Email).IsUnique();
 
-        builder.Property(u => u.FullName).HasMaxLength(255).IsRequired();
-        builder.Property(u => u.PictureUrl).HasMaxLength(1000);
-        builder.Property(u => u.PreferredCurrency).HasMaxLength(10).IsRequired();
-        builder.Property(u => u.CreatedAt).IsRequired();
-        builder.Property(u => u.LastLoginAt).IsRequired();
-        builder.Property(u => u.IsDeleted).IsRequired();
-        builder.Property(u => u.DeletionRequestedAt);
+        builder.Property(u => u.FullName).HasColumnName("full_name").HasMaxLength(255).IsRequired();
+        builder.Property(u => u.PictureUrl).HasColumnName("picture_url").HasMaxLength(1000);
+        builder.Property(u => u.PreferredCurrency).HasColumnName("preferred_currency").HasMaxLength(10).IsRequired();
+        builder.Property(u => u.CreatedAt).HasColumnName("created_at").IsRequired();
+        builder.Property(u => u.LastLoginAt).HasColumnName("last_login_at").IsRequired();
+        builder.Property(u => u.IsDeleted).HasColumnName("is_deleted").IsRequired();
+        builder.Property(u => u.DeletionRequestedAt).HasColumnName("deletion_requested_at");
     }
 }
 
@@ -51,14 +50,15 @@ public sealed class RefreshTokenConfiguration : IEntityTypeConfiguration<Refresh
         builder.ToTable("refresh_tokens");
 
         builder.HasKey(rt => rt.Id);
-        builder.Property(rt => rt.UserId).IsRequired();
-        builder.Property(rt => rt.Token).HasMaxLength(500).IsRequired();
+        builder.Property(rt => rt.Id).HasColumnName("id");
+        builder.Property(rt => rt.UserId).HasColumnName("user_id").IsRequired();
+        builder.Property(rt => rt.Token).HasColumnName("token").HasMaxLength(500).IsRequired();
         builder.HasIndex(rt => rt.Token).IsUnique();
 
-        builder.Property(rt => rt.ExpiresAt).IsRequired();
-        builder.Property(rt => rt.CreatedAt).IsRequired();
-        builder.Property(rt => rt.RevokedAt);
-        builder.Property(rt => rt.ReplacedByToken).HasMaxLength(500);
+        builder.Property(rt => rt.ExpiresAt).HasColumnName("expires_at").IsRequired();
+        builder.Property(rt => rt.CreatedAt).HasColumnName("created_at").IsRequired();
+        builder.Property(rt => rt.RevokedAt).HasColumnName("revoked_at");
+        builder.Property(rt => rt.ReplacedByToken).HasColumnName("replaced_by_token").HasMaxLength(500);
 
         builder.HasIndex(rt => rt.UserId);
     }

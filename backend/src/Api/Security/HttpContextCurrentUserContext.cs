@@ -24,7 +24,9 @@ public sealed class HttpContextCurrentUserContext : ICurrentUserContext
 
             // 1. Check Claims (e.g. JWT 'sub' / NameIdentifier)
             var claimValue = httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value
-                             ?? httpContext.User.FindFirst("sub")?.Value;
+                             ?? httpContext.User.FindFirst("sub")?.Value
+                             ?? httpContext.User.FindFirst("nameid")?.Value
+                             ?? httpContext.User.FindFirst(c => c.Type.EndsWith("nameidentifier", StringComparison.OrdinalIgnoreCase))?.Value;
 
             if (Guid.TryParse(claimValue, out var claimGuid))
             {
