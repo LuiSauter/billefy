@@ -1,8 +1,10 @@
 "use client";
 
 import React, { useState } from "react";
-import { X, Check } from "lucide-react";
+import { Check } from "lucide-react";
 import { RecurringItem } from "@/presentation/components/recurring/RecurringPaymentsView";
+import { Button } from "@/components/ui/button";
+import { ResponsiveDrawer } from "@/components/ui/responsive-drawer";
 
 interface ReschedulePaymentModalProps {
   isOpen: boolean;
@@ -28,131 +30,107 @@ export function ReschedulePaymentModal({
     onClose();
   };
 
+  const newDateLabel =
+    selectedOption === "+3d"
+      ? "18 de Mayo"
+      : selectedOption === "+1w"
+      ? "22 de Mayo"
+      : selectedOption === "today"
+      ? "Hoy"
+      : "Fecha personalizada";
+
   const handleSaveDate = () => {
-    const newDateStr = selectedOption === "+3d" ? "18 de Mayo" : selectedOption === "+1w" ? "22 de Mayo" : "Hoy";
-    onSaveNewDate(item, newDateStr);
+    onSaveNewDate(item, newDateLabel);
     onClose();
   };
 
-  const formattedAmount = item.currency === "BOB" ? `Bs. ${item.amount.toFixed(2)}` : `${item.amount} ${item.currency}`;
+  const formattedAmount =
+    item.currency === "BOB" ? `Bs. ${item.amount.toFixed(2)}` : `${item.amount} ${item.currency}`;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-150">
-      <div className="w-full max-w-[587px] bg-white rounded-[24px] p-[24px_28px_28px_28px] shadow-2xl border border-border relative max-h-[90vh] overflow-y-auto flex flex-col gap-4">
-        {/* Header (OpenPencil MPWHead) */}
-        <div className="flex items-center justify-between">
-          <h2 className="text-[18px] font-black text-foreground tracking-tight">
-            Vencimiento de Pago Programado
-          </h2>
-          <button
-            onClick={onClose}
-            className="w-7 h-7 rounded-lg text-muted-foreground hover:bg-slate-100 flex items-center justify-center transition"
+    <ResponsiveDrawer
+      open={isOpen}
+      onOpenChange={(open) => !open && onClose()}
+      size="md"
+      title="Vencimiento de pago programado"
+      description="Podés pagarlo de inmediato en 1-Clic o posponer la fecha de recordatorio."
+      footer={
+        <>
+          <Button
+            type="button"
+            size="lg"
+            onClick={handlePay}
+            className="order-1 w-full md:order-2 md:flex-1"
           >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* Top Info Card (OpenPencil SWCard) */}
-        <div className="p-4 rounded-[16px] bg-background border border-border flex flex-col gap-1.5">
+            <Check className="w-4 h-4 mr-1.5" />
+            <span>Confirmar pago {formattedAmount} (1-Clic)</span>
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="lg"
+            onClick={handleSaveDate}
+            className="order-2 w-full md:order-1 md:w-auto"
+          >
+            Guardar nueva fecha ({newDateLabel})
+          </Button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        {/* Info Card */}
+        <div className="p-4 rounded-2xl bg-muted/60 border border-border flex flex-col gap-1.5">
           <div className="flex items-center justify-between">
-            <span className="text-[15px] font-extrabold text-blue-700">
+            <span className="text-sm font-bold text-primary">
               {item.name} ({item.category})
             </span>
-            <span className="text-xs font-extrabold text-[#B45309] bg-amber-100 rounded px-1.5 py-0.5">
+            <span className="text-xs font-bold text-amber-700 bg-amber-100 rounded-md px-2 py-0.5">
               Vence en {item.daysRemaining} días
             </span>
           </div>
 
-          <div className="text-[32px] font-black text-foreground font-mono leading-none my-1">
+          <div className="text-3xl font-extrabold text-foreground tabular-nums my-1">
             {formattedAmount}
           </div>
 
-          <p className="text-xs font-medium text-slate-600">
-            Cuenta debitable: {item.account} • Saldo disponible: Bs. 18,400.00 (Suficiente ✓)
+          <p className="text-xs text-muted-foreground">
+            Cuenta debitable: <strong className="text-foreground">{item.account}</strong> • Saldo disponible suficiente ✓
           </p>
         </div>
 
-        {/* Reschedule Card (OpenPencil RepWeb) */}
-        <div className="p-4 rounded-[16px] bg-white border border-border flex flex-col gap-2.5">
+        {/* Reschedule options */}
+        <div className="p-4 rounded-2xl bg-card border border-border flex flex-col gap-3">
           <span className="text-sm font-bold text-foreground">
-            📅 Modificar Fecha de Vencimiento / Postergar Pago
+            📅 Modificar fecha de vencimiento / postergar
           </span>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            <button
-              type="button"
-              onClick={() => setSelectedOption("today")}
-              className={`h-[32px] px-2 rounded-[8px] text-xs font-semibold border transition text-center ${
-                selectedOption === "today"
-                  ? "border-primary bg-blue-50 text-primary font-extrabold"
-                  : "border-border bg-white text-slate-600 hover:bg-slate-50"
-              }`}
-            >
-              Pagar Hoy
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setSelectedOption("+3d")}
-              className={`h-[32px] px-2 rounded-[8px] text-xs font-extrabold border transition text-center ${
-                selectedOption === "+3d"
-                  ? "border-primary bg-blue-50 text-primary shadow-2xs"
-                  : "border-border bg-white text-slate-600 hover:bg-slate-50"
-              }`}
-            >
-              +3 Días (18 May)
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setSelectedOption("+1w")}
-              className={`h-[32px] px-2 rounded-[8px] text-xs font-semibold border transition text-center ${
-                selectedOption === "+1w"
-                  ? "border-primary bg-blue-50 text-primary font-extrabold"
-                  : "border-border bg-white text-slate-600 hover:bg-slate-50"
-              }`}
-            >
-              +1 Semana (22 May)
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setSelectedOption("custom")}
-              className={`h-[32px] px-2 rounded-[8px] text-xs font-semibold border transition text-center ${
-                selectedOption === "custom"
-                  ? "border-primary bg-blue-50 text-primary font-extrabold"
-                  : "border-border bg-white text-slate-600 hover:bg-slate-50"
-              }`}
-            >
-              Calendario Personalizado
-            </button>
+            {[
+              { id: "today", label: "Pagar Hoy" },
+              { id: "+3d", label: "+3 Días (18 May)" },
+              { id: "+1w", label: "+1 Sem (22 May)" },
+              { id: "custom", label: "Personalizado" },
+            ].map((opt) => (
+              <button
+                key={opt.id}
+                type="button"
+                onClick={() => setSelectedOption(opt.id as typeof selectedOption)}
+                className={`h-10 px-2 rounded-xl text-xs font-semibold border transition text-center ${
+                  selectedOption === opt.id
+                    ? "border-primary bg-accent text-accent-foreground font-bold"
+                    : "border-border bg-card text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
           </div>
 
-          <p className="text-xs font-medium text-muted-foreground">
+          <p className="text-xs text-muted-foreground leading-relaxed">
             Al reprogramar, el bot de WhatsApp y las notificaciones push actualizarán el recordatorio sin penalidad.
           </p>
         </div>
-
-        {/* Buttons (OpenPencil BtnConfPW & BtnPostponeW) */}
-        <div className="flex flex-col gap-2">
-          <button
-            type="button"
-            onClick={handlePay}
-            className="w-full h-[48px] rounded-[12px] bg-primary hover:bg-blue-700 active:scale-[0.99] text-white text-[15px] font-extrabold transition flex items-center justify-center gap-2 shadow-xs"
-          >
-            <Check className="w-[16px] h-[16px] stroke-[2.5]" />
-            <span>Confirmar Pago {formattedAmount} (1-Clic)</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleSaveDate}
-            className="w-full h-[44px] rounded-[12px] text-primary hover:bg-blue-50 text-sm font-bold transition flex items-center justify-center"
-          >
-            Guardar Nueva Fecha (18 de Mayo)
-          </button>
-        </div>
       </div>
-    </div>
+    </ResponsiveDrawer>
   );
 }

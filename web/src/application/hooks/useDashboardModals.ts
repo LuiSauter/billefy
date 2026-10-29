@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { AccountDto, LoanDetailDto } from "@/domain/models/types";
+import { notify } from "@/lib/notify";
 import { RecurringItem } from "@/presentation/components/recurring/RecurringPaymentsView";
 
 export function useDashboardModals(getLoanById: (loanId: string) => Promise<LoanDetailDto>) {
@@ -36,7 +37,7 @@ export function useDashboardModals(getLoanById: (loanId: string) => Promise<Loan
       setSelectedLoanDetail(detail);
       setIsLoanDetailModalOpen(true);
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "Error al cargar detalle");
+      notify.error("Error al cargar detalle del préstamo", err);
     }
   };
 

@@ -16,6 +16,7 @@ import { BudgetsTabView } from "@/presentation/views/BudgetsTabView";
 import { LoansList } from "@/presentation/components/lending/LoansList";
 import { RecurringPaymentsView } from "@/presentation/components/recurring/RecurringPaymentsView";
 import { ModalsContainer } from "@/presentation/modals/ModalsContainer";
+import { notify } from "@/lib/notify";
 import { Loader2, Wallet } from "lucide-react";
 
 export default function DashboardPage() {
@@ -225,7 +226,7 @@ export default function DashboardPage() {
               p2pRate={p2pRate}
               onOpenRescheduleModal={modals.openReschedule}
               onPay1Click={(item) =>
-                alert(`Pago de ${item.name} por Bs. ${item.amount} procesado en 1-Clic`)
+                notify.success(`Pago de ${item.name} confirmado`, `Monto: Bs. ${item.amount} procesado en 1-Clic`)
               }
             />
           )}

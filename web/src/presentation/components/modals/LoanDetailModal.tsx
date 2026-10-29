@@ -1,6 +1,9 @@
+"use client";
+
 import { LoanDetailDto } from "@/domain/models/types";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { ResponsiveDrawer } from "@/components/ui/responsive-drawer";
+import { Progress } from "@/components/ui/progress";
 
 interface LoanDetailModalProps {
   isOpen: boolean;
@@ -11,102 +14,131 @@ interface LoanDetailModalProps {
 export function LoanDetailModal({ isOpen, loan, onClose }: LoanDetailModalProps) {
   if (!isOpen || !loan) return null;
 
+  const principal = Number(loan.summary.principal) || 1;
+  const remaining = Number(loan.summary.remainingPrincipal) || 0;
+  const paid = Math.max(0, principal - remaining);
+  const progressPercent = Math.min(100, Math.round((paid / principal) * 100));
+
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
-      <Card className="w-full max-w-3xl shadow-xl bg-background border my-8">
-        <CardHeader className="border-b flex flex-row items-center justify-between">
-          <div>
-            <CardTitle className="text-lg">Detalle del Préstamo: {loan.summary.counterpartyName}</CardTitle>
-            <p className="text-xs text-muted-foreground">
-              {loan.summary.type === "Lent" ? "Dinero que presté" : "Deuda"} · {loan.summary.template} · TEA: {(loan.summary.annualEffectiveRate * 100).toFixed(2)}%
-            </p>
-          </div>
-          <Button size="sm" variant="ghost" onClick={onClose}>
-            ✕
-          </Button>
-        </CardHeader>
-        <CardContent className="pt-6 space-y-4">
-          <div className="grid grid-cols-3 gap-4 p-3 bg-muted/40 rounded-lg text-xs">
+    <ResponsiveDrawer
+      open={isOpen}
+      onOpenChange={(open) => !open && onClose()}
+      size="xl"
+      title={`Detalle de préstamo: ${loan.summary.counterpartyName}`}
+      description={`${
+        loan.summary.type === "Lent" ? "Dinero que presté" : "Deuda a pagar"
+      } · ${loan.summary.template} · TEA: ${(loan.summary.annualEffectiveRate * 100).toFixed(2)}%`}
+      footer={
+        <Button
+          type="button"
+          variant="outline"
+          size="lg"
+          onClick={onClose}
+          className="w-full sm:w-auto"
+        >
+          Cerrar
+        </Button>
+      }
+    >
+      <div className="flex flex-col gap-5">
+        {/* KPI Card */}
+        <div className="p-4 rounded-2xl bg-muted/60 border border-border flex flex-col gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
             <div>
-              Capital Inicial:{" "}
-              <span className="font-mono font-bold">
+              <span className="text-xs text-muted-foreground block">Capital inicial</span>
+              <strong className="text-base font-extrabold text-foreground tabular-nums">
                 {loan.summary.principal.toFixed(2)} {loan.summary.currency}
-              </span>
+              </strong>
             </div>
             <div>
-              Saldo Pendiente:{" "}
-              <span className="font-mono font-bold text-amber-600">
+              <span className="text-xs text-muted-foreground block">Saldo pendiente</span>
+              <strong className="text-base font-extrabold text-amber-600 tabular-nums">
                 {loan.summary.remainingPrincipal.toFixed(2)} {loan.summary.currency}
-              </span>
+              </strong>
             </div>
-            <div>
-              Cuotas Totales: <span className="font-bold">{loan.summary.totalInstallments}</span>
+            <div className="col-span-2 sm:col-span-1">
+              <span className="text-xs text-muted-foreground block">Cuotas totales</span>
+              <strong className="text-base font-extrabold text-foreground">
+                {loan.summary.totalInstallments}
+              </strong>
             </div>
           </div>
 
-          <div className="space-y-2">
-            <h4 className="text-sm font-semibold">Cronograma de Cuotas</h4>
-            <div className="max-h-60 overflow-y-auto border rounded-md divide-y text-xs font-mono">
-              <div className="grid grid-cols-6 font-bold py-2 px-3 bg-muted/30 text-muted-foreground">
-                <span>#</span>
-                <span>Vence</span>
-                <span>Esperado</span>
-                <span>Cap. Pagado</span>
-                <span>Int. Pagado</span>
-                <span>Estado</span>
+          <div className="flex flex-col gap-1.5 pt-1">
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>Amortización del capital</span>
+              <span className="font-semibold">{progressPercent}% pagado</span>
+            </div>
+            <Progress value={progressPercent} className="h-2" />
+          </div>
+        </div>
+
+        {/* Schedule */}
+        <div className="flex flex-col gap-2">
+          <h4 className="text-sm font-bold text-foreground">Cronograma de cuotas</h4>
+          <div className="max-h-64 overflow-y-auto border border-border rounded-2xl divide-y divide-border text-xs">
+            <div className="grid grid-cols-6 font-bold py-2.5 px-3 bg-muted text-muted-foreground sticky top-0">
+              <span>#</span>
+              <span>Vence</span>
+              <span>Esperado</span>
+              <span>Cap. Pagado</span>
+              <span>Int. Pagado</span>
+              <span>Estado</span>
+            </div>
+            {loan.installments.map((inst) => (
+              <div key={inst.id} className="grid grid-cols-6 py-2.5 px-3 items-center hover:bg-muted/40">
+                <span className="font-semibold text-foreground">Cuota {inst.number}</span>
+                <span className="text-muted-foreground">{inst.dueDate}</span>
+                <span className="font-mono text-foreground">{inst.expectedTotal.toFixed(2)}</span>
+                <span className="font-mono text-foreground">{inst.paidPrincipal.toFixed(2)}</span>
+                <span className="font-mono text-foreground">{inst.paidInterest.toFixed(2)}</span>
+                <span
+                  className={`px-2 py-0.5 rounded-md text-xs w-fit font-semibold ${
+                    inst.status === "Paid"
+                      ? "bg-emerald-100 text-emerald-800"
+                      : inst.status === "Overdue"
+                      ? "bg-rose-100 text-rose-800"
+                      : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  {inst.status}
+                </span>
               </div>
-              {loan.installments.map((inst) => (
-                <div key={inst.id} className="grid grid-cols-6 py-2 px-3 items-center">
-                  <span>Cuota {inst.number}</span>
-                  <span>{inst.dueDate}</span>
-                  <span>{inst.expectedTotal.toFixed(2)}</span>
-                  <span>{inst.paidPrincipal.toFixed(2)}</span>
-                  <span>{inst.paidInterest.toFixed(2)}</span>
-                  <span
-                    className={`px-1.5 py-0.5 rounded text-xs w-fit font-sans font-semibold ${
-                      inst.status === "Paid"
-                        ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
-                        : inst.status === "Overdue"
-                        ? "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300"
-                        : "bg-muted text-muted-foreground"
-                    }`}
-                  >
-                    {inst.status}
-                  </span>
+            ))}
+          </div>
+        </div>
+
+        {/* Payments history */}
+        {loan.payments.length > 0 && (
+          <div className="flex flex-col gap-2">
+            <h4 className="text-sm font-bold text-foreground">
+              Pagos registrados ({loan.payments.length})
+            </h4>
+            <div className="max-h-48 overflow-y-auto border border-border rounded-2xl divide-y divide-border text-xs">
+              {loan.payments.map((pay) => (
+                <div key={pay.id} className="py-2.5 px-3 flex justify-between items-center hover:bg-muted/40">
+                  <div className="flex flex-col gap-0.5">
+                    <span className="font-semibold text-foreground">
+                      Fecha: {new Date(pay.paymentDate).toLocaleDateString()} {pay.note && `· ${pay.note}`}
+                    </span>
+                    <span className="text-muted-foreground">
+                      {pay.allocations
+                        .map(
+                          (a) =>
+                            `Cuota ${a.installmentNumber}: Cap ${a.toPrincipal.toFixed(2)} + Int ${a.toInterest.toFixed(2)}`
+                        )
+                        .join(" | ")}
+                    </span>
+                  </div>
+                  <div className="font-bold text-emerald-600 font-mono text-sm">
+                    +{pay.amount.toFixed(2)} {pay.currency}
+                  </div>
                 </div>
               ))}
             </div>
           </div>
-
-          {loan.payments.length > 0 && (
-            <div className="space-y-2">
-              <h4 className="text-sm font-semibold">Pagos Registrados ({loan.payments.length})</h4>
-              <div className="max-h-40 overflow-y-auto border rounded-md divide-y text-xs font-mono">
-                {loan.payments.map((pay) => (
-                  <div key={pay.id} className="py-2 px-3 flex justify-between items-center">
-                    <div>
-                      <div>
-                        Fecha: {new Date(pay.paymentDate).toLocaleDateString()} {pay.note && `· ${pay.note}`}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {pay.allocations
-                          .map(
-                            (a) =>
-                              `Cuota ${a.installmentNumber}: Cap ${a.toPrincipal.toFixed(2)} + Int ${a.toInterest.toFixed(2)}`
-                          )
-                          .join(" | ")}
-                      </div>
-                    </div>
-                    <div className="font-bold text-emerald-600">
-                      +{pay.amount.toFixed(2)} {pay.currency}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+        )}
+      </div>
+    </ResponsiveDrawer>
   );
 }

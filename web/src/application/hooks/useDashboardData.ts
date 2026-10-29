@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import Decimal from "decimal.js";
+import { notify } from "@/lib/notify";
 import {
   BillefyApiClient,
   AccountDto,
@@ -182,9 +183,12 @@ export function useDashboardData(authToken?: string | null, authUserId?: string 
     if (!client) return;
     const res = await client.reconcileAccount(accountId, { realBalance, notes });
     if (res.difference === 0) {
-      alert("El saldo ya coincide exactamente con el Libro Mayor.");
+      notify.info("Conciliación completada", "El saldo ya coincide exactamente con el Libro Mayor.");
     } else {
-      alert(`Conciliación exitosa. Ajuste aplicado: ${res.difference > 0 ? "+" : ""}${res.difference.toFixed(2)}.`);
+      notify.success(
+        "Conciliación exitosa",
+        `Ajuste aplicado: ${res.difference > 0 ? "+" : ""}${res.difference.toFixed(2)}.`
+      );
     }
     await loadData();
   };
@@ -256,7 +260,10 @@ export function useDashboardData(authToken?: string | null, authUserId?: string 
   const syncBinance = async (accountId: string) => {
     if (!client) return;
     const res = await client.syncBinance({ accountId });
-    alert(`Sincronización completada. Borradores creados: ${res.draftsCreated}, duplicados: ${res.duplicatesLinked}`);
+    notify.success(
+      "Sincronización completada",
+      `Borradores creados: ${res.draftsCreated}, duplicados: ${res.duplicatesLinked}`
+    );
     await loadData();
   };
 

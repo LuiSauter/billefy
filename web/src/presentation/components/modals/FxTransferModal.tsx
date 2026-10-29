@@ -9,6 +9,7 @@ import { FormField, FormGrid } from "@/components/ui/form-field";
 import { MoneyInput } from "@/components/ui/money-input";
 import { ResponsiveDrawer } from "@/components/ui/responsive-drawer";
 import { SelectField } from "@/components/ui/select-field";
+import { notify } from "@/lib/notify";
 import { currencyChipLabel } from "./keypad";
 import { NoAccountsNotice } from "./NoAccountsNotice";
 
@@ -109,7 +110,7 @@ export function FxTransferModal({
       setAmountStr("");
       onClose();
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "Error al procesar transferencia FX");
+      notify.error("Error al procesar transferencia FX", err);
     } finally {
       setLoading(false);
     }

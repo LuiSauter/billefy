@@ -1,9 +1,21 @@
+"use client";
+
 import React, { useState } from "react";
-import { AccountDto, CreateLoanRequest, LoanScheduleDto, LoanTemplate, SimulateLoanRequest } from "@/domain/models/types";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import {
+  AccountDto,
+  CreateLoanRequest,
+  LoanScheduleDto,
+  LoanTemplate,
+  SimulateLoanRequest,
+} from "@/domain/models/types";
 import { Button } from "@/components/ui/button";
+import { FormField, FormGrid } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { MoneyInput } from "@/components/ui/money-input";
+import { ResponsiveDrawer } from "@/components/ui/responsive-drawer";
+import { SegmentedControl } from "@/components/ui/segmented-control";
+import { SelectField } from "@/components/ui/select-field";
+import { notify } from "@/lib/notify";
 
 interface CreateLoanModalProps {
   isOpen: boolean;
@@ -12,6 +24,8 @@ interface CreateLoanModalProps {
   onSimulate: (req: SimulateLoanRequest) => Promise<LoanScheduleDto>;
   onSubmit: (req: CreateLoanRequest) => Promise<void>;
 }
+
+const FORM_ID = "create-loan-form";
 
 export function CreateLoanModal({
   isOpen,
@@ -25,40 +39,41 @@ export function CreateLoanModal({
   const [template, setTemplate] = useState<LoanTemplate>("FixedInstallment");
   const [principal, setPrincipal] = useState("");
   const [currency, setCurrency] = useState("BOB");
-  const [rate, setRate] = useState("");
-  const [installments, setInstallments] = useState("");
+  const [rate, setRate] = useState("0.02");
+  const [installments, setInstallments] = useState("12");
   const [disbursementAcc, setDisbursementAcc] = useState("");
   const [simulatedSchedule, setSimulatedSchedule] = useState<LoanScheduleDto | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [simulating, setSimulating] = useState(false);
 
-  if (!isOpen) return null;
+  const principalNum = parseFloat(principal) || 0;
+  const rateNum = parseFloat(rate) || 0;
+  const installmentsNum = parseInt(installments, 10) || 0;
+  const isValid = counterparty.trim().length > 0 && principalNum > 0 && installmentsNum >= 1;
 
   const handleSimulate = async () => {
-    const p = parseFloat(principal);
-    const r = parseFloat(rate);
-    const n = parseInt(installments, 10);
-    if (isNaN(p) || p <= 0 || isNaN(n) || n < 1) return;
+    if (principalNum <= 0 || installmentsNum < 1) return;
 
+    setSimulating(true);
     try {
       const schedule = await onSimulate({
-        principal: p,
-        rate: isNaN(r) ? 0 : r,
+        principal: principalNum,
+        rate: isNaN(rateNum) ? 0 : rateNum,
         template,
-        totalInstallments: n,
+        totalInstallments: installmentsNum,
       });
       setSimulatedSchedule(schedule);
+      notify.success("Cronograma calculado", `TEA estimada: ${(schedule.annualEffectiveRate * 100).toFixed(2)}%`);
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "Error al simular el cronograma.");
+      notify.error("Error al simular el cronograma", err);
+    } finally {
+      setSimulating(false);
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!counterparty.trim()) return;
-
-    const p = parseFloat(principal);
-    const r = parseFloat(rate);
-    const n = parseInt(installments, 10);
+    if (!isValid) return;
 
     setSubmitting(true);
     try {
@@ -66,209 +81,235 @@ export function CreateLoanModal({
         counterpartyName: counterparty.trim(),
         type,
         template,
-        principal: p,
+        principal: principalNum,
         currency,
-        interestRate: isNaN(r) ? 0 : r,
+        interestRate: isNaN(rateNum) ? 0 : rateNum,
         rateUnit: "NominalMonthly",
-        totalInstallments: n,
+        totalInstallments: installmentsNum,
         frequency: "Monthly",
         disbursementAccountId: disbursementAcc || undefined,
       });
+      notify.success("Préstamo registrado", `Registrado para ${counterparty.trim()}`);
       setPrincipal("");
-      setRate("");
-      setInstallments("");
+      setRate("0.02");
+      setInstallments("12");
       setCounterparty("");
       setSimulatedSchedule(null);
       onClose();
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "Error al crear el préstamo.");
+      notify.error("Error al crear el préstamo", err);
     } finally {
       setSubmitting(false);
     }
   };
 
-  const principalNum = parseFloat(principal) || 0;
-  const installmentsNum = parseInt(installments, 10) || 0;
-
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
-      <Card className="w-full max-w-2xl my-8 shadow-xl bg-background border">
-        <CardHeader className="border-b">
-          <CardTitle className="text-lg">Simular / Registrar Préstamo</CardTitle>
-        </CardHeader>
-        <CardContent className="pt-6 space-y-4">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="counterparty">Contraparte (Persona o Entidad)</Label>
-                <Input
-                  id="counterparty"
-                  required
-                  placeholder="Ej. Juan Pérez, Banco BCP"
-                  value={counterparty}
-                  onChange={(e) => setCounterparty(e.target.value)}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="loanType">Tipo de Operación</Label>
-                <select
-                  id="loanType"
-                  value={type}
-                  onChange={(e) => setType(e.target.value as "Lent" | "Borrowed")}
-                  className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-2xs"
-                >
-                  <option value="Lent">Dinero Prestado (Por Cobrar)</option>
-                  <option value="Borrowed">Deuda Contraída (Por Pagar)</option>
-                </select>
-              </div>
-            </div>
+    <ResponsiveDrawer
+      open={isOpen}
+      onOpenChange={(open) => !open && onClose()}
+      size="xl"
+      title="Simular / Registrar préstamo"
+      description="Calculá la amortización exacta y registralo en tu libro de préstamos."
+      footer={
+        <>
+          <Button
+            type="submit"
+            form={FORM_ID}
+            size="lg"
+            loading={submitting}
+            disabled={!isValid}
+            className="order-1 w-full md:order-3 md:w-auto"
+          >
+            {submitting ? "Creando..." : "Crear préstamo"}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="lg"
+            loading={simulating}
+            disabled={principalNum <= 0 || installmentsNum < 1}
+            onClick={handleSimulate}
+            className="order-2 w-full md:order-2 md:w-auto"
+          >
+            Simular cronograma
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="lg"
+            onClick={onClose}
+            className="order-3 w-full md:order-1 md:w-auto md:border-input md:bg-card"
+          >
+            Cancelar
+          </Button>
+        </>
+      }
+    >
+      <form id={FORM_ID} onSubmit={handleSubmit} className="flex flex-col gap-5">
+        {/* Operation type */}
+        <div className="flex flex-col gap-2">
+          <span className="text-sm font-semibold text-foreground">Tipo de operación</span>
+          <SegmentedControl
+            aria-label="Tipo de operación"
+            fullWidth
+            value={type}
+            onChange={(v) => setType(v as "Lent" | "Borrowed")}
+            options={[
+              { value: "Lent", label: "Dinero prestado (A mi favor)", tone: "income" },
+              { value: "Borrowed", label: "Deuda contraída (Por pagar)", tone: "expense" },
+            ]}
+          />
+        </div>
 
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="template">Sistema de Amortización</Label>
-                <select
-                  id="template"
-                  value={template}
-                  onChange={(e) => setTemplate(e.target.value as LoanTemplate)}
-                  className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-2xs"
-                >
-                  <option value="FixedInstallment">Francés (Cuota Fija)</option>
-                  <option value="Decreasing">Alemán (Capital Fijo)</option>
-                  <option value="American">Americano (Interés Periódico)</option>
-                  <option value="SingleEnd">Bullet (Pago Único al Vencer)</option>
-                </select>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="principal">Capital Principal</Label>
-                <Input
-                  id="principal"
-                  type="number"
-                  step="0.01"
-                  required
-                  placeholder="0.00"
-                  value={principal}
-                  onChange={(e) => setPrincipal(e.target.value)}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="currency">Moneda</Label>
-                <select
-                  id="currency"
-                  value={currency}
-                  onChange={(e) => setCurrency(e.target.value)}
-                  className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-2xs"
-                >
-                  <option value="BOB">BOB</option>
-                  <option value="USD">USD</option>
-                  <option value="USDT">USDT</option>
-                </select>
-              </div>
-            </div>
+        <FormGrid>
+          <FormField label="Contraparte (Persona o Entidad)" required>
+            {(control) => (
+              <Input
+                {...control}
+                type="text"
+                value={counterparty}
+                onChange={(e) => setCounterparty(e.target.value)}
+                placeholder="Ej. Juan Pérez, Banco BCP"
+              />
+            )}
+          </FormField>
 
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="rate">Tasa Mensual Nominal (ej: 0.02 = 2%)</Label>
-                <Input
-                  id="rate"
-                  type="number"
-                  step="0.0001"
-                  required
-                  placeholder="0.02"
-                  value={rate}
-                  onChange={(e) => setRate(e.target.value)}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="installments">Número de Cuotas</Label>
-                <Input
-                  id="installments"
-                  type="number"
-                  min="1"
-                  required
-                  placeholder="12"
-                  value={installments}
-                  onChange={(e) => setInstallments(e.target.value)}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="disbursementAcc">Cuenta de Desembolso</Label>
-                <select
-                  id="disbursementAcc"
-                  value={disbursementAcc}
-                  onChange={(e) => setDisbursementAcc(e.target.value)}
-                  className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-2xs"
-                >
-                  <option value="">Sin desembolso en cuenta</option>
-                  {accounts.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.name} ({a.currency})
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
+          <FormField label="Sistema de amortización">
+            {(control) => (
+              <SelectField
+                {...control}
+                value={template}
+                onChange={(e) => setTemplate(e.target.value as LoanTemplate)}
+                options={[
+                  { value: "FixedInstallment", label: "Francés (Cuota Fija)" },
+                  { value: "Decreasing", label: "Alemán (Capital Fijo)" },
+                  { value: "American", label: "Americano (Interés Periódico)" },
+                  { value: "SingleEnd", label: "Bullet (Pago Único al Vencer)" },
+                ]}
+              />
+            )}
+          </FormField>
+        </FormGrid>
 
-            <div className="flex justify-between items-center pt-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleSimulate}
-                disabled={principalNum <= 0 || installmentsNum < 1}
-              >
-                🔍 Simular Cronograma Exacto
-              </Button>
-              <div className="flex gap-2">
-                <Button type="button" variant="outline" onClick={onClose}>
-                  Cancelar
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={submitting || !counterparty.trim() || principalNum <= 0}
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
-                >
-                  {submitting ? "Creando..." : "Crear Préstamo"}
-                </Button>
-              </div>
-            </div>
-          </form>
+        <FormGrid>
+          <FormField label="Capital principal" required>
+            {(control) => (
+              <MoneyInput
+                {...control}
+                size="lg"
+                currency={currency === "BOB" ? "Bs" : currency === "USD" ? "$" : "USDT"}
+                value={principal}
+                onValueChange={setPrincipal}
+              />
+            )}
+          </FormField>
 
-          {simulatedSchedule && (
-            <div className="mt-4 p-4 border rounded-lg bg-muted/40 space-y-3">
-              <div className="flex justify-between text-sm font-semibold">
-                <span>TEA: {(simulatedSchedule.annualEffectiveRate * 100).toFixed(2)}%</span>
-                <span>Total Intereses: {simulatedSchedule.totalInterest.toFixed(2)} {currency}</span>
-                <span>Costo Total: {simulatedSchedule.totalToPay.toFixed(2)} {currency}</span>
-              </div>
-              <div className="max-h-40 overflow-y-auto text-xs">
-                <table className="w-full text-left">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="p-1">#</th>
-                      <th className="p-1">Vence</th>
-                      <th className="p-1">Cuota</th>
-                      <th className="p-1">Capital</th>
-                      <th className="p-1">Interés</th>
-                      <th className="p-1">Saldo</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {simulatedSchedule.installments.map((inst) => (
-                      <tr key={inst.number} className="border-b">
-                        <td className="p-1">{inst.number}</td>
-                        <td className="p-1">{inst.dueDate}</td>
-                        <td className="p-1 font-mono">{inst.total.toFixed(2)}</td>
-                        <td className="p-1 font-mono">{inst.principal.toFixed(2)}</td>
-                        <td className="p-1 font-mono">{inst.interest.toFixed(2)}</td>
-                        <td className="p-1 font-mono">{inst.balanceAfter.toFixed(2)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+          <FormField label="Moneda">
+            {(control) => (
+              <SelectField
+                {...control}
+                value={currency}
+                onChange={(e) => setCurrency(e.target.value)}
+                options={[
+                  { value: "BOB", label: "Bolivianos (BOB)" },
+                  { value: "USD", label: "Dólares (USD)" },
+                  { value: "USDT", label: "Tether (USDT)" },
+                ]}
+              />
+            )}
+          </FormField>
+        </FormGrid>
+
+        <FormGrid>
+          <FormField label="Tasa mensual nominal" hint="Ej: 0.02 equivale al 2% mensual" required>
+            {(control) => (
+              <Input
+                {...control}
+                type="number"
+                step="0.0001"
+                value={rate}
+                onChange={(e) => setRate(e.target.value)}
+                placeholder="0.02"
+              />
+            )}
+          </FormField>
+
+          <FormField label="Número de cuotas" required>
+            {(control) => (
+              <Input
+                {...control}
+                type="number"
+                min="1"
+                value={installments}
+                onChange={(e) => setInstallments(e.target.value)}
+                placeholder="12"
+              />
+            )}
+          </FormField>
+        </FormGrid>
+
+        <FormField label="Cuenta de desembolso" hint="Opcional. Registra el débito/crédito en una cuenta real.">
+          {(control) => (
+            <SelectField
+              {...control}
+              value={disbursementAcc}
+              onChange={(e) => setDisbursementAcc(e.target.value)}
+              options={[
+                { value: "", label: "(Sin desembolso en cuenta bancaria)" },
+                ...accounts.map((a) => ({
+                  value: a.id,
+                  label: a.name,
+                  description: `${a.currency} · Saldo ${a.balance.toFixed(2)}`,
+                })),
+              ]}
+            />
           )}
-        </CardContent>
-      </Card>
-    </div>
+        </FormField>
+
+        {simulatedSchedule && (
+          <div className="p-4 rounded-2xl bg-muted/60 border border-border flex flex-col gap-3">
+            <div className="grid grid-cols-3 gap-3 text-sm">
+              <div>
+                <span className="text-xs text-muted-foreground block">TEA</span>
+                <strong className="text-base font-extrabold text-foreground tabular-nums">
+                  {(simulatedSchedule.annualEffectiveRate * 100).toFixed(2)}%
+                </strong>
+              </div>
+              <div>
+                <span className="text-xs text-muted-foreground block">Total Intereses</span>
+                <strong className="text-base font-extrabold text-foreground tabular-nums">
+                  {simulatedSchedule.totalInterest.toFixed(2)} {currency}
+                </strong>
+              </div>
+              <div>
+                <span className="text-xs text-muted-foreground block">Costo Total</span>
+                <strong className="text-base font-extrabold text-primary tabular-nums">
+                  {simulatedSchedule.totalToPay.toFixed(2)} {currency}
+                </strong>
+              </div>
+            </div>
+
+            <div className="max-h-48 overflow-y-auto border border-border rounded-xl divide-y divide-border text-xs bg-card">
+              <div className="grid grid-cols-5 font-bold py-2 px-3 bg-muted text-muted-foreground sticky top-0">
+                <span>Cuota</span>
+                <span>Vence</span>
+                <span>Capital</span>
+                <span>Interés</span>
+                <span>Total</span>
+              </div>
+              {simulatedSchedule.installments.map((inst) => (
+                <div key={inst.number} className="grid grid-cols-5 py-2 px-3 items-center font-mono">
+                  <span className="font-sans font-semibold">#{inst.number}</span>
+                  <span>{inst.dueDate}</span>
+                  <span>{inst.principal.toFixed(2)}</span>
+                  <span>{inst.interest.toFixed(2)}</span>
+                  <span className="font-bold text-foreground">{inst.total.toFixed(2)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </form>
+    </ResponsiveDrawer>
   );
 }

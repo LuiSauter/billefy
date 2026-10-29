@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { Plus, Calendar } from "lucide-react";
+import { notify } from "@/lib/notify";
 
 export interface RecurringItem {
   id: string;
@@ -49,7 +50,10 @@ export function RecurringPaymentsView({
 
         <button
           onClick={() => {
-            alert("Próximamente: Podrás vincular pagos recurrentes a partir de tus transacciones periódicas detectadas.");
+            notify.info(
+              "Próximamente disponible",
+              "Podrás vincular pagos recurrentes a partir de tus transacciones periódicas detectadas."
+            );
           }}
           className="h-[38px] px-4 rounded-[10px] bg-primary hover:bg-blue-700 active:scale-[0.99] text-white text-sm font-extrabold transition flex items-center gap-1.5 shadow-xs shrink-0"
         >

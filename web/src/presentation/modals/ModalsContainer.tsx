@@ -3,6 +3,7 @@
 import React from "react";
 import { AccountDto, DraftDto } from "@/domain/models/types";
 import { DashboardModalsController } from "@/application/hooks/useDashboardModals";
+import { notify } from "@/lib/notify";
 
 // Modals
 import { FxTransferModal } from "@/presentation/components/modals/FxTransferModal";
@@ -95,10 +96,10 @@ export function ModalsContainer({
         onClose={() => modals.setIsRescheduleModalOpen(false)}
         item={modals.selectedRecurringItem}
         onConfirmPay={(item) => {
-          alert(`Pago de ${item.name} por Bs. ${item.amount} confirmado en 1-Clic`);
+          notify.success("Pago confirmado", `Pago de ${item.name} por Bs. ${item.amount} confirmado en 1-Clic`);
         }}
         onSaveNewDate={(item, newDate) => {
-          alert(`Fecha de vencimiento de ${item.name} actualizada para ${newDate}`);
+          notify.success("Fecha reprogramada", `Fecha de vencimiento de ${item.name} actualizada para ${newDate}`);
         }}
       />
 

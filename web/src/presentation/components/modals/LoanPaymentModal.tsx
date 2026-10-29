@@ -1,9 +1,13 @@
-import { useState } from "react";
+"use client";
+
+import React, { useState } from "react";
 import { AccountDto, RegisterLoanPaymentRequest } from "@/domain/models/types";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { MoneyInput } from "@/components/ui/money-input";
+import { ResponsiveDrawer } from "@/components/ui/responsive-drawer";
+import { SelectField } from "@/components/ui/select-field";
 
 interface LoanPaymentModalProps {
   isOpen: boolean;
@@ -11,6 +15,8 @@ interface LoanPaymentModalProps {
   onClose: () => void;
   onSubmit: (req: RegisterLoanPaymentRequest) => Promise<void>;
 }
+
+const FORM_ID = "loan-payment-form";
 
 export function LoanPaymentModal({
   isOpen,
@@ -23,12 +29,12 @@ export function LoanPaymentModal({
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  if (!isOpen) return null;
+  const parsedAmount = parseFloat(amount);
+  const isValid = !isNaN(parsedAmount) && parsedAmount > 0;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const parsedAmount = parseFloat(amount);
-    if (isNaN(parsedAmount) || parsedAmount <= 0) return;
+    if (!isValid) return;
 
     setSubmitting(true);
     try {
@@ -46,69 +52,87 @@ export function LoanPaymentModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-      <Card className="w-full max-w-md shadow-xl bg-background border">
-        <CardHeader className="border-b">
-          <CardTitle className="text-lg">Registrar Pago a Préstamo</CardTitle>
-        </CardHeader>
-        <CardContent className="pt-6">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <p className="text-xs text-muted-foreground">
-              El pago se imputará en cascada estricta (Mora $\rightarrow$ Interés Corriente $\rightarrow$ Capital) cubriendo las cuotas más antiguas primero (LOAN_ENGINE.md).
-            </p>
+    <ResponsiveDrawer
+      open={isOpen}
+      onOpenChange={(open) => !open && onClose()}
+      size="md"
+      title="Registrar pago a préstamo"
+      description="Imputación en cascada estricta: Mora → Interés → Capital."
+      footer={
+        <>
+          <Button
+            type="submit"
+            form={FORM_ID}
+            size="lg"
+            variant="success"
+            loading={submitting}
+            disabled={!isValid}
+            className="order-1 w-full md:order-2 md:flex-1"
+          >
+            {submitting ? "Aplicando..." : "Confirmar pago"}
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="lg"
+            onClick={onClose}
+            className="order-2 w-full md:order-1 md:w-auto md:border-input md:bg-card"
+          >
+            Cancelar
+          </Button>
+        </>
+      }
+    >
+      <form id={FORM_ID} onSubmit={handleSubmit} className="flex flex-col gap-5">
+        <div className="p-3.5 rounded-2xl bg-muted/60 border border-border text-xs text-muted-foreground leading-relaxed">
+          El pago cubre las cuotas más antiguas primero según las reglas de amortización del motor financiero.
+        </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="paymentAmount">Monto Pagado</Label>
-              <Input
-                id="paymentAmount"
-                type="number"
-                step="0.01"
-                required
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="0.00"
-              />
-            </div>
+        <FormField label="Monto pagado" required>
+          {(control) => (
+            <MoneyInput
+              {...control}
+              size="lg"
+              currency="Bs"
+              value={amount}
+              onValueChange={setAmount}
+            />
+          )}
+        </FormField>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="paymentAccount">Imputar en Cuenta del Libro Mayor (opcional)</Label>
-              <select
-                id="paymentAccount"
-                value={accountId}
-                onChange={(e) => setAccountId(e.target.value)}
-                className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-2xs focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring"
-              >
-                <option value="">(Sin registrar movimiento en cuenta bancaria)</option>
-                {accounts.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name} ({a.currency})
-                  </option>
-                ))}
-              </select>
-            </div>
+        <FormField
+          label="Imputar en cuenta del libro mayor"
+          hint="Opcional. Registra el egreso o ingreso en tu saldo bancario."
+        >
+          {(control) => (
+            <SelectField
+              {...control}
+              value={accountId}
+              onChange={(e) => setAccountId(e.target.value)}
+              options={[
+                { value: "", label: "(Sin movimiento en cuenta bancaria)" },
+                ...accounts.map((a) => ({
+                  value: a.id,
+                  label: a.name,
+                  description: `${a.currency} · Saldo ${a.balance.toFixed(2)}`,
+                })),
+              ]}
+            />
+          )}
+        </FormField>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="paymentNote">Nota del Pago (opcional)</Label>
-              <Input
-                id="paymentNote"
-                type="text"
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                placeholder="Ej. Pago cuota 1 en efectivo"
-              />
-            </div>
-
-            <div className="flex justify-end gap-2 pt-4 border-t">
-              <Button type="button" variant="outline" onClick={onClose}>
-                Cancelar
-              </Button>
-              <Button type="submit" disabled={submitting} className="bg-emerald-600 hover:bg-emerald-700 text-white">
-                {submitting ? "Aplicando..." : "Confirmar Pago"}
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-    </div>
+        <FormField label="Nota del pago" hint="Opcional. Identificador o comprobante de la transferencia.">
+          {(control) => (
+            <Input
+              {...control}
+              type="text"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Ej. Pago cuota 1 en efectivo o transferencia"
+            />
+          )}
+        </FormField>
+      </form>
+    </ResponsiveDrawer>
   );
 }
