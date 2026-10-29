@@ -6,6 +6,8 @@ import { BudgetMetrics } from "@/application/hooks/useFinancialMetrics";
 import { MonthlyBudgetView } from "@/presentation/components/planning/MonthlyBudgetView";
 import { FinancialGoalsView } from "@/presentation/components/planning/FinancialGoalsView";
 import { HealthIndicatorsCard } from "@/presentation/components/dashboard/HealthIndicatorsCard";
+import { Split503020Chart } from "@/presentation/components/planning/Split503020Chart";
+import { BudgetsComparisonChart } from "@/presentation/components/planning/BudgetsComparisonChart";
 
 interface BudgetsTabViewProps {
   budgets: BudgetDto[];
@@ -32,6 +34,12 @@ export function BudgetsTabView({
 }: BudgetsTabViewProps) {
   return (
     <div className="flex flex-col gap-6">
+      {/* Visual Analytics */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+        <BudgetsComparisonChart budgets={budgets} />
+        <Split503020Chart health={health} />
+      </div>
+
       <MonthlyBudgetView
         budgets={budgets}
         metrics={budgetMetrics}
