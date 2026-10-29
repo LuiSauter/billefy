@@ -2,6 +2,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using BuildingBlocks.Time;
 using Identity.Application.Abstractions;
 using Identity.Domain.Entities;
 using Microsoft.Extensions.Configuration;
@@ -15,8 +16,9 @@ public sealed class JwtTokenService : ITokenService
     private readonly string _issuer;
     private readonly string _audience;
     private readonly int _expirationMinutes;
+    private readonly IClock _clock;
 
-    public JwtTokenService(IConfiguration configuration)
+    public JwtTokenService(IConfiguration configuration, IClock clock)
     {
         _secretKey = configuration["Jwt:Secret"]
                      ?? Environment.GetEnvironmentVariable("JWT_SECRET")
@@ -24,6 +26,7 @@ public sealed class JwtTokenService : ITokenService
         _issuer = configuration["Jwt:Issuer"] ?? "BillefyApi";
         _audience = configuration["Jwt:Audience"] ?? "BillefyClients";
         _expirationMinutes = int.TryParse(configuration["Jwt:ExpirationMinutes"], out var exp) ? exp : 60; // 1 hour access token
+        _clock = clock;
     }
 
     public int AccessTokenExpirationSeconds => _expirationMinutes * 60;
@@ -46,7 +49,7 @@ public sealed class JwtTokenService : ITokenService
         var tokenDescriptor = new SecurityTokenDescriptor
         {
             Subject = new ClaimsIdentity(claims),
-            Expires = DateTime.UtcNow.AddMinutes(_expirationMinutes),
+            Expires = _clock.UtcNow.AddMinutes(_expirationMinutes),
             Issuer = _issuer,
             Audience = _audience,
             SigningCredentials = new SigningCredentials(

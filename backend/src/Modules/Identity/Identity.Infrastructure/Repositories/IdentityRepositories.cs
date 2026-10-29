@@ -37,10 +37,12 @@ public sealed class UserRepository : IUserRepository
 public sealed class RefreshTokenRepository : IRefreshTokenRepository
 {
     private readonly IdentityDbContext _context;
+    private readonly BuildingBlocks.Time.IClock _clock;
 
-    public RefreshTokenRepository(IdentityDbContext context)
+    public RefreshTokenRepository(IdentityDbContext context, BuildingBlocks.Time.IClock clock)
     {
         _context = context;
+        _clock = clock;
     }
 
     public async Task<RefreshToken?> GetByTokenAsync(string token, CancellationToken ct = default)
@@ -59,9 +61,10 @@ public sealed class RefreshTokenRepository : IRefreshTokenRepository
             .Where(rt => rt.UserId == userId && rt.RevokedAt == null)
             .ToListAsync(ct);
 
+        var now = _clock.UtcNow;
         foreach (var t in activeTokens)
         {
-            t.Revoke(null, DateTime.UtcNow);
+            t.Revoke(null, now);
         }
     }
 }

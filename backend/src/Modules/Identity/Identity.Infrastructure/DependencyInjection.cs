@@ -30,12 +30,19 @@ public static class DependencyInjection
         var googleClientSecret = configuration["Google:ClientSecret"]
             ?? Environment.GetEnvironmentVariable("GOOGLE_CLIENT_SECRET")
             ?? "";
+        var aspnetEnv = configuration["ASPNETCORE_ENVIRONMENT"]
+            ?? Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")
+            ?? "Development";
+        var allowDevTokens = string.Equals(aspnetEnv, "Development", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(aspnetEnv, "Testing", StringComparison.OrdinalIgnoreCase);
 
         services.AddSingleton(new GoogleAuthOptions
         {
             ClientId = googleClientId,
-            ClientSecret = googleClientSecret
+            ClientSecret = googleClientSecret,
+            AllowDevPlainEmailTokens = allowDevTokens
         });
+        services.AddSingleton(new GoogleAuthValidationOptions(googleClientId, allowDevTokens));
 
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
