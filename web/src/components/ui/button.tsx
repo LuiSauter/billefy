@@ -3,7 +3,7 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "cn"
 
 const buttonVariants = cva(
-  "group/button inline-flex shrink-0 items-center justify-center rounded-[12px] border border-transparent bg-clip-padding text-sm font-semibold whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:scale-[0.99] disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "group/button inline-flex shrink-0 items-center justify-center rounded-[12px] border border-transparent bg-clip-padding text-sm font-semibold whitespace-nowrap transition-all outline-hidden select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:scale-[0.99] disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
@@ -11,7 +11,7 @@ const buttonVariants = cva(
         success: "bg-[#10B981] text-white hover:bg-[#059669] shadow-[0_1px_2px_rgba(16,185,129,0.25)]",
         dark: "bg-[#0F172A] text-white hover:bg-slate-800 shadow-[0_1px_2px_rgba(15,23,42,0.2)]",
         outline:
-          "border-[#E2E8F0] bg-white text-[#0F172A] hover:bg-slate-50 hover:text-slate-900 shadow-xs",
+          "border-[#E2E8F0] bg-white text-[#0F172A] hover:bg-slate-50 hover:text-slate-900 shadow-2xs",
         secondary:
           "bg-slate-100 text-[#334155] hover:bg-slate-200",
         ghost:

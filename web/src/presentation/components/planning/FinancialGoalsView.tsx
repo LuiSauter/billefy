@@ -30,31 +30,31 @@ export function FinancialGoalsView({
   };
 
   const getProgressColor = (idx: number) => {
-    const colors = ["bg-[#2563EB]", "bg-[#10B981]", "bg-[#3B82F6]", "bg-[#8B5CF6]"];
+    const colors = ["bg-primary", "bg-emerald-500", "bg-blue-500", "bg-violet-500"];
     return colors[idx % colors.length];
   };
 
   const getPercentageColor = (idx: number) => {
-    const colors = ["text-[#2563EB]", "text-[#10B981]", "text-[#3B82F6]", "text-[#8B5CF6]"];
+    const colors = ["text-primary", "text-emerald-500", "text-blue-500", "text-violet-500"];
     return colors[idx % colors.length];
   };
 
   return (
-    <div className="w-full max-w-[880px] p-[24px_24px_32px_24px] rounded-[24px] bg-white border border-[#E2E8F0] shadow-sm flex flex-col gap-[18px]">
+    <div className="w-full max-w-[880px] p-[24px_24px_32px_24px] rounded-[24px] bg-white border border-border shadow-xs flex flex-col gap-[18px]">
       {/* Header (OpenPencil GMWH) */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-[18px] font-[900] text-[#0F172A] tracking-tight">
+          <h1 className="text-[18px] font-black text-foreground tracking-tight">
             Objetivos Financieros & Metas de Ahorro
           </h1>
-          <p className="text-[11px] font-[500] text-[#64748B] mt-0.5">
+          <p className="text-xs font-medium text-muted-foreground mt-0.5">
             Seguimiento patrimonial en bolivianos (BOB) y criptoactivos (USDT)
           </p>
         </div>
 
         <button
           onClick={onOpenCreateGoalModal}
-          className="h-[38px] px-4 rounded-[10px] bg-[#2563EB] hover:bg-blue-700 active:scale-[0.99] text-white text-[12px] font-[800] transition flex items-center gap-1.5 shadow-sm shrink-0"
+          className="h-[38px] px-4 rounded-[10px] bg-primary hover:bg-blue-700 active:scale-[0.99] text-white text-sm font-extrabold transition flex items-center gap-1.5 shadow-xs shrink-0"
         >
           <Plus className="w-4 h-4" />
           <span>+ Nuevo Objetivo</span>
@@ -62,43 +62,43 @@ export function FinancialGoalsView({
       </div>
 
       {/* Dark Slate Summary Banner (OpenPencil SFWCard) */}
-      <div className="p-4 rounded-[16px] bg-[#0F172A] text-white shadow-md grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="p-4 rounded-[16px] bg-slate-900 text-white shadow-md grid grid-cols-2 md:grid-cols-4 gap-4">
         {/* Col 0: Tasa de Ahorro */}
         <div className="flex flex-col gap-0.5">
-          <span className="text-[11px] font-[600] text-[#94A3B8]">Tasa de Ahorro</span>
-          <span className="text-[20px] font-[900] text-white font-mono">
+          <span className="text-xs font-semibold text-slate-500">Tasa de Ahorro</span>
+          <span className="text-[20px] font-black text-white font-mono">
             {health ? `${(health.savingsRate * 100).toFixed(1)}%` : "0.0%"}
           </span>
-          <span className="text-[10px] font-[500] text-[#34D399]">Meta: &gt;20%</span>
+          <span className="text-xs font-medium text-emerald-400">Meta: &gt;20%</span>
         </div>
 
         {/* Col 1: Fondo Emergencia */}
         <div className="flex flex-col gap-0.5">
-          <span className="text-[11px] font-[600] text-[#94A3B8]">Fondo Emergencia</span>
-          <span className="text-[20px] font-[900] text-white font-mono">
+          <span className="text-xs font-semibold text-slate-500">Fondo Emergencia</span>
+          <span className="text-[20px] font-black text-white font-mono">
             {health?.emergencyFundMonths ? `${health.emergencyFundMonths.toFixed(1)} meses` : "0.0 meses"}
           </span>
-          <span className="text-[10px] font-[500] text-[#60A5FA]">Objetivo 3 a 6 meses</span>
+          <span className="text-xs font-medium text-blue-400">Objetivo 3 a 6 meses</span>
         </div>
 
         {/* Col 2: Carga de Deuda */}
         <div className="flex flex-col gap-0.5">
-          <span className="text-[11px] font-[600] text-[#94A3B8]">Carga de Deuda</span>
-          <span className="text-[20px] font-[900] text-white font-mono">
+          <span className="text-xs font-semibold text-slate-500">Carga de Deuda</span>
+          <span className="text-[20px] font-black text-white font-mono">
             {health && health.monthlyIncome > 0
               ? `${((health.totalDebtLiabilities / health.monthlyIncome) * 100).toFixed(1)}%`
               : "0.0%"}
           </span>
-          <span className="text-[10px] font-[500] text-[#34D399]">Límite prudente: 30%</span>
+          <span className="text-xs font-medium text-emerald-400">Límite prudente: 30%</span>
         </div>
 
         {/* Col 3: Total Ahorrado */}
         <div className="flex flex-col gap-0.5">
-          <span className="text-[11px] font-[600] text-[#94A3B8]">Total Asignado a Metas</span>
-          <span className="text-[20px] font-[900] text-white font-mono">
+          <span className="text-xs font-semibold text-slate-500">Total Asignado a Metas</span>
+          <span className="text-[20px] font-black text-white font-mono">
             Bs. {totalSavedBob}
           </span>
-          <span className="text-[10px] font-[500] text-[#FCD34D]">
+          <span className="text-xs font-medium text-[#FCD34D]">
             {goals.length} {goals.length === 1 ? "Meta activa" : "Metas activas"}
           </span>
         </div>
@@ -107,14 +107,14 @@ export function FinancialGoalsView({
       {/* Goal Cards List (OpenPencil GWItem_0, 1, 2, 3) */}
       <div className="flex flex-col gap-3">
         {goals.length === 0 ? (
-          <div className="p-8 rounded-[16px] bg-white border border-[#E2E8F0] text-center text-[#64748B] text-xs space-y-2">
+          <div className="p-8 rounded-[16px] bg-white border border-border text-center text-muted-foreground text-xs space-y-2">
             <p className="font-semibold text-slate-700">No tenés metas de ahorro creadas todavía.</p>
             <p className="text-slate-500 max-w-sm mx-auto">
               Definí objetivos como tu fondo de emergencia, vehículo o vacaciones para proyectar tu ahorro mes a mes.
             </p>
             <button
               onClick={onOpenCreateGoalModal}
-              className="mt-2 text-[#2563EB] font-bold text-xs hover:underline"
+              className="mt-2 text-primary font-bold text-xs hover:underline"
             >
               + Crear mi primera meta
             </button>
@@ -142,30 +142,30 @@ export function FinancialGoalsView({
             return (
               <div
                 key={g.id}
-                className="p-4 rounded-[16px] bg-white border border-[#E2E8F0] shadow-2xs flex flex-col gap-3 hover:border-slate-300 transition"
+                className="p-4 rounded-[16px] bg-white border border-border shadow-2xs flex flex-col gap-3 hover:border-slate-300 transition"
               >
                 {/* Top Row: Icon + Name + Percentage + Target */}
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2.5 min-w-0">
                     <span className="text-[20px] shrink-0">{getEmoji(g.name)}</span>
                     <div className="flex flex-col min-w-0">
-                      <span className="text-[14px] font-[800] text-[#0F172A] truncate">
+                      <span className="text-[15px] font-extrabold text-foreground truncate">
                         {g.name}
                       </span>
-                      <span className="text-[10px] text-[#64748B] font-medium">
+                      <span className="text-xs text-muted-foreground font-medium">
                         Meta: {targetFormatted} {g.targetDate ? `• Fecha: ${g.targetDate}` : ""}
                       </span>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-3 shrink-0">
-                    <span className={`text-[15px] font-[900] font-mono ${percentColor}`}>
+                    <span className={`text-[15px] font-black font-mono ${percentColor}`}>
                       {percentage}%
                     </span>
                     {onOpenContributeModal && (
                       <button
                         onClick={() => onOpenContributeModal(g)}
-                        className="h-[30px] px-2.5 rounded-[8px] bg-slate-100 hover:bg-slate-200 text-[#0F172A] text-[11px] font-[700] transition"
+                        className="h-[30px] px-2.5 rounded-[8px] bg-slate-100 hover:bg-slate-200 text-foreground text-xs font-bold transition"
                       >
                         Aportar
                       </button>
@@ -182,9 +182,9 @@ export function FinancialGoalsView({
                 </div>
 
                 {/* Footnote: Current vs Remaining */}
-                <div className="flex items-center justify-between text-[11px] font-mono text-[#64748B]">
-                  <span>Ahorrado: <b className="text-[#0F172A]">{currentFormatted}</b></span>
-                  <span>Faltan: <b className="text-[#0F172A]">{remainingFormatted}</b></span>
+                <div className="flex items-center justify-between text-xs font-mono text-muted-foreground">
+                  <span>Ahorrado: <b className="text-foreground">{currentFormatted}</b></span>
+                  <span>Faltan: <b className="text-foreground">{remainingFormatted}</b></span>
                 </div>
               </div>
             );

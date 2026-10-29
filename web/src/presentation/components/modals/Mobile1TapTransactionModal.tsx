@@ -33,9 +33,9 @@ export function Mobile1TapTransactionModal({
   if (accounts.length === 0) {
     return (
       <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
-        <div className="w-full sm:max-w-md bg-white rounded-t-[28px] sm:rounded-[24px] border border-[#E2E8F0] shadow-2xl p-6 flex flex-col gap-4">
+        <div className="w-full sm:max-w-md bg-white rounded-t-[28px] sm:rounded-[24px] border border-border shadow-2xl p-6 flex flex-col gap-4">
           <div className="flex items-center justify-between border-b pb-3">
-            <span className="text-[16px] font-[800] text-[#0F172A] tracking-tight">
+            <span className="text-[16px] font-extrabold text-foreground tracking-tight">
               Nuevo Movimiento (1-Tap)
             </span>
             <button
@@ -50,10 +50,10 @@ export function Mobile1TapTransactionModal({
             <div className="w-12 h-12 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600">
               <AlertCircle className="w-6 h-6" />
             </div>
-            <h3 className="text-[16px] font-[800] text-[#0F172A]">
+            <h3 className="text-[16px] font-extrabold text-foreground">
               No tenés cuentas registradas
             </h3>
-            <p className="text-[12px] text-[#64748B] max-w-[300px] leading-relaxed">
+            <p className="text-sm text-muted-foreground max-w-[300px] leading-relaxed">
               Para registrar gastos o ingresos rápidos en 1-Tap, primero necesitás crear una cuenta bancaria o billetera.
             </p>
             {onOpenCreateAccount && (
@@ -63,7 +63,7 @@ export function Mobile1TapTransactionModal({
                   onClose();
                   onOpenCreateAccount();
                 }}
-                className="mt-2 h-[44px] px-6 rounded-[12px] bg-[#2563EB] hover:bg-blue-700 text-white text-[13px] font-[800] transition flex items-center gap-2 shadow-xs"
+                className="mt-2 h-[44px] px-6 rounded-[12px] bg-primary hover:bg-blue-700 text-white text-sm font-extrabold transition flex items-center gap-2 shadow-2xs"
               >
                 <PlusCircle className="w-4 h-4" />
                 <span>Crear mi primera cuenta</span>
@@ -124,10 +124,10 @@ export function Mobile1TapTransactionModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="w-full sm:max-w-md bg-white rounded-t-[28px] sm:rounded-[24px] border border-[#E2E8F0] shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+      <div className="w-full sm:max-w-md bg-white rounded-t-[28px] sm:rounded-[24px] border border-border shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
         {/* Header (OpenPencil MHead n2237) */}
-        <div className="flex items-center justify-between p-4 border-b border-[#F1F5F9]">
-          <span className="text-[16px] font-[800] text-[#0F172A] tracking-tight">
+        <div className="flex items-center justify-between p-4 border-b border-slate-100">
+          <span className="text-[16px] font-extrabold text-foreground tracking-tight">
             Nuevo Movimiento (1-Tap)
           </span>
           <button
@@ -144,9 +144,9 @@ export function Mobile1TapTransactionModal({
             <button
               type="button"
               onClick={() => setDirection("Expense")}
-              className={`py-2 rounded-[9px] text-[12px] font-[700] transition ${
+              className={`py-2 rounded-[9px] text-sm font-bold transition ${
                 direction === "Expense"
-                  ? "bg-white text-[#EF4444] shadow-xs"
+                  ? "bg-white text-red-500 shadow-2xs"
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
@@ -155,9 +155,9 @@ export function Mobile1TapTransactionModal({
             <button
               type="button"
               onClick={() => setDirection("Income")}
-              className={`py-2 rounded-[9px] text-[12px] font-[700] transition ${
+              className={`py-2 rounded-[9px] text-sm font-bold transition ${
                 direction === "Income"
-                  ? "bg-white text-[#10B981] shadow-xs"
+                  ? "bg-white text-emerald-500 shadow-2xs"
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
@@ -167,20 +167,20 @@ export function Mobile1TapTransactionModal({
 
           {/* Amount Display (OpenPencil MDisp) */}
           <div className="p-4 rounded-[20px] bg-slate-50 border border-slate-200 flex flex-col items-center justify-center gap-1">
-            <div className="flex items-baseline gap-1 text-[38px] font-[900] font-mono tracking-tight text-[#0F172A]">
+            <div className="flex items-baseline gap-1 text-[38px] font-black font-mono tracking-tight text-foreground">
               <span className="text-[24px] text-slate-400">
                 {currentAccount?.currency === "BOB" ? "Bs." : "$"}
               </span>
               <span>{amountStr}</span>
             </div>
-            <span className="text-[12px] font-[600] text-slate-500 font-mono">
+            <span className="text-sm font-semibold text-slate-500 font-mono">
               ≈ {isUsdt ? `Bs. ${bobEquiv.toFixed(2)}` : `$${usdEquiv.toFixed(2)} USD`} (P2P Bs {p2pRate.toFixed(2)})
             </span>
           </div>
 
           {/* Account Chips (OpenPencil MAccChips) */}
           <div className="flex flex-col gap-1.5">
-            <span className="text-[11px] font-[700] text-slate-500">Imputar a Cuenta:</span>
+            <span className="text-xs font-bold text-slate-500">Imputar a Cuenta:</span>
             <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
               {accounts.map((acc) => {
                 const isSelected = (selectedAccountId || accounts[0]?.id) === acc.id;
@@ -189,9 +189,9 @@ export function Mobile1TapTransactionModal({
                     key={acc.id}
                     type="button"
                     onClick={() => setSelectedAccountId(acc.id)}
-                    className={`px-3 py-1.5 rounded-full text-[11px] font-[700] whitespace-nowrap transition ${
+                    className={`px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition ${
                       isSelected
-                        ? "bg-[#0F172A] text-white shadow-xs"
+                        ? "bg-slate-900 text-white shadow-2xs"
                         : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                     }`}
                   >
@@ -204,7 +204,7 @@ export function Mobile1TapTransactionModal({
 
           {/* Category Chips (OpenPencil MCatChips) */}
           <div className="flex flex-col gap-1.5">
-            <span className="text-[11px] font-[700] text-slate-500">Categoría:</span>
+            <span className="text-xs font-bold text-slate-500">Categoría:</span>
             <div className="grid grid-cols-3 gap-2">
               {categories.map((cat) => {
                 const isSelected = category === cat;
@@ -213,9 +213,9 @@ export function Mobile1TapTransactionModal({
                     key={cat}
                     type="button"
                     onClick={() => setCategory(cat)}
-                    className={`py-2 px-1.5 rounded-[12px] text-[11px] font-[700] border transition text-center truncate ${
+                    className={`py-2 px-1.5 rounded-[12px] text-xs font-bold border transition text-center truncate ${
                       isSelected
-                        ? "bg-blue-50 border-blue-500 text-[#2563EB]"
+                        ? "bg-blue-50 border-blue-500 text-primary"
                         : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
                     }`}
                   >
@@ -233,7 +233,7 @@ export function Mobile1TapTransactionModal({
                 key={key}
                 type="button"
                 onClick={() => handleKeyPress(key)}
-                className="h-[48px] rounded-[14px] bg-slate-100 hover:bg-slate-200 active:scale-95 text-[18px] font-[700] text-[#0F172A] transition flex items-center justify-center font-mono"
+                className="h-[48px] rounded-[14px] bg-slate-100 hover:bg-slate-200 active:scale-95 text-[18px] font-bold text-foreground transition flex items-center justify-center font-mono"
               >
                 {key === "⌫" ? <Delete className="w-5 h-5 text-slate-600" /> : key}
               </button>
@@ -245,9 +245,9 @@ export function Mobile1TapTransactionModal({
             type="button"
             disabled={loading || numAmount <= 0}
             onClick={handleSubmit}
-            className="w-full h-[50px] rounded-[14px] bg-[#2563EB] hover:bg-blue-700 active:scale-[0.99] text-white text-[15px] font-[800] transition flex items-center justify-center gap-2 shadow-md shadow-blue-500/20 disabled:opacity-50"
+            className="w-full h-[50px] rounded-[14px] bg-primary hover:bg-blue-700 active:scale-[0.99] text-white text-[15px] font-extrabold transition flex items-center justify-center gap-2 shadow-md shadow-blue-500/20 disabled:opacity-50"
           >
-            <Check className="w-5 h-5 stroke-[3]" />
+            <Check className="w-5 h-5 stroke-3" />
             <span>Confirmar en 1-Tap</span>
           </button>
         </div>

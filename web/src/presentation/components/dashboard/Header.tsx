@@ -13,7 +13,7 @@ export function Header({ rate }: HeaderProps) {
           Gestor de finanzas personales multimoneda · Clean Architecture & Ledger Inmutable
         </p>
       </div>
-      <div className="bg-muted px-4 py-2.5 rounded-lg text-sm border shadow-xs">
+      <div className="bg-muted px-4 py-2.5 rounded-lg text-sm border shadow-2xs">
         {rate ? (
           <div className="space-y-0.5">
             <div className="font-semibold text-xs md:text-sm">

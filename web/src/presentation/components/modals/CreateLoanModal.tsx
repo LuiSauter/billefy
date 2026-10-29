@@ -115,7 +115,7 @@ export function CreateLoanModal({
                   id="loanType"
                   value={type}
                   onChange={(e) => setType(e.target.value as "Lent" | "Borrowed")}
-                  className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs"
+                  className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-2xs"
                 >
                   <option value="Lent">Dinero Prestado (Por Cobrar)</option>
                   <option value="Borrowed">Deuda Contraída (Por Pagar)</option>
@@ -130,7 +130,7 @@ export function CreateLoanModal({
                   id="template"
                   value={template}
                   onChange={(e) => setTemplate(e.target.value as LoanTemplate)}
-                  className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs"
+                  className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-2xs"
                 >
                   <option value="FixedInstallment">Francés (Cuota Fija)</option>
                   <option value="Decreasing">Alemán (Capital Fijo)</option>
@@ -156,7 +156,7 @@ export function CreateLoanModal({
                   id="currency"
                   value={currency}
                   onChange={(e) => setCurrency(e.target.value)}
-                  className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs"
+                  className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-2xs"
                 >
                   <option value="BOB">BOB</option>
                   <option value="USD">USD</option>
@@ -196,7 +196,7 @@ export function CreateLoanModal({
                   id="disbursementAcc"
                   value={disbursementAcc}
                   onChange={(e) => setDisbursementAcc(e.target.value)}
-                  className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs"
+                  className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-2xs"
                 >
                   <option value="">Sin desembolso en cuenta</option>
                   {accounts.map((a) => (

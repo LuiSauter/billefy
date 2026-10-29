@@ -75,23 +75,23 @@ export function DashboardHomeView({
 
       {/* Desktop Onboarding Banner when 0 Accounts */}
       {!hasAccounts && (
-        <div className="hidden md:flex items-center justify-between p-5 rounded-[18px] bg-gradient-to-r from-blue-50 via-indigo-50 to-slate-50 border border-blue-200 shadow-xs">
+        <div className="hidden md:flex items-center justify-between p-5 rounded-[18px] bg-linear-to-r from-blue-50 via-indigo-50 to-slate-50 border border-blue-200 shadow-2xs">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-[14px] bg-[#2563EB] text-white flex items-center justify-center shrink-0 shadow-sm">
+            <div className="w-12 h-12 rounded-[14px] bg-primary text-white flex items-center justify-center shrink-0 shadow-xs">
               <Landmark className="w-6 h-6" />
             </div>
             <div className="flex flex-col">
-              <h3 className="text-[15px] font-[800] text-[#0F172A]">
+              <h3 className="text-[15px] font-extrabold text-foreground">
                 ¡Te damos la bienvenida a Billefy! Configurá tu primera cuenta
               </h3>
-              <p className="text-[12px] font-[500] text-[#64748B] mt-0.5">
+              <p className="text-sm font-medium text-muted-foreground mt-0.5">
                 Para empezar a registrar movimientos, transferencias FX y presupuestos, primero vinculá tu cuenta bancaria o billetera digital.
               </p>
             </div>
           </div>
           <button
             onClick={onOpenCreateAccountModal}
-            className="h-[42px] px-5 rounded-[12px] bg-[#2563EB] hover:bg-blue-700 active:scale-[0.99] text-white text-[13px] font-[800] transition flex items-center gap-2 shadow-xs shrink-0"
+            className="h-[42px] px-5 rounded-[12px] bg-primary hover:bg-blue-700 active:scale-[0.99] text-white text-sm font-extrabold transition flex items-center gap-2 shadow-2xs shrink-0"
           >
             <PlusCircle className="w-4 h-4" />
             <span>+ Vincular Primera Cuenta</span>

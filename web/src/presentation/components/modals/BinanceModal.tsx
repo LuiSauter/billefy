@@ -115,7 +115,7 @@ export function BinanceModal({
                   id="binanceAcc"
                   value={accountId}
                   onChange={(e) => setAccountId(e.target.value)}
-                  className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-2xs focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring"
                 >
                   {accounts.map((a) => (
                     <option key={a.id} value={a.id}>

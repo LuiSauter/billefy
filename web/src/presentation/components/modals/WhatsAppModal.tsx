@@ -107,7 +107,7 @@ export function WhatsAppModal({
               <div className="p-3 bg-muted rounded-lg text-xs space-y-1">
                 <div>Estado de enlace: <b>{linkData.status}</b></div>
                 <div>Código de verificación: <b className="font-mono text-sm text-primary">{linkData.verificationCode}</b></div>
-                <div className="text-muted-foreground text-[10px]">{linkData.instructions}</div>
+                <div className="text-muted-foreground text-xs">{linkData.instructions}</div>
               </div>
 
               {/* Chat Simulation Sandbox */}

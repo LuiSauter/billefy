@@ -73,7 +73,7 @@ export function IncomeDistributionModal({
                   id="distributeCurr"
                   value={currency}
                   onChange={(e) => setCurrency(e.target.value)}
-                  className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs"
+                  className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-2xs"
                 >
                   <option value="BOB">BOB (Bolivianos)</option>
                   <option value="USD">USD (Dólares)</option>

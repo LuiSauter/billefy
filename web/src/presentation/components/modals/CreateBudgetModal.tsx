@@ -52,20 +52,20 @@ export function CreateBudgetModal({ isOpen, onClose, onSubmit }: CreateBudgetMod
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-150">
-      <div className="w-full max-w-[540px] bg-white rounded-[24px] p-[24px_28px_28px_28px] shadow-2xl border border-[#E2E8F0] relative max-h-[90vh] overflow-y-auto flex flex-col gap-4">
+      <div className="w-full max-w-[540px] bg-white rounded-[24px] p-[24px_28px_28px_28px] shadow-2xl border border-border relative max-h-[90vh] overflow-y-auto flex flex-col gap-4">
         {/* Header (OpenPencil MBWHead) */}
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-[18px] font-[900] text-[#0F172A] tracking-tight">
+            <h2 className="text-[18px] font-black text-foreground tracking-tight">
               Nuevo Presupuesto Mensual
             </h2>
-            <p className="text-[12px] font-[500] text-[#64748B] mt-0.5">
+            <p className="text-sm font-medium text-muted-foreground mt-0.5">
               Configurá topes de gasto con alertas y sugerencias predictivas
             </p>
           </div>
           <button
             onClick={onClose}
-            className="w-7 h-7 rounded-lg text-[#64748B] hover:bg-slate-100 flex items-center justify-center transition"
+            className="w-7 h-7 rounded-lg text-muted-foreground hover:bg-slate-100 flex items-center justify-center transition"
           >
             <X className="w-4 h-4" />
           </button>
@@ -77,10 +77,10 @@ export function CreateBudgetModal({ isOpen, onClose, onSubmit }: CreateBudgetMod
             <button
               type="button"
               onClick={() => setBudgetType("category")}
-              className={`flex-1 rounded-[8px] text-[12px] font-[700] transition ${
+              className={`flex-1 rounded-[8px] text-sm font-bold transition ${
                 budgetType === "category"
-                  ? "bg-white text-[#0F172A] shadow-xs"
-                  : "text-[#64748B] hover:text-[#0F172A]"
+                  ? "bg-white text-foreground shadow-2xs"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
             >
               Por Categoría Específica
@@ -88,10 +88,10 @@ export function CreateBudgetModal({ isOpen, onClose, onSubmit }: CreateBudgetMod
             <button
               type="button"
               onClick={() => setBudgetType("global")}
-              className={`flex-1 rounded-[8px] text-[12px] font-[600] transition ${
+              className={`flex-1 rounded-[8px] text-sm font-semibold transition ${
                 budgetType === "global"
-                  ? "bg-white text-[#0F172A] shadow-xs font-[700]"
-                  : "text-[#64748B] hover:text-[#0F172A]"
+                  ? "bg-white text-foreground shadow-2xs font-bold"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
             >
               Presupuesto Global Mensual
@@ -101,7 +101,7 @@ export function CreateBudgetModal({ isOpen, onClose, onSubmit }: CreateBudgetMod
           {/* Category Chips (OpenPencil CatSecW) */}
           {budgetType === "category" && (
             <div className="flex flex-col gap-2">
-              <span className="text-[11px] font-[700] text-[#64748B]">
+              <span className="text-xs font-bold text-muted-foreground">
                 Selecciona una Categoría:
               </span>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -112,10 +112,10 @@ export function CreateBudgetModal({ isOpen, onClose, onSubmit }: CreateBudgetMod
                       key={cat.label}
                       type="button"
                       onClick={() => setCategory(cat.label)}
-                      className={`h-[40px] px-2.5 rounded-[10px] border text-[12px] font-[700] transition flex items-center gap-1.5 truncate ${
+                      className={`h-[40px] px-2.5 rounded-[10px] border text-sm font-bold transition flex items-center gap-1.5 truncate ${
                         isSelected
-                          ? "bg-blue-50 border-[#2563EB] text-[#1D4ED8]"
-                          : "bg-white border-[#E2E8F0] text-[#0F172A] hover:bg-slate-50"
+                          ? "bg-blue-50 border-primary text-blue-700"
+                          : "bg-white border-border text-foreground hover:bg-slate-50"
                       }`}
                     >
                       <span>{cat.emoji}</span>
@@ -128,12 +128,12 @@ export function CreateBudgetModal({ isOpen, onClose, onSubmit }: CreateBudgetMod
           )}
 
           {/* Field: Limit Amount (OpenPencil InMntW) */}
-          <div className="p-3.5 rounded-[14px] bg-[#F8FAFC] border border-[#E2E8F0] flex flex-col gap-1">
-            <label className="text-[11px] font-[700] text-[#475569]">
+          <div className="p-3.5 rounded-[14px] bg-background border border-border flex flex-col gap-1">
+            <label className="text-xs font-bold text-slate-600">
               Límite Máximo Mensual ({currency})
             </label>
             <div className="flex items-baseline gap-2 font-mono">
-              <span className="text-[20px] font-[900] text-[#0F172A]">Bs.</span>
+              <span className="text-[20px] font-black text-foreground">Bs.</span>
               <input
                 type="number"
                 step="any"
@@ -141,14 +141,14 @@ export function CreateBudgetModal({ isOpen, onClose, onSubmit }: CreateBudgetMod
                 value={limit}
                 onChange={(e) => setLimit(e.target.value)}
                 placeholder="0.00"
-                className="w-full text-[24px] font-[900] text-[#0F172A] bg-transparent focus:outline-none placeholder-slate-300"
+                className="w-full text-[24px] font-black text-foreground bg-transparent focus:outline-hidden placeholder-slate-300"
               />
             </div>
           </div>
 
           {/* Predictive insights when amount is typed */}
           {limitNum > 0 && (
-            <div className="p-3 rounded-[12px] bg-[#F0FDF4] border border-[#BBF7D0] flex flex-col gap-1 text-[11px] font-[600] text-[#166534]">
+            <div className="p-3 rounded-[12px] bg-green-50 border border-green-200 flex flex-col gap-1 text-xs font-semibold text-green-800">
               <div>• Disparo de Alerta temprana (80%): Bs. {alert80}</div>
               <div>• Ritmo de gasto seguro recomendado: Bs. {safeDaily} / día</div>
             </div>
@@ -158,7 +158,7 @@ export function CreateBudgetModal({ isOpen, onClose, onSubmit }: CreateBudgetMod
           <button
             type="submit"
             disabled={submitting || limitNum <= 0}
-            className="w-full h-[48px] rounded-[12px] bg-[#2563EB] hover:bg-blue-700 active:scale-[0.99] text-white text-[14px] font-[800] transition flex items-center justify-center gap-2 shadow-sm disabled:opacity-50"
+            className="w-full h-[48px] rounded-[12px] bg-primary hover:bg-blue-700 active:scale-[0.99] text-white text-[15px] font-extrabold transition flex items-center justify-center gap-2 shadow-xs disabled:opacity-50"
           >
             <Check className="w-[18px] h-[18px] stroke-[2.5]" />
             <span>{submitting ? "Creando..." : "Crear Presupuesto"}</span>

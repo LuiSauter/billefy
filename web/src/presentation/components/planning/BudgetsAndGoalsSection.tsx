@@ -13,7 +13,7 @@ export function BudgetsAndGoalsSection({
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
       {/* Budgets */}
-      <Card className="overflow-hidden shadow-xs">
+      <Card className="overflow-hidden shadow-2xs">
         <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/30 py-3 px-6">
           <CardTitle className="text-base font-semibold">Presupuestos Mensuales ({budgets.length})</CardTitle>
           <span className="text-xs text-muted-foreground">Límites y alertas</span>
@@ -52,7 +52,7 @@ export function BudgetsAndGoalsSection({
                     style={{ width: `${Math.min(100, b.percentageUsed)}%` }}
                   />
                 </div>
-                <div className="flex justify-between text-[11px] text-muted-foreground">
+                <div className="flex justify-between text-xs text-muted-foreground">
                   <span>Restante: {b.remainingAmount.toFixed(2)} {b.currency}</span>
                   {b.isExceeded && <span className="text-rose-600 font-semibold">¡Límite excedido!</span>}
                 </div>
@@ -63,7 +63,7 @@ export function BudgetsAndGoalsSection({
       </Card>
 
       {/* Goals */}
-      <Card className="overflow-hidden shadow-xs">
+      <Card className="overflow-hidden shadow-2xs">
         <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/30 py-3 px-6">
           <CardTitle className="text-base font-semibold">Metas de Ahorro ({goals.length})</CardTitle>
           <span className="text-xs text-muted-foreground">Progreso y cuota</span>
@@ -88,7 +88,7 @@ export function BudgetsAndGoalsSection({
                     style={{ width: `${Math.min(100, g.percentageAchieved)}%` }}
                   />
                 </div>
-                <div className="flex justify-between text-[11px] text-muted-foreground">
+                <div className="flex justify-between text-xs text-muted-foreground">
                   <span>{g.monthsRemaining ? `${g.monthsRemaining} meses restantes` : "Sin fecha límite"}</span>
                   {g.monthlyContributionNeeded && (
                     <span className="font-semibold text-foreground">

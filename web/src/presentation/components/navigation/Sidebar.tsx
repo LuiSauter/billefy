@@ -66,14 +66,14 @@ export function Sidebar({
   ];
 
   return (
-    <aside className="hidden md:flex w-[240px] bg-white border-r border-[#E2E8F0] flex-col justify-between shrink-0 min-h-screen py-6 px-4 select-none">
+    <aside className="hidden md:flex w-[240px] bg-white border-r border-border flex-col justify-between shrink-0 min-h-screen py-6 px-4 select-none">
       <div className="flex flex-col gap-6">
         {/* Brand Header (OpenPencil BBrand) */}
         <div className="flex items-center gap-2.5">
-          <div className="w-[34px] h-[34px] rounded-[10px] bg-[#0F172A] flex items-center justify-center text-white shrink-0">
+          <div className="w-[34px] h-[34px] rounded-[10px] bg-slate-900 flex items-center justify-center text-white shrink-0">
             <Wallet className="w-[18px] h-[18px]" />
           </div>
-          <span className="text-[18px] font-[800] tracking-tight text-[#0F172A]">
+          <span className="text-[18px] font-extrabold tracking-tight text-foreground">
             Billefy
           </span>
         </div>
@@ -87,22 +87,22 @@ export function Sidebar({
               <button
                 key={item.id}
                 onClick={() => onTabChange(item.id)}
-                className={`w-full h-[38px] flex items-center justify-between px-[10px] rounded-[10px] text-[13px] transition-colors ${
+                className={`w-full h-[38px] flex items-center justify-between px-[10px] rounded-[10px] text-sm transition-colors ${
                   isActive
-                    ? "bg-[#EFF6FF] text-[#1D4ED8] font-[700]"
-                    : "text-[#334155] font-[500] hover:bg-slate-50"
+                    ? "bg-blue-50 text-blue-700 font-bold"
+                    : "text-slate-700 font-medium hover:bg-slate-50"
                 }`}
               >
                 <div className="flex items-center gap-[10px]">
                   <Icon
                     className={`w-[16px] h-[16px] shrink-0 ${
-                      isActive ? "text-[#2563EB]" : "text-[#64748B]"
+                      isActive ? "text-primary" : "text-muted-foreground"
                     }`}
                   />
                   <span>{item.label}</span>
                 </div>
                 {item.badge !== undefined && (
-                  <span className="w-[18px] h-[18px] rounded-full flex items-center justify-center text-[10px] font-[700] bg-[#EF4444] text-white">
+                  <span className="w-[18px] h-[18px] rounded-full flex items-center justify-center text-xs font-bold bg-red-500 text-white">
                     {item.badge}
                   </span>
                 )}
@@ -115,9 +115,9 @@ export function Sidebar({
       {/* Footer (OpenPencil SBFoot) */}
       <div className="flex flex-col gap-3">
         {/* P2P Live Widget (OpenPencil P2PWidget) */}
-        <div className="bg-[#F1F5F9] rounded-[10px] p-[10px] flex items-center justify-between">
-          <span className="text-[11px] font-[700] text-[#475569]">Binance P2P</span>
-          <span className="text-[11px] font-[800] text-[#059669]">
+        <div className="bg-slate-100 rounded-[10px] p-[10px] flex items-center justify-between">
+          <span className="text-xs font-bold text-slate-600">Binance P2P</span>
+          <span className="text-xs font-extrabold text-emerald-600">
             Bs. {p2pRate.toFixed(2)}
           </span>
         </div>
@@ -134,15 +134,15 @@ export function Sidebar({
                 className="w-8 h-8 rounded-full object-cover shrink-0 ring-1 ring-slate-200"
               />
             ) : (
-              <div className="w-8 h-8 rounded-full bg-[#0F172A] text-white text-[11px] font-bold flex items-center justify-center shrink-0">
+              <div className="w-8 h-8 rounded-full bg-slate-900 text-white text-xs font-bold flex items-center justify-center shrink-0">
                 {userInitials}
               </div>
             )}
             <div className="flex flex-col min-w-0 flex-1">
-              <span className="text-[12px] font-bold text-[#0F172A] truncate leading-tight">
+              <span className="text-sm font-bold text-foreground truncate leading-tight">
                 {displayName}
               </span>
-              <span className="text-[10px] text-[#64748B] truncate leading-tight">
+              <span className="text-xs text-muted-foreground truncate leading-tight">
                 {user.email}
               </span>
             </div>
@@ -153,7 +153,7 @@ export function Sidebar({
         {onLogout && (
           <button
             onClick={onLogout}
-            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-[8px] text-[12px] font-medium text-[#64748B] hover:text-[#EF4444] hover:bg-rose-50 transition"
+            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-[8px] text-sm font-medium text-muted-foreground hover:text-red-500 hover:bg-rose-50 transition"
           >
             <LogOut className="w-3.5 h-3.5" />
             <span>Cerrar Sesión</span>

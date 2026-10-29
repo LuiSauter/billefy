@@ -13,7 +13,7 @@ interface ReconcileModalProps {
 }
 
 const inputClass =
-  "h-[42px] px-3.5 rounded-[10px] border border-[#E2E8F0] bg-white text-[13px] font-[600] text-[#0F172A] placeholder:text-slate-400 placeholder:font-[500] focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/10 transition";
+  "h-[42px] px-3.5 rounded-[10px] border border-border bg-white text-sm font-semibold text-foreground placeholder:text-slate-400 placeholder:font-medium focus:outline-hidden focus:border-primary focus:ring-2 focus:ring-blue-600/10 transition";
 
 export function ReconcileModal({ isOpen, account, onClose, onSubmit }: ReconcileModalProps) {
   const [realBalance, setRealBalance] = useState("");
@@ -51,52 +51,52 @@ export function ReconcileModal({ isOpen, account, onClose, onSubmit }: Reconcile
 
   const tone = isPositive
     ? {
-        box: "bg-[#F0FDF4] border-[#BBF7D0]",
-        label: "text-[#166534]",
-        value: "text-[#15803D]",
-        icon: "bg-[#DCFCE7] text-[#15803D]",
+        box: "bg-green-50 border-green-200",
+        label: "text-green-800",
+        value: "text-green-700",
+        icon: "bg-[#DCFCE7] text-green-700",
         Icon: ArrowUpRight,
         hint: "Se registrará un ajuste a favor (ingreso)",
       }
     : isNegative
       ? {
-          box: "bg-[#FFF1F2] border-[#FECDD3]",
+          box: "bg-rose-50 border-rose-200",
           label: "text-[#9F1239]",
-          value: "text-[#E11D48]",
-          icon: "bg-[#FFE4E6] text-[#E11D48]",
+          value: "text-rose-600",
+          icon: "bg-[#FFE4E6] text-rose-600",
           Icon: ArrowDownRight,
           hint: "Se registrará un ajuste en contra (egreso)",
         }
       : {
-          box: "bg-[#F8FAFC] border-[#E2E8F0]",
-          label: "text-[#64748B]",
-          value: "text-[#475569]",
-          icon: "bg-slate-100 text-[#64748B]",
+          box: "bg-background border-border",
+          label: "text-muted-foreground",
+          value: "text-slate-600",
+          icon: "bg-slate-100 text-muted-foreground",
           Icon: Equal,
           hint: "Los saldos coinciden, no se requiere ajuste",
         };
 
   return (
     <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
-      <div className="w-full max-w-[480px] shadow-2xl bg-white border border-[#E2E8F0] rounded-[20px] p-6 flex flex-col gap-4">
+      <div className="w-full max-w-[480px] shadow-2xl bg-white border border-border rounded-[20px] p-6 flex flex-col gap-4">
         {/* Header */}
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 shrink-0 rounded-[12px] bg-[#EFF6FF] text-[#2563EB] flex items-center justify-center">
+            <div className="w-10 h-10 shrink-0 rounded-[12px] bg-blue-50 text-primary flex items-center justify-center">
               <Scale className="w-5 h-5" />
             </div>
             <div className="min-w-0">
-              <h2 className="text-[17px] font-[800] text-[#0F172A] tracking-tight leading-tight">
+              <h2 className="text-[17px] font-extrabold text-foreground tracking-tight leading-tight">
                 Conciliar Saldo
               </h2>
-              <p className="text-[12px] font-[600] text-[#64748B] truncate">{account.name}</p>
+              <p className="text-sm font-semibold text-muted-foreground truncate">{account.name}</p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
             aria-label="Cerrar"
-            className="w-8 h-8 shrink-0 rounded-lg text-[#64748B] hover:bg-slate-100 flex items-center justify-center transition"
+            className="w-8 h-8 shrink-0 rounded-lg text-muted-foreground hover:bg-slate-100 flex items-center justify-center transition"
           >
             <X className="w-4 h-4" />
           </button>
@@ -104,20 +104,20 @@ export function ReconcileModal({ isOpen, account, onClose, onSubmit }: Reconcile
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           {/* Current ledger balance */}
-          <div className="p-3.5 rounded-[14px] bg-[#F8FAFC] border border-[#E2E8F0] flex items-center justify-between gap-3">
+          <div className="p-3.5 rounded-[14px] bg-background border border-border flex items-center justify-between gap-3">
             <div className="flex flex-col gap-0.5">
-              <span className="text-[11px] font-[700] text-[#64748B]">Saldo en el Libro Mayor</span>
-              <span className="text-[11px] font-[500] text-[#94A3B8]">Calculado por Billefy</span>
+              <span className="text-xs font-bold text-muted-foreground">Saldo en el Libro Mayor</span>
+              <span className="text-xs font-medium text-slate-500">Calculado por Billefy</span>
             </div>
-            <span className="font-mono text-[18px] font-[900] text-[#0F172A] whitespace-nowrap">
+            <span className="font-mono text-[18px] font-black text-foreground whitespace-nowrap">
               {account.balance.toFixed(2)}{" "}
-              <span className="text-[12px] font-[700] text-[#64748B]">{account.currency}</span>
+              <span className="text-sm font-bold text-muted-foreground">{account.currency}</span>
             </span>
           </div>
 
           {/* Real balance */}
           <div className="flex flex-col gap-1">
-            <label htmlFor="reconcileRealBalance" className="text-[11px] font-[700] text-[#475569]">
+            <label htmlFor="reconcileRealBalance" className="text-xs font-bold text-slate-600">
               Saldo real verificado ({account.currency})
             </label>
             <input
@@ -128,9 +128,9 @@ export function ReconcileModal({ isOpen, account, onClose, onSubmit }: Reconcile
               value={realBalance}
               onChange={(e) => setRealBalance(e.target.value)}
               placeholder="0.00"
-              className={`${inputClass} font-mono text-[15px] font-[800]`}
+              className={`${inputClass} font-mono text-[15px] font-extrabold`}
             />
-            <span className="text-[11px] font-[500] text-[#94A3B8]">
+            <span className="text-xs font-medium text-slate-500">
               Ingresá el saldo que figura en tu extracto o billetera.
             </span>
           </div>
@@ -143,19 +143,19 @@ export function ReconcileModal({ isOpen, account, onClose, onSubmit }: Reconcile
               <tone.Icon className="w-[18px] h-[18px]" />
             </div>
             <div className="flex flex-col min-w-0 flex-1">
-              <span className={`text-[11px] font-[700] ${tone.label}`}>Diferencia calculada</span>
-              <span className={`text-[11px] font-[500] ${tone.label} opacity-80`}>{tone.hint}</span>
+              <span className={`text-xs font-bold ${tone.label}`}>Diferencia calculada</span>
+              <span className={`text-xs font-medium ${tone.label} opacity-80`}>{tone.hint}</span>
             </div>
-            <span className={`font-mono text-[16px] font-[900] whitespace-nowrap ${tone.value}`}>
+            <span className={`font-mono text-[16px] font-black whitespace-nowrap ${tone.value}`}>
               {isPositive ? "+" : ""}
-              {diff.toFixed(2)} <span className="text-[11px] font-[700]">{account.currency}</span>
+              {diff.toFixed(2)} <span className="text-xs font-bold">{account.currency}</span>
             </span>
           </div>
 
           {/* Notes */}
           <div className="flex flex-col gap-1">
-            <label htmlFor="reconcileNotes" className="text-[11px] font-[700] text-[#475569]">
-              Nota o motivo <span className="font-[500] text-[#94A3B8]">(opcional)</span>
+            <label htmlFor="reconcileNotes" className="text-xs font-bold text-slate-600">
+              Nota o motivo <span className="font-medium text-slate-500">(opcional)</span>
             </label>
             <input
               id="reconcileNotes"
@@ -172,14 +172,14 @@ export function ReconcileModal({ isOpen, account, onClose, onSubmit }: Reconcile
             <button
               type="button"
               onClick={onClose}
-              className="h-[40px] px-4 rounded-[10px] border border-[#E2E8F0] text-[12px] font-[600] text-[#475569] hover:bg-slate-50 transition"
+              className="h-[40px] px-4 rounded-[10px] border border-border text-sm font-semibold text-slate-600 hover:bg-slate-50 transition"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={submitting || !isValid}
-              className="h-[40px] px-5 rounded-[10px] bg-[#2563EB] hover:bg-blue-700 active:scale-[0.99] text-white text-[12px] font-[700] transition disabled:opacity-50 flex items-center gap-2"
+              className="h-[40px] px-5 rounded-[10px] bg-primary hover:bg-blue-700 active:scale-[0.99] text-white text-sm font-bold transition disabled:opacity-50 flex items-center gap-2"
             >
               <Check className="w-4 h-4 stroke-[2.5]" />
               <span>{submitting ? "Conciliando..." : "Aplicar Ajuste"}</span>

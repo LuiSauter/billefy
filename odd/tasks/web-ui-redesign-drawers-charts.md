@@ -1,0 +1,28 @@
+# Task: Web UI Redesign — Readable Design System, Responsive Drawers & Data Charts
+
+## Description
+Redesign the Next.js web client (`web/`) for mobile and desktop, following the OpenPencil document `billefy_wallet.op` (palette: slate + blue #2563EB, emerald income, white rounded cards). Goals: readable typography (no 11px body text), consistent inputs/selects/buttons/forms, every modal replaced by a single responsive overlay (bottom drawer on mobile, centered modal on >= md), and data shown with shadcn charts (recharts) instead of plain numbers.
+
+## Decisions (user-confirmed)
+- Migrate Tailwind v3 -> v4 so existing shadcn `base-nova` components (drawer, chart, select) actually work.
+- Deliver by phases, one work-unit commit per task.
+- Desktop: same drawer component rendered as a centered modal.
+
+## Constraints
+- No dev servers (AGENTS.md rule 15); verify with `pnpm lint`, `pnpm test`, `pnpm build`.
+- New env vars: none expected.
+- Commits stage only `web/` and `odd/` paths (unrelated backend changes exist in the working tree).
+
+## Tasks
+- [ ] Task 1: Foundation — Tailwind v4 migration, OpenPencil design tokens, font, readable type scale (build green)
+- [ ] Task 2: Overlay + form primitives — ResponsiveDrawer (bottom drawer / centered modal), Field, Input, Select, MoneyInput, SegmentedControl, Button variants
+- [ ] Task 3: Convert transaction/account modals (1-Tap, Register, CreateAccount, Reconcile, FxTransfer) to ResponsiveDrawer
+- [ ] Task 4: Convert ingestion modals (Drafts, CSV, WhatsApp, Binance, SimulateNotification, IncomeDistribution) to ResponsiveDrawer
+- [ ] Task 5: Convert lending/planning/recurring modals (CreateLoan, LoanDetail, LoanPayment, CreateBudget, CreateGoal, Reschedule) to ResponsiveDrawer
+- [ ] Task 6: Dashboard redesign + charts (cash-flow area chart, balance by currency donut, spending trend, KPI cards)
+- [ ] Task 7: Budgets & Goals redesign + charts (50/30/20 radial/bar, budget usage bars, goal progress radials)
+- [ ] Task 8: Loans, Recurring & Auth polish + charts (amortization stacked area, principal vs interest)
+- [ ] Task 9: Final verification (lint, tests, build) and docs/README update
+
+## Evidence
+(commit identities recorded per task)

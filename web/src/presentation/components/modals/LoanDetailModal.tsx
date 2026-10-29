@@ -63,7 +63,7 @@ export function LoanDetailModal({ isOpen, loan, onClose }: LoanDetailModalProps)
                   <span>{inst.paidPrincipal.toFixed(2)}</span>
                   <span>{inst.paidInterest.toFixed(2)}</span>
                   <span
-                    className={`px-1.5 py-0.5 rounded text-[10px] w-fit font-sans font-semibold ${
+                    className={`px-1.5 py-0.5 rounded text-xs w-fit font-sans font-semibold ${
                       inst.status === "Paid"
                         ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
                         : inst.status === "Overdue"
@@ -88,7 +88,7 @@ export function LoanDetailModal({ isOpen, loan, onClose }: LoanDetailModalProps)
                       <div>
                         Fecha: {new Date(pay.paymentDate).toLocaleDateString()} {pay.note && `· ${pay.note}`}
                       </div>
-                      <div className="text-[11px] text-muted-foreground">
+                      <div className="text-xs text-muted-foreground">
                         {pay.allocations
                           .map(
                             (a) =>

@@ -106,7 +106,7 @@ export function CsvImportModal({
                 id="csvAccount"
                 value={accountId || accounts[0]?.id || ""}
                 onChange={(e) => setAccountId(e.target.value)}
-                className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs"
+                className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-2xs"
               >
                 {accounts.map((a) => (
                   <option key={a.id} value={a.id}>
@@ -135,7 +135,7 @@ export function CsvImportModal({
                 value={csvContent}
                 onChange={(e) => setCsvContent(e.target.value)}
                 placeholder={"Fecha,Descripción,Monto,Referencia\n2026-10-24,Supermercado Farmacorp,-85.50,TX-998811\n..."}
-                className="w-full rounded-md border border-input bg-transparent p-2 text-xs font-mono shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="w-full rounded-md border border-input bg-transparent p-2 text-xs font-mono shadow-2xs focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring"
               />
             </div>
 

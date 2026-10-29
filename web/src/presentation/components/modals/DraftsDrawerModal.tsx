@@ -39,15 +39,15 @@ export function DraftsDrawerModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-150">
-      <div className="w-full max-w-[460px] bg-white rounded-[20px] p-[24px_20px] shadow-2xl border border-[#E2E8F0] relative flex flex-col gap-4 max-h-[90vh]">
+      <div className="w-full max-w-[460px] bg-white rounded-[20px] p-[24px_20px] shadow-2xl border border-border relative flex flex-col gap-4 max-h-[90vh]">
         {/* Header (OpenPencil DH) */}
         <div className="flex items-center justify-between">
-          <h2 className="text-[17px] font-[800] text-[#0F172A] tracking-tight">
+          <h2 className="text-[17px] font-extrabold text-foreground tracking-tight">
             Borradores Detectados ({drafts.length})
           </h2>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-lg text-[#64748B] hover:bg-slate-100 flex items-center justify-center transition"
+            className="w-8 h-8 rounded-lg text-muted-foreground hover:bg-slate-100 flex items-center justify-center transition"
           >
             <X className="w-4 h-4" />
           </button>
@@ -60,7 +60,7 @@ export function DraftsDrawerModal({
               onConfirmAll();
               onClose();
             }}
-            className="w-full h-[46px] rounded-[12px] bg-[#2563EB] hover:bg-blue-700 active:scale-[0.99] text-white text-[14px] font-[800] transition flex items-center justify-center gap-2 shadow-sm"
+            className="w-full h-[46px] rounded-[12px] bg-primary hover:bg-blue-700 active:scale-[0.99] text-white text-[15px] font-extrabold transition flex items-center justify-center gap-2 shadow-xs"
           >
             <CheckCheck className="w-4 h-4" />
             <span>Aprobar los {drafts.length} en 1-Clic</span>
@@ -82,14 +82,14 @@ export function DraftsDrawerModal({
               return (
                 <div
                   key={draft.id}
-                  className="p-3 rounded-[12px] border border-[#E2E8F0] bg-[#F8FAFC] flex items-center justify-between gap-3 hover:bg-slate-100/70 transition"
+                  className="p-3 rounded-[12px] border border-border bg-background flex items-center justify-between gap-3 hover:bg-slate-100/70 transition"
                 >
                   {/* Left (DIL) */}
                   <div className="min-w-0 flex-1">
-                    <div className="text-[13px] font-[700] text-[#0F172A] truncate">
+                    <div className="text-sm font-bold text-foreground truncate">
                       {draft.reference || "Movimiento Detectado"}
                     </div>
-                    <div className="text-[11px] font-[500] text-[#64748B] truncate mt-0.5">
+                    <div className="text-xs font-medium text-muted-foreground truncate mt-0.5">
                       {accountName} • {draft.source}
                     </div>
                   </div>
@@ -97,8 +97,8 @@ export function DraftsDrawerModal({
                   {/* Right (DIR) */}
                   <div className="flex items-center gap-2.5 shrink-0">
                     <span
-                      className={`text-[13px] font-[800] font-mono ${
-                        isIncome ? "text-[#059669]" : "text-[#0F172A]"
+                      className={`text-sm font-extrabold font-mono ${
+                        isIncome ? "text-emerald-600" : "text-foreground"
                       }`}
                     >
                       {formattedAmount}
@@ -107,7 +107,7 @@ export function DraftsDrawerModal({
                     <button
                       onClick={() => onConfirmDraft(draft, resolveAccountId(draft))}
                       title="Aprobar borrador en 1-Tap"
-                      className="w-[28px] h-[28px] rounded-[6px] bg-[#10B981] hover:bg-emerald-600 active:scale-95 text-white flex items-center justify-center transition shadow-xs"
+                      className="w-[28px] h-[28px] rounded-[6px] bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-white flex items-center justify-center transition shadow-2xs"
                     >
                       <Check className="w-3.5 h-3.5 stroke-[2.5]" />
                     </button>

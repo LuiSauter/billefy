@@ -35,15 +35,15 @@ export function AccountsList({
   };
 
   return (
-    <div className="p-[18px] rounded-[16px] bg-white border border-[#E2E8F0] flex flex-col gap-3.5 shadow-xs">
+    <div className="p-[18px] rounded-[16px] bg-white border border-border flex flex-col gap-3.5 shadow-2xs">
       {/* Header (OpenPencil AH) */}
       <div className="flex items-center justify-between">
-        <h2 className="text-[15px] font-[800] text-[#0F172A] tracking-tight">
+        <h2 className="text-[15px] font-extrabold text-foreground tracking-tight">
           Cuentas & Billeteras Conectadas
         </h2>
         <button
           onClick={onOpenCreateAccountModal}
-          className="text-[12px] font-[700] text-[#2563EB] hover:underline transition"
+          className="text-sm font-bold text-primary hover:underline transition"
         >
           + Vincular Cuenta
         </button>
@@ -58,7 +58,7 @@ export function AccountsList({
           <p className="text-xs font-medium">No tenés cuentas vinculadas.</p>
           <button
             onClick={onOpenCreateAccountModal}
-            className="text-xs text-[#2563EB] font-bold hover:underline"
+            className="text-xs text-primary font-bold hover:underline"
           >
             + Vincular tu primera cuenta
           </button>
@@ -71,20 +71,20 @@ export function AccountsList({
               key={acc.id}
               onClick={() => onOpenReconcileModal(acc)}
               title="Click para conciliar saldo real"
-              className="p-3 rounded-[12px] bg-[#F8FAFC] border border-[#E2E8F0] flex flex-col gap-1 cursor-pointer hover:border-slate-300 transition group"
+              className="p-3 rounded-[12px] bg-background border border-border flex flex-col gap-1 cursor-pointer hover:border-slate-300 transition group"
             >
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-[700] text-[#64748B]">
+                <span className="text-xs font-bold text-muted-foreground">
                   {getSublabel(acc)}
                 </span>
-                <span className="text-[9px] text-blue-600 font-semibold opacity-0 group-hover:opacity-100 transition">
+                <span className="text-xs text-blue-600 font-semibold opacity-0 group-hover:opacity-100 transition">
                   Conciliar
                 </span>
               </div>
-              <div className="text-[13px] font-[600] text-[#0F172A] truncate">
+              <div className="text-sm font-semibold text-foreground truncate">
                 {acc.name}
               </div>
-              <div className="text-[13px] font-[800] text-[#0F172A] font-mono">
+              <div className="text-sm font-extrabold text-foreground font-mono">
                 {formatBalance(acc)}
               </div>
             </div>

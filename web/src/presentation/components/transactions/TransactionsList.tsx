@@ -38,13 +38,13 @@ export function TransactionsList({
   };
 
   return (
-    <div className="p-[18px] rounded-[16px] bg-white border border-[#E2E8F0] flex flex-col gap-3 shadow-xs">
+    <div className="p-[18px] rounded-[16px] bg-white border border-border flex flex-col gap-3 shadow-2xs">
       {/* Header (OpenPencil Table header) */}
       <div className="flex items-center justify-between">
-        <h2 className="text-[15px] font-[800] text-[#0F172A] tracking-tight">
+        <h2 className="text-[15px] font-extrabold text-foreground tracking-tight">
           Actividad Reciente & Auditoría de Tasas P2P
         </h2>
-        <span className="text-[11px] text-[#64748B] font-medium hidden sm:inline">
+        <span className="text-xs text-muted-foreground font-medium hidden sm:inline">
           Libro Mayor Inmutable
         </span>
       </div>
@@ -77,43 +77,43 @@ export function TransactionsList({
               <div
                 key={txn.id}
                 className={`h-[42px] px-[8px] rounded-[6px] flex items-center justify-between gap-3 text-xs transition-colors group ${
-                  isEven ? "bg-white" : "bg-[#F8FAFC]"
+                  isEven ? "bg-white" : "bg-background"
                 }`}
               >
                 {/* 1. Date */}
-                <div className="w-[60px] text-[12px] font-[500] text-[#64748B] shrink-0">
+                <div className="w-[60px] text-sm font-medium text-muted-foreground shrink-0">
                   {formatDate(txn.occurredAt)}
                 </div>
 
                 {/* 2. Description */}
-                <div className="flex-1 min-w-[140px] truncate text-[13px] font-[600] text-[#0F172A]">
+                <div className="flex-1 min-w-[140px] truncate text-sm font-semibold text-foreground">
                   <span>{txn.description || "Movimiento"}</span>
                   {isReversal && (
-                    <span className="ml-1.5 text-[9px] font-bold text-amber-600 bg-amber-50 px-1 py-0.5 rounded">
+                    <span className="ml-1.5 text-xs font-bold text-amber-600 bg-amber-50 px-1 py-0.5 rounded">
                       Reversión
                     </span>
                   )}
                 </div>
 
                 {/* 3. Account / Wallet */}
-                <div className="w-[120px] truncate text-[12px] font-[500] text-[#475569] hidden md:block shrink-0">
+                <div className="w-[120px] truncate text-sm font-medium text-slate-600 hidden md:block shrink-0">
                   {account?.name || "—"}
                 </div>
 
                 {/* 4. Rate Audit */}
-                <div className="w-[110px] text-center text-[11px] font-[600] text-[#2563EB] shrink-0">
+                <div className="w-[110px] text-center text-xs font-semibold text-primary shrink-0">
                   {rateBadgeText}
                 </div>
 
                 {/* 5. Original Amount */}
-                <div className="w-[110px] text-right text-[13px] font-[700] text-[#0F172A] font-mono shrink-0">
+                <div className="w-[110px] text-right text-sm font-bold text-foreground font-mono shrink-0">
                   {isIncome ? "+" : "-"}{txn.currency === "BOB" ? "Bs " : ""}{txn.amount.toFixed(2)}{txn.currency !== "BOB" ? ` ${txn.currency}` : ""}
                 </div>
 
                 {/* 6. USD Equivalent */}
                 <div
-                  className={`w-[110px] text-right text-[13px] font-[700] font-mono shrink-0 ${
-                    isIncome ? "text-[#059669]" : "text-[#0F172A]"
+                  className={`w-[110px] text-right text-sm font-bold font-mono shrink-0 ${
+                    isIncome ? "text-emerald-600" : "text-foreground"
                   }`}
                 >
                   {isIncome ? "+" : "-"}${eqUsd.toFixed(2)} USD

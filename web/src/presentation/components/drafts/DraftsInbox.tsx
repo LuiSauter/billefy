@@ -19,12 +19,12 @@ export function DraftsInbox({
 }: DraftsInboxProps) {
   if (drafts.length === 0) {
     return (
-      <div className="p-[18px] rounded-[16px] bg-white border border-[#E2E8F0] shadow-xs flex flex-col items-center justify-center text-center py-8">
+      <div className="p-[18px] rounded-[16px] bg-white border border-border shadow-2xs flex flex-col items-center justify-center text-center py-8">
         <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 mb-2">
           <Sparkles className="w-4 h-4" />
         </div>
-        <h3 className="text-[13px] font-[700] text-[#0F172A]">Bandeja al día (Inbox Zero)</h3>
-        <p className="text-[11px] text-[#64748B] mt-0.5">
+        <h3 className="text-sm font-bold text-foreground">Bandeja al día (Inbox Zero)</h3>
+        <p className="text-xs text-muted-foreground mt-0.5">
           Todas las notificaciones y capturas bancarias fueron confirmadas.
         </p>
       </div>
@@ -57,15 +57,15 @@ export function DraftsInbox({
   };
 
   return (
-    <div className="p-[18px] rounded-[16px] bg-white border border-[#E2E8F0] flex flex-col gap-3 shadow-xs">
+    <div className="p-[18px] rounded-[16px] bg-white border border-border flex flex-col gap-3 shadow-2xs">
       {/* Header (OpenPencil InH) */}
       <div className="flex items-center justify-between">
-        <h2 className="text-[15px] font-[800] text-[#0F172A] tracking-tight">
+        <h2 className="text-[15px] font-extrabold text-foreground tracking-tight">
           Borradores Detectados ({drafts.length})
         </h2>
         <button
           onClick={handleConfirmAll}
-          className="text-[12px] font-[700] text-[#4F46E5] hover:underline transition"
+          className="text-sm font-bold text-indigo-600 hover:underline transition"
         >
           Aprobar Todo 1-Tap
         </button>
@@ -80,18 +80,18 @@ export function DraftsInbox({
           return (
             <div
               key={draft.id}
-              className="h-[38px] px-[8px] rounded-[8px] bg-[#F8FAFC] flex items-center justify-between transition hover:bg-slate-100/70"
+              className="h-[38px] px-[8px] rounded-[8px] bg-background flex items-center justify-between transition hover:bg-slate-100/70"
             >
               {/* Left Label */}
-              <div className="text-[12px] font-[600] text-[#0F172A] truncate pr-2">
+              <div className="text-sm font-semibold text-foreground truncate pr-2">
                 {getAccountLabel(draft)}
               </div>
 
               {/* Right: Amount + Ok button */}
               <div className="flex items-center gap-2 shrink-0">
                 <span
-                  className={`text-[12px] font-[700] font-mono ${
-                    isIncome ? "text-[#059669]" : "text-[#0F172A]"
+                  className={`text-sm font-bold font-mono ${
+                    isIncome ? "text-emerald-600" : "text-foreground"
                   }`}
                 >
                   {formattedAmount}
@@ -100,7 +100,7 @@ export function DraftsInbox({
                 <button
                   onClick={() => onConfirmDraft(draft, resolveAccountId(draft))}
                   title="Aprobar en 1-Tap"
-                  className="w-[22px] h-[22px] rounded-[4px] bg-[#10B981] hover:bg-emerald-600 active:scale-95 text-white flex items-center justify-center transition shadow-xs"
+                  className="w-[22px] h-[22px] rounded-[4px] bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-white flex items-center justify-center transition shadow-2xs"
                 >
                   <Check className="w-[12px] h-[12px] stroke-[2.5]" />
                 </button>

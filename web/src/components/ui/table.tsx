@@ -43,7 +43,7 @@ function TableFooter({ className, ...props }: React.ComponentProps<"tfoot">) {
     <tfoot
       data-slot="table-footer"
       className={cn(
-        "border-t bg-muted/50 font-medium [&>tr]:last:border-b-0",
+        "border-t bg-muted/50 font-medium last:[&>tr]:border-b-0",
         className
       )}
       {...props}
@@ -69,7 +69,7 @@ function TableHead({ className, ...props }: React.ComponentProps<"th">) {
     <th
       data-slot="table-head"
       className={cn(
-        "h-9 px-3 text-left align-middle text-[11px] font-bold text-[#64748B] uppercase tracking-wider whitespace-nowrap [&:has([role=checkbox])]:pr-0",
+        "h-9 px-3 text-left align-middle text-[11px] font-bold text-[#64748B] uppercase tracking-wider whitespace-nowrap has-[[role=checkbox]]:pr-0",
         className
       )}
       {...props}
@@ -82,7 +82,7 @@ function TableCell({ className, ...props }: React.ComponentProps<"td">) {
     <td
       data-slot="table-cell"
       className={cn(
-        "p-3 align-middle text-[12px] font-medium text-[#0F172A] whitespace-nowrap [&:has([role=checkbox])]:pr-0",
+        "p-3 align-middle text-[12px] font-medium text-[#0F172A] whitespace-nowrap has-[[role=checkbox]]:pr-0",
         className
       )}
       {...props}

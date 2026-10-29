@@ -61,20 +61,20 @@ export function Topbar({
     : "U";
 
   return (
-    <header className="hidden md:flex h-[72px] px-8 bg-white border-b border-[#E2E8F0] items-center justify-between gap-4 sticky top-0 z-20">
+    <header className="hidden md:flex h-[72px] px-8 bg-white border-b border-border items-center justify-between gap-4 sticky top-0 z-20">
       {/* Search Input with ⌘K Badge (OpenPencil Search) */}
-      <div className="relative w-[320px] lg:w-[360px] h-[40px] rounded-[10px] bg-white border border-[#E2E8F0] flex items-center px-[12px] justify-between">
+      <div className="relative w-[320px] lg:w-[360px] h-[40px] rounded-[10px] bg-white border border-border flex items-center px-[12px] justify-between">
         <div className="flex items-center gap-2 flex-1 min-w-0">
-          <Search className="w-[15px] h-[15px] text-[#94A3B8] shrink-0" />
+          <Search className="w-[15px] h-[15px] text-slate-500 shrink-0" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Buscar transacciones o cuentas..."
-            className="w-full text-[13px] font-[500] text-[#0F172A] placeholder-[#94A3B8] bg-transparent focus:outline-none"
+            className="w-full text-sm font-medium text-foreground placeholder-slate-400 bg-transparent focus:outline-hidden"
           />
         </div>
-        <span className="text-[11px] font-[700] text-[#64748B] ml-2 shrink-0 select-none">
+        <span className="text-xs font-bold text-muted-foreground ml-2 shrink-0 select-none">
           ⌘K
         </span>
       </div>
@@ -85,19 +85,19 @@ export function Topbar({
         <button
           onClick={onToggleCurrency}
           title="Alternar moneda de visualización (BOB / USD)"
-          className="h-[40px] px-3 rounded-[10px] bg-[#0F172A] hover:bg-slate-800 text-white text-[12px] font-[700] transition flex items-center gap-1.5 shadow-2xs"
+          className="h-[40px] px-3 rounded-[10px] bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold transition flex items-center gap-1.5 shadow-2xs"
         >
           <span>{selectedCurrency === "BOB" ? "BOB (Bs.)" : "USD ($)"}</span>
-          <span className="text-[9px] text-slate-400">▼</span>
+          <span className="text-xs text-slate-400">▼</span>
         </button>
 
         {onOpenWhatsApp && (
           <button
             onClick={onOpenWhatsApp}
             title="Bot de WhatsApp & Ingesta"
-            className="h-[40px] px-3 rounded-[10px] text-[#475569] hover:text-[#059669] hover:bg-emerald-50 transition border border-[#E2E8F0] flex items-center gap-1.5 text-[12px] font-semibold"
+            className="h-[40px] px-3 rounded-[10px] text-slate-600 hover:text-emerald-600 hover:bg-emerald-50 transition border border-border flex items-center gap-1.5 text-sm font-semibold"
           >
-            <MessageCircle className="w-4 h-4 text-[#059669]" />
+            <MessageCircle className="w-4 h-4 text-emerald-600" />
             <span className="hidden xl:inline">WhatsApp</span>
           </button>
         )}
@@ -106,9 +106,9 @@ export function Topbar({
           <button
             onClick={onOpenBinance}
             title="Integración Binance P2P"
-            className="h-[40px] px-3 rounded-[10px] text-[#475569] hover:text-[#D97706] hover:bg-amber-50 transition border border-[#E2E8F0] flex items-center gap-1.5 text-[12px] font-semibold"
+            className="h-[40px] px-3 rounded-[10px] text-slate-600 hover:text-amber-600 hover:bg-amber-50 transition border border-border flex items-center gap-1.5 text-sm font-semibold"
           >
-            <ArrowDownUp className="w-4 h-4 text-[#D97706]" />
+            <ArrowDownUp className="w-4 h-4 text-amber-600" />
             <span className="hidden xl:inline">Binance</span>
           </button>
         )}
@@ -116,7 +116,7 @@ export function Topbar({
         {/* Transferir FX (OpenPencil TBtn1) */}
         <button
           onClick={handleFxClick}
-          className="h-[40px] px-[14px] rounded-[10px] bg-white border border-[#E2E8F0] hover:bg-slate-50 text-[13px] font-[600] text-[#0F172A] transition"
+          className="h-[40px] px-[14px] rounded-[10px] bg-white border border-border hover:bg-slate-50 text-sm font-semibold text-foreground transition"
         >
           Transferir FX
         </button>
@@ -124,7 +124,7 @@ export function Topbar({
         {/* + Nuevo Movimiento (OpenPencil TBtn2) */}
         <button
           onClick={handleNewTxnClick}
-          className="h-[40px] px-[16px] rounded-[10px] bg-[#2563EB] hover:bg-blue-700 active:scale-[0.99] text-[13px] font-[700] text-white transition shadow-sm"
+          className="h-[40px] px-[16px] rounded-[10px] bg-primary hover:bg-blue-700 active:scale-[0.99] text-sm font-bold text-white transition shadow-xs"
         >
           {accountsCount === 0 ? "+ Crear Cuenta" : "+ Nuevo Movimiento"}
         </button>
@@ -141,15 +141,15 @@ export function Topbar({
                 className="w-9 h-9 rounded-full object-cover ring-1 ring-slate-200 shrink-0"
               />
             ) : (
-              <div className="w-9 h-9 rounded-full bg-[#0F172A] text-white text-xs font-bold flex items-center justify-center shrink-0">
+              <div className="w-9 h-9 rounded-full bg-slate-900 text-white text-xs font-bold flex items-center justify-center shrink-0">
                 {userInitials}
               </div>
             )}
             <div className="hidden xl:flex flex-col text-left">
-              <span className="text-[13px] font-[800] text-[#0F172A] leading-tight truncate max-w-[130px]">
+              <span className="text-sm font-extrabold text-foreground leading-tight truncate max-w-[130px]">
                 {displayName}
               </span>
-              <span className="text-[10px] text-[#64748B] font-medium leading-tight truncate max-w-[130px]">
+              <span className="text-xs text-muted-foreground font-medium leading-tight truncate max-w-[130px]">
                 {user.email}
               </span>
             </div>

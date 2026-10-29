@@ -80,12 +80,12 @@ export default function DashboardPage() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-[#0F172A] flex flex-col items-center justify-center gap-4 text-white">
-        <div className="w-12 h-12 rounded-[14px] bg-[#1E293B] flex items-center justify-center text-white shadow-lg">
+      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center gap-4 text-white">
+        <div className="w-12 h-12 rounded-[14px] bg-slate-800 flex items-center justify-center text-white shadow-lg">
           <Wallet className="w-6 h-6" />
         </div>
         <div className="flex items-center gap-2 text-sm font-semibold text-slate-300">
-          <Loader2 className="w-4 h-4 animate-spin text-[#2563EB]" />
+          <Loader2 className="w-4 h-4 animate-spin text-primary" />
           <span>Verificando sesión segura...</span>
         </div>
       </div>
@@ -97,7 +97,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] flex font-sans text-[#0F172A]">
+    <div className="min-h-screen bg-background flex font-sans text-foreground">
       <Sidebar
         user={user}
         activeTab={activeTab}

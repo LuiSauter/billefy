@@ -23,23 +23,23 @@ export function AccountsTabView({
     <div className="flex flex-col gap-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-[18px] font-[900] text-[#0F172A] tracking-tight">
+          <h1 className="text-[18px] font-black text-foreground tracking-tight">
             Mis Cuentas & Billeteras
           </h1>
-          <p className="text-[11px] font-[500] text-[#64748B] mt-0.5">
+          <p className="text-xs font-medium text-muted-foreground mt-0.5">
             Conciliación bancaria y saldos en vivo multimoneda
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={onOpenCsvModal}
-            className="h-[38px] px-3.5 rounded-[10px] border border-[#E2E8F0] bg-white text-[12px] font-[600] text-[#0F172A] hover:bg-slate-50 transition"
+            className="h-[38px] px-3.5 rounded-[10px] border border-border bg-white text-sm font-semibold text-foreground hover:bg-slate-50 transition"
           >
             📄 Importar CSV
           </button>
           <button
             onClick={onOpenCreateAccountModal}
-            className="h-[38px] px-4 rounded-[10px] bg-[#2563EB] hover:bg-blue-700 text-white text-[12px] font-[700] transition shadow-xs"
+            className="h-[38px] px-4 rounded-[10px] bg-primary hover:bg-blue-700 text-white text-sm font-bold transition shadow-2xs"
           >
             + Nueva Cuenta
           </button>

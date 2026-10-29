@@ -132,7 +132,7 @@ export function AuthScreen({ p2pRate = 9.85, onLoginSuccess }: AuthScreenProps) 
   const displayError = localError || error;
 
   return (
-    <div className="min-h-screen w-full flex flex-col lg:flex-row bg-[#0F172A] font-sans">
+    <div className="min-h-screen w-full flex flex-col lg:flex-row bg-slate-900 font-sans">
       <Script
         src="https://accounts.google.com/gsi/client"
         strategy="afterInteractive"
@@ -140,37 +140,37 @@ export function AuthScreen({ p2pRate = 9.85, onLoginSuccess }: AuthScreenProps) 
       />
 
       {/* Left Column: Hero (OpenPencil HeroLeft n2389) */}
-      <div className="lg:w-[640px] bg-[#0F172A] text-white p-6 lg:p-12 flex flex-col justify-between shrink-0">
+      <div className="lg:w-[640px] bg-slate-900 text-white p-6 lg:p-12 flex flex-col justify-between shrink-0">
         {/* HLTop: Logo */}
         <div className="flex items-center gap-3">
-          <div className="w-[40px] h-[40px] rounded-[10px] bg-[#1E293B] flex items-center justify-center text-white shrink-0 shadow-xs">
+          <div className="w-[40px] h-[40px] rounded-[10px] bg-slate-800 flex items-center justify-center text-white shrink-0 shadow-2xs">
             <Wallet className="w-[20px] h-[20px]" />
           </div>
-          <span className="text-[22px] font-[900] tracking-tight text-white">
+          <span className="text-[22px] font-black tracking-tight text-white">
             Billefy
           </span>
         </div>
 
         {/* HLMid: Value Prop */}
         <div className="my-6 lg:my-0 flex flex-col gap-3 lg:gap-4 max-w-[530px]">
-          <h1 className="text-[26px] lg:text-[32px] font-[900] leading-tight text-white">
+          <h1 className="text-[26px] lg:text-[32px] font-black leading-tight text-white">
             Gestioná tus bolivianos, dólares y cripto con tasas Binance P2P en vivo.
           </h1>
-          <p className="text-[13px] lg:text-[14px] font-[500] text-[#94A3B8] leading-relaxed">
+          <p className="text-sm lg:text-[15px] font-medium text-slate-500 leading-relaxed">
             Libro mayor inmutable, conciliación automática por WhatsApp y planificación patrimonial 50/30/20.
           </p>
 
           {/* P2PLiveCard */}
-          <div className="self-start mt-2 px-4 py-2 rounded-full bg-[#1E293B] border border-slate-700/50 flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-[#60A5FA] animate-pulse" />
-            <span className="text-[13px] font-[700] text-[#60A5FA]">
+          <div className="self-start mt-2 px-4 py-2 rounded-full bg-slate-800 border border-slate-700/50 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
+            <span className="text-sm font-bold text-blue-400">
               Cotización P2P en Vivo: 1 USDT = Bs. {p2pRate.toFixed(2)}
             </span>
           </div>
         </div>
 
         {/* HLBottom: Copyright */}
-        <div className="text-[11px] font-[500] text-[#64748B]">
+        <div className="text-xs font-medium text-muted-foreground">
           Billefy Financial Technologies © 2024 · Acceso restringido por Google OAuth
         </div>
       </div>
@@ -180,10 +180,10 @@ export function AuthScreen({ p2pRate = 9.85, onLoginSuccess }: AuthScreenProps) 
         <div className="w-full max-w-[440px] flex flex-col gap-6">
           {/* FRHead */}
           <div>
-            <h2 className="text-[28px] font-[900] text-[#0F172A] tracking-tight">
+            <h2 className="text-[28px] font-black text-foreground tracking-tight">
               Iniciar Sesión
             </h2>
-            <p className="text-[13px] font-[500] text-[#64748B] mt-1">
+            <p className="text-sm font-medium text-muted-foreground mt-1">
               Acceso exclusivo mediante tu cuenta de Google. Sin contraseñas ni correos manuales.
             </p>
           </div>
@@ -210,11 +210,11 @@ export function AuthScreen({ p2pRate = 9.85, onLoginSuccess }: AuthScreenProps) 
                 type="button"
                 disabled={busy}
                 onClick={handleGoogleClick}
-                className="w-full h-[52px] px-6 rounded-[14px] border border-[#CBD5E1] bg-white hover:bg-slate-50 text-[14px] font-[800] text-[#0F172A] transition flex items-center justify-center gap-3 shadow-xs active:scale-[0.99] disabled:opacity-60"
+                className="w-full h-[52px] px-6 rounded-[14px] border border-slate-300 bg-white hover:bg-slate-50 text-[15px] font-extrabold text-foreground transition flex items-center justify-center gap-3 shadow-2xs active:scale-[0.99] disabled:opacity-60"
               >
                 {busy ? (
                   <>
-                    <Loader2 className="w-5 h-5 animate-spin text-[#2563EB]" />
+                    <Loader2 className="w-5 h-5 animate-spin text-primary" />
                     <span>Autenticando con Google...</span>
                   </>
                 ) : (
@@ -244,7 +244,7 @@ export function AuthScreen({ p2pRate = 9.85, onLoginSuccess }: AuthScreenProps) 
             )}
           </div>
 
-          <p className="text-[11px] text-center text-[#64748B] leading-tight">
+          <p className="text-xs text-center text-muted-foreground leading-tight">
             Al continuar, aceptas la política de privacidad y el libro mayor inmutable de Billefy. Tu moneda y cuentas se configuran una vez dentro de la aplicación.
           </p>
         </div>
