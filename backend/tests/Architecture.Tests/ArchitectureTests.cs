@@ -103,4 +103,42 @@ public class ArchitectureTests
 
         result.IsSuccessful.Should().BeTrue("API Endpoints must be ultra-thin and delegate strictly to Application Services, never directly touching DbContext or Repositories.");
     }
+
+    [Fact]
+    public void ModuleApplication_Should_Only_Depend_On_Other_Modules_Via_Contracts()
+    {
+        var moduleApplications = new (string ModuleName, System.Reflection.Assembly Assembly)[]
+        {
+            ("Identity", typeof(Identity.Application.Services.IdentityService).Assembly),
+            ("Ledger", typeof(Ledger.Application.Services.LedgerModule).Assembly),
+            ("Ingestion", typeof(Ingestion.Application.Services.IngestionModule).Assembly),
+            ("Lending", typeof(Lending.Application.Services.LoanService).Assembly),
+            ("Planning", typeof(Planning.Application.Services.BudgetService).Assembly),
+            ("Messaging", typeof(Messaging.Application.Services.WhatsAppBotService).Assembly),
+            ("Notifications", typeof(Notifications.Application.Services.NotificationsService).Assembly),
+        };
+
+        var allModuleNames = new[] { "Identity", "Ledger", "Ingestion", "Lending", "Fx", "Planning", "Analytics", "Messaging", "Notifications" };
+
+        foreach (var (moduleName, assembly) in moduleApplications)
+        {
+            var forbiddenNamespaces = allModuleNames
+                .Where(other => other != moduleName)
+                .SelectMany(other => new[]
+                {
+                    $"{other}.Domain",
+                    $"{other}.Application",
+                    $"{other}.Infrastructure"
+                })
+                .ToArray();
+
+            var result = Types.InAssembly(assembly)
+                .ShouldNot()
+                .HaveDependencyOnAny(forbiddenNamespaces)
+                .GetResult();
+
+            result.IsSuccessful.Should().BeTrue(
+                $"{moduleName}.Application must communicate with other modules strictly through <Module>.Contracts, never referencing their Domain, Application, or Infrastructure layers.");
+        }
+    }
 }

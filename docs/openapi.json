@@ -149,6 +149,114 @@
         }
       }
     },
+    "/v1/auth/google": {
+      "post": {
+        "tags": [
+          "Identity & Authentication (Google OAuth Only)"
+        ],
+        "summary": "Inicia sesión o registra usuario mediante Google OAuth (proveedor único)",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GoogleLoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/v1/auth/refresh": {
+      "post": {
+        "tags": [
+          "Identity & Authentication (Google OAuth Only)"
+        ],
+        "summary": "Rota el Refresh Token y emite un nuevo Access Token JWT",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshTokenRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/v1/auth/logout": {
+      "post": {
+        "tags": [
+          "Identity & Authentication (Google OAuth Only)"
+        ],
+        "summary": "Cierra sesión y revoca el Refresh Token",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshTokenRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/v1/auth/me": {
+      "get": {
+        "tags": [
+          "Identity & Authentication (Google OAuth Only)"
+        ],
+        "summary": "Obtiene el perfil del usuario autenticado",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/v1/auth/account": {
+      "delete": {
+        "tags": [
+          "Identity & Authentication (Google OAuth Only)"
+        ],
+        "summary": "Solicita la baja de la cuenta con período de gracia de 30 días (Regla AUTH-06)",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/v1/auth/export": {
+      "get": {
+        "tags": [
+          "Identity & Authentication (Google OAuth Only)"
+        ],
+        "summary": "Exporta los datos completos del usuario (Regla AUTH-07)",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/v1/accounts": {
       "post": {
         "tags": [
@@ -1588,6 +1696,65 @@
         }
       }
     },
+    "/v1/notifications/devices": {
+      "post": {
+        "tags": [
+          "Notifications & Alerts"
+        ],
+        "summary": "Registra un token FCM o APNs de dispositivo para notificaciones push (Regla NOT-05)",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterDeviceTokenRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/v1/notifications": {
+      "get": {
+        "tags": [
+          "Notifications & Alerts"
+        ],
+        "summary": "Obtiene el historial de notificaciones y alertas del usuario",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/v1/notifications/test": {
+      "post": {
+        "tags": [
+          "Notifications & Alerts"
+        ],
+        "summary": "Envía una notificación push de prueba a los dispositivos del usuario",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PushNotificationMessage"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/v1/messaging/whatsapp/link": {
       "post": {
         "tags": [
@@ -1669,6 +1836,16 @@
           },
           "400": {
             "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
             "content": {
               "application/problem+json": {
                 "schema": {

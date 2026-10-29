@@ -75,6 +75,7 @@ ASPNETCORE_ENVIRONMENT="Development"
 # 5. Pasarela de WhatsApp ("Devhooh", "Meta", o "Simulated")
 # ------------------------------------------------------------------------------
 WhatsApp__Provider="Devhooh"
+WhatsApp__WebhookSecret=""
 
 # API Devhooh (https://api-whp.devhooh.com)
 WhatsApp__Devhooh__BaseUrl="https://api-whp.devhooh.com"
