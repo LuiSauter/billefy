@@ -15,6 +15,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -99,9 +100,40 @@ builder.Services.AddNotificationsModule(builder.Configuration);
 builder.Services.AddWhatsAppIntegration(builder.Configuration);
 builder.Services.AddMessagingModule(builder.Configuration);
 
-// OpenAPI Documentation
+// OpenAPI & Swagger Documentation
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddOpenApi();
+builder.Services.AddOpenApi(options =>
+{
+    options.AddDocumentTransformer((document, context, cancellationToken) =>
+    {
+        document.Info.Title = "Billefy API";
+        document.Info.Version = "v1";
+        document.Info.Description = "Billefy Personal Finance Manager API (.NET 10 Modular Monolith) - Multi-currency ledger, parallel FX, lending engine, planning & smart capture.";
+
+        var securityScheme = new Microsoft.OpenApi.OpenApiSecurityScheme
+        {
+            Name = "Authorization",
+            Description = "Enter JWT Bearer token: Bearer {token}",
+            In = Microsoft.OpenApi.ParameterLocation.Header,
+            Type = Microsoft.OpenApi.SecuritySchemeType.Http,
+            Scheme = "bearer",
+            BearerFormat = "JWT"
+        };
+
+        document.Components ??= new Microsoft.OpenApi.OpenApiComponents();
+        document.Components.SecuritySchemes ??= new Dictionary<string, Microsoft.OpenApi.IOpenApiSecurityScheme>();
+        document.Components.SecuritySchemes["Bearer"] = securityScheme;
+
+        var requirement = new Microsoft.OpenApi.OpenApiSecurityRequirement
+        {
+            [new Microsoft.OpenApi.OpenApiSecuritySchemeReference("Bearer", document)] = []
+        };
+        document.Security ??= [];
+        document.Security.Add(requirement);
+
+        return Task.CompletedTask;
+    });
+});
 
 var app = builder.Build();
 
@@ -172,9 +204,15 @@ if (!string.IsNullOrWhiteSpace(builder.Configuration.GetConnectionString("Postgr
     }
 }
 
-if (app.Environment.IsDevelopment())
+if (app.Environment.IsDevelopment() || builder.Configuration.GetValue<bool>("EnableSwagger", true))
 {
     app.MapOpenApi();
+    app.UseSwaggerUI(options =>
+    {
+        options.SwaggerEndpoint("/openapi/v1.json", "Billefy API v1");
+        options.RoutePrefix = "swagger";
+    });
+    app.MapScalarApiReference();
 }
 
 app.UseHttpsRedirection();
@@ -191,6 +229,10 @@ app.MapPlanningEndpoints();
 app.MapNotificationEndpoints();
 app.MapMessagingEndpoints();
 app.MapBinanceEndpoints();
+
+// Root & Health Checks
+app.MapGet("/health", () => Results.Ok(new { status = "Healthy", timestamp = DateTime.UtcNow }));
+app.MapGet("/", () => Results.Redirect("/swagger"));
 
 app.Run();
 

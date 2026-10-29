@@ -215,8 +215,10 @@ Al ejecutar la API, se conectará a tu PostgreSQL local (`billefy-db`), aplicar�
   dotnet run --project src/Api/Api.csproj
   ```
 
-Verifica la API y la documentación OpenAPI en:
-* Documentación OpenAPI: `http://localhost:5267/openapi/v1.json`
+Verifica la API y la documentación interactiva en:
+* **Swagger UI Interactivo (con soporte Bearer JWT)**: `http://localhost:5267/swagger` (o visitando la raíz `http://localhost:5267/`)
+* **Scalar API Reference**: `http://localhost:5267/scalar/v1`
+* **Especificación OpenAPI 3.1 JSON**: `http://localhost:5267/openapi/v1.json`
 
 ### D. Verificación de Formato y Estilo de Código
 

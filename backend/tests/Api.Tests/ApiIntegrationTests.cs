@@ -897,6 +897,21 @@ public class ApiIntegrationTests : IClassFixture<CustomWebApplicationFactory>
         logs.First().Title.Should().Be("Alerta de Prueba");
     }
 
+    [Fact]
+    public async Task Swagger_And_OpenApi_ShouldBeAccessible()
+    {
+        var openApiRes = await _client.GetAsync("/openapi/v1.json");
+        openApiRes.StatusCode.Should().Be(HttpStatusCode.OK);
+        var openApiContent = await openApiRes.Content.ReadAsStringAsync();
+        openApiContent.Should().Contain("Billefy API");
+
+        var swaggerUiRes = await _client.GetAsync("/swagger/index.html");
+        swaggerUiRes.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var healthRes = await _client.GetAsync("/health");
+        healthRes.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
     private sealed record CreatedAccountResponse(Guid Id);
     private sealed record CreatedTransactionResponse(Guid Id);
     private sealed record CreatedLoanResponse(Guid Id);

@@ -1,8 +1,9 @@
 {
   "openapi": "3.1.1",
   "info": {
-    "title": "Api | v1",
-    "version": "1.0.0"
+    "title": "Billefy API",
+    "description": "Billefy Personal Finance Manager API (.NET 10 Modular Monolith) - Multi-currency ledger, parallel FX, lending engine, planning & smart capture.",
+    "version": "v1"
   },
   "servers": [
     {
@@ -10,6 +11,30 @@
     }
   ],
   "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "Api"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/": {
+      "get": {
+        "tags": [
+          "Api"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/v1/auth/google": {
       "post": {
         "tags": [
@@ -3987,9 +4012,25 @@
           }
         }
       }
+    },
+    "securitySchemes": {
+      "Bearer": {
+        "type": "http",
+        "description": "Enter JWT Bearer token: Bearer {token}",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
     }
   },
+  "security": [
+    {
+      "Bearer": [ ]
+    }
+  ],
   "tags": [
+    {
+      "name": "Api"
+    },
     {
       "name": "Identity & Authentication (Google OAuth Only)"
     },
