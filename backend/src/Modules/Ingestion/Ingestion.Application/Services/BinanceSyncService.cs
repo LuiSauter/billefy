@@ -1,5 +1,6 @@
 using BuildingBlocks.Common;
 using BuildingBlocks.Security;
+using BuildingBlocks.Time;
 using Ingestion.Application.Deduplication;
 using Ingestion.Domain.Drafts;
 
@@ -36,7 +37,8 @@ public interface IBinanceSyncService
 
 public sealed class BinanceSyncService(
     IDeduplicationService deduplicationService,
-    ICurrentUserContext userContext) : IBinanceSyncService
+    ICurrentUserContext userContext,
+    IClock clock) : IBinanceSyncService
 {
     public Task<Result<ConnectBinanceKeyResponse>> ConnectKeyAsync(
         ConnectBinanceKeyRequest request,
@@ -106,7 +108,7 @@ public sealed class BinanceSyncService(
                 m.Amount,
                 m.Currency,
                 m.Direction,
-                DateTime.UtcNow,
+                clock.UtcNow,
                 m.Ref,
                 confidence: 0.95m,
                 suggestedAccountId: request.AccountId,

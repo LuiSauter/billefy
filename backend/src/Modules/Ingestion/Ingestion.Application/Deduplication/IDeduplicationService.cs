@@ -1,4 +1,5 @@
 using BuildingBlocks.Currencies;
+using BuildingBlocks.Time;
 using BuildingBlocks.ValueObjects;
 using Ingestion.Application.Abstractions;
 using Ingestion.Domain.Deduplication;
@@ -31,7 +32,8 @@ public interface IDeduplicationService
 
 public sealed class DeduplicationService(
     IDraftRepository draftRepository,
-    IIngestionUnitOfWork unitOfWork) : IDeduplicationService
+    IIngestionUnitOfWork unitOfWork,
+    IClock clock) : IDeduplicationService
 {
     public async Task<DeduplicationResult> ProcessMovementAsync(
         Guid userId,
@@ -73,10 +75,12 @@ public sealed class DeduplicationService(
             windowEnd,
             cancellationToken);
 
+        var now = clock.UtcNow;
+
         if (existing is not null)
         {
             // Link this event as an additional source
-            existing.LinkAdditionalEvent(eventId, DateTime.UtcNow);
+            existing.LinkAdditionalEvent(eventId, now);
             await draftRepository.UpdateAsync(existing, cancellationToken);
             await unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -89,7 +93,6 @@ public sealed class DeduplicationService(
 
         // Create new draft (Pending if confidence >= 0.70, otherwise Review)
         Draft draft;
-        var now = DateTime.UtcNow;
 
         if (confidence >= 0.70m)
         {

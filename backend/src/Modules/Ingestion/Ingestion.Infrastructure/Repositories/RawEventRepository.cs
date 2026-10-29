@@ -9,6 +9,7 @@ internal sealed class RawEventRepository(IngestionDbContext context) : IRawEvent
     public Task<RawEvent?> GetByEventIdAsync(Guid userId, Guid eventId, CancellationToken cancellationToken = default)
     {
         return context.RawEvents
+            .IgnoreQueryFilters()
             .FirstOrDefaultAsync(e => e.UserId == userId && e.EventId == eventId, cancellationToken);
     }
 

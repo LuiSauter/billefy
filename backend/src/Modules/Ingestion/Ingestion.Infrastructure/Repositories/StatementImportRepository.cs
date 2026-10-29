@@ -9,6 +9,7 @@ internal sealed class StatementImportRepository(IngestionDbContext context) : IS
     public Task<StatementImport?> GetByHashAsync(Guid userId, string fileHash, CancellationToken cancellationToken = default)
     {
         return context.Imports
+            .IgnoreQueryFilters()
             .FirstOrDefaultAsync(i => i.UserId == userId && i.FileHash == fileHash, cancellationToken);
     }
 
@@ -20,6 +21,7 @@ internal sealed class StatementImportRepository(IngestionDbContext context) : IS
     public Task<List<StatementImport>> GetByAccountIdAsync(Guid userId, Guid accountId, int limit = 10, CancellationToken cancellationToken = default)
     {
         return context.Imports
+            .IgnoreQueryFilters()
             .Where(i => i.UserId == userId && i.AccountId == accountId)
             .OrderByDescending(i => i.CreatedAt)
             .Take(limit)

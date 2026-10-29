@@ -1,4 +1,5 @@
 using BuildingBlocks.Common;
+using BuildingBlocks.Time;
 using Ingestion.Application.Abstractions;
 
 namespace Ingestion.Application.Drafts.DiscardDraft;
@@ -7,7 +8,8 @@ public sealed record DiscardDraftCommand(Guid UserId, Guid DraftId);
 
 public sealed class DiscardDraftCommandHandler(
     IDraftRepository draftRepository,
-    IIngestionUnitOfWork unitOfWork)
+    IIngestionUnitOfWork unitOfWork,
+    IClock clock)
 {
     public async Task<Result> HandleAsync(
         DiscardDraftCommand command,
@@ -30,7 +32,7 @@ public sealed class DiscardDraftCommandHandler(
 
         try
         {
-            draft.Discard(DateTime.UtcNow);
+            draft.Discard(clock.UtcNow);
             await draftRepository.UpdateAsync(draft, cancellationToken);
             await unitOfWork.SaveChangesAsync(cancellationToken);
 

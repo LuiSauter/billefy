@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using BuildingBlocks.Common;
 using BuildingBlocks.Security;
+using BuildingBlocks.Time;
 using Ingestion.Application.Abstractions;
 using Ingestion.Application.Deduplication;
 using Ingestion.Domain.Drafts;
@@ -15,8 +16,12 @@ public sealed class StatementImportService(
     IStatementImportRepository importRepository,
     IDeduplicationService deduplicationService,
     IIngestionUnitOfWork unitOfWork,
-    ICurrentUserContext userContext) : IStatementImportService
+    ICurrentUserContext userContext,
+    IClock clock) : IStatementImportService
 {
+    private const int MaxStatementContentBytes = 5 * 1024 * 1024; // 5 MB max
+    private const int MaxStatementLines = 10_000;
+
     public async Task<Result<StatementImportResult>> ImportCsvAsync(
         ImportStatementCsvRequest request,
         CancellationToken cancellationToken = default)
@@ -37,6 +42,12 @@ public sealed class StatementImportService(
         {
             return Result.Failure<StatementImportResult>(
                 Error.Validation("Import.EmptyContent", "CSV content cannot be empty."));
+        }
+
+        if (Encoding.UTF8.GetByteCount(request.CsvContent) > MaxStatementContentBytes)
+        {
+            return Result.Failure<StatementImportResult>(
+                Error.Validation("Import.ContentTooLarge", "CSV statement exceeds maximum allowed size of 5 MB."));
         }
 
         var userId = userContext.UserId!.Value;
@@ -62,6 +73,12 @@ public sealed class StatementImportService(
                 Error.Validation("Import.NoRows", "CSV contains no data rows."));
         }
 
+        if (lines.Count > MaxStatementLines)
+        {
+            return Result.Failure<StatementImportResult>(
+                Error.Validation("Import.TooManyRows", $"CSV statement exceeds maximum allowed row count ({MaxStatementLines})."));
+        }
+
         var (dateCol, descCol, amountCol, refCol, hasHeader) = DetectColumns(lines[0]);
         var startIndex = hasHeader ? 1 : 0;
 
@@ -79,7 +96,7 @@ public sealed class StatementImportService(
 
             // Extract Date
             var dateStr = parts.ElementAtOrDefault(dateCol) ?? string.Empty;
-            var estimatedDate = ParseDate(dateStr);
+            var estimatedDate = ParseDate(dateStr, clock.UtcNow);
 
             // Extract Description
             var desc = parts.ElementAtOrDefault(descCol)?.Trim();
@@ -142,7 +159,7 @@ public sealed class StatementImportService(
             fileHash: fileHash,
             status: isDuplicateFile ? "DuplicateWarning" : "Processed",
             summaryJson: JsonSerializer.Serialize(summary),
-            createdAt: DateTime.UtcNow);
+            createdAt: clock.UtcNow);
 
         if (!isDuplicateFile)
         {
@@ -183,6 +200,12 @@ public sealed class StatementImportService(
                 Error.Validation("Import.EmptyContent", "PDF text content cannot be empty."));
         }
 
+        if (Encoding.UTF8.GetByteCount(request.PdfTextContent) > MaxStatementContentBytes)
+        {
+            return Result.Failure<StatementImportResult>(
+                Error.Validation("Import.ContentTooLarge", "PDF statement text exceeds maximum allowed size of 5 MB."));
+        }
+
         var userId = userContext.UserId!.Value;
 
         // Technical SHA-256 deduplication
@@ -198,6 +221,12 @@ public sealed class StatementImportService(
             .Select(l => l.Trim())
             .Where(l => !string.IsNullOrWhiteSpace(l))
             .ToList();
+
+        if (lines.Count > MaxStatementLines)
+        {
+            return Result.Failure<StatementImportResult>(
+                Error.Validation("Import.TooManyRows", $"PDF statement exceeds maximum allowed row count ({MaxStatementLines})."));
+        }
 
         int totalRows = 0;
         int draftsCreated = 0;
@@ -278,7 +307,7 @@ public sealed class StatementImportService(
             fileHash: fileHash,
             status: isDuplicateFile ? "DuplicateWarning" : "Processed",
             summaryJson: JsonSerializer.Serialize(new { totalRows, draftsCreated, duplicatesLinked, fileHash, warning }),
-            createdAt: DateTime.UtcNow);
+            createdAt: clock.UtcNow);
 
         if (!isDuplicateFile)
         {
@@ -355,7 +384,7 @@ public sealed class StatementImportService(
         return result;
     }
 
-    private static DateTime ParseDate(string raw)
+    private static DateTime ParseDate(string raw, DateTime defaultDateUtc)
     {
         var formats = new[] { "yyyy-MM-dd", "dd/MM/yyyy", "MM/dd/yyyy", "dd-MM-yyyy", "yyyy/MM/dd" };
         if (DateTime.TryParseExact(raw.Trim(), formats, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var dt))
@@ -368,7 +397,7 @@ public sealed class StatementImportService(
             return fallback;
         }
 
-        return DateTime.UtcNow;
+        return defaultDateUtc;
     }
 
     private static bool TryParseAmount(string raw, out decimal amount, out DraftDirection direction)

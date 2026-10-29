@@ -6,6 +6,7 @@ using Ingestion.Application.Drafts.GetDrafts;
 using Ingestion.Application.Events.RegisterEvent;
 using Ingestion.Application.Parsing;
 using Ingestion.Application.Services;
+using Ingestion.Contracts;
 using Ingestion.Infrastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -46,6 +47,9 @@ public static class DependencyInjection
         services.AddScoped<IDraftService, DraftService>();
         services.AddScoped<IStatementImportService, StatementImportService>();
         services.AddScoped<IBinanceSyncService, BinanceSyncService>();
+
+        // Module interop contract
+        services.AddScoped<IIngestionModule, IngestionModule>();
 
         return services;
     }

@@ -1,4 +1,5 @@
 using BuildingBlocks.Common;
+using BuildingBlocks.Time;
 using Ingestion.Application.Abstractions;
 using Ingestion.Contracts;
 using Ledger.Contracts;
@@ -13,7 +14,8 @@ public sealed record ConfirmDraftCommand(
 public sealed class ConfirmDraftCommandHandler(
     IDraftRepository draftRepository,
     ILedgerModule ledgerModule,
-    IIngestionUnitOfWork unitOfWork)
+    IIngestionUnitOfWork unitOfWork,
+    IClock clock)
 {
     public async Task<Result<Guid>> HandleAsync(
         ConfirmDraftCommand command,
@@ -62,7 +64,7 @@ public sealed class ConfirmDraftCommandHandler(
                 request.AccountId,
                 request.CategoryId ?? draft.SuggestedCategoryId,
                 txnId,
-                DateTime.UtcNow);
+                clock.UtcNow);
 
             await draftRepository.UpdateAsync(draft, cancellationToken);
             await unitOfWork.SaveChangesAsync(cancellationToken);

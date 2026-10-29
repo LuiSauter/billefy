@@ -9,6 +9,7 @@ internal sealed class DraftRepository(IngestionDbContext context) : IDraftReposi
     public Task<Draft?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         return context.Drafts
+            .IgnoreQueryFilters()
             .Include(d => d.Events)
             .FirstOrDefaultAsync(d => d.Id == id, cancellationToken);
     }
@@ -26,6 +27,7 @@ internal sealed class DraftRepository(IngestionDbContext context) : IDraftReposi
     {
         // 1. Exact fingerprint match
         var byFingerprint = await context.Drafts
+            .IgnoreQueryFilters()
             .Include(d => d.Events)
             .FirstOrDefaultAsync(
                 d => d.UserId == userId && d.Fingerprint == fingerprint,
@@ -41,6 +43,7 @@ internal sealed class DraftRepository(IngestionDbContext context) : IDraftReposi
         {
             var cleanRef = reference.Trim();
             var byRef = await context.Drafts
+                .IgnoreQueryFilters()
                 .Include(d => d.Events)
                 .FirstOrDefaultAsync(
                     d => d.UserId == userId && d.Reference == cleanRef,
@@ -54,6 +57,7 @@ internal sealed class DraftRepository(IngestionDbContext context) : IDraftReposi
 
         // 3. Time window (±5 mins) with same amount, currency, direction
         var candidates = await context.Drafts
+            .IgnoreQueryFilters()
             .Include(d => d.Events)
             .Where(d => d.UserId == userId &&
                         d.EstimatedDate >= windowStart &&
@@ -73,6 +77,7 @@ internal sealed class DraftRepository(IngestionDbContext context) : IDraftReposi
         CancellationToken cancellationToken = default)
     {
         var query = context.Drafts
+            .IgnoreQueryFilters()
             .Include(d => d.Events)
             .Where(d => d.UserId == userId);
 

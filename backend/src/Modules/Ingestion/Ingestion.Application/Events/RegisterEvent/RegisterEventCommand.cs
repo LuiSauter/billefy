@@ -1,5 +1,6 @@
 using BuildingBlocks.Common;
 using BuildingBlocks.Currencies;
+using BuildingBlocks.Time;
 using BuildingBlocks.ValueObjects;
 using Ingestion.Application.Abstractions;
 using Ingestion.Application.Deduplication;
@@ -19,7 +20,8 @@ public sealed class RegisterEventCommandHandler(
     IDraftRepository draftRepository,
     IFinancialTextParser parser,
     IDeduplicationService deduplicationService,
-    IIngestionUnitOfWork unitOfWork)
+    IIngestionUnitOfWork unitOfWork,
+    IClock clock)
 {
     public async Task<Result<RegisterEventResponse>> HandleAsync(
         RegisterEventCommand command,
@@ -55,7 +57,7 @@ public sealed class RegisterEventCommandHandler(
             }
 
             // 2. Persist Raw Event
-            var receivedAt = request.ReceivedAt ?? DateTime.UtcNow;
+            var receivedAt = request.ReceivedAt ?? clock.UtcNow;
             var rawEvent = RawEvent.Create(
                 userId,
                 request.EventId,
@@ -115,7 +117,7 @@ public sealed class RegisterEventCommandHandler(
                 suggestedCategoryId: null,
                 confidence: 0.10m,
                 initialEventId: request.EventId,
-                createdAt: DateTime.UtcNow);
+                createdAt: clock.UtcNow);
 
             await draftRepository.AddAsync(reviewDraft, cancellationToken);
             await unitOfWork.SaveChangesAsync(cancellationToken);
@@ -127,10 +129,10 @@ public sealed class RegisterEventCommandHandler(
                 IsDuplicate: false,
                 Status: DraftStatus.Review.ToString()));
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             return Result.Failure<RegisterEventResponse>(
-                Error.Failure("Server.Exception", ex.ToString()));
+                Error.Failure("Server.Exception", "An unexpected error occurred while processing the raw ingestion event."));
         }
     }
 }
