@@ -1,10 +1,10 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Inter } from "next/font/google";
-import { cn } from "@/lib/utils";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { Toaster } from "@/components/ui/toast";
-import { AuthProvider } from "@/presentation/context/AuthContext";
+import { cn } from "@/shared/lib/utils";
+import { TooltipProvider } from "@/shared/ui/tooltip";
+import { Toaster } from "@/shared/ui/toast";
+import { AuthProvider } from "@/modules/identity/application/AuthContext";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
 

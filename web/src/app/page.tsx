@@ -1,22 +1,22 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { useAuth } from "@/presentation/context/AuthContext";
-import { useDashboardData } from "@/application/hooks/useDashboardData";
-import { useDashboardModals } from "@/application/hooks/useDashboardModals";
-import { useFinancialMetrics } from "@/application/hooks/useFinancialMetrics";
-import { Sidebar, NavigationTab } from "@/presentation/components/navigation/Sidebar";
-import { Topbar } from "@/presentation/components/navigation/Topbar";
-import { MobileHeader } from "@/presentation/components/navigation/MobileHeader";
-import { MobileBottomNav } from "@/presentation/components/navigation/MobileBottomNav";
-import { AuthScreen } from "@/presentation/components/auth/AuthScreen";
-import { DashboardHomeView } from "@/presentation/views/DashboardHomeView";
-import { AccountsTabView } from "@/presentation/views/AccountsTabView";
-import { BudgetsTabView } from "@/presentation/views/BudgetsTabView";
-import { LoansList } from "@/presentation/components/lending/LoansList";
-import { RecurringPaymentsView } from "@/presentation/components/recurring/RecurringPaymentsView";
-import { ModalsContainer } from "@/presentation/modals/ModalsContainer";
-import { notify } from "@/lib/notify";
+import { useAuth } from "@/modules/identity/application/AuthContext";
+import { useDashboardData } from "@/modules/dashboard/application/useDashboardData";
+import { useDashboardModals } from "@/modules/dashboard/application/useDashboardModals";
+import { useFinancialMetrics } from "@/modules/dashboard/application/useFinancialMetrics";
+import { Sidebar, NavigationTab } from "@/modules/dashboard/presentation/Sidebar";
+import { Topbar } from "@/modules/dashboard/presentation/Topbar";
+import { MobileHeader } from "@/modules/dashboard/presentation/MobileHeader";
+import { MobileBottomNav } from "@/modules/dashboard/presentation/MobileBottomNav";
+import { AuthScreen } from "@/modules/identity/presentation/AuthScreen";
+import { DashboardHomeView } from "@/modules/dashboard/presentation/DashboardHomeView";
+import { AccountsTabView } from "@/modules/ledger/presentation/AccountsTabView";
+import { BudgetsTabView } from "@/modules/planning/presentation/BudgetsTabView";
+import { LoansList } from "@/modules/lending/presentation/LoansList";
+import { RecurringPaymentsView } from "@/modules/planning/presentation/RecurringPaymentsView";
+import { ModalsContainer } from "@/modules/dashboard/presentation/ModalsContainer";
+import { notify } from "@/shared/lib/notify";
 import { Loader2, Wallet } from "lucide-react";
 
 export default function DashboardPage() {
@@ -250,6 +250,7 @@ export default function DashboardPage() {
         actions={{
           createAccount: dashboard.createAccount,
           registerTransaction: dashboard.registerTransaction,
+          executeFxTransfer: dashboard.executeFxTransfer,
           reconcileAccount: dashboard.reconcileAccount,
           simulateLoan: dashboard.simulateLoan,
           createLoan: dashboard.createLoan,
