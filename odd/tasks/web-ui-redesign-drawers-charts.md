@@ -22,7 +22,7 @@ Redesign the Next.js web client (`web/`) for mobile and desktop, following the O
 - [x] Task 6: Dashboard redesign + charts (cash-flow area chart, balance by currency donut, spending trend, KPI cards)
 - [x] Task 7: Budgets & Goals redesign + charts (50/30/20 radial/bar, budget usage bars, goal progress radials)
 - [x] Task 8: Loans, Recurring & Auth polish + charts (amortization stacked area, principal vs interest)
-- [ ] Task 9: Final verification (lint, tests, build) and docs/README update
+- [x] Task 9: Final verification (lint, tests, build) and docs/README update
 
 ## Evidence
 - Baseline checkpoint: 72b6409 (user's pre-existing web changes)
@@ -34,3 +34,4 @@ Redesign the Next.js web client (`web/`) for mobile and desktop, following the O
 - Task 6: ebd5a95 (lint clean, 44 tests, build green; CashFlowAreaChart + CurrencyDonutChart responsive in DashboardHomeView)
 - Task 7: 05b652e (lint clean, 44 tests, build green; Split503020Chart + BudgetsComparisonChart in BudgetsTabView)
 - Task 8: a553966 (lint clean, 44 tests, build green; LendingOverviewChart added to LoansList)
+- Task 9: eddcf0d (README updated, final verification passed: 44 tests, clean lint, production build)

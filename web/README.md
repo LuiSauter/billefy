@@ -1,6 +1,6 @@
 # Billefy — Web Frontend (Next.js 15)
 
-Aplicación web desarrollada con **Next.js 15 (App Router)**, **TypeScript estricto**, **Tailwind CSS** y **Radix UI / shadcn**, estructurada bajo los principios de **Clean Architecture** y precisión financiera (`Decimal.js`).
+Aplicación web desarrollada con **Next.js 15 (App Router)**, **TypeScript estricto**, **Tailwind CSS v4**, **shadcn UI (base-nova sobre @base-ui/react y Recharts)** y **OpenPencil Design System**, estructurada bajo los principios de **Clean Architecture** y precisión financiera (`Decimal.js`). Incluye un sistema de **Drawers responsivos** (Bottom Drawer con swipe-down en móvil, modal centrado en desktop), tipografía legible accesible y gráficos visuales de flujo de caja, distribución de divisas, regla 50/30/20 y amortización.
 
 ---
 
