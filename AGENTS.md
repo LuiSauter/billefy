@@ -59,6 +59,19 @@ pnpm --dir web install && pnpm --dir web lint && pnpm --dir web test && pnpm --d
 12. **Parallel rates only** (Binance P2P via DolarApi / adapter). User holding local currency sees **buy** rate; holding USD sees **sell** rate.
 13. All external integrations (DolarApi, WhatsApp, Binance, LLM, Push, Email) must sit behind ports/interfaces.
 
+### Environment Variables & Configuration (MANDATORY)
+14. **Always document every environment variable.** Whenever introducing, consuming, or requiring a new environment variable in the backend (`backend/`), web frontend (`web/`), or mobile client (`mobile/`), you MUST immediately document it in both:
+    - The subsystem's environment template (`.env.example` / `env.example`).
+    - The subsystem's `README.md` with clear explanation, default values, and setup instructions.
+    Never introduce hidden, uncommitted, or undocumented environment variables.
+
+15. **Never leave server processes running in the background.** Agents must only execute deterministic build and test commands (`dotnet build`, `dotnet test`, `pnpm build`, `pnpm test`, `pnpm lint`). Never run or leave background servers (`dotnet run`, `pnpm dev`, etc.) occupying ports (`5267`, `3000`, etc.); only the developer is permitted to run the applications locally.
+
+16. **No database seeders or manual test insertions.** Never insert dummy users, test credentials, mock transactions, or manual rows into the local or production database (`billefy-db`). The database must remain pristine; only authentic user interaction through the client interface is permitted to populate records.
+
+### Database & Migrations (MANDATORY)
+17. **Strictly migration-driven changes (never manual or via ad-hoc scripts).** Never alter, drop, or manipulate the database schema manually, through interactive database clients, or via raw SQL scripts. Any database manipulation MUST be done strictly through official Entity Framework Core migrations (`dotnet ef migrations add <Name>`). Furthermore, **never edit or delete existing migration files** to fix or undo past mistakes; every adjustment, rollback, or new column/table MUST be handled via a **brand-new forward migration** to ensure schema history integrity and prevent migration mismatch across environments.
+
 ## 4. Code & Git conventions
 - **Language:** English for code, database, API, logs, and commit messages. Spanish/English for UI strings.
 - **Backend:** C# modular monolith. Modules talk **only** through `<Module>.Contracts`. Dependencies point inward.
