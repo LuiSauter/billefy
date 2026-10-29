@@ -2,7 +2,12 @@ import * as React from "react"
 
 const MOBILE_BREAKPOINT = 768
 
-export function useIsMobile() {
+/**
+ * Tri-state variant: `undefined` until the viewport has been measured on the
+ * client (SSR + first render), then `true` (< 768px) or `false`.
+ * Use it to avoid hydration flashes of the wrong layout.
+ */
+export function useIsMobileResolved(): boolean | undefined {
   const [isMobile, setIsMobile] = React.useState<boolean | undefined>(undefined)
 
   React.useEffect(() => {
@@ -15,5 +20,9 @@ export function useIsMobile() {
     return () => mql.removeEventListener("change", onChange)
   }, [])
 
-  return !!isMobile
+  return isMobile
+}
+
+export function useIsMobile() {
+  return !!useIsMobileResolved()
 }

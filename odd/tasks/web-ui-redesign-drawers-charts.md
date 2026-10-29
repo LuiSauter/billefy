@@ -14,8 +14,8 @@ Redesign the Next.js web client (`web/`) for mobile and desktop, following the O
 - Commits stage only `web/` and `odd/` paths (unrelated backend changes exist in the working tree).
 
 ## Tasks
-- [ ] Task 1: Foundation — Tailwind v4 migration, OpenPencil design tokens, font, readable type scale (build green)
-- [ ] Task 2: Overlay + form primitives — ResponsiveDrawer (bottom drawer / centered modal), Field, Input, Select, MoneyInput, SegmentedControl, Button variants
+- [x] Task 1: Foundation — Tailwind v4 migration, OpenPencil design tokens, font, readable type scale (build green)
+- [x] Task 2: Overlay + form primitives — ResponsiveDrawer (bottom drawer / centered modal), Field, Input, Select, MoneyInput, SegmentedControl, Button variants
 - [ ] Task 3: Convert transaction/account modals (1-Tap, Register, CreateAccount, Reconcile, FxTransfer) to ResponsiveDrawer
 - [ ] Task 4: Convert ingestion modals (Drafts, CSV, WhatsApp, Binance, SimulateNotification, IncomeDistribution) to ResponsiveDrawer
 - [ ] Task 5: Convert lending/planning/recurring modals (CreateLoan, LoanDetail, LoanPayment, CreateBudget, CreateGoal, Reschedule) to ResponsiveDrawer
@@ -25,4 +25,6 @@ Redesign the Next.js web client (`web/`) for mobile and desktop, following the O
 - [ ] Task 9: Final verification (lint, tests, build) and docs/README update
 
 ## Evidence
-(commit identities recorded per task)
+- Baseline checkpoint: 72b6409 (user's pre-existing web changes)
+- Task 1: 628269c (lint, 10 tests, build green; Tailwind 4.x; hex->tokens; Inter font)
+- Task 2: 3542853 (lint clean, 21 tests, build green; verifier subagent errored, run inline)
