@@ -1,8 +1,18 @@
 "use client";
 
-import React, { useState } from "react";
-import { X, Delete, Check, AlertCircle, PlusCircle } from "lucide-react";
+import React, { useEffect, useRef, useState } from "react";
+import Decimal from "decimal.js";
+import { Delete } from "lucide-react";
+import { cn } from "cn";
 import { AccountDto, RegisterTransactionRequest, TransactionDirection } from "@/domain/models/types";
+import { Button } from "@/components/ui/button";
+import { FormField } from "@/components/ui/form-field";
+import { MoneyInput } from "@/components/ui/money-input";
+import { ResponsiveDrawer } from "@/components/ui/responsive-drawer";
+import { SegmentedControl } from "@/components/ui/segmented-control";
+import { isPositiveDecimal } from "@/lib/money-input";
+import { KEYPAD_KEYS, applyKeypadKey, currencyChipLabel, normalizeAmountString } from "./keypad";
+import { NoAccountsNotice } from "./NoAccountsNotice";
 
 interface Mobile1TapTransactionModalProps {
   isOpen: boolean;
@@ -11,6 +21,98 @@ interface Mobile1TapTransactionModalProps {
   p2pRate: number;
   onRegister: (req: RegisterTransactionRequest) => Promise<void>;
   onOpenCreateAccount?: () => void;
+}
+
+const FORM_ID = "mobile-1tap-form";
+
+const DIRECTION_OPTIONS = [
+  { value: "Expense" as const, label: "💸 Gasto", tone: "expense" as const },
+  { value: "Income" as const, label: "💰 Ingreso", tone: "income" as const },
+];
+
+const CATEGORIES = [
+  "🍔 Alimentos",
+  "🚗 Transporte",
+  "🏠 Vivienda",
+  "🎉 Ocio",
+  "💊 Salud",
+  "💼 Sueldo",
+];
+
+const KEY_LABELS: Record<string, string> = {
+  ".": "Punto decimal",
+  backspace: "Borrar último dígito",
+};
+
+type ChipOption = { value: string; label: string };
+
+/** Radio-group of pill chips (roving tabindex + arrow keys), >= 44px tall. */
+function ChipRadioGroup({
+  label,
+  options,
+  value,
+  onChange,
+  scroll = false,
+}: {
+  label: string;
+  options: ChipOption[];
+  value: string;
+  onChange: (value: string) => void;
+  scroll?: boolean;
+}) {
+  const refs = useRef<(HTMLButtonElement | null)[]>([]);
+  const selectedIndex = options.findIndex((o) => o.value === value);
+  const tabbableIndex = selectedIndex === -1 ? 0 : selectedIndex;
+
+  const move = (event: React.KeyboardEvent, index: number) => {
+    const last = options.length - 1;
+    let next: number | null = null;
+    if (event.key === "ArrowRight" || event.key === "ArrowDown") next = index === last ? 0 : index + 1;
+    if (event.key === "ArrowLeft" || event.key === "ArrowUp") next = index === 0 ? last : index - 1;
+    if (event.key === "Home") next = 0;
+    if (event.key === "End") next = last;
+    if (next === null) return;
+    event.preventDefault();
+    onChange(options[next].value);
+    refs.current[next]?.focus();
+  };
+
+  return (
+    <div
+      role="radiogroup"
+      aria-label={label}
+      className={cn(
+        "flex gap-2",
+        scroll ? "-mx-1 overflow-x-auto px-1 pb-1" : "flex-wrap"
+      )}
+    >
+      {options.map((option, index) => {
+        const active = option.value === value;
+        return (
+          <button
+            key={option.value}
+            ref={(node) => {
+              refs.current[index] = node;
+            }}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            tabIndex={index === tabbableIndex ? 0 : -1}
+            onClick={() => onChange(option.value)}
+            onKeyDown={(event) => move(event, index)}
+            className={cn(
+              "inline-flex min-h-11 shrink-0 items-center rounded-full border px-4 text-sm font-semibold whitespace-nowrap transition-colors outline-hidden focus-visible:ring-4 focus-visible:ring-ring/25",
+              active
+                ? "border-primary bg-accent text-accent-foreground"
+                : "border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground"
+            )}
+          >
+            {option.label}
+          </button>
+        );
+      })}
+    </div>
+  );
 }
 
 export function Mobile1TapTransactionModal({
@@ -22,236 +124,181 @@ export function Mobile1TapTransactionModal({
   onOpenCreateAccount,
 }: Mobile1TapTransactionModalProps) {
   const [direction, setDirection] = useState<TransactionDirection>("Expense");
-  const [amountStr, setAmountStr] = useState("0");
+  // Decimal string; "" means nothing typed yet (displayed as 0).
+  const [amountStr, setAmountStr] = useState("");
   const [selectedAccountId, setSelectedAccountId] = useState(accounts[0]?.id || "");
-  const [category, setCategory] = useState("🍔 Alimentos");
+  const [category, setCategory] = useState(CATEGORIES[0]);
   const [loading, setLoading] = useState(false);
 
-  if (!isOpen) return null;
+  // Reset the form whenever the drawer closes.
+  useEffect(() => {
+    if (!isOpen) {
+      setDirection("Expense");
+      setAmountStr("");
+      setSelectedAccountId("");
+      setCategory(CATEGORIES[0]);
+    }
+  }, [isOpen]);
 
-  // Blocker if no accounts exist
-  if (accounts.length === 0) {
-    return (
-      <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
-        <div className="w-full sm:max-w-md bg-white rounded-t-[28px] sm:rounded-[24px] border border-border shadow-2xl p-6 flex flex-col gap-4">
-          <div className="flex items-center justify-between border-b pb-3">
-            <span className="text-[16px] font-extrabold text-foreground tracking-tight">
-              Nuevo Movimiento (1-Tap)
-            </span>
-            <button
-              onClick={onClose}
-              className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 transition"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-
-          <div className="py-6 flex flex-col items-center justify-center text-center gap-3">
-            <div className="w-12 h-12 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600">
-              <AlertCircle className="w-6 h-6" />
-            </div>
-            <h3 className="text-[16px] font-extrabold text-foreground">
-              No tenés cuentas registradas
-            </h3>
-            <p className="text-sm text-muted-foreground max-w-[300px] leading-relaxed">
-              Para registrar gastos o ingresos rápidos en 1-Tap, primero necesitás crear una cuenta bancaria o billetera.
-            </p>
-            {onOpenCreateAccount && (
-              <button
-                type="button"
-                onClick={() => {
-                  onClose();
-                  onOpenCreateAccount();
-                }}
-                className="mt-2 h-[44px] px-6 rounded-[12px] bg-primary hover:bg-blue-700 text-white text-sm font-extrabold transition flex items-center gap-2 shadow-2xs"
-              >
-                <PlusCircle className="w-4 h-4" />
-                <span>Crear mi primera cuenta</span>
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
+  const hasAccounts = accounts.length > 0;
+  const effectiveAccountId = selectedAccountId || accounts[0]?.id || "";
   const currentAccount = accounts.find((a) => a.id === selectedAccountId) || accounts[0];
-  const numAmount = parseFloat(amountStr) || 0;
+
+  const normalizedAmount = normalizeAmountString(amountStr);
+  const isValid = isPositiveDecimal(normalizedAmount);
+  const amountDecimal = new Decimal(normalizedAmount || "0");
   const isUsdt = currentAccount?.currency === "USDT";
-  const bobEquiv = isUsdt ? numAmount * p2pRate : numAmount;
-  const usdEquiv = isUsdt ? numAmount : numAmount / (p2pRate || 9.85);
+  const bobEquiv = isUsdt ? amountDecimal.times(p2pRate) : amountDecimal;
+  const usdEquiv = isUsdt ? amountDecimal : amountDecimal.div(p2pRate || 9.85);
+  const currencyChip = currencyChipLabel(currentAccount?.currency);
 
-  const handleKeyPress = (val: string) => {
-    if (val === "⌫") {
-      setAmountStr((prev) => (prev.length <= 1 ? "0" : prev.slice(0, -1)));
-      return;
-    }
-    if (val === ".") {
-      if (!amountStr.includes(".")) {
-        setAmountStr((prev) => prev + ".");
-      }
-      return;
-    }
-    setAmountStr((prev) => (prev === "0" ? val : prev + val));
-  };
-
-  const handleSubmit = async () => {
-    if (numAmount <= 0) return;
+  const handleSubmit = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!isValid) return;
     setLoading(true);
     try {
       await onRegister({
-        accountId: selectedAccountId || accounts[0]?.id || "",
-        amount: numAmount.toString(),
+        accountId: effectiveAccountId,
+        amount: normalizedAmount,
         direction,
         categoryId: category,
         description: `1-Tap: ${category}`,
       });
       onClose();
-      setAmountStr("0");
+      setAmountStr("");
     } finally {
       setLoading(false);
     }
   };
 
-  const categories = [
-    "🍔 Alimentos",
-    "🚗 Transporte",
-    "🏠 Vivienda",
-    "🎉 Ocio",
-    "💊 Salud",
-    "💼 Sueldo",
-  ];
+  const equivalentPill = (
+    <span className="inline-flex items-center rounded-full bg-muted px-3 py-1.5 text-sm font-semibold text-muted-foreground tabular-nums">
+      ≈ {isUsdt ? `Bs. ${bobEquiv.toFixed(2)}` : `$${usdEquiv.toFixed(2)} USD`} (P2P Bs {p2pRate.toFixed(2)})
+    </span>
+  );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="w-full sm:max-w-md bg-white rounded-t-[28px] sm:rounded-[24px] border border-border shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
-        {/* Header (OpenPencil MHead n2237) */}
-        <div className="flex items-center justify-between p-4 border-b border-slate-100">
-          <span className="text-[16px] font-extrabold text-foreground tracking-tight">
-            Nuevo Movimiento (1-Tap)
-          </span>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 transition"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+    <ResponsiveDrawer
+      open={isOpen}
+      onOpenChange={(open) => !open && onClose()}
+      title="Nuevo movimiento (1-Tap)"
+      description="Cargá el monto, elegí cuenta y categoría, y listo."
+      footer={
+        hasAccounts ? (
+          <>
+            <Button
+              type="submit"
+              form={FORM_ID}
+              size="lg"
+              loading={loading}
+              disabled={!isValid}
+              className="order-1 w-full md:order-2 md:flex-1"
+            >
+              Confirmar en 1-Tap
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="lg"
+              onClick={onClose}
+              className="order-2 w-full md:order-1 md:w-auto md:border-input md:bg-card"
+            >
+              Cancelar
+            </Button>
+          </>
+        ) : undefined
+      }
+    >
+      {!hasAccounts ? (
+        <NoAccountsNotice
+          description="Para registrar gastos o ingresos rápidos en 1-Tap, primero necesitás crear una cuenta bancaria o billetera."
+          onOpenCreateAccount={
+            onOpenCreateAccount
+              ? () => {
+                  onClose();
+                  onOpenCreateAccount();
+                }
+              : undefined
+          }
+        />
+      ) : (
+        <form id={FORM_ID} onSubmit={handleSubmit} className="flex flex-col gap-5">
+          <SegmentedControl
+            aria-label="Tipo de movimiento"
+            fullWidth
+            options={DIRECTION_OPTIONS}
+            value={direction}
+            onChange={setDirection}
+          />
 
-        <div className="p-4 flex flex-col gap-4 overflow-y-auto">
-          {/* Tabs: Gasto | Ingreso (OpenPencil MTabs) */}
-          <div className="grid grid-cols-2 p-1 rounded-[12px] bg-slate-100 gap-1">
-            <button
-              type="button"
-              onClick={() => setDirection("Expense")}
-              className={`py-2 rounded-[9px] text-sm font-bold transition ${
-                direction === "Expense"
-                  ? "bg-white text-red-500 shadow-2xs"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
+          {/* Mobile (< md): amount display driven by the keypad below */}
+          <div className="flex flex-col items-center justify-center gap-2 rounded-3xl border border-border bg-muted p-4 md:hidden">
+            <div
+              role="status"
+              aria-label={`Monto: ${amountStr || "0"} ${currentAccount?.currency ?? ""}`}
+              className="flex items-baseline gap-2 text-foreground tabular-nums"
             >
-              💸 Gasto
-            </button>
-            <button
-              type="button"
-              onClick={() => setDirection("Income")}
-              className={`py-2 rounded-[9px] text-sm font-bold transition ${
-                direction === "Income"
-                  ? "bg-white text-emerald-500 shadow-2xs"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              💰 Ingreso
-            </button>
+              <span className="text-2xl font-semibold text-muted-foreground">{currencyChip}</span>
+              <span className="text-5xl font-bold tracking-tight">{amountStr || "0"}</span>
+            </div>
+            {equivalentPill}
           </div>
 
-          {/* Amount Display (OpenPencil MDisp) */}
-          <div className="p-4 rounded-[20px] bg-slate-50 border border-slate-200 flex flex-col items-center justify-center gap-1">
-            <div className="flex items-baseline gap-1 text-[38px] font-black font-mono tracking-tight text-foreground">
-              <span className="text-[24px] text-slate-400">
-                {currentAccount?.currency === "BOB" ? "Bs." : "$"}
-              </span>
-              <span>{amountStr}</span>
-            </div>
-            <span className="text-sm font-semibold text-slate-500 font-mono">
-              ≈ {isUsdt ? `Bs. ${bobEquiv.toFixed(2)}` : `$${usdEquiv.toFixed(2)} USD`} (P2P Bs {p2pRate.toFixed(2)})
+          {/* Desktop (>= md): keyboard-friendly input, keypad hidden */}
+          <div className="hidden flex-col gap-3 md:flex">
+            <FormField label="Monto" required>
+              {(control) => (
+                <MoneyInput
+                  {...control}
+                  size="lg"
+                  currency={currencyChip}
+                  value={amountStr}
+                  onValueChange={setAmountStr}
+                />
+              )}
+            </FormField>
+            <div>{equivalentPill}</div>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <span className="text-sm font-semibold text-foreground">
+              Imputar a cuenta
             </span>
+            <ChipRadioGroup
+              scroll
+              label="Imputar a cuenta"
+              options={accounts.map((acc) => ({ value: acc.id, label: `${acc.name} (${acc.currency})` }))}
+              value={effectiveAccountId}
+              onChange={setSelectedAccountId}
+            />
           </div>
 
-          {/* Account Chips (OpenPencil MAccChips) */}
           <div className="flex flex-col gap-1.5">
-            <span className="text-xs font-bold text-slate-500">Imputar a Cuenta:</span>
-            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-              {accounts.map((acc) => {
-                const isSelected = (selectedAccountId || accounts[0]?.id) === acc.id;
-                return (
-                  <button
-                    key={acc.id}
-                    type="button"
-                    onClick={() => setSelectedAccountId(acc.id)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition ${
-                      isSelected
-                        ? "bg-slate-900 text-white shadow-2xs"
-                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                    }`}
-                  >
-                    {acc.name} ({acc.currency})
-                  </button>
-                );
-              })}
-            </div>
+            <span className="text-sm font-semibold text-foreground">Categoría</span>
+            <ChipRadioGroup
+              label="Categoría"
+              options={CATEGORIES.map((cat) => ({ value: cat, label: cat }))}
+              value={category}
+              onChange={setCategory}
+            />
           </div>
 
-          {/* Category Chips (OpenPencil MCatChips) */}
-          <div className="flex flex-col gap-1.5">
-            <span className="text-xs font-bold text-slate-500">Categoría:</span>
-            <div className="grid grid-cols-3 gap-2">
-              {categories.map((cat) => {
-                const isSelected = category === cat;
-                return (
-                  <button
-                    key={cat}
-                    type="button"
-                    onClick={() => setCategory(cat)}
-                    className={`py-2 px-1.5 rounded-[12px] text-xs font-bold border transition text-center truncate ${
-                      isSelected
-                        ? "bg-blue-50 border-blue-500 text-primary"
-                        : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
-                    }`}
-                  >
-                    {cat}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Numeric Keypad (OpenPencil MKeypad) */}
-          <div className="grid grid-cols-3 gap-2 pt-1 select-none">
-            {["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0", "⌫"].map((key) => (
+          {/* Numeric keypad: mobile only */}
+          <div role="group" aria-label="Teclado numérico" className="grid grid-cols-3 gap-2 select-none md:hidden">
+            {KEYPAD_KEYS.map((key) => (
               <button
                 key={key}
                 type="button"
-                onClick={() => handleKeyPress(key)}
-                className="h-[48px] rounded-[14px] bg-slate-100 hover:bg-slate-200 active:scale-95 text-[18px] font-bold text-foreground transition flex items-center justify-center font-mono"
+                aria-label={KEY_LABELS[key] ?? `Dígito ${key}`}
+                onClick={() => setAmountStr((prev) => applyKeypadKey(prev, key))}
+                className="flex h-14 items-center justify-center rounded-2xl bg-muted text-xl font-bold text-foreground tabular-nums transition outline-hidden hover:bg-secondary/80 focus-visible:ring-4 focus-visible:ring-ring/25 active:scale-95"
               >
-                {key === "⌫" ? <Delete className="w-5 h-5 text-slate-600" /> : key}
+                {key === "backspace" ? <Delete className="size-6 text-muted-foreground" aria-hidden="true" /> : key}
               </button>
             ))}
           </div>
-
-          {/* Submit Button (OpenPencil MConfirm) */}
-          <button
-            type="button"
-            disabled={loading || numAmount <= 0}
-            onClick={handleSubmit}
-            className="w-full h-[50px] rounded-[14px] bg-primary hover:bg-blue-700 active:scale-[0.99] text-white text-[15px] font-extrabold transition flex items-center justify-center gap-2 shadow-md shadow-blue-500/20 disabled:opacity-50"
-          >
-            <Check className="w-5 h-5 stroke-3" />
-            <span>Confirmar en 1-Tap</span>
-          </button>
-        </div>
-      </div>
-    </div>
+        </form>
+      )}
+    </ResponsiveDrawer>
   );
 }

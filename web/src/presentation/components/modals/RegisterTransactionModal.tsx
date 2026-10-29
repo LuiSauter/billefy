@@ -1,6 +1,17 @@
-import React, { useState } from "react";
+"use client";
+
+import React, { useEffect, useState } from "react";
 import { AccountDto, RegisterTransactionRequest, TransactionDirection } from "@/domain/models/types";
-import { AlertCircle, PlusCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { FormField } from "@/components/ui/form-field";
+import { Input } from "@/components/ui/input";
+import { MoneyInput } from "@/components/ui/money-input";
+import { ResponsiveDrawer } from "@/components/ui/responsive-drawer";
+import { SegmentedControl } from "@/components/ui/segmented-control";
+import { SelectField } from "@/components/ui/select-field";
+import { isPositiveDecimal } from "@/lib/money-input";
+import { currencyChipLabel, normalizeAmountString } from "./keypad";
+import { NoAccountsNotice } from "./NoAccountsNotice";
 
 interface RegisterTransactionModalProps {
   isOpen: boolean;
@@ -10,6 +21,13 @@ interface RegisterTransactionModalProps {
   onSubmit: (req: RegisterTransactionRequest) => Promise<void>;
   onOpenCreateAccount?: () => void;
 }
+
+const FORM_ID = "register-transaction-form";
+
+const DIRECTION_OPTIONS = [
+  { value: "Expense" as const, label: "Gasto (-)", tone: "expense" as const },
+  { value: "Income" as const, label: "Ingreso (+)", tone: "income" as const },
+];
 
 export function RegisterTransactionModal({
   isOpen,
@@ -25,64 +43,32 @@ export function RegisterTransactionModal({
   const [description, setDescription] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  if (!isOpen) return null;
+  // Reset the form whenever the drawer closes.
+  useEffect(() => {
+    if (!isOpen) {
+      setAccountId("");
+      setAmount("");
+      setDirection("Expense");
+      setDescription("");
+    }
+  }, [isOpen]);
 
-  // Blocker if no accounts exist
-  if (accounts.length === 0) {
-    return (
-      <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
-        <div className="w-full max-w-md shadow-2xl bg-white border border-border rounded-[20px] p-6 flex flex-col gap-4">
-          <div className="flex items-center justify-between border-b pb-3">
-            <h2 className="text-[17px] font-extrabold text-foreground tracking-tight">
-              Registrar Movimiento
-            </h2>
-            <button
-              onClick={onClose}
-              className="w-7 h-7 rounded-lg text-muted-foreground hover:bg-slate-100 flex items-center justify-center transition"
-            >
-              ✕
-            </button>
-          </div>
-
-          <div className="py-6 flex flex-col items-center justify-center text-center gap-3">
-            <div className="w-12 h-12 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600">
-              <AlertCircle className="w-6 h-6" />
-            </div>
-            <h3 className="text-[16px] font-extrabold text-foreground">
-              No tenés cuentas registradas
-            </h3>
-            <p className="text-sm text-muted-foreground max-w-[320px] leading-relaxed">
-              Para registrar ingresos o gastos en el libro mayor inmutable, primero debés registrar tu primera cuenta.
-            </p>
-            {onOpenCreateAccount && (
-              <button
-                type="button"
-                onClick={() => {
-                  onClose();
-                  onOpenCreateAccount();
-                }}
-                className="mt-2 h-[42px] px-6 rounded-[12px] bg-primary hover:bg-blue-700 text-white text-sm font-extrabold transition flex items-center gap-2 shadow-2xs"
-              >
-                <PlusCircle className="w-4 h-4" />
-                <span>Crear mi primera cuenta</span>
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const effectiveAccountId = accountId || defaultAccountId || accounts[0]?.id || "";
+  const selectedAccount = accounts.find((a) => a.id === effectiveAccountId);
+  const normalizedAmount = normalizeAmountString(amount);
+  const isValid = isPositiveDecimal(normalizedAmount);
+  const amountError =
+    amount !== "" && !isValid ? "Ingresá un monto mayor a 0." : undefined;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const amountNum = parseFloat(amount);
-    if (isNaN(amountNum) || amountNum <= 0) return;
+    if (!isValid) return;
 
     setSubmitting(true);
     try {
       await onSubmit({
-        accountId: accountId || defaultAccountId || accounts[0]?.id || "",
-        amount,
+        accountId: effectiveAccountId,
+        amount: normalizedAmount,
         direction,
         description: description.trim() || undefined,
       });
@@ -94,90 +80,102 @@ export function RegisterTransactionModal({
     }
   };
 
+  const hasAccounts = accounts.length > 0;
+
   return (
-    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
-      <div className="w-full max-w-md shadow-2xl bg-white border border-border rounded-[20px] p-6 flex flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-[17px] font-extrabold text-foreground tracking-tight">
-            Registrar Movimiento en Servidor
-          </h2>
-          <button
-            onClick={onClose}
-            className="w-7 h-7 rounded-lg text-muted-foreground hover:bg-slate-100 flex items-center justify-center transition"
-          >
-            ✕
-          </button>
-        </div>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-3.5">
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-bold text-slate-600">Cuenta</label>
-            <select
-              id="txnAccount"
-              value={accountId || defaultAccountId || accounts[0]?.id || ""}
-              onChange={(e) => setAccountId(e.target.value)}
-              className="h-[42px] px-3.5 rounded-[10px] border border-border text-sm font-semibold text-foreground bg-white focus:outline-hidden focus:border-primary"
+    <ResponsiveDrawer
+      open={isOpen}
+      onOpenChange={(open) => !open && onClose()}
+      title="Registrar movimiento"
+      description="Quedará guardado en tu libro mayor inmutable."
+      footer={
+        hasAccounts ? (
+          <>
+            <Button
+              type="submit"
+              form={FORM_ID}
+              size="lg"
+              loading={submitting}
+              disabled={!isValid}
+              className="order-1 w-full md:order-2 md:flex-1"
             >
-              {accounts.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.name} ({a.currency})
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-bold text-slate-600">Tipo de Movimiento</label>
-            <select
-              id="txnDirection"
-              value={direction}
-              onChange={(e) => setDirection(e.target.value as TransactionDirection)}
-              className="h-[42px] px-3.5 rounded-[10px] border border-border text-sm font-semibold text-foreground bg-white focus:outline-hidden focus:border-primary"
-            >
-              <option value="Expense">Gasto (-)</option>
-              <option value="Income">Ingreso (+)</option>
-            </select>
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-bold text-slate-600">Monto</label>
-            <input
-              id="txnAmount"
-              type="number"
-              step="any"
-              required
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              placeholder="0.00"
-              className="h-[42px] px-3.5 rounded-[10px] border border-border text-sm font-extrabold font-mono text-foreground focus:outline-hidden focus:border-primary"
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-bold text-slate-600">Descripción</label>
-            <input
-              id="txnDesc"
-              type="text"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Ej. Almuerzo, Taxi, Sueldo"
-              className="h-[42px] px-3.5 rounded-[10px] border border-border text-sm font-semibold text-foreground focus:outline-hidden focus:border-primary"
-            />
-          </div>
-          <div className="flex justify-end gap-2.5 pt-2">
-            <button
+              {submitting ? "Guardando..." : "Confirmar movimiento"}
+            </Button>
+            <Button
               type="button"
+              variant="ghost"
+              size="lg"
               onClick={onClose}
-              className="h-[40px] px-4 rounded-[10px] border border-border text-sm font-semibold text-slate-600 hover:bg-slate-50 transition"
+              className="order-2 w-full md:order-1 md:w-auto md:border-input md:bg-card"
             >
               Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={submitting || !amount || parseFloat(amount) <= 0}
-              className="h-[40px] px-5 rounded-[10px] bg-primary hover:bg-blue-700 active:scale-[0.99] text-white text-sm font-bold transition disabled:opacity-50"
-            >
-              {submitting ? "Guardando..." : "Confirmar Movimiento"}
-            </button>
-          </div>
+            </Button>
+          </>
+        ) : undefined
+      }
+    >
+      {!hasAccounts ? (
+        <NoAccountsNotice
+          description="Para registrar ingresos o gastos en el libro mayor inmutable, primero debés registrar tu primera cuenta."
+          onOpenCreateAccount={
+            onOpenCreateAccount
+              ? () => {
+                  onClose();
+                  onOpenCreateAccount();
+                }
+              : undefined
+          }
+        />
+      ) : (
+        <form id={FORM_ID} onSubmit={handleSubmit} className="flex flex-col gap-5">
+          <SegmentedControl
+            aria-label="Tipo de movimiento"
+            fullWidth
+            options={DIRECTION_OPTIONS}
+            value={direction}
+            onChange={setDirection}
+          />
+
+          <FormField label="Cuenta">
+            {(control) => (
+              <SelectField
+                {...control}
+                value={effectiveAccountId}
+                onChange={(e) => setAccountId(e.target.value)}
+                options={accounts.map((a) => ({
+                  value: a.id,
+                  label: a.name,
+                  description: `${a.currency} · Saldo ${a.balance.toFixed(2)}`,
+                }))}
+              />
+            )}
+          </FormField>
+
+          <FormField label="Monto" required error={amountError}>
+            {(control) => (
+              <MoneyInput
+                {...control}
+                size="lg"
+                currency={currencyChipLabel(selectedAccount?.currency)}
+                value={amount}
+                onValueChange={setAmount}
+              />
+            )}
+          </FormField>
+
+          <FormField label="Descripción" hint="Opcional. Te ayuda a reconocerlo después.">
+            {(control) => (
+              <Input
+                {...control}
+                type="text"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Ej. Almuerzo, Taxi, Sueldo"
+              />
+            )}
+          </FormField>
         </form>
-      </div>
-    </div>
+      )}
+    </ResponsiveDrawer>
   );
 }

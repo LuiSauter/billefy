@@ -1,11 +1,42 @@
-import React, { useState } from "react";
+"use client";
+
+import React, { useEffect, useState } from "react";
 import { AccountType, CreateAccountRequest } from "@/domain/models/types";
+import { Button } from "@/components/ui/button";
+import { FormField } from "@/components/ui/form-field";
+import { Input } from "@/components/ui/input";
+import { MoneyInput } from "@/components/ui/money-input";
+import { ResponsiveDrawer } from "@/components/ui/responsive-drawer";
+import { SegmentedControl } from "@/components/ui/segmented-control";
+import { SelectField } from "@/components/ui/select-field";
+import { currencyChipLabel, normalizeAmountString } from "./keypad";
 
 interface CreateAccountModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (req: CreateAccountRequest) => Promise<void>;
 }
+
+const FORM_ID = "create-account-form";
+
+const TYPE_OPTIONS: { value: AccountType; label: string }[] = [
+  { value: "Bank", label: "Banco" },
+  { value: "Wallet", label: "Billetera Digital" },
+  { value: "Cash", label: "Efectivo" },
+  { value: "Exchange", label: "Exchange (Crypto)" },
+];
+
+const CURRENCY_OPTIONS = [
+  { value: "BOB", label: "BOB" },
+  { value: "USD", label: "USD" },
+  { value: "USDT", label: "USDT" },
+];
+
+const CURRENCY_NAMES: Record<string, string> = {
+  BOB: "Bolivianos",
+  USD: "Dólares",
+  USDT: "Tether",
+};
 
 export function CreateAccountModal({ isOpen, onClose, onSubmit }: CreateAccountModalProps) {
   const [name, setName] = useState("");
@@ -14,11 +45,23 @@ export function CreateAccountModal({ isOpen, onClose, onSubmit }: CreateAccountM
   const [initialBalance, setInitialBalance] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  if (!isOpen) return null;
+  // Reset the form whenever the drawer closes.
+  useEffect(() => {
+    if (!isOpen) {
+      setName("");
+      setType("Bank");
+      setCurrency("BOB");
+      setInitialBalance("");
+    }
+  }, [isOpen]);
+
+  const isValid = name.trim().length > 0;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (!isValid) return;
+
+    const balance = normalizeAmountString(initialBalance.trim());
 
     setSubmitting(true);
     try {
@@ -26,7 +69,7 @@ export function CreateAccountModal({ isOpen, onClose, onSubmit }: CreateAccountM
         name: name.trim(),
         type,
         currency,
-        initialBalance: initialBalance.trim() ? parseFloat(initialBalance.trim()) : 0,
+        initialBalance: balance ? balance : 0,
       });
       setName("");
       setInitialBalance("");
@@ -37,88 +80,81 @@ export function CreateAccountModal({ isOpen, onClose, onSubmit }: CreateAccountM
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
-      <div className="w-full max-w-md shadow-2xl bg-white border border-border rounded-[20px] p-6 flex flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-[17px] font-extrabold text-foreground tracking-tight">
-            Crear Nueva Cuenta
-          </h2>
-          <button
-            onClick={onClose}
-            className="w-7 h-7 rounded-lg text-muted-foreground hover:bg-slate-100 flex items-center justify-center transition"
+    <ResponsiveDrawer
+      open={isOpen}
+      onOpenChange={(open) => !open && onClose()}
+      title="Crear nueva cuenta"
+      description="Elegí el tipo, la moneda y con cuánto arranca."
+      footer={
+        <>
+          <Button
+            type="submit"
+            form={FORM_ID}
+            size="lg"
+            loading={submitting}
+            disabled={!isValid}
+            className="order-1 w-full md:order-2 md:flex-1"
           >
-            ✕
-          </button>
-        </div>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-3.5">
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-bold text-slate-600">Nombre de la cuenta</label>
-            <input
-              id="accountName"
-              required
+            {submitting ? "Creando..." : "Crear cuenta"}
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="lg"
+            onClick={onClose}
+            className="order-2 w-full md:order-1 md:w-auto md:border-input md:bg-card"
+          >
+            Cancelar
+          </Button>
+        </>
+      }
+    >
+      <form id={FORM_ID} onSubmit={handleSubmit} className="flex flex-col gap-5">
+        <FormField label="Nombre de la cuenta" required>
+          {(control) => (
+            <Input
+              {...control}
+              type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Ej. Banco Unión, Billetera USDT, Efectivo"
-              className="h-[42px] px-3.5 rounded-[10px] border border-border text-sm font-semibold text-foreground focus:outline-hidden focus:border-primary"
+              autoComplete="off"
             />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-bold text-slate-600">Tipo de cuenta</label>
-            <select
-              id="accountType"
+          )}
+        </FormField>
+
+        <FormField label="Tipo de cuenta">
+          {(control) => (
+            <SelectField
+              {...control}
               value={type}
               onChange={(e) => setType(e.target.value as AccountType)}
-              className="h-[42px] px-3.5 rounded-[10px] border border-border text-sm font-semibold text-foreground bg-white focus:outline-hidden focus:border-primary"
-            >
-              <option value="Bank">Banco</option>
-              <option value="Wallet">Billetera Digital</option>
-              <option value="Cash">Efectivo</option>
-              <option value="Exchange">Exchange (Crypto)</option>
-            </select>
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-bold text-slate-600">Moneda</label>
-            <select
-              id="accountCurrency"
-              value={currency}
-              onChange={(e) => setCurrency(e.target.value)}
-              className="h-[42px] px-3.5 rounded-[10px] border border-border text-sm font-semibold text-foreground bg-white focus:outline-hidden focus:border-primary"
-            >
-              <option value="BOB">Bolivianos (BOB)</option>
-              <option value="USD">Dólares (USD)</option>
-              <option value="USDT">Tether (USDT)</option>
-            </select>
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-bold text-slate-600">Saldo Inicial</label>
-            <input
-              id="initialBalance"
-              type="number"
-              step="any"
-              value={initialBalance}
-              onChange={(e) => setInitialBalance(e.target.value)}
-              placeholder="0.00"
-              className="h-[42px] px-3.5 rounded-[10px] border border-border text-sm font-extrabold font-mono text-foreground focus:outline-hidden focus:border-primary"
+              options={TYPE_OPTIONS}
             />
-          </div>
-          <div className="flex justify-end gap-2.5 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="h-[40px] px-4 rounded-[10px] border border-border text-sm font-semibold text-slate-600 hover:bg-slate-50 transition"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={submitting || !name.trim()}
-              className="h-[40px] px-5 rounded-[10px] bg-primary hover:bg-blue-700 active:scale-[0.99] text-white text-sm font-bold transition disabled:opacity-50"
-            >
-              {submitting ? "Creando..." : "Crear Cuenta"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+          )}
+        </FormField>
+
+        <FormField label="Moneda" hint={`${CURRENCY_NAMES[currency] ?? currency} (${currency})`}>
+          <SegmentedControl
+            aria-label="Moneda"
+            fullWidth
+            options={CURRENCY_OPTIONS}
+            value={currency}
+            onChange={setCurrency}
+          />
+        </FormField>
+
+        <FormField label="Saldo inicial" hint="Opcional. Si lo dejás vacío, la cuenta arranca en 0.">
+          {(control) => (
+            <MoneyInput
+              {...control}
+              currency={currencyChipLabel(currency)}
+              value={initialBalance}
+              onValueChange={setInitialBalance}
+            />
+          )}
+        </FormField>
+      </form>
+    </ResponsiveDrawer>
   );
 }

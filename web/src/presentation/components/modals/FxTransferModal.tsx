@@ -2,8 +2,15 @@
 
 import React, { useState, useEffect } from "react";
 import Decimal from "decimal.js";
-import { X, ArrowRight, Check, AlertCircle, PlusCircle } from "lucide-react";
+import { ArrowRight, Timer } from "lucide-react";
 import { AccountDto } from "@/domain/models/types";
+import { Button } from "@/components/ui/button";
+import { FormField, FormGrid } from "@/components/ui/form-field";
+import { MoneyInput } from "@/components/ui/money-input";
+import { ResponsiveDrawer } from "@/components/ui/responsive-drawer";
+import { SelectField } from "@/components/ui/select-field";
+import { currencyChipLabel } from "./keypad";
+import { NoAccountsNotice } from "./NoAccountsNotice";
 
 interface FxTransferModalProps {
   isOpen: boolean;
@@ -19,6 +26,9 @@ interface FxTransferModalProps {
   onOpenCreateAccount?: () => void;
 }
 
+const FORM_ID = "fx-transfer-form";
+const RATE_FREEZE_SECONDS = 45;
+
 export function FxTransferModal({
   isOpen,
   onClose,
@@ -30,7 +40,7 @@ export function FxTransferModal({
   const [fromAccountId, setFromAccountId] = useState("");
   const [toAccountId, setToAccountId] = useState("");
   const [amountStr, setAmountStr] = useState("");
-  const [secondsLeft, setSecondsLeft] = useState(45);
+  const [secondsLeft, setSecondsLeft] = useState(RATE_FREEZE_SECONDS);
   const [loading, setLoading] = useState(false);
 
   // Initialize accounts default when available
@@ -50,68 +60,20 @@ export function FxTransferModal({
     }
   }, [accounts, fromAccountId, toAccountId]);
 
-  // Countdown timer for rate freeze (45s loop)
+  // Countdown timer for rate freeze (45s loop); form resets when the drawer closes.
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      setAmountStr("");
+      setSecondsLeft(RATE_FREEZE_SECONDS);
+      return;
+    }
     const interval = setInterval(() => {
-      setSecondsLeft((prev) => (prev <= 1 ? 45 : prev - 1));
+      setSecondsLeft((prev) => (prev <= 1 ? RATE_FREEZE_SECONDS : prev - 1));
     }, 1000);
     return () => clearInterval(interval);
   }, [isOpen]);
 
-  if (!isOpen) return null;
-
-  // Blocker if fewer than 2 accounts exist
-  if (accounts.length < 2) {
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-150">
-        <div className="w-full max-w-[480px] bg-white rounded-[24px] p-6 shadow-2xl border border-border relative flex flex-col gap-4">
-          <div className="flex items-center justify-between border-b pb-3">
-            <h2 className="text-[17px] font-extrabold text-foreground tracking-tight">
-              Transferencia entre Cuentas
-            </h2>
-            <button
-              onClick={onClose}
-              className="w-8 h-8 rounded-lg text-muted-foreground hover:bg-slate-100 flex items-center justify-center transition"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-
-          <div className="py-6 px-2 flex flex-col items-center justify-center text-center gap-3">
-            <div className="w-12 h-12 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600">
-              <AlertCircle className="w-6 h-6" />
-            </div>
-            <h3 className="text-[16px] font-extrabold text-foreground">
-              {accounts.length === 0
-                ? "No tenés cuentas registradas"
-                : "Necesitás al menos 2 cuentas"}
-            </h3>
-            <p className="text-sm text-muted-foreground max-w-[340px] leading-relaxed">
-              {accounts.length === 0
-                ? "Para transferir o convertir divisas en tiempo real, primero debés registrar al menos dos cuentas en el sistema."
-                : "Para realizar una transferencia entre cuentas, necesitás tener registrada una cuenta de origen y otra de destino."}
-            </p>
-            {onOpenCreateAccount && (
-              <button
-                type="button"
-                onClick={() => {
-                  onClose();
-                  onOpenCreateAccount();
-                }}
-                className="mt-2 h-[42px] px-6 rounded-[12px] bg-primary hover:bg-blue-700 text-white text-sm font-extrabold transition flex items-center gap-2 shadow-2xs"
-              >
-                <PlusCircle className="w-4 h-4" />
-                <span>
-                  {accounts.length === 0 ? "Crear Primera Cuenta" : "Crear Segunda Cuenta"}
-                </span>
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const needsMoreAccounts = accounts.length < 2;
 
   const fromAccount = accounts.find((a) => a.id === fromAccountId) || accounts[0];
   const toAccount = accounts.find((a) => a.id === toAccountId) || accounts[1];
@@ -128,6 +90,10 @@ export function FxTransferModal({
     targetAmountDecimal = amountDecimal;
   }
 
+  const isValid = amountDecimal.gt(0);
+  const amountError =
+    amountStr !== "" && !isValid ? "Ingresá un monto mayor a 0." : undefined;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!fromAccountId || !toAccountId || amountDecimal.lte(0)) return;
@@ -137,7 +103,7 @@ export function FxTransferModal({
       await onConfirmTransfer({
         fromAccountId,
         toAccountId,
-        amount: amountDecimal.toNumber(),
+        amount: amountDecimal.toNumber(), // API contract requires a number
         description: `Conversión FX ${fromAccount?.currency} ➔ ${toAccount?.currency} (Tasa P2P ${p2pRate.toFixed(2)})`,
       });
       setAmountStr("");
@@ -149,124 +115,143 @@ export function FxTransferModal({
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-150">
-      <div className="w-full max-w-[580px] bg-white rounded-[20px] p-[24px_24px_28px_24px] shadow-2xl border border-border relative flex flex-col gap-4">
-        {/* Header (OpenPencil FXH) */}
-        <div className="flex items-center justify-between">
-          <h2 className="text-[17px] font-extrabold text-foreground tracking-tight">
-            Transferencia entre Cuentas & Conversión FX
-          </h2>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 rounded-lg text-muted-foreground hover:bg-slate-100 flex items-center justify-center transition"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+  const accountOptions = accounts.map((a) => ({
+    value: a.id,
+    label: a.name,
+    description: `${a.currency} · Saldo ${a.balance.toFixed(2)}`,
+  }));
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          {/* Conversion Row (OpenPencil BRow) */}
-          <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_1fr] items-center gap-3">
-            {/* Box From (OpenPencil BFrom) */}
-            <div className="p-3.5 rounded-[16px] bg-white border border-border flex flex-col gap-1">
-              <label className="text-xs font-semibold text-muted-foreground">
-                Desde: {fromAccount?.name || "Cuenta Origen"}
-              </label>
-              <div className="flex items-baseline gap-1 font-mono">
-                <span className="text-[16px] font-black text-foreground">
-                  {fromAccount?.currency === "BOB" ? "Bs." : "$"}
-                </span>
-                <input
-                  type="number"
-                  step="any"
-                  value={amountStr}
-                  onChange={(e) => setAmountStr(e.target.value)}
-                  placeholder="0.00"
-                  className="w-full text-[20px] font-black text-foreground bg-transparent focus:outline-hidden placeholder-slate-300"
+  return (
+    <ResponsiveDrawer
+      open={isOpen}
+      onOpenChange={(open) => !open && onClose()}
+      size="lg"
+      title={needsMoreAccounts ? "Transferencia entre cuentas" : "Transferencia entre cuentas y conversión FX"}
+      description="Se convierte con la tasa P2P congelada por unos segundos."
+      footer={
+        needsMoreAccounts ? undefined : (
+          <>
+            <Button
+              type="submit"
+              form={FORM_ID}
+              size="lg"
+              loading={loading}
+              disabled={!isValid}
+              className="order-1 w-full md:order-2 md:flex-1"
+            >
+              Confirmar transferencia
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="lg"
+              onClick={onClose}
+              className="order-2 w-full md:order-1 md:w-auto md:border-input md:bg-card"
+            >
+              Cancelar
+            </Button>
+          </>
+        )
+      }
+    >
+      {needsMoreAccounts ? (
+        <NoAccountsNotice
+          title={accounts.length === 0 ? "No tenés cuentas registradas" : "Necesitás al menos 2 cuentas"}
+          description={
+            accounts.length === 0
+              ? "Para transferir o convertir divisas en tiempo real, primero debés registrar al menos dos cuentas en el sistema."
+              : "Para realizar una transferencia entre cuentas, necesitás tener registrada una cuenta de origen y otra de destino."
+          }
+          ctaLabel={accounts.length === 0 ? "Crear Primera Cuenta" : "Crear Segunda Cuenta"}
+          onOpenCreateAccount={
+            onOpenCreateAccount
+              ? () => {
+                  onClose();
+                  onOpenCreateAccount();
+                }
+              : undefined
+          }
+        />
+      ) : (
+        <form id={FORM_ID} onSubmit={handleSubmit} className="flex flex-col gap-5">
+          <FormGrid>
+            <FormField label="Cuenta origen">
+              {(control) => (
+                <SelectField
+                  {...control}
+                  value={fromAccountId}
+                  onChange={(e) => setFromAccountId(e.target.value)}
+                  options={accountOptions}
                 />
-              </div>
-              <span className="text-xs font-bold text-muted-foreground">
+              )}
+            </FormField>
+            <FormField label="Cuenta destino">
+              {(control) => (
+                <SelectField
+                  {...control}
+                  value={toAccountId}
+                  onChange={(e) => setToAccountId(e.target.value)}
+                  options={accountOptions}
+                />
+              )}
+            </FormField>
+          </FormGrid>
+
+          {/* Conversion row (OpenPencil n2560): from (slate) -> to (emerald tint) */}
+          <div className="grid grid-cols-1 items-center gap-3 md:grid-cols-[1fr_auto_1fr]">
+            <div className="flex flex-col gap-2 rounded-2xl border border-border bg-muted p-4">
+              <span className="text-xs font-semibold text-muted-foreground">
+                Desde: {fromAccount?.name || "Cuenta origen"}
+              </span>
+              <FormField label="Monto a convertir" required error={amountError}>
+                {(control) => (
+                  <MoneyInput
+                    {...control}
+                    size="lg"
+                    currency={currencyChipLabel(fromAccount?.currency)}
+                    value={amountStr}
+                    onValueChange={setAmountStr}
+                  />
+                )}
+              </FormField>
+              <span className="text-xs font-semibold text-muted-foreground">
                 {fromAccount?.currency === "BOB" ? "BOB (Bolivianos)" : fromAccount?.currency}
               </span>
             </div>
 
-            {/* Arrow icon (OpenPencil ArrR) */}
-            <div className="flex justify-center">
-              <ArrowRight className="w-[18px] h-[18px] text-primary" />
+            <div aria-hidden="true" className="flex justify-center">
+              <ArrowRight className="size-5 rotate-90 text-primary md:rotate-0" />
             </div>
 
-            {/* Box To (OpenPencil BTo) */}
-            <div className="p-3.5 rounded-[16px] bg-green-50 border border-green-200 flex flex-col gap-1">
-              <label className="text-xs font-semibold text-green-800">
-                Hacia: {toAccount?.name || "Cuenta Destino"}
-              </label>
-              <div className="text-[20px] font-black text-green-700 font-mono">
+            <div className="flex flex-col gap-2 rounded-2xl border border-success/30 bg-success/10 p-4">
+              <span className="text-xs font-semibold text-foreground">
+                Hacia: {toAccount?.name || "Cuenta destino"}
+              </span>
+              <div
+                aria-live="polite"
+                aria-label="Monto que recibirás"
+                className="text-3xl font-bold text-success tabular-nums"
+              >
                 + {targetAmountDecimal.toFixed(2)}
               </div>
-              <span className="text-xs font-bold text-green-800">
+              <span className="text-xs font-semibold text-muted-foreground">
                 {toAccount?.currency === "USDT" ? "USDT (Cripto)" : toAccount?.currency}
               </span>
             </div>
           </div>
 
-          {/* Rate Snapshot Pill (OpenPencil RPill) */}
-          <div className="p-3 rounded-[12px] bg-blue-50 border border-blue-100 flex items-center justify-between">
-            <span className="text-sm font-bold text-blue-700">
-              Tasa Snapshot: 1 USDT = Bs. {p2pRate.toFixed(2)} (Binance P2P Buy)
+          {/* Rate snapshot pill (OpenPencil RPill) */}
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-primary/20 bg-accent px-4 py-3">
+            <span className="text-sm font-semibold text-accent-foreground">
+              Tasa snapshot: 1 USDT = Bs. {p2pRate.toFixed(2)} (Binance P2P Buy)
             </span>
-            <span className="text-xs font-bold text-primary font-mono">
-              Congelada {secondsLeft}s ⏳
+            <span className="inline-flex items-center gap-1 text-sm font-semibold text-primary tabular-nums">
+              <Timer className="size-4" aria-hidden="true" />
+              Congelada {secondsLeft}s
             </span>
           </div>
-
-          {/* Account selectors row */}
-          <div className="grid grid-cols-2 gap-3 text-xs text-slate-500">
-            <div>
-              <label className="block text-xs font-semibold text-slate-400 mb-0.5">
-                Cuenta Origen
-              </label>
-              <select
-                value={fromAccountId}
-                onChange={(e) => setFromAccountId(e.target.value)}
-                className="w-full text-xs font-semibold text-slate-700 bg-slate-50 border border-slate-200 rounded-lg p-1.5 focus:outline-hidden"
-              >
-                {accounts.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name} ({a.currency})
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-400 mb-0.5">
-                Cuenta Destino
-              </label>
-              <select
-                value={toAccountId}
-                onChange={(e) => setToAccountId(e.target.value)}
-                className="w-full text-xs font-semibold text-slate-700 bg-slate-50 border border-slate-200 rounded-lg p-1.5 focus:outline-hidden"
-              >
-                {accounts.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name} ({a.currency})
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Submit Button (OpenPencil BtnFx) */}
-          <button
-            type="submit"
-            disabled={loading || amountDecimal.lte(0)}
-            className="w-full h-[48px] rounded-[12px] bg-primary hover:bg-blue-700 active:scale-[0.99] text-white text-[15px] font-extrabold transition flex items-center justify-center gap-2 shadow-xs disabled:opacity-50"
-          >
-            <Check className="w-[18px] h-[18px] stroke-[2.5]" />
-            <span>Confirmar Transferencia (1-Clic)</span>
-          </button>
         </form>
-      </div>
-    </div>
+      )}
+    </ResponsiveDrawer>
   );
 }

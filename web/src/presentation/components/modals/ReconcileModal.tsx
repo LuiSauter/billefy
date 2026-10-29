@@ -2,8 +2,13 @@
 
 import { useState, useEffect } from "react";
 import Decimal from "decimal.js";
-import { X, Scale, Check, ArrowDownRight, ArrowUpRight, Equal } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, Equal } from "lucide-react";
 import { AccountDto } from "@/domain/models/types";
+import { Button } from "@/components/ui/button";
+import { FormField } from "@/components/ui/form-field";
+import { Input } from "@/components/ui/input";
+import { ResponsiveDrawer } from "@/components/ui/responsive-drawer";
+import { sanitizeDecimalInput } from "@/lib/money-input";
 
 interface ReconcileModalProps {
   isOpen: boolean;
@@ -12,25 +17,32 @@ interface ReconcileModalProps {
   onSubmit: (accountId: string, realBalance: number, notes?: string) => Promise<void>;
 }
 
-const inputClass =
-  "h-[42px] px-3.5 rounded-[10px] border border-border bg-white text-sm font-semibold text-foreground placeholder:text-slate-400 placeholder:font-medium focus:outline-hidden focus:border-primary focus:ring-2 focus:ring-blue-600/10 transition";
+const FORM_ID = "reconcile-form";
+
+/** Like `sanitizeDecimalInput`, but keeps a leading "-" (real balances can be negative). */
+function sanitizeSignedDecimal(raw: string): string {
+  const negative = raw.trimStart().startsWith("-");
+  const digits = sanitizeDecimalInput(raw.replace(/-/g, ""));
+  return negative ? `-${digits}` : digits;
+}
 
 export function ReconcileModal({ isOpen, account, onClose, onSubmit }: ReconcileModalProps) {
   const [realBalance, setRealBalance] = useState("");
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  // Prefill with the ledger balance on open; reset again when the drawer closes.
   useEffect(() => {
     if (account) {
       setRealBalance(account.balance.toString());
       setNotes("");
     }
-  }, [account]);
+  }, [account, isOpen]);
 
-  if (!isOpen || !account) return null;
+  if (!account) return null;
 
-  const realNum = parseFloat(realBalance);
-  const isValid = !isNaN(realNum);
+  const isValid = /^-?\d+\.?\d*$/.test(realBalance);
+  const realNum = parseFloat(realBalance); // API contract requires a number
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,142 +63,127 @@ export function ReconcileModal({ isOpen, account, onClose, onSubmit }: Reconcile
 
   const tone = isPositive
     ? {
-        box: "bg-green-50 border-green-200",
-        label: "text-green-800",
-        value: "text-green-700",
-        icon: "bg-[#DCFCE7] text-green-700",
+        box: "bg-success/10 border-success/30",
+        value: "text-success",
+        icon: "bg-success/15 text-success",
         Icon: ArrowUpRight,
         hint: "Se registrará un ajuste a favor (ingreso)",
       }
     : isNegative
       ? {
-          box: "bg-rose-50 border-rose-200",
-          label: "text-[#9F1239]",
-          value: "text-rose-600",
-          icon: "bg-[#FFE4E6] text-rose-600",
+          box: "bg-destructive/10 border-destructive/30",
+          value: "text-destructive",
+          icon: "bg-destructive/15 text-destructive",
           Icon: ArrowDownRight,
           hint: "Se registrará un ajuste en contra (egreso)",
         }
       : {
-          box: "bg-background border-border",
-          label: "text-muted-foreground",
-          value: "text-slate-600",
-          icon: "bg-slate-100 text-muted-foreground",
+          box: "bg-muted border-border",
+          value: "text-muted-foreground",
+          icon: "bg-card text-muted-foreground",
           Icon: Equal,
           hint: "Los saldos coinciden, no se requiere ajuste",
         };
 
+  const balanceError =
+    realBalance !== "" && !isValid ? "Ingresá un saldo válido." : undefined;
+
   return (
-    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
-      <div className="w-full max-w-[480px] shadow-2xl bg-white border border-border rounded-[20px] p-6 flex flex-col gap-4">
-        {/* Header */}
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 shrink-0 rounded-[12px] bg-blue-50 text-primary flex items-center justify-center">
-              <Scale className="w-5 h-5" />
-            </div>
-            <div className="min-w-0">
-              <h2 className="text-[17px] font-extrabold text-foreground tracking-tight leading-tight">
-                Conciliar Saldo
-              </h2>
-              <p className="text-sm font-semibold text-muted-foreground truncate">{account.name}</p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Cerrar"
-            className="w-8 h-8 shrink-0 rounded-lg text-muted-foreground hover:bg-slate-100 flex items-center justify-center transition"
+    <ResponsiveDrawer
+      open={isOpen}
+      onOpenChange={(open) => !open && onClose()}
+      title="Conciliar saldo"
+      description={`Compará el saldo de ${account.name} con tu extracto o billetera.`}
+      footer={
+        <>
+          <Button
+            type="submit"
+            form={FORM_ID}
+            size="lg"
+            loading={submitting}
+            disabled={!isValid}
+            className="order-1 w-full md:order-2 md:flex-1"
           >
-            <X className="w-4 h-4" />
-          </button>
+            {submitting ? "Conciliando..." : "Aplicar ajuste"}
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="lg"
+            onClick={onClose}
+            className="order-2 w-full md:order-1 md:w-auto md:border-input md:bg-card"
+          >
+            Cancelar
+          </Button>
+        </>
+      }
+    >
+      <form id={FORM_ID} onSubmit={handleSubmit} className="flex flex-col gap-5">
+        {/* Current ledger balance */}
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-muted p-4">
+          <div className="flex flex-col gap-0.5">
+            <span className="text-sm font-semibold text-foreground">Saldo en el libro mayor</span>
+            <span className="text-xs text-muted-foreground">Calculado por Billefy</span>
+          </div>
+          <span className="text-xl font-bold whitespace-nowrap text-foreground tabular-nums">
+            {account.balance.toFixed(2)}{" "}
+            <span className="text-sm font-semibold text-muted-foreground">{account.currency}</span>
+          </span>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          {/* Current ledger balance */}
-          <div className="p-3.5 rounded-[14px] bg-background border border-border flex items-center justify-between gap-3">
-            <div className="flex flex-col gap-0.5">
-              <span className="text-xs font-bold text-muted-foreground">Saldo en el Libro Mayor</span>
-              <span className="text-xs font-medium text-slate-500">Calculado por Billefy</span>
-            </div>
-            <span className="font-mono text-[18px] font-black text-foreground whitespace-nowrap">
-              {account.balance.toFixed(2)}{" "}
-              <span className="text-sm font-bold text-muted-foreground">{account.currency}</span>
-            </span>
-          </div>
-
-          {/* Real balance */}
-          <div className="flex flex-col gap-1">
-            <label htmlFor="reconcileRealBalance" className="text-xs font-bold text-slate-600">
-              Saldo real verificado ({account.currency})
-            </label>
-            <input
-              id="reconcileRealBalance"
-              type="number"
-              step="0.01"
-              required
+        <FormField
+          label={`Saldo real verificado (${account.currency})`}
+          hint="Ingresá el saldo que figura en tu extracto o billetera."
+          required
+          error={balanceError}
+        >
+          {(control) => (
+            <Input
+              {...control}
+              type="text"
+              inputMode="decimal"
+              autoComplete="off"
               value={realBalance}
-              onChange={(e) => setRealBalance(e.target.value)}
+              onChange={(e) => setRealBalance(sanitizeSignedDecimal(e.target.value))}
               placeholder="0.00"
-              className={`${inputClass} font-mono text-[15px] font-extrabold`}
+              className="h-14 text-xl font-bold tabular-nums md:h-14 md:text-xl"
             />
-            <span className="text-xs font-medium text-slate-500">
-              Ingresá el saldo que figura en tu extracto o billetera.
-            </span>
-          </div>
+          )}
+        </FormField>
 
-          {/* Computed difference */}
-          <div className={`p-3.5 rounded-[14px] border flex items-center gap-3 ${tone.box}`}>
-            <div
-              className={`w-9 h-9 shrink-0 rounded-[10px] flex items-center justify-center ${tone.icon}`}
-            >
-              <tone.Icon className="w-[18px] h-[18px]" />
-            </div>
-            <div className="flex flex-col min-w-0 flex-1">
-              <span className={`text-xs font-bold ${tone.label}`}>Diferencia calculada</span>
-              <span className={`text-xs font-medium ${tone.label} opacity-80`}>{tone.hint}</span>
-            </div>
-            <span className={`font-mono text-[16px] font-black whitespace-nowrap ${tone.value}`}>
-              {isPositive ? "+" : ""}
-              {diff.toFixed(2)} <span className="text-xs font-bold">{account.currency}</span>
-            </span>
+        {/* Computed difference */}
+        <div
+          role="status"
+          className={`flex items-center gap-3 rounded-2xl border p-4 ${tone.box}`}
+        >
+          <div
+            aria-hidden="true"
+            className={`flex size-10 shrink-0 items-center justify-center rounded-xl ${tone.icon}`}
+          >
+            <tone.Icon className="size-5" />
           </div>
+          <div className="flex min-w-0 flex-1 flex-col">
+            <span className="text-sm font-semibold text-foreground">Diferencia calculada</span>
+            <span className="text-xs text-muted-foreground">{tone.hint}</span>
+          </div>
+          <span className={`text-lg font-bold whitespace-nowrap tabular-nums ${tone.value}`}>
+            {isPositive ? "+" : ""}
+            {diff.toFixed(2)} <span className="text-xs font-semibold">{account.currency}</span>
+          </span>
+        </div>
 
-          {/* Notes */}
-          <div className="flex flex-col gap-1">
-            <label htmlFor="reconcileNotes" className="text-xs font-bold text-slate-600">
-              Nota o motivo <span className="font-medium text-slate-500">(opcional)</span>
-            </label>
-            <input
-              id="reconcileNotes"
+        <FormField label="Nota o motivo" hint="Opcional.">
+          {(control) => (
+            <Input
+              {...control}
               type="text"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Ej. Extracto mensual del banco"
-              className={inputClass}
             />
-          </div>
-
-          {/* Actions */}
-          <div className="flex justify-end gap-2.5 pt-1">
-            <button
-              type="button"
-              onClick={onClose}
-              className="h-[40px] px-4 rounded-[10px] border border-border text-sm font-semibold text-slate-600 hover:bg-slate-50 transition"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={submitting || !isValid}
-              className="h-[40px] px-5 rounded-[10px] bg-primary hover:bg-blue-700 active:scale-[0.99] text-white text-sm font-bold transition disabled:opacity-50 flex items-center gap-2"
-            >
-              <Check className="w-4 h-4 stroke-[2.5]" />
-              <span>{submitting ? "Conciliando..." : "Aplicar Ajuste"}</span>
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+          )}
+        </FormField>
+      </form>
+    </ResponsiveDrawer>
   );
 }
