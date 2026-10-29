@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Plus, Calendar, AlertTriangle, Briefcase, Laptop } from "lucide-react";
+import { Plus } from "lucide-react";
 
 export interface RecurringItem {
   id: string;
@@ -60,7 +60,7 @@ export function RecurringPaymentsView({
       amount: 14.99,
       currency: "USDT",
       dueDate: "25 May",
-      daysRemaining: 12,
+      daysRemaining: 10,
       periodicity: "Mensual",
       status: "Scheduled",
     },
@@ -72,171 +72,162 @@ export function RecurringPaymentsView({
       amount: 1200,
       currency: "BOB",
       dueDate: "10 Ago",
-      daysRemaining: 90,
+      daysRemaining: 85,
       periodicity: "Anual",
       status: "Scheduled",
     },
   ]);
 
   return (
-    <div className="space-y-6">
-      {/* Header Banner */}
+    <div className="w-full max-w-[920px] p-[24px_28px_32px_28px] rounded-[24px] bg-white border border-[#E2E8F0] shadow-sm flex flex-col gap-[18px]">
+      {/* Header (OpenPencil RWHead) */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-slate-900">
+          <h1 className="text-[18px] font-[900] text-[#0F172A] tracking-tight">
             Pagos Programados & Flujo Recurrente
           </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="text-[11px] font-[500] text-[#64748B] mt-0.5">
             Administración de suscripciones, servicios, sueldos y cobros periódicos en BOB y USDT
           </p>
         </div>
 
         <button
-          onClick={() => alert("Función: Programar Nuevo Flujo")}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition shadow-md shadow-blue-500/25 shrink-0"
+          onClick={() => alert("Programar Nuevo Flujo")}
+          className="h-[38px] px-4 rounded-[10px] bg-[#2563EB] hover:bg-blue-700 active:scale-[0.99] text-white text-[12px] font-[800] transition flex items-center gap-1.5 shadow-sm shrink-0"
         >
           <Plus className="w-4 h-4" />
-          <span>Programar Nuevo Flujo</span>
+          <span>+ Programar Nuevo Flujo</span>
         </button>
       </div>
 
-      {/* Dark Summary Banner (OpenPencil 09) */}
-      <div className="p-6 rounded-2xl bg-[#0B132B] text-white shadow-xl grid grid-cols-2 md:grid-cols-4 gap-6">
-        <div>
-          <div className="text-xs text-slate-400 font-medium mb-1">Ingresos Fijos Mensuales</div>
-          <div className="text-2xl font-extrabold tracking-tight font-mono text-emerald-400">
-            +Bs. 18,500.00
-          </div>
-          <p className="text-[11px] text-slate-400 mt-0.5">2 Fuentes activas</p>
+      {/* Dark Slate Summary Card (OpenPencil RWCard) */}
+      <div className="p-4 rounded-[16px] bg-[#0F172A] text-white shadow-md grid grid-cols-2 md:grid-cols-4 gap-4">
+        {/* Col 0: Ingresos Fijos */}
+        <div className="flex flex-col gap-0.5">
+          <span className="text-[11px] font-[600] text-[#94A3B8]">Ingresos Fijos Mensuales</span>
+          <span className="text-[18px] font-[900] text-white font-mono">+Bs. 18,500.00</span>
+          <span className="text-[10px] font-[500] text-[#34D399]">2 Fuentes activas</span>
         </div>
 
-        <div>
-          <div className="text-xs text-slate-400 font-medium mb-1">Pagos & Compromisos Fijos</div>
-          <div className="text-2xl font-extrabold tracking-tight font-mono text-rose-400">
-            -Bs. 4,680.00
-          </div>
-          <p className="text-[11px] text-slate-400 mt-0.5">4 Servicios programados</p>
+        {/* Col 1: Pagos Fijos */}
+        <div className="flex flex-col gap-0.5">
+          <span className="text-[11px] font-[600] text-[#94A3B8]">Pagos & Compromisos Fijos</span>
+          <span className="text-[18px] font-[900] text-white font-mono">-Bs. 4,680.00</span>
+          <span className="text-[10px] font-[500] text-[#F87171]">4 Servicios programados</span>
         </div>
 
-        <div>
-          <div className="text-xs text-slate-400 font-medium mb-1">Margen Recurrente Libre</div>
-          <div className="text-2xl font-extrabold tracking-tight font-mono text-white">
-            +Bs. 13,820.00
-          </div>
-          <p className="text-[11px] text-blue-400 mt-0.5">74.7% de liquidez disponible</p>
+        {/* Col 2: Margen Libre */}
+        <div className="flex flex-col gap-0.5">
+          <span className="text-[11px] font-[600] text-[#94A3B8]">Margen Recurrente Libre</span>
+          <span className="text-[18px] font-[900] text-white font-mono">+Bs. 13,820.00</span>
+          <span className="text-[10px] font-[500] text-[#60A5FA]">74.7% de liquidez disponible</span>
         </div>
 
-        <div>
-          <div className="text-xs text-slate-400 font-medium mb-1">Próximo Vencimiento</div>
-          <div className="text-2xl font-extrabold tracking-tight font-mono text-amber-400">
-            En 2 días (15 May)
-          </div>
-          <p className="text-[11px] text-slate-400 mt-0.5">Internet Fibra Tigo · Bs. 280</p>
+        {/* Col 3: Próximo Vencimiento */}
+        <div className="flex flex-col gap-0.5">
+          <span className="text-[11px] font-[600] text-[#94A3B8]">Próximo Vencimiento</span>
+          <span className="text-[18px] font-[900] text-white">En 2 días (15 May)</span>
+          <span className="text-[10px] font-[500] text-[#FCD34D]">Internet Fibra Tigo • Bs. 280</span>
         </div>
       </div>
 
       {/* Section 1: Pagos y Servicios Programados */}
-      <div className="space-y-3">
-        <h2 className="text-base font-bold text-slate-900 tracking-tight">
+      <div className="flex flex-col gap-2.5">
+        <h2 className="text-[13px] font-[800] text-[#0F172A]">
           Pagos y Servicios Programados
         </h2>
 
-        <div className="space-y-3">
-          {payments.map((item) => (
-            <div
-              key={item.id}
-              className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-xs hover:border-slate-300 transition flex flex-col sm:flex-row sm:items-center justify-between gap-4"
-            >
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-bold text-slate-900">{item.name}</span>
-                  {item.status === "DueSoon" ? (
-                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
-                      <AlertTriangle className="w-2.5 h-2.5" />
-                      <span>Por vencer</span>
-                    </span>
-                  ) : (
-                    <span className="text-[10px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">
-                      Programado
-                    </span>
-                  )}
+        <div className="flex flex-col gap-2">
+          {payments.map((p) => {
+            const isDueSoon = p.status === "DueSoon";
+            const amountFormatted = p.currency === "BOB" ? `Bs. ${p.amount.toFixed(2)}` : `${p.amount} ${p.currency}`;
+
+            return (
+              <div
+                key={p.id}
+                className="h-[48px] px-3.5 rounded-[10px] border border-[#E2E8F0] bg-[#F8FAFC] flex items-center justify-between gap-3 hover:bg-slate-100/70 transition"
+              >
+                {/* Left: Name + Status */}
+                <div className="flex items-center gap-2 min-w-[200px] truncate">
+                  <span className="text-[13px] font-[700] text-[#0F172A] truncate">
+                    {p.name}
+                  </span>
+                  <span
+                    className={`text-[9px] font-[800] px-1.5 py-0.5 rounded ${
+                      isDueSoon
+                        ? "bg-amber-100 text-[#B45309]"
+                        : "bg-blue-100 text-[#1D4ED8]"
+                    }`}
+                  >
+                    {isDueSoon ? "⚠️ Por vencer" : "Programado"}
+                  </span>
                 </div>
 
-                <div className="text-xs text-slate-500">
-                  {item.dueDate} ({item.daysRemaining} días) · {item.periodicity} · {item.account}
+                {/* Middle: Date + Account */}
+                <div className="flex items-center gap-3 text-[11px] text-[#64748B] hidden md:flex shrink-0">
+                  <span className="font-[500]">{p.dueDate} ({p.daysRemaining} días) • {p.periodicity}</span>
+                  <span className="font-[600] text-[#0F172A]">{p.account}</span>
+                </div>
+
+                {/* Right: Amount + Actions */}
+                <div className="flex items-center gap-3 shrink-0">
+                  <span className="text-[13px] font-[800] text-[#0F172A] font-mono">
+                    {amountFormatted}
+                  </span>
+                  <button
+                    onClick={() => onOpenRescheduleModal(p)}
+                    className="text-[11px] font-[700] text-[#2563EB] hover:underline"
+                  >
+                    📅 Modificar
+                  </button>
+                  <button
+                    onClick={() => onPay1Click(p)}
+                    className="h-[28px] px-3 rounded-[6px] bg-[#2563EB] hover:bg-blue-700 active:scale-95 text-white text-[11px] font-[800] transition"
+                  >
+                    Pagar 1-Clic
+                  </button>
                 </div>
               </div>
-
-              <div className="flex items-center gap-3 self-end sm:self-auto">
-                <span className="text-base font-extrabold font-mono text-slate-900">
-                  {item.currency === "BOB" ? "Bs. " : ""}
-                  {item.amount.toFixed(2)}
-                  {item.currency !== "BOB" ? ` ${item.currency}` : ""}
-                </span>
-
-                <button
-                  onClick={() => onOpenRescheduleModal(item)}
-                  className="flex items-center gap-1 px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-xs font-semibold text-slate-700 transition"
-                >
-                  <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                  <span>Modificar</span>
-                </button>
-
-                <button
-                  onClick={() => onPay1Click(item)}
-                  className="px-3.5 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-white text-xs font-bold transition shadow-xs"
-                >
-                  Pagar 1-Clic
-                </button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
       {/* Section 2: Ingresos Fijos Periódicos */}
-      <div className="space-y-3">
-        <h2 className="text-base font-bold text-slate-900 tracking-tight">
+      <div className="flex flex-col gap-2.5">
+        <h2 className="text-[13px] font-[800] text-[#0F172A]">
           Ingresos Fijos Periódicos
         </h2>
 
-        <div className="space-y-3">
-          {/* Sueldo */}
-          <div className="p-4 rounded-2xl bg-emerald-50/50 border border-emerald-200 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
-                <Briefcase className="w-4 h-4" />
-              </div>
-              <div>
-                <span className="text-sm font-bold text-slate-900">Sueldo Mensual Fijo</span>
-                <p className="text-xs text-slate-500">
-                  Día 30 de cada mes · Banco Unión (Acreditación Automática)
-                </p>
-              </div>
+        <div className="flex flex-col gap-2">
+          {/* Row 0: Sueldo */}
+          <div className="h-[42px] px-3.5 rounded-[10px] border border-[#E2E8F0] bg-white flex items-center justify-between">
+            <div className="flex items-center gap-2 truncate">
+              <span className="text-[12px] font-[700] text-[#0F172A]">
+                💼 Sueldo Mensual Fijo
+              </span>
+              <span className="text-[11px] font-[500] text-[#166534] truncate hidden sm:inline">
+                • Día 30 de cada mes • Banco Unión (Acreditación Automática)
+              </span>
             </div>
-            <div className="text-base font-extrabold font-mono text-emerald-700">
+            <span className="text-[13px] font-[900] text-[#15803D] font-mono shrink-0">
               +Bs. 12,000.00
-            </div>
+            </span>
           </div>
 
-          {/* Honorarios Remotos */}
-          <div className="p-4 rounded-2xl bg-emerald-50/50 border border-emerald-200 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
-                <Laptop className="w-4 h-4" />
-              </div>
-              <div>
-                <span className="text-sm font-bold text-slate-900">
-                  Honorarios Consultoría Remota USD
-                </span>
-                <p className="text-xs text-slate-500">
-                  Quincenal (días 15 y 30) · Binance P2P
-                </p>
-              </div>
+          {/* Row 1: Honorarios Remoto */}
+          <div className="h-[42px] px-3.5 rounded-[10px] border border-[#E2E8F0] bg-white flex items-center justify-between">
+            <div className="flex items-center gap-2 truncate">
+              <span className="text-[12px] font-[700] text-[#0F172A]">
+                💻 Honorarios Consultoría Remota USD
+              </span>
+              <span className="text-[11px] font-[500] text-[#166534] truncate hidden sm:inline">
+                • Quincenal (días 15 y 30) • Binance P2P
+              </span>
             </div>
-            <div className="text-base font-extrabold font-mono text-emerald-700">
+            <span className="text-[13px] font-[900] text-[#15803D] font-mono shrink-0">
               +650.00 USDT (≈ Bs. {(650 * p2pRate).toFixed(2)})
-            </div>
+            </span>
           </div>
         </div>
       </div>

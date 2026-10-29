@@ -8,11 +8,17 @@ import {
   Sparkles,
   HandCoins,
   PieChart,
-  Repeat,
+  ArrowLeftRight,
   LogOut,
 } from "lucide-react";
 
-export type NavigationTab = "inicio" | "cuentas" | "borradores" | "prestamos" | "presupuestos" | "recurrentes";
+export type NavigationTab =
+  | "inicio"
+  | "cuentas"
+  | "borradores"
+  | "prestamos"
+  | "presupuestos"
+  | "recurrentes";
 
 interface SidebarProps {
   activeTab: NavigationTab;
@@ -40,22 +46,24 @@ export function Sidebar({
     },
     { id: "prestamos" as NavigationTab, label: "Préstamos", icon: HandCoins },
     { id: "presupuestos" as NavigationTab, label: "Presupuestos", icon: PieChart },
-    { id: "recurrentes" as NavigationTab, label: "Arbitraje P2P", icon: Repeat },
+    { id: "recurrentes" as NavigationTab, label: "Arbitraje P2P", icon: ArrowLeftRight },
   ];
 
   return (
-    <aside className="w-64 bg-white border-r border-slate-200/80 flex flex-col justify-between shrink-0 min-h-screen select-none">
-      <div>
-        {/* Brand Header */}
-        <div className="h-16 flex items-center gap-3 px-6 border-b border-slate-100">
-          <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md shadow-blue-500/25">
-            <Wallet className="w-5 h-5" />
+    <aside className="w-[240px] bg-white border-r border-[#E2E8F0] flex flex-col justify-between shrink-0 min-h-screen py-6 px-4 select-none">
+      <div className="flex flex-col gap-6">
+        {/* Brand Header (OpenPencil BBrand) */}
+        <div className="flex items-center gap-2.5">
+          <div className="w-[34px] h-[34px] rounded-[10px] bg-[#0F172A] flex items-center justify-center text-white shrink-0">
+            <Wallet className="w-[18px] h-[18px]" />
           </div>
-          <span className="text-xl font-bold tracking-tight text-slate-900">Billefy</span>
+          <span className="text-[18px] font-[800] tracking-tight text-[#0F172A]">
+            Billefy
+          </span>
         </div>
 
-        {/* Navigation Links */}
-        <nav className="p-4 space-y-1">
+        {/* Navigation Links (OpenPencil Nav) */}
+        <nav className="flex flex-col gap-1">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
@@ -63,18 +71,22 @@ export function Sidebar({
               <button
                 key={item.id}
                 onClick={() => onTabChange(item.id)}
-                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                className={`w-full h-[38px] flex items-center justify-between px-[10px] rounded-[10px] text-[13px] transition-colors ${
                   isActive
-                    ? "bg-blue-50 text-blue-600 font-semibold"
-                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+                    ? "bg-[#EFF6FF] text-[#1D4ED8] font-[700]"
+                    : "text-[#334155] font-[500] hover:bg-slate-50"
                 }`}
               >
-                <div className="flex items-center gap-3">
-                  <Icon className={`w-4 h-4 ${isActive ? "text-blue-600" : "text-slate-400"}`} />
+                <div className="flex items-center gap-[10px]">
+                  <Icon
+                    className={`w-[16px] h-[16px] shrink-0 ${
+                      isActive ? "text-[#2563EB]" : "text-[#64748B]"
+                    }`}
+                  />
                   <span>{item.label}</span>
                 </div>
                 {item.badge !== undefined && (
-                  <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-rose-500 text-white shadow-xs">
+                  <span className="w-[18px] h-[18px] rounded-full flex items-center justify-center text-[10px] font-[700] bg-[#EF4444] text-white">
                     {item.badge}
                   </span>
                 )}
@@ -84,23 +96,23 @@ export function Sidebar({
         </nav>
       </div>
 
-      {/* Bottom Sidebar: P2P Ticker & Logout */}
-      <div className="p-4 space-y-3 border-t border-slate-100">
-        {/* Binance P2P Rate Card */}
-        <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/70 flex items-center justify-between">
-          <div className="text-xs font-medium text-slate-500">Binance P2P</div>
-          <div className="text-xs font-bold text-emerald-600 font-mono">
+      {/* Footer (OpenPencil SBFoot) */}
+      <div className="flex flex-col gap-3">
+        {/* P2P Live Widget (OpenPencil P2PWidget) */}
+        <div className="bg-[#F1F5F9] rounded-[10px] p-[10px] flex items-center justify-between">
+          <span className="text-[11px] font-[700] text-[#475569]">Binance P2P</span>
+          <span className="text-[11px] font-[800] text-[#059669]">
             Bs. {p2pRate.toFixed(2)}
-          </div>
+          </span>
         </div>
 
         {/* User / Logout */}
         {onLogout && (
           <button
             onClick={onLogout}
-            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition"
+            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-[8px] text-[12px] font-medium text-[#64748B] hover:text-[#EF4444] hover:bg-rose-50 transition"
           >
-            <LogOut className="w-4 h-4" />
+            <LogOut className="w-3.5 h-3.5" />
             <span>Cerrar Sesión</span>
           </button>
         )}

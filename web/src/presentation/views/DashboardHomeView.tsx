@@ -41,12 +41,12 @@ export function DashboardHomeView({
   onReverseTxn,
 }: DashboardHomeViewProps) {
   return (
-    <div className="space-y-6">
-      {/* 4 KPI Summary Cards */}
+    <div className="flex flex-col gap-6">
+      {/* 4 KPI Summary Cards (OpenPencil KPIs) */}
       <BalanceSummaryCards metrics={metrics} p2pRate={p2pRate} />
 
-      {/* Middle Grid: Accounts (Left) & Drafts (Right) */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Middle Grid: Accounts (Left) & Drafts (Right) (OpenPencil Grid2) */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1.6fr_1fr] gap-4 items-start">
         <AccountsList
           accounts={accounts}
           loading={loading}
@@ -63,7 +63,7 @@ export function DashboardHomeView({
         />
       </div>
 
-      {/* Bottom Section: Actividad Reciente & Auditoría de Tasas P2P */}
+      {/* Bottom Section: Actividad Reciente & Auditoría de Tasas P2P (OpenPencil Table) */}
       <TransactionsList
         transactions={transactions}
         accountsMap={accountsMap}

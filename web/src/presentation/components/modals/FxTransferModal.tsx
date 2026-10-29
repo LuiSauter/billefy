@@ -92,111 +92,108 @@ export function FxTransferModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-150">
-      <div className="w-full max-w-xl bg-white rounded-3xl p-6 lg:p-8 shadow-2xl border border-slate-100 relative">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold tracking-tight text-slate-900">
+      <div className="w-full max-w-[580px] bg-white rounded-[20px] p-[24px_24px_28px_24px] shadow-2xl border border-[#E2E8F0] relative flex flex-col gap-4">
+        {/* Header (OpenPencil FXH) */}
+        <div className="flex items-center justify-between">
+          <h2 className="text-[17px] font-[800] text-[#0F172A] tracking-tight">
             Transferencia entre Cuentas & Conversión FX
           </h2>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition"
+            className="w-8 h-8 rounded-lg text-[#64748B] hover:bg-slate-100 flex items-center justify-center transition"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Origen vs Destino Split Box */}
-          <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_1fr] items-center gap-4">
-            {/* Box 1 (Origen) */}
-            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80">
-              <label className="block text-xs font-semibold text-slate-500 mb-1">
-                Desde: {fromAccount?.name || "Seleccionar Cuenta"}
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          {/* Conversion Row (OpenPencil BRow) */}
+          <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_1fr] items-center gap-3">
+            {/* Box From (OpenPencil BFrom) */}
+            <div className="p-3.5 rounded-[16px] bg-white border border-[#E2E8F0] flex flex-col gap-1">
+              <label className="text-[11px] font-[600] text-[#64748B]">
+                Desde: {fromAccount?.name || "Banco Unión"}
               </label>
-              <select
-                value={fromAccountId}
-                onChange={(e) => setFromAccountId(e.target.value)}
-                className="w-full text-xs font-medium text-slate-700 bg-transparent border-b border-slate-200 pb-1 mb-2 focus:outline-none"
-              >
-                {accounts.map((acc) => (
-                  <option key={acc.id} value={acc.id}>
-                    {acc.name} ({acc.currency})
-                  </option>
-                ))}
-              </select>
-
-              <div className="flex items-baseline gap-1">
-                <span className="text-xs font-bold text-slate-400">
-                  {fromAccount?.currency === "BOB" ? "Bs." : "$"}
-                </span>
+              <div className="flex items-baseline gap-1 font-mono">
+                <span className="text-[16px] font-[900] text-[#0F172A]">Bs.</span>
                 <input
                   type="number"
                   step="any"
                   value={amountStr}
                   onChange={(e) => setAmountStr(e.target.value)}
-                  className="w-full text-2xl font-extrabold text-slate-900 font-mono bg-transparent focus:outline-none"
-                  placeholder="0.00"
+                  className="w-full text-[20px] font-[900] text-[#0F172A] bg-transparent focus:outline-none"
                 />
               </div>
-              <p className="text-[11px] text-slate-400 mt-1 font-medium">
-                {fromAccount?.currency} ({fromAccount?.currency === "BOB" ? "Bolivianos" : "Dólares"})
-              </p>
+              <span className="text-[11px] font-[700] text-[#64748B]">
+                {fromAccount?.currency === "BOB" ? "BOB (Bolivianos)" : fromAccount?.currency}
+              </span>
             </div>
 
-            {/* Middle Arrow */}
+            {/* Arrow icon (OpenPencil ArrR) */}
             <div className="flex justify-center">
-              <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100">
-                <ArrowRight className="w-4 h-4" />
-              </div>
+              <ArrowRight className="w-[18px] h-[18px] text-[#2563EB]" />
             </div>
 
-            {/* Box 2 (Destino - Green Card) */}
-            <div className="p-4 rounded-2xl bg-emerald-50/60 border border-emerald-200">
-              <label className="block text-xs font-semibold text-emerald-800 mb-1">
-                Hacia: {toAccount?.name || "Seleccionar Cuenta"}
+            {/* Box To (OpenPencil BTo) */}
+            <div className="p-3.5 rounded-[16px] bg-[#F0FDF4] border border-[#BBF7D0] flex flex-col gap-1">
+              <label className="text-[11px] font-[600] text-[#166534]">
+                Hacia: {toAccount?.name || "Binance Wallet"}
               </label>
+              <div className="text-[20px] font-[900] text-[#15803D] font-mono">
+                + {targetAmountDecimal.toFixed(2)}
+              </div>
+              <span className="text-[11px] font-[700] text-[#166534]">
+                {toAccount?.currency === "USDT" ? "USDT (Cripto)" : toAccount?.currency}
+              </span>
+            </div>
+          </div>
+
+          {/* Rate Snapshot Pill (OpenPencil RPill) */}
+          <div className="p-3 rounded-[12px] bg-[#EFF6FF] border border-[#DBEAFE] flex items-center justify-between">
+            <span className="text-[12px] font-[700] text-[#1D4ED8]">
+              Tasa Snapshot: 1 USDT = Bs. {p2pRate.toFixed(2)} (Binance P2P Buy)
+            </span>
+            <span className="text-[11px] font-[700] text-[#2563EB] font-mono">
+              Congelada {secondsLeft}s ⏳
+            </span>
+          </div>
+
+          {/* Account selectors row (subtle) */}
+          <div className="grid grid-cols-2 gap-3 text-xs text-slate-500">
+            <div>
+              <label className="block text-[10px] font-semibold text-slate-400 mb-0.5">Cuenta Origen</label>
+              <select
+                value={fromAccountId}
+                onChange={(e) => setFromAccountId(e.target.value)}
+                className="w-full text-xs font-semibold text-slate-700 bg-slate-50 border border-slate-200 rounded-lg p-1.5 focus:outline-none"
+              >
+                {accounts.map((a) => (
+                  <option key={a.id} value={a.id}>{a.name} ({a.currency})</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-[10px] font-semibold text-slate-400 mb-0.5">Cuenta Destino</label>
               <select
                 value={toAccountId}
                 onChange={(e) => setToAccountId(e.target.value)}
-                className="w-full text-xs font-medium text-emerald-800 bg-transparent border-b border-emerald-200 pb-1 mb-2 focus:outline-none"
+                className="w-full text-xs font-semibold text-slate-700 bg-slate-50 border border-slate-200 rounded-lg p-1.5 focus:outline-none"
               >
-                {accounts
-                  .filter((a) => a.id !== fromAccountId)
-                  .map((acc) => (
-                    <option key={acc.id} value={acc.id}>
-                      {acc.name} ({acc.currency})
-                    </option>
-                  ))}
+                {accounts.map((a) => (
+                  <option key={a.id} value={a.id}>{a.name} ({a.currency})</option>
+                ))}
               </select>
-
-              <div className="text-2xl font-extrabold text-emerald-700 font-mono">
-                + {targetAmountDecimal.toFixed(2)}
-              </div>
-              <p className="text-[11px] text-emerald-700 font-medium mt-1">
-                {toAccount?.currency} ({toAccount?.currency === "USDT" ? "Cripto" : "Destino"})
-              </p>
             </div>
           </div>
 
-          {/* Rate Snapshot Banner */}
-          <div className="p-3.5 rounded-xl bg-blue-50/70 border border-blue-200 flex items-center justify-between text-xs">
-            <span className="font-semibold text-blue-900">
-              Tasa Snapshot: 1 USDT = Bs. {p2pRate.toFixed(2)} (Binance P2P Buy)
-            </span>
-            <span className="font-medium text-blue-700 bg-white/80 border border-blue-200 px-2 py-0.5 rounded-full shadow-2xs font-mono">
-              Congelada {secondsLeft}s ⌛
-            </span>
-          </div>
-
-          {/* Action Button */}
+          {/* Submit Button (OpenPencil BtnFx) */}
           <button
             type="submit"
-            disabled={loading}
-            className="w-full py-3.5 px-6 rounded-2xl bg-blue-600 hover:bg-blue-700 active:scale-[0.99] text-white font-bold text-sm transition shadow-lg shadow-blue-500/25 flex items-center justify-center gap-2"
+            disabled={loading || amountDecimal.lte(0)}
+            className="w-full h-[48px] rounded-[12px] bg-[#2563EB] hover:bg-blue-700 active:scale-[0.99] text-white text-[14px] font-[800] transition flex items-center justify-center gap-2 shadow-sm disabled:opacity-50"
           >
-            <Check className="w-4 h-4 stroke-[2.5]" />
-            <span>{loading ? "Procesando..." : "Confirmar Transferencia (1-Clic)"}</span>
+            <Check className="w-[18px] h-[18px] stroke-[2.5]" />
+            <span>Confirmar Transferencia (1-Clic)</span>
           </button>
         </form>
       </div>

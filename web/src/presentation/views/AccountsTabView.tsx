@@ -20,26 +20,26 @@ export function AccountsTabView({
   onOpenReconcileModal,
 }: AccountsTabViewProps) {
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-slate-900">
+          <h1 className="text-[18px] font-[900] text-[#0F172A] tracking-tight">
             Mis Cuentas & Billeteras
           </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="text-[11px] font-[500] text-[#64748B] mt-0.5">
             Conciliación bancaria y saldos en vivo multimoneda
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5">
           <button
             onClick={onOpenCsvModal}
-            className="px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
+            className="h-[38px] px-3.5 rounded-[10px] border border-[#E2E8F0] bg-white text-[12px] font-[600] text-[#0F172A] hover:bg-slate-50 transition"
           >
             📄 Importar Extracto CSV
           </button>
           <button
             onClick={onOpenCreateAccountModal}
-            className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition shadow-md shadow-blue-500/25"
+            className="h-[38px] px-4 rounded-[10px] bg-[#2563EB] hover:bg-blue-700 text-white text-[12px] font-[700] transition shadow-sm"
           >
             + Nueva Cuenta
           </button>

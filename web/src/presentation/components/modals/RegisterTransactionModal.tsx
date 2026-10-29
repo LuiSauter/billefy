@@ -1,9 +1,5 @@
 import { useState } from "react";
 import { AccountDto, RegisterTransactionRequest, TransactionDirection } from "@/domain/models/types";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 
 interface RegisterTransactionModalProps {
   isOpen: boolean;
@@ -50,73 +46,89 @@ export function RegisterTransactionModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-      <Card className="w-full max-w-md shadow-xl bg-background border">
-        <CardHeader className="border-b">
-          <CardTitle className="text-lg">Registrar Movimiento en Servidor</CardTitle>
-        </CardHeader>
-        <CardContent className="pt-6">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="txnAccount">Cuenta</Label>
-              <select
-                id="txnAccount"
-                value={accountId || defaultAccountId}
-                onChange={(e) => setAccountId(e.target.value)}
-                className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              >
-                {accounts.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name} ({a.currency})
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="txnDirection">Tipo de Movimiento</Label>
-              <select
-                id="txnDirection"
-                value={direction}
-                onChange={(e) => setDirection(e.target.value as TransactionDirection)}
-                className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              >
-                <option value="Expense">Gasto (-)</option>
-                <option value="Income">Ingreso (+)</option>
-              </select>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="txnAmount">Monto</Label>
-              <Input
-                id="txnAmount"
-                type="number"
-                step="0.01"
-                required
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="0.00"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="txnDesc">Descripción</Label>
-              <Input
-                id="txnDesc"
-                type="text"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Ej. Almuerzo, Taxi, Sueldo"
-              />
-            </div>
-            <div className="flex justify-end gap-2 pt-4 border-t">
-              <Button type="button" variant="outline" onClick={onClose}>
-                Cancelar
-              </Button>
-              <Button type="submit" disabled={submitting} className="bg-emerald-600 hover:bg-emerald-700 text-white">
-                {submitting ? "Registrando..." : "Confirmar Movimiento"}
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
+    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
+      <div className="w-full max-w-md shadow-2xl bg-white border border-[#E2E8F0] rounded-[20px] p-6 flex flex-col gap-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-[17px] font-[800] text-[#0F172A] tracking-tight">
+            Registrar Movimiento en Servidor
+          </h2>
+          <button
+            onClick={onClose}
+            className="w-7 h-7 rounded-lg text-[#64748B] hover:bg-slate-100 flex items-center justify-center transition"
+          >
+            ✕
+          </button>
+        </div>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3.5">
+          <div className="flex flex-col gap-1">
+            <label className="text-[11px] font-[700] text-[#475569]">Cuenta</label>
+            <select
+              id="txnAccount"
+              value={accountId || defaultAccountId}
+              onChange={(e) => setAccountId(e.target.value)}
+              className="h-[42px] px-3.5 rounded-[10px] border border-[#E2E8F0] text-[13px] font-[600] text-[#0F172A] bg-white focus:outline-none focus:border-[#2563EB]"
+            >
+              {accounts.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name} ({a.currency})
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-[11px] font-[700] text-[#475569]">Tipo de Movimiento</label>
+            <select
+              id="txnDirection"
+              value={direction}
+              onChange={(e) => setDirection(e.target.value as TransactionDirection)}
+              className="h-[42px] px-3.5 rounded-[10px] border border-[#E2E8F0] text-[13px] font-[600] text-[#0F172A] bg-white focus:outline-none focus:border-[#2563EB]"
+            >
+              <option value="Expense">Gasto (-)</option>
+              <option value="Income">Ingreso (+)</option>
+            </select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-[11px] font-[700] text-[#475569]">Monto</label>
+            <input
+              id="txnAmount"
+              type="number"
+              step="0.01"
+              required
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="0.00"
+              className="h-[42px] px-3.5 rounded-[10px] border border-[#E2E8F0] text-[13px] font-[800] font-mono text-[#0F172A] focus:outline-none focus:border-[#2563EB]"
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-[11px] font-[700] text-[#475569]">Descripción</label>
+            <input
+              id="txnDesc"
+              type="text"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Ej. Almuerzo, Taxi, Sueldo"
+              className="h-[42px] px-3.5 rounded-[10px] border border-[#E2E8F0] text-[13px] font-[600] text-[#0F172A] focus:outline-none focus:border-[#2563EB]"
+            />
+          </div>
+          <div className="flex justify-end gap-2.5 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="h-[40px] px-4 rounded-[10px] border border-[#E2E8F0] text-[12px] font-[600] text-[#475569] hover:bg-slate-50 transition"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="h-[40px] px-5 rounded-[10px] bg-[#2563EB] hover:bg-blue-700 text-white text-[12px] font-[700] transition disabled:opacity-50"
+            >
+              {submitting ? "Registrando..." : "Confirmar Movimiento"}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

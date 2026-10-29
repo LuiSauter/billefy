@@ -31,7 +31,7 @@ export function BudgetsTabView({
   onOpenContributeModal,
 }: BudgetsTabViewProps) {
   return (
-    <div className="space-y-8">
+    <div className="flex flex-col gap-6">
       <MonthlyBudgetView
         budgets={budgets}
         metrics={budgetMetrics}

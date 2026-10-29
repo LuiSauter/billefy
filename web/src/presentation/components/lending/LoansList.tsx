@@ -1,6 +1,4 @@
 import { LoanSummaryDto } from "@/domain/models/types";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 
 interface LoansListProps {
   loans: LoanSummaryDto[];
@@ -18,21 +16,24 @@ export function LoansList({
   onOpenPaymentModal,
 }: LoansListProps) {
   return (
-    <Card className="overflow-hidden shadow-xs">
-      <CardHeader className="flex flex-row items-center justify-between border-b bg-amber-50/40 dark:bg-amber-950/20 py-3 px-6">
+    <div className="w-full rounded-[16px] bg-white border border-[#E2E8F0] shadow-xs overflow-hidden flex flex-col">
+      <div className="flex flex-row items-center justify-between border-b border-[#E2E8F0] bg-[#F8FAFC] py-4 px-6">
         <div>
-          <CardTitle className="text-base font-semibold text-amber-950 dark:text-amber-200">
+          <h2 className="text-[15px] font-[800] text-[#0F172A]">
             Préstamos y Deudas ({loans.length})
-          </CardTitle>
-          <p className="text-xs text-muted-foreground">Amortización exacta, cuotas y TEA</p>
+          </h2>
+          <p className="text-[11px] text-[#64748B]">Amortización exacta, cuotas y TEA</p>
         </div>
-        <Button size="sm" variant="outline" onClick={onOpenCreateLoanModal} className="text-xs h-7">
+        <button
+          onClick={onOpenCreateLoanModal}
+          className="h-[34px] px-3.5 rounded-[8px] bg-[#2563EB] hover:bg-blue-700 text-white text-[12px] font-[700] transition"
+        >
           + Simular / Crear
-        </Button>
-      </CardHeader>
-      <CardContent className="p-0 divide-y">
+        </button>
+      </div>
+      <div className="p-0 divide-y divide-[#E2E8F0]">
         {loans.length === 0 && !loading ? (
-          <div className="py-8 px-4 text-center text-muted-foreground text-sm">
+          <div className="py-8 px-4 text-center text-[#64748B] text-xs">
             No tienes préstamos ni deudas registradas.
           </div>
         ) : (
@@ -41,52 +42,49 @@ export function LoansList({
             return (
               <div
                 key={loan.id}
-                className="flex flex-col sm:flex-row justify-between items-start sm:items-center py-4 px-6 hover:bg-muted/10 transition-colors gap-3"
+                className="flex flex-col sm:flex-row justify-between items-start sm:items-center py-4 px-6 hover:bg-[#F8FAFC] transition-colors gap-3"
               >
                 <div>
                   <div className="flex items-center gap-2">
                     <span
-                      className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                      className={`text-[10px] px-2 py-0.5 rounded-full font-[700] ${
                         isLent
-                          ? "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300"
-                          : "bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300"
+                          ? "bg-blue-50 text-[#1D4ED8] border border-blue-200"
+                          : "bg-purple-50 text-[#6B21A8] border border-purple-200"
                       }`}
                     >
                       {isLent ? "Dinero Prestado (Cobrar)" : "Deuda (Pagar)"}
                     </span>
-                    <span className="font-semibold text-sm text-foreground">{loan.counterpartyName}</span>
-                    <span className="text-xs font-mono text-muted-foreground">
+                    <span className="font-[700] text-[13px] text-[#0F172A]">{loan.counterpartyName}</span>
+                    <span className="text-[11px] font-mono text-[#64748B]">
                       TEA: {(loan.annualEffectiveRate * 100).toFixed(2)}%
                     </span>
                   </div>
-                  <div className="text-xs text-muted-foreground mt-0.5">
+                  <div className="text-[11px] text-[#64748B] mt-0.5">
                     {loan.template} · {loan.totalInstallments} cuotas · Desembolso: {loan.disbursementDate} · Estado: {loan.status}
                   </div>
                 </div>
                 <div className="flex items-center gap-4 self-end sm:self-auto">
                   <div className="text-right">
-                    <div className="text-xs text-muted-foreground">Saldo Restante</div>
-                    <div className="text-base font-mono font-bold text-foreground">
+                    <div className="text-[10px] font-semibold text-[#64748B]">Saldo Restante</div>
+                    <div className="text-[14px] font-mono font-[800] text-[#0F172A]">
                       {loan.remainingPrincipal.toFixed(2)} {loan.currency}
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
+                    <button
                       onClick={() => onOpenLoanDetails(loan.id)}
-                      className="text-xs h-8 px-2.5"
+                      className="h-[32px] px-2.5 rounded-[8px] border border-[#E2E8F0] hover:bg-slate-50 text-[#0F172A] text-[11px] font-[600] transition"
                     >
                       Ver Cuotas
-                    </Button>
+                    </button>
                     {loan.status !== "Paid" && loan.status !== "Cancelled" && (
-                      <Button
-                        size="sm"
+                      <button
                         onClick={() => onOpenPaymentModal(loan.id)}
-                        className="text-xs h-8 px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+                        className="h-[32px] px-3 rounded-[8px] bg-[#10B981] hover:bg-emerald-600 text-white text-[11px] font-[800] transition shadow-xs"
                       >
                         Registrar Pago
-                      </Button>
+                      </button>
                     )}
                   </div>
                 </div>
@@ -94,7 +92,7 @@ export function LoansList({
             );
           })
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

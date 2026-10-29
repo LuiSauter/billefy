@@ -1,9 +1,5 @@
 import { useState } from "react";
 import { AccountType, CreateAccountRequest } from "@/domain/models/types";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 
 interface CreateAccountModalProps {
   isOpen: boolean;
@@ -36,71 +32,88 @@ export function CreateAccountModal({ isOpen, onClose, onSubmit }: CreateAccountM
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-      <Card className="w-full max-w-md shadow-xl bg-background border">
-        <CardHeader className="border-b">
-          <CardTitle className="text-lg">Crear Nueva Cuenta</CardTitle>
-        </CardHeader>
-        <CardContent className="pt-6">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="accountName">Nombre de la cuenta</Label>
-              <Input
-                id="accountName"
-                required
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Ej. Banco Unión, Billetera USDT"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="accountType">Tipo de cuenta</Label>
-              <select
-                id="accountType"
-                value={type}
-                onChange={(e) => setType(e.target.value as AccountType)}
-                className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              >
-                <option value="Bank">Banco</option>
-                <option value="Wallet">Billetera Digital</option>
-                <option value="Cash">Efectivo</option>
-                <option value="Exchange">Exchange (Crypto)</option>
-              </select>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="accountCurrency">Moneda</Label>
-              <select
-                id="accountCurrency"
-                value={currency}
-                onChange={(e) => setCurrency(e.target.value)}
-                className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              >
-                <option value="BOB">Bolivianos (BOB)</option>
-                <option value="USD">Dólares (USD)</option>
-                <option value="USDT">Tether (USDT)</option>
-              </select>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="initialBalance">Saldo Inicial</Label>
-              <Input
-                id="initialBalance"
-                type="number"
-                step="0.01"
-                value={initialBalance}
-                onChange={(e) => setInitialBalance(e.target.value)}
-              />
-            </div>
-            <div className="flex justify-end gap-2 pt-4 border-t">
-              <Button type="button" variant="outline" onClick={onClose}>
-                Cancelar
-              </Button>
-              <Button type="submit" disabled={submitting}>
-                {submitting ? "Guardando..." : "Guardar en Base de Datos"}
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
+    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
+      <div className="w-full max-w-md shadow-2xl bg-white border border-[#E2E8F0] rounded-[20px] p-6 flex flex-col gap-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-[17px] font-[800] text-[#0F172A] tracking-tight">
+            Crear Nueva Cuenta
+          </h2>
+          <button
+            onClick={onClose}
+            className="w-7 h-7 rounded-lg text-[#64748B] hover:bg-slate-100 flex items-center justify-center transition"
+          >
+            ✕
+          </button>
+        </div>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3.5">
+          <div className="flex flex-col gap-1">
+            <label className="text-[11px] font-[700] text-[#475569]">Nombre de la cuenta</label>
+            <input
+              id="accountName"
+              required
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Ej. Banco Unión, Billetera USDT"
+              className="h-[42px] px-3.5 rounded-[10px] border border-[#E2E8F0] text-[13px] font-[600] text-[#0F172A] focus:outline-none focus:border-[#2563EB]"
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-[11px] font-[700] text-[#475569]">Tipo de cuenta</label>
+            <select
+              id="accountType"
+              value={type}
+              onChange={(e) => setType(e.target.value as AccountType)}
+              className="h-[42px] px-3.5 rounded-[10px] border border-[#E2E8F0] text-[13px] font-[600] text-[#0F172A] bg-white focus:outline-none focus:border-[#2563EB]"
+            >
+              <option value="Bank">Banco</option>
+              <option value="Wallet">Billetera Digital</option>
+              <option value="Cash">Efectivo</option>
+              <option value="Exchange">Exchange (Crypto)</option>
+            </select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-[11px] font-[700] text-[#475569]">Moneda</label>
+            <select
+              id="accountCurrency"
+              value={currency}
+              onChange={(e) => setCurrency(e.target.value)}
+              className="h-[42px] px-3.5 rounded-[10px] border border-[#E2E8F0] text-[13px] font-[600] text-[#0F172A] bg-white focus:outline-none focus:border-[#2563EB]"
+            >
+              <option value="BOB">Bolivianos (BOB)</option>
+              <option value="USD">Dólares (USD)</option>
+              <option value="USDT">Tether (USDT)</option>
+            </select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-[11px] font-[700] text-[#475569]">Saldo Inicial</label>
+            <input
+              id="initialBalance"
+              type="number"
+              step="0.01"
+              value={initialBalance}
+              onChange={(e) => setInitialBalance(e.target.value)}
+              placeholder="0.00"
+              className="h-[42px] px-3.5 rounded-[10px] border border-[#E2E8F0] text-[13px] font-[800] font-mono text-[#0F172A] focus:outline-none focus:border-[#2563EB]"
+            />
+          </div>
+          <div className="flex justify-end gap-2.5 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="h-[40px] px-4 rounded-[10px] border border-[#E2E8F0] text-[12px] font-[600] text-[#475569] hover:bg-slate-50 transition"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="h-[40px] px-5 rounded-[10px] bg-[#2563EB] hover:bg-blue-700 text-white text-[12px] font-[700] transition disabled:opacity-50"
+            >
+              {submitting ? "Guardando..." : "Crear Cuenta"}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }
