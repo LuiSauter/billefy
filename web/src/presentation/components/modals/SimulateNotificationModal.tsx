@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,7 +15,7 @@ export function SimulateNotificationModal({
   onClose,
   onSubmit,
 }: SimulateNotificationModalProps) {
-  const [text, setText] = useState("Transferencia recibida por Bs. 150.00 de Juan Pérez. Nro: 887711");
+  const [text, setText] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   if (!isOpen) return null;
@@ -27,6 +27,7 @@ export function SimulateNotificationModal({
     setSubmitting(true);
     try {
       await onSubmit(text.trim());
+      setText("");
       onClose();
     } finally {
       setSubmitting(false);
@@ -58,7 +59,11 @@ export function SimulateNotificationModal({
               <Button type="button" variant="outline" onClick={onClose}>
                 Cancelar
               </Button>
-              <Button type="submit" disabled={submitting} className="bg-indigo-600 hover:bg-indigo-700 text-white">
+              <Button
+                type="submit"
+                disabled={submitting || !text.trim()}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white"
+              >
                 {submitting ? "Capturando..." : "Ingestar Evento"}
               </Button>
             </div>

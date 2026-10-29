@@ -27,8 +27,7 @@ import {
 
 const DEFAULT_API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
-export function useDashboardData() {
-  const [userId, setUserId] = useState<string>("");
+export function useDashboardData(authToken?: string | null, authUserId?: string | null) {
   const [accounts, setAccounts] = useState<AccountDto[]>([]);
   const [transactions, setTransactions] = useState<TransactionDto[]>([]);
   const [drafts, setDrafts] = useState<DraftDto[]>([]);
@@ -40,29 +39,34 @@ export function useDashboardData() {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let storedId = "";
-    try {
-      storedId = localStorage.getItem("billefy_user_id") || "";
-      if (!storedId) {
-        storedId = typeof crypto !== "undefined" && crypto.randomUUID
-          ? crypto.randomUUID()
-          : "00000000-0000-0000-0000-000000000001";
-        localStorage.setItem("billefy_user_id", storedId);
-      }
-    } catch {
-      storedId = "00000000-0000-0000-0000-000000000001";
-    }
-    setUserId(storedId);
-  }, []);
-
   const client = useMemo(() => {
-    if (!userId) return null;
-    return new BillefyApiClient({ baseUrl: DEFAULT_API_URL, userId });
-  }, [userId]);
+    const effectiveToken =
+      authToken ||
+      (typeof window !== "undefined" ? localStorage.getItem("billefy_access_token") : null);
+    if (!effectiveToken) return null;
+
+    let fallbackUserId: string | undefined;
+    if (typeof window !== "undefined") {
+      try {
+        const storedUser = localStorage.getItem("billefy_user");
+        if (storedUser) fallbackUserId = JSON.parse(storedUser)?.id;
+      } catch {
+        // Ignore parse errors
+      }
+    }
+
+    return new BillefyApiClient({
+      baseUrl: DEFAULT_API_URL,
+      authToken: effectiveToken,
+      userId: authUserId || fallbackUserId,
+    });
+  }, [authToken, authUserId]);
 
   const loadData = useCallback(async () => {
-    if (!client) return;
+    if (!client) {
+      setLoading(false);
+      return;
+    }
 
     setLoading(true);
     setError(null);
@@ -271,7 +275,8 @@ export function useDashboardData() {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-User-Id": userId,
+        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+        ...(authUserId ? { "X-User-Id": authUserId } : {}),
         "Idempotency-Key": eventId,
       },
       body: JSON.stringify({
@@ -285,7 +290,7 @@ export function useDashboardData() {
   };
 
   return {
-    userId,
+    userId: authUserId || "",
     accounts,
     accountsMap,
     transactions,

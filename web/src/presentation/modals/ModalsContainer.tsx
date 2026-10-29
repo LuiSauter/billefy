@@ -21,6 +21,7 @@ import { BinanceModal } from "@/presentation/components/modals/BinanceModal";
 import { IncomeDistributionModal } from "@/presentation/components/modals/IncomeDistributionModal";
 import { CsvImportModal } from "@/presentation/components/modals/CsvImportModal";
 import { SimulateNotificationModal } from "@/presentation/components/modals/SimulateNotificationModal";
+import { Mobile1TapTransactionModal } from "@/presentation/components/modals/Mobile1TapTransactionModal";
 
 interface ModalsContainerProps {
   modals: DashboardModalsController;
@@ -55,6 +56,8 @@ export function ModalsContainer({
   p2pRate,
   actions,
 }: ModalsContainerProps) {
+  const handleOpenCreateAccount = () => modals.setIsAccountModalOpen(true);
+
   return (
     <>
       <FxTransferModal
@@ -70,6 +73,7 @@ export function ModalsContainer({
             description: data.description,
           });
         }}
+        onOpenCreateAccount={handleOpenCreateAccount}
       />
 
       <DraftsDrawerModal
@@ -110,6 +114,7 @@ export function ModalsContainer({
         defaultAccountId={accounts[0]?.id || ""}
         onClose={() => modals.setIsTxnModalOpen(false)}
         onSubmit={actions.registerTransaction}
+        onOpenCreateAccount={handleOpenCreateAccount}
       />
 
       <ReconcileModal
@@ -160,7 +165,7 @@ export function ModalsContainer({
         isOpen={modals.isWhatsAppModalOpen}
         onClose={() => modals.setIsWhatsAppModalOpen(false)}
         onLinkPhone={actions.linkWhatsApp}
-        onSendMessage={(msg) => actions.sendWhatsAppWebhook("+591 700 00000", msg)}
+        onSendMessage={(msg) => actions.sendWhatsAppWebhook("+591 70000000", msg)}
       />
 
       <BinanceModal
@@ -182,12 +187,22 @@ export function ModalsContainer({
         accounts={accounts}
         onClose={() => modals.setIsCsvModalOpen(false)}
         onSubmit={actions.importStatementCsv}
+        onOpenCreateAccount={handleOpenCreateAccount}
       />
 
       <SimulateNotificationModal
         isOpen={modals.isSimulateModalOpen}
         onClose={() => modals.setIsSimulateModalOpen(false)}
         onSubmit={actions.simulateRawEvent}
+      />
+
+      <Mobile1TapTransactionModal
+        isOpen={modals.isMobile1TapTxnOpen}
+        onClose={() => modals.setIsMobile1TapTxnOpen(false)}
+        accounts={accounts}
+        p2pRate={p2pRate}
+        onRegister={actions.registerTransaction}
+        onOpenCreateAccount={handleOpenCreateAccount}
       />
     </>
   );

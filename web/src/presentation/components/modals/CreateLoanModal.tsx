@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { AccountDto, CreateLoanRequest, LoanScheduleDto, LoanTemplate, SimulateLoanRequest } from "@/domain/models/types";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -23,10 +23,10 @@ export function CreateLoanModal({
   const [counterparty, setCounterparty] = useState("");
   const [type, setType] = useState<"Lent" | "Borrowed">("Lent");
   const [template, setTemplate] = useState<LoanTemplate>("FixedInstallment");
-  const [principal, setPrincipal] = useState("1000");
+  const [principal, setPrincipal] = useState("");
   const [currency, setCurrency] = useState("BOB");
-  const [rate, setRate] = useState("0.02");
-  const [installments, setInstallments] = useState("12");
+  const [rate, setRate] = useState("");
+  const [installments, setInstallments] = useState("");
   const [disbursementAcc, setDisbursementAcc] = useState("");
   const [simulatedSchedule, setSimulatedSchedule] = useState<LoanScheduleDto | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -69,182 +69,204 @@ export function CreateLoanModal({
         principal: p,
         currency,
         interestRate: isNaN(r) ? 0 : r,
+        rateUnit: "NominalMonthly",
         totalInstallments: n,
+        frequency: "Monthly",
         disbursementAccountId: disbursementAcc || undefined,
       });
-      setSimulatedSchedule(null);
+      setPrincipal("");
+      setRate("");
+      setInstallments("");
       setCounterparty("");
+      setSimulatedSchedule(null);
       onClose();
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Error al crear el préstamo.");
     } finally {
       setSubmitting(false);
     }
   };
 
+  const principalNum = parseFloat(principal) || 0;
+  const installmentsNum = parseInt(installments, 10) || 0;
+
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
-      <Card className="w-full max-w-2xl shadow-xl bg-background border my-8">
+      <Card className="w-full max-w-2xl my-8 shadow-xl bg-background border">
         <CardHeader className="border-b">
-          <CardTitle className="text-lg">Simular y Registrar Préstamo / Deuda</CardTitle>
+          <CardTitle className="text-lg">Simular / Registrar Préstamo</CardTitle>
         </CardHeader>
-        <CardContent className="pt-6">
+        <CardContent className="pt-6 space-y-4">
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label htmlFor="loanCounterparty">Nombre de la Persona / Contraparte</Label>
+                <Label htmlFor="counterparty">Contraparte (Persona o Entidad)</Label>
                 <Input
-                  id="loanCounterparty"
+                  id="counterparty"
                   required
+                  placeholder="Ej. Juan Pérez, Banco BCP"
                   value={counterparty}
                   onChange={(e) => setCounterparty(e.target.value)}
-                  placeholder="Ej. Carlos Méndez"
                 />
               </div>
-
               <div className="space-y-1.5">
                 <Label htmlFor="loanType">Tipo de Operación</Label>
                 <select
                   id="loanType"
                   value={type}
                   onChange={(e) => setType(e.target.value as "Lent" | "Borrowed")}
-                  className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs"
                 >
-                  <option value="Lent">Dinero que yo presto (Cobrar)</option>
-                  <option value="Borrowed">Dinero que me prestaron (Pagar)</option>
+                  <option value="Lent">Dinero Prestado (Por Cobrar)</option>
+                  <option value="Borrowed">Deuda Contraída (Por Pagar)</option>
                 </select>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div className="space-y-1.5">
-                <Label htmlFor="loanPrincipal">Monto Capital</Label>
+                <Label htmlFor="template">Sistema de Amortización</Label>
+                <select
+                  id="template"
+                  value={template}
+                  onChange={(e) => setTemplate(e.target.value as LoanTemplate)}
+                  className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs"
+                >
+                  <option value="FixedInstallment">Francés (Cuota Fija)</option>
+                  <option value="Decreasing">Alemán (Capital Fijo)</option>
+                  <option value="American">Americano (Interés Periódico)</option>
+                  <option value="SingleEnd">Bullet (Pago Único al Vencer)</option>
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="principal">Capital Principal</Label>
                 <Input
-                  id="loanPrincipal"
+                  id="principal"
                   type="number"
                   step="0.01"
                   required
+                  placeholder="0.00"
                   value={principal}
                   onChange={(e) => setPrincipal(e.target.value)}
                 />
               </div>
-
               <div className="space-y-1.5">
-                <Label htmlFor="loanCurrency">Moneda</Label>
+                <Label htmlFor="currency">Moneda</Label>
                 <select
-                  id="loanCurrency"
+                  id="currency"
                   value={currency}
                   onChange={(e) => setCurrency(e.target.value)}
-                  className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs"
                 >
-                  <option value="BOB">Bolivianos (BOB)</option>
-                  <option value="USD">Dólares (USD)</option>
-                  <option value="USDT">Tether (USDT)</option>
-                </select>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="loanTemplate">Sistema de Amortización</Label>
-                <select
-                  id="loanTemplate"
-                  value={template}
-                  onChange={(e) => setTemplate(e.target.value as LoanTemplate)}
-                  className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                >
-                  <option value="FixedInstallment">Cuota Fija (Francés)</option>
-                  <option value="SimpleOnBalance">Capital Fijo (Alemán)</option>
-                  <option value="FlatOnInitialCapital">Interés Fijo s/ Capital (Flat)</option>
-                  <option value="InterestOnly">Solo Intereses (Americano)</option>
-                  <option value="NoInterest">Sin Interés</option>
-                  <option value="SinglePaymentCompound">Pago Único Capitalizado</option>
+                  <option value="BOB">BOB</option>
+                  <option value="USD">USD</option>
+                  <option value="USDT">USDT</option>
                 </select>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div className="space-y-1.5">
-                <Label htmlFor="loanRate">Tasa de Interés Mensual (ej. 0.02 = 2%)</Label>
+                <Label htmlFor="rate">Tasa Mensual Nominal (ej: 0.02 = 2%)</Label>
                 <Input
-                  id="loanRate"
+                  id="rate"
                   type="number"
-                  step="0.001"
+                  step="0.0001"
+                  required
+                  placeholder="0.02"
                   value={rate}
                   onChange={(e) => setRate(e.target.value)}
                 />
               </div>
-
               <div className="space-y-1.5">
-                <Label htmlFor="loanInstallments">Número de Cuotas</Label>
+                <Label htmlFor="installments">Número de Cuotas</Label>
                 <Input
-                  id="loanInstallments"
+                  id="installments"
                   type="number"
                   min="1"
-                  max="120"
+                  required
+                  placeholder="12"
                   value={installments}
                   onChange={(e) => setInstallments(e.target.value)}
                 />
               </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="loanDisbursementAcc">Cuenta de desembolso en el Libro Mayor (opcional)</Label>
-              <select
-                id="loanDisbursementAcc"
-                value={disbursementAcc}
-                onChange={(e) => setDisbursementAcc(e.target.value)}
-                className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              >
-                <option value="">(Sin imputar en cuenta del Libro Mayor)</option>
-                {accounts.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name} ({a.currency} - Saldo: {a.balance.toFixed(2)})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex gap-2 pt-2">
-              <Button type="button" variant="outline" onClick={handleSimulate} className="text-xs">
-                🔍 Calcular Cronograma y TEA
-              </Button>
-            </div>
-
-            {simulatedSchedule && (
-              <div className="mt-4 p-4 bg-muted/40 rounded-lg border space-y-3">
-                <div className="flex justify-between items-center text-xs font-semibold">
-                  <span>Total Intereses: <span className="font-mono text-primary">{simulatedSchedule.totalInterest.toFixed(2)} {currency}</span></span>
-                  <span>Total a Pagar: <span className="font-mono text-primary">{simulatedSchedule.totalToPay.toFixed(2)} {currency}</span></span>
-                  <span>TEA (Costo Real): <span className="font-mono text-amber-600 font-bold">{(simulatedSchedule.annualEffectiveRate * 100).toFixed(2)}%</span></span>
-                </div>
-
-                <div className="max-h-48 overflow-y-auto divide-y text-xs font-mono">
-                  <div className="grid grid-cols-5 font-bold py-1 text-muted-foreground">
-                    <span>#</span>
-                    <span>Vencimiento</span>
-                    <span>Capital</span>
-                    <span>Interés</span>
-                    <span>Total Cuota</span>
-                  </div>
-                  {simulatedSchedule.installments.map((inst) => (
-                    <div key={inst.number} className="grid grid-cols-5 py-1">
-                      <span>Cuota {inst.number}</span>
-                      <span>{inst.dueDate}</span>
-                      <span>{inst.principal.toFixed(2)}</span>
-                      <span>{inst.interest.toFixed(2)}</span>
-                      <span className="font-bold">{inst.total.toFixed(2)}</span>
-                    </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="disbursementAcc">Cuenta de Desembolso</Label>
+                <select
+                  id="disbursementAcc"
+                  value={disbursementAcc}
+                  onChange={(e) => setDisbursementAcc(e.target.value)}
+                  className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs"
+                >
+                  <option value="">Sin desembolso en cuenta</option>
+                  {accounts.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name} ({a.currency})
+                    </option>
                   ))}
-                </div>
+                </select>
               </div>
-            )}
+            </div>
 
-            <div className="flex justify-end gap-2 pt-4 border-t">
-              <Button type="button" variant="outline" onClick={onClose}>
-                Cancelar
+            <div className="flex justify-between items-center pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleSimulate}
+                disabled={principalNum <= 0 || installmentsNum < 1}
+              >
+                🔍 Simular Cronograma Exacto
               </Button>
-              <Button type="submit" disabled={submitting}>
-                {submitting ? "Creando..." : "Guardar Préstamo"}
-              </Button>
+              <div className="flex gap-2">
+                <Button type="button" variant="outline" onClick={onClose}>
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={submitting || !counterparty.trim() || principalNum <= 0}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  {submitting ? "Creando..." : "Crear Préstamo"}
+                </Button>
+              </div>
             </div>
           </form>
+
+          {simulatedSchedule && (
+            <div className="mt-4 p-4 border rounded-lg bg-muted/40 space-y-3">
+              <div className="flex justify-between text-sm font-semibold">
+                <span>TEA: {(simulatedSchedule.annualEffectiveRate * 100).toFixed(2)}%</span>
+                <span>Total Intereses: {simulatedSchedule.totalInterest.toFixed(2)} {currency}</span>
+                <span>Costo Total: {simulatedSchedule.totalToPay.toFixed(2)} {currency}</span>
+              </div>
+              <div className="max-h-40 overflow-y-auto text-xs">
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="p-1">#</th>
+                      <th className="p-1">Vence</th>
+                      <th className="p-1">Cuota</th>
+                      <th className="p-1">Capital</th>
+                      <th className="p-1">Interés</th>
+                      <th className="p-1">Saldo</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {simulatedSchedule.installments.map((inst) => (
+                      <tr key={inst.number} className="border-b">
+                        <td className="p-1">{inst.number}</td>
+                        <td className="p-1">{inst.dueDate}</td>
+                        <td className="p-1 font-mono">{inst.total.toFixed(2)}</td>
+                        <td className="p-1 font-mono">{inst.principal.toFixed(2)}</td>
+                        <td className="p-1 font-mono">{inst.interest.toFixed(2)}</td>
+                        <td className="p-1 font-mono">{inst.balanceAfter.toFixed(2)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

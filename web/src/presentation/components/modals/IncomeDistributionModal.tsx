@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { IncomeDistributionProposal, ProposeIncomeDistributionRequest } from "@/domain/models/types";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,7 @@ export function IncomeDistributionModal({
   onClose,
   onCalculate,
 }: IncomeDistributionModalProps) {
-  const [incomeAmount, setIncomeAmount] = useState("4500");
+  const [incomeAmount, setIncomeAmount] = useState("");
   const [currency, setCurrency] = useState("BOB");
   const [proposal, setProposal] = useState<IncomeDistributionProposal | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -42,6 +42,8 @@ export function IncomeDistributionModal({
     }
   };
 
+  const amountNum = parseFloat(incomeAmount) || 0;
+
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
       <Card className="w-full max-w-lg shadow-xl bg-background border">
@@ -60,6 +62,7 @@ export function IncomeDistributionModal({
                   type="number"
                   step="0.01"
                   required
+                  placeholder="0.00"
                   value={incomeAmount}
                   onChange={(e) => setIncomeAmount(e.target.value)}
                 />
@@ -70,58 +73,63 @@ export function IncomeDistributionModal({
                   id="distributeCurr"
                   value={currency}
                   onChange={(e) => setCurrency(e.target.value)}
-                  className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs"
                 >
-                  <option value="BOB">Bolivianos (BOB)</option>
-                  <option value="USD">Dólares (USD)</option>
+                  <option value="BOB">BOB (Bolivianos)</option>
+                  <option value="USD">USD (Dólares)</option>
+                  <option value="USDT">USDT (Crypto)</option>
                 </select>
               </div>
             </div>
-
-            <Button type="submit" disabled={submitting} className="w-full">
-              Calcular Propuesta
-            </Button>
+            <div className="flex justify-end gap-2 pt-2 border-t">
+              <Button type="button" variant="outline" onClick={onClose}>
+                Cerrar
+              </Button>
+              <Button
+                type="submit"
+                disabled={submitting || amountNum <= 0}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                {submitting ? "Calculando..." : "Calcular Distribución 50/30/20"}
+              </Button>
+            </div>
           </form>
 
           {proposal && (
-            <div className="mt-4 p-4 bg-muted/40 rounded-lg border space-y-3 text-xs">
-              <p className="text-muted-foreground">{proposal.rationale}</p>
-              <div className="grid grid-cols-2 gap-3 pt-2">
-                <div className="p-2.5 bg-background border rounded-md">
-                  <div className="text-muted-foreground font-semibold">Necesidades ({proposal.needsPercentage}%)</div>
-                  <div className="text-base font-bold font-mono text-primary mt-0.5">
-                    {proposal.needsAmount.toFixed(2)} {proposal.currency}
+            <div className="mt-4 p-4 border rounded-lg bg-muted/40 space-y-3">
+              <div className="text-sm font-semibold text-foreground">
+                Regla 50/30/20 & Cobertura de Préstamos:
+              </div>
+              <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                <div className="p-2 border rounded bg-background">
+                  <div className="text-muted-foreground">Necesidades (50%)</div>
+                  <div className="font-bold text-sm font-mono text-blue-600">
+                    {proposal.needsAmount.toFixed(2)} {currency}
                   </div>
                 </div>
-                <div className="p-2.5 bg-background border rounded-md">
-                  <div className="text-muted-foreground font-semibold">Deseos ({proposal.wantsPercentage}%)</div>
-                  <div className="text-base font-bold font-mono text-amber-600 mt-0.5">
-                    {proposal.wantsAmount.toFixed(2)} {proposal.currency}
+                <div className="p-2 border rounded bg-background">
+                  <div className="text-muted-foreground">Deseos (30%)</div>
+                  <div className="font-bold text-sm font-mono text-amber-600">
+                    {proposal.wantsAmount.toFixed(2)} {currency}
                   </div>
                 </div>
-                {proposal.debtPercentage > 0 && (
-                  <div className="p-2.5 bg-background border rounded-md">
-                    <div className="text-muted-foreground font-semibold">Deudas ({proposal.debtPercentage}%)</div>
-                    <div className="text-base font-bold font-mono text-purple-600 mt-0.5">
-                      {proposal.debtPaymentAmount.toFixed(2)} {proposal.currency}
-                    </div>
-                  </div>
-                )}
-                <div className="p-2.5 bg-background border rounded-md">
-                  <div className="text-muted-foreground font-semibold">Ahorro ({proposal.savingsPercentage}%)</div>
-                  <div className="text-base font-bold font-mono text-emerald-600 mt-0.5">
-                    {proposal.savingsAmount.toFixed(2)} {proposal.currency}
+                <div className="p-2 border rounded bg-background">
+                  <div className="text-muted-foreground">Ahorros (20%)</div>
+                  <div className="font-bold text-sm font-mono text-emerald-600">
+                    {proposal.savingsAmount.toFixed(2)} {currency}
                   </div>
                 </div>
               </div>
+              {proposal.debtPaymentAmount > 0 && (
+                <div className="text-xs p-2 bg-purple-50 text-purple-800 rounded border border-purple-200">
+                  Reserva para cuotas de préstamos: <b>{proposal.debtPaymentAmount.toFixed(2)} {currency}</b>
+                </div>
+              )}
+              <div className="text-xs text-muted-foreground italic">
+                {proposal.rationale}
+              </div>
             </div>
           )}
-
-          <div className="flex justify-end pt-2 border-t">
-            <Button variant="outline" onClick={onClose}>
-              Cerrar
-            </Button>
-          </div>
         </CardContent>
       </Card>
     </div>

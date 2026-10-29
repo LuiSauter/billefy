@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { AccountType, CreateAccountRequest } from "@/domain/models/types";
 
 interface CreateAccountModalProps {
@@ -11,7 +11,7 @@ export function CreateAccountModal({ isOpen, onClose, onSubmit }: CreateAccountM
   const [name, setName] = useState("");
   const [type, setType] = useState<AccountType>("Bank");
   const [currency, setCurrency] = useState("BOB");
-  const [initialBalance, setInitialBalance] = useState("0");
+  const [initialBalance, setInitialBalance] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   if (!isOpen) return null;
@@ -22,9 +22,14 @@ export function CreateAccountModal({ isOpen, onClose, onSubmit }: CreateAccountM
 
     setSubmitting(true);
     try {
-      await onSubmit({ name: name.trim(), type, currency, initialBalance });
+      await onSubmit({
+        name: name.trim(),
+        type,
+        currency,
+        initialBalance: initialBalance.trim() ? parseFloat(initialBalance.trim()) : 0,
+      });
       setName("");
-      setInitialBalance("0");
+      setInitialBalance("");
       onClose();
     } finally {
       setSubmitting(false);
@@ -53,7 +58,7 @@ export function CreateAccountModal({ isOpen, onClose, onSubmit }: CreateAccountM
               required
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Ej. Banco Unión, Billetera USDT"
+              placeholder="Ej. Banco Unión, Billetera USDT, Efectivo"
               className="h-[42px] px-3.5 rounded-[10px] border border-[#E2E8F0] text-[13px] font-[600] text-[#0F172A] focus:outline-none focus:border-[#2563EB]"
             />
           </div>
@@ -89,7 +94,7 @@ export function CreateAccountModal({ isOpen, onClose, onSubmit }: CreateAccountM
             <input
               id="initialBalance"
               type="number"
-              step="0.01"
+              step="any"
               value={initialBalance}
               onChange={(e) => setInitialBalance(e.target.value)}
               placeholder="0.00"
@@ -106,10 +111,10 @@ export function CreateAccountModal({ isOpen, onClose, onSubmit }: CreateAccountM
             </button>
             <button
               type="submit"
-              disabled={submitting}
-              className="h-[40px] px-5 rounded-[10px] bg-[#2563EB] hover:bg-blue-700 text-white text-[12px] font-[700] transition disabled:opacity-50"
+              disabled={submitting || !name.trim()}
+              className="h-[40px] px-5 rounded-[10px] bg-[#2563EB] hover:bg-blue-700 active:scale-[0.99] text-white text-[12px] font-[700] transition disabled:opacity-50"
             >
-              {submitting ? "Guardando..." : "Crear Cuenta"}
+              {submitting ? "Creando..." : "Crear Cuenta"}
             </button>
           </div>
         </form>

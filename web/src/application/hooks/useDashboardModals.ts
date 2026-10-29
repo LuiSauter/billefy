@@ -11,6 +11,7 @@ export function useDashboardModals(getLoanById: (loanId: string) => Promise<Loan
   const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false);
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
   const [isTxnModalOpen, setIsTxnModalOpen] = useState(false);
+  const [isMobile1TapTxnOpen, setIsMobile1TapTxnOpen] = useState(false);
   const [isSimulateModalOpen, setIsSimulateModalOpen] = useState(false);
   const [isReconcileModalOpen, setIsReconcileModalOpen] = useState(false);
   const [isCsvModalOpen, setIsCsvModalOpen] = useState(false);
@@ -66,6 +67,8 @@ export function useDashboardModals(getLoanById: (loanId: string) => Promise<Loan
     setIsAccountModalOpen,
     isTxnModalOpen,
     setIsTxnModalOpen,
+    isMobile1TapTxnOpen,
+    setIsMobile1TapTxnOpen,
     isSimulateModalOpen,
     setIsSimulateModalOpen,
     isReconcileModalOpen,

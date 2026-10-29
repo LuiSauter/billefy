@@ -25,7 +25,7 @@ export interface CreateAccountRequest {
   name: string;
   type: AccountType;
   currency: string;
-  initialBalance?: string;
+  initialBalance?: number | string;
 }
 
 export interface TransactionDto {

@@ -1,20 +1,16 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { AccountDto, ImportStatementCsvRequest, StatementImportResult } from "@/domain/models/types";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-const SAMPLE_CSV = `Fecha,Descripción,Monto,Referencia
-2026-10-24,Pago Supermercado Farmacorp,-85.50,TX-998811
-2026-10-25,Transferencia Recibida Juan,1500.00,TR-554422
-2026-10-25,Retiro Cajero Automático,-200.00,ATM-110022`;
-
 interface CsvImportModalProps {
   isOpen: boolean;
   accounts: AccountDto[];
   onClose: () => void;
   onSubmit: (req: ImportStatementCsvRequest) => Promise<StatementImportResult>;
+  onOpenCreateAccount?: () => void;
 }
 
 export function CsvImportModal({
@@ -22,25 +18,56 @@ export function CsvImportModal({
   accounts,
   onClose,
   onSubmit,
+  onOpenCreateAccount,
 }: CsvImportModalProps) {
   const [accountId, setAccountId] = useState(accounts[0]?.id || "");
-  const [fileName, setFileName] = useState("extracto_bancario.csv");
-  const [csvContent, setCsvContent] = useState(SAMPLE_CSV);
+  const [fileName, setFileName] = useState("");
+  const [csvContent, setCsvContent] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   if (!isOpen) return null;
 
+  if (accounts.length === 0) {
+    return (
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+        <Card className="w-full max-w-md shadow-xl bg-background border p-6 text-center space-y-4">
+          <CardTitle className="text-lg">No hay cuentas disponibles</CardTitle>
+          <p className="text-xs text-muted-foreground">
+            Para importar un extracto bancario CSV, primero debes crear la cuenta bancaria de destino.
+          </p>
+          <div className="flex justify-center gap-2 pt-2">
+            <Button variant="outline" onClick={onClose}>
+              Cerrar
+            </Button>
+            {onOpenCreateAccount && (
+              <Button
+                onClick={() => {
+                  onClose();
+                  onOpenCreateAccount();
+                }}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                + Crear Cuenta
+              </Button>
+            )}
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!accountId || !csvContent.trim()) return;
+    const effectiveAccId = accountId || accounts[0]?.id;
+    if (!effectiveAccId || !csvContent.trim()) return;
 
-    const targetAccount = accounts.find((a) => a.id === accountId);
+    const targetAccount = accounts.find((a) => a.id === effectiveAccId);
     if (!targetAccount) return;
 
     setSubmitting(true);
     try {
       const res = await onSubmit({
-        accountId,
+        accountId: effectiveAccId,
         fileName: fileName.trim() || "extracto.csv",
         csvContent: csvContent.trim(),
         currency: targetAccount.currency,
@@ -51,6 +78,8 @@ export function CsvImportModal({
       } else {
         alert(`Extracto importado con éxito: ${res.draftsCreated} borradores creados, ${res.duplicatesLinked} duplicados vinculados.`);
       }
+      setFileName("");
+      setCsvContent("");
       onClose();
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : "Error al importar el extracto CSV.");
@@ -68,16 +97,16 @@ export function CsvImportModal({
         <CardContent className="pt-6">
           <form onSubmit={handleSubmit} className="space-y-4">
             <p className="text-xs text-muted-foreground">
-              Carga los movimientos de tu banco. El motor deduplicará automáticamente contra movimientos ya capturados por notificaciones (ING-11).
+              Pega el contenido CSV de tu extracto bancario. El motor de importación detectará columnas de fecha, monto y concepto generando borradores con deduplicación por fingerprint.
             </p>
 
             <div className="space-y-1.5">
-              <Label htmlFor="csvAccount">Imputar a la cuenta</Label>
+              <Label htmlFor="csvAccount">Cuenta Bancaria de Destino</Label>
               <select
                 id="csvAccount"
-                value={accountId}
+                value={accountId || accounts[0]?.id || ""}
                 onChange={(e) => setAccountId(e.target.value)}
-                className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs"
               >
                 {accounts.map((a) => (
                   <option key={a.id} value={a.id}>
@@ -88,23 +117,25 @@ export function CsvImportModal({
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="csvFileName">Nombre del archivo</Label>
+              <Label htmlFor="csvFileName">Nombre de archivo (para deduplicación)</Label>
               <Input
                 id="csvFileName"
+                placeholder="Ej. extracto_octubre_2026.csv"
                 value={fileName}
                 onChange={(e) => setFileName(e.target.value)}
               />
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="csvContent">Contenido CSV (Fecha, Descripción, Monto, Referencia)</Label>
+              <Label htmlFor="csvContent">Contenido CSV</Label>
               <textarea
                 id="csvContent"
-                rows={6}
                 required
+                rows={6}
                 value={csvContent}
                 onChange={(e) => setCsvContent(e.target.value)}
-                className="w-full rounded-md border border-input bg-transparent p-2 font-mono text-xs shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                placeholder={"Fecha,Descripción,Monto,Referencia\n2026-10-24,Supermercado Farmacorp,-85.50,TX-998811\n..."}
+                className="w-full rounded-md border border-input bg-transparent p-2 text-xs font-mono shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               />
             </div>
 
@@ -112,8 +143,12 @@ export function CsvImportModal({
               <Button type="button" variant="outline" onClick={onClose}>
                 Cancelar
               </Button>
-              <Button type="submit" disabled={submitting}>
-                {submitting ? "Importando..." : "Importar y Deduplicar"}
+              <Button
+                type="submit"
+                disabled={submitting || !csvContent.trim()}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white"
+              >
+                {submitting ? "Importando..." : "Procesar CSV"}
               </Button>
             </div>
           </form>

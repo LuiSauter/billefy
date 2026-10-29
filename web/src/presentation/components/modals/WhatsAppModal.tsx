@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { LinkWhatsAppResponse } from "@/domain/models/types";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,9 +18,9 @@ export function WhatsAppModal({
   onLinkPhone,
   onSendMessage,
 }: WhatsAppModalProps) {
-  const [phoneNumber, setPhoneNumber] = useState("+591 700 00000");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [linkData, setLinkData] = useState<LinkWhatsAppResponse | null>(null);
-  const [inputMessage, setInputMessage] = useState("Gasto 45 bs en taxi");
+  const [inputMessage, setInputMessage] = useState("");
   const [chatHistory, setChatHistory] = useState<{ from: "user" | "bot"; text: string }[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
@@ -70,70 +70,94 @@ export function WhatsAppModal({
       <Card className="w-full max-w-lg shadow-xl bg-background border">
         <CardHeader className="border-b">
           <CardTitle className="text-lg flex items-center gap-2">
-            <span>💬</span> Bot de WhatsApp (Simulador)
+            <span>💬</span> Bot de WhatsApp & Ingesta Automática
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-6 space-y-4">
           {!linkData ? (
             <form onSubmit={handleLink} className="space-y-4">
               <p className="text-xs text-muted-foreground">
-                Vincula tu número de teléfono. El bot responderá exclusivamente a los mensajes que tú inicies (Regla 21).
+                Ingresa tu número de teléfono con código de país para vincular tu chat de WhatsApp con Billefy.
               </p>
               <div className="space-y-1.5">
-                <Label htmlFor="waPhone">Número de WhatsApp</Label>
+                <Label htmlFor="whatsappPhone">Número con código de país</Label>
                 <Input
-                  id="waPhone"
+                  id="whatsappPhone"
                   required
+                  placeholder="+591 70000000"
                   value={phoneNumber}
                   onChange={(e) => setPhoneNumber(e.target.value)}
-                  placeholder="+59170011223"
                 />
               </div>
-              <div className="flex justify-end gap-2 pt-2">
+              <div className="flex justify-end gap-2 pt-2 border-t">
                 <Button type="button" variant="outline" onClick={onClose}>
-                  Cerrar
+                  Cancelar
                 </Button>
-                <Button type="submit" disabled={submitting}>
-                  Generar Código de Vinculación
+                <Button
+                  type="submit"
+                  disabled={submitting || !phoneNumber.trim()}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                >
+                  {submitting ? "Vinculando..." : "Generar Código de Enlace"}
                 </Button>
               </div>
             </form>
           ) : (
             <div className="space-y-4">
-              <div className="p-3 bg-muted rounded-md text-xs space-y-1">
-                <div>
-                  Código asignado: <span className="font-mono font-bold text-primary">{linkData.verificationCode}</span>
-                </div>
-                <div className="text-muted-foreground">{linkData.instructions}</div>
+              <div className="p-3 bg-muted rounded-lg text-xs space-y-1">
+                <div>Estado de enlace: <b>{linkData.status}</b></div>
+                <div>Código de verificación: <b className="font-mono text-sm text-primary">{linkData.verificationCode}</b></div>
+                <div className="text-muted-foreground text-[10px]">{linkData.instructions}</div>
               </div>
 
-              <div className="h-64 border rounded-md p-3 overflow-y-auto space-y-2 bg-muted/20 text-xs">
-                {chatHistory.map((c, i) => (
-                  <div key={i} className={`flex ${c.from === "user" ? "justify-end" : "justify-start"}`}>
-                    <div
-                      className={`p-2.5 rounded-lg max-w-[85%] whitespace-pre-line ${
-                        c.from === "user"
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-card border text-card-foreground shadow-xs"
-                      }`}
-                    >
-                      {c.text}
-                    </div>
+              {/* Chat Simulation Sandbox */}
+              <div className="border rounded-lg p-3 bg-background/50 h-52 overflow-y-auto space-y-2 text-xs">
+                {chatHistory.length === 0 ? (
+                  <div className="text-center text-muted-foreground py-12">
+                    Escribe un mensaje para interactuar con el bot
                   </div>
-                ))}
+                ) : (
+                  chatHistory.map((item, idx) => (
+                    <div
+                      key={idx}
+                      className={`flex ${item.from === "user" ? "justify-end" : "justify-start"}`}
+                    >
+                      <div
+                        className={`max-w-[80%] rounded-lg px-3 py-1.5 ${
+                          item.from === "user"
+                            ? "bg-emerald-600 text-white"
+                            : "bg-muted text-foreground border"
+                        }`}
+                      >
+                        {item.text}
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
 
               <form onSubmit={handleSend} className="flex gap-2">
                 <Input
+                  placeholder="Ej. Gasto 45 bs en taxi..."
                   value={inputMessage}
                   onChange={(e) => setInputMessage(e.target.value)}
-                  placeholder="Escribe un mensaje (ej. 1, Saldo, Gasto 40 bs)..."
                   className="text-xs"
                 />
-                <Button type="submit" size="sm">
+                <Button
+                  type="submit"
+                  size="sm"
+                  disabled={!inputMessage.trim()}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                >
                   Enviar
                 </Button>
               </form>
+
+              <div className="flex justify-end pt-2 border-t">
+                <Button type="button" variant="outline" onClick={onClose}>
+                  Cerrar
+                </Button>
+              </div>
             </div>
           )}
         </CardContent>

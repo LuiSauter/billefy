@@ -21,7 +21,7 @@ export function AccountsTabView({
 }: AccountsTabViewProps) {
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-[18px] font-[900] text-[#0F172A] tracking-tight">
             Mis Cuentas & Billeteras
@@ -30,16 +30,16 @@ export function AccountsTabView({
             Conciliación bancaria y saldos en vivo multimoneda
           </p>
         </div>
-        <div className="flex items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={onOpenCsvModal}
             className="h-[38px] px-3.5 rounded-[10px] border border-[#E2E8F0] bg-white text-[12px] font-[600] text-[#0F172A] hover:bg-slate-50 transition"
           >
-            📄 Importar Extracto CSV
+            📄 Importar CSV
           </button>
           <button
             onClick={onOpenCreateAccountModal}
-            className="h-[38px] px-4 rounded-[10px] bg-[#2563EB] hover:bg-blue-700 text-white text-[12px] font-[700] transition shadow-sm"
+            className="h-[38px] px-4 rounded-[10px] bg-[#2563EB] hover:bg-blue-700 text-white text-[12px] font-[700] transition shadow-xs"
           >
             + Nueva Cuenta
           </button>

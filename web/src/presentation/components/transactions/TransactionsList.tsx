@@ -97,7 +97,7 @@ export function TransactionsList({
 
                 {/* 3. Account / Wallet */}
                 <div className="w-[120px] truncate text-[12px] font-[500] text-[#475569] hidden md:block shrink-0">
-                  {account?.name || "Cuenta Principal"}
+                  {account?.name || "—"}
                 </div>
 
                 {/* 4. Rate Audit */}

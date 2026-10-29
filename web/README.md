@@ -51,16 +51,32 @@ web/src/
 
 ## 3. Variables de Entorno (.env.local) — Copiar y Pegar
 
-El cliente web se conecta al backend mediante la variable `NEXT_PUBLIC_API_URL`.
+El cliente web requiere la configuración de su URL de backend y del ID de cliente de Google OAuth en `web/.env.local` (ver plantilla `web/env.example`).
 
-### Opción A: Crear tu archivo `.env.local` en la terminal (macOS / Linux)
+| Variable | Descripción | Valor por Defecto / Ejemplo |
+|---|---|---|
+| `NEXT_PUBLIC_API_URL` | URL base del backend ASP.NET Core | `http://localhost:5267` |
+| `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | Client ID de Google Identity Services obtenido en Google Cloud Console | `123456789-xyz.apps.googleusercontent.com` |
 
-Ubicado en la carpeta `web/`, pegá este bloque en tu terminal:
+### Configuración de Google Cloud Console:
+1. En [Google Cloud Console](https://console.cloud.google.com/), ve a **APIs & Services > Credentials**.
+2. Crea un **OAuth 2.0 Client ID** tipo *Web Application*.
+3. En **Authorized JavaScript origins**, agrega:
+   - `http://localhost:3000`
+   - `http://127.0.0.1:3000`
+4. Copia el **Client ID** generado a tu `.env.local`.
+
+### Crear tu archivo `.env.local` en la terminal (macOS / Linux)
+
+Ubicado en la carpeta `web/`:
 
 ```bash
 cat << 'EOF' > .env.local
 # URL de la API del Backend ASP.NET Core (.NET 10)
 NEXT_PUBLIC_API_URL=http://localhost:5267
+
+# Google OAuth Client ID (Google Identity Services)
+NEXT_PUBLIC_GOOGLE_CLIENT_ID=TU_GOOGLE_CLIENT_ID.apps.googleusercontent.com
 EOF
 ```
 
@@ -71,6 +87,7 @@ EOF
 #### macOS y Linux (Bash / Zsh)
 ```bash
 export NEXT_PUBLIC_API_URL="http://localhost:5267"
+export NEXT_PUBLIC_GOOGLE_CLIENT_ID="TU_GOOGLE_CLIENT_ID.apps.googleusercontent.com"
 ```
 
 #### Windows (PowerShell)

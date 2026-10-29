@@ -81,24 +81,85 @@ export class BillefyApiClient {
     return this.userId;
   }
 
+  private getEffectiveToken(): string | undefined {
+    if (this.authToken) return this.authToken;
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("billefy_access_token");
+      if (stored) return stored;
+    }
+    return undefined;
+  }
+
+  private getEffectiveUserId(): string | undefined {
+    if (this.userId) return this.userId;
+    if (typeof window !== "undefined") {
+      const storedUser = localStorage.getItem("billefy_user");
+      if (storedUser) {
+        try {
+          const parsed = JSON.parse(storedUser);
+          if (parsed?.id) return parsed.id;
+        } catch {
+          // Ignore parse errors
+        }
+      }
+    }
+    return undefined;
+  }
+
   private async request<T>(path: string, options: RequestInit = {}): Promise<T> {
     const url = `${this.baseUrl}${path}`;
     const headers = new Headers(options.headers || {});
 
     headers.set("Content-Type", "application/json");
 
-    if (this.userId) {
-      headers.set("X-User-Id", this.userId);
+    const effectiveUserId = this.getEffectiveUserId();
+    const effectiveToken = this.getEffectiveToken();
+
+    if (effectiveUserId) {
+      headers.set("X-User-Id", effectiveUserId);
     }
 
-    if (this.authToken) {
-      headers.set("Authorization", `Bearer ${this.authToken}`);
+    if (effectiveToken) {
+      headers.set("Authorization", `Bearer ${effectiveToken}`);
     }
 
     const res = await this.fetchFn(url, {
       ...options,
       headers,
     });
+
+    if (res.status === 401 && !(options as Record<string, unknown>)._isRetry) {
+      // Attempt token refresh if refresh token exists in localStorage
+      if (typeof window !== "undefined" && !path.includes("/auth/")) {
+        const storedRefresh = localStorage.getItem("billefy_refresh_token");
+        if (storedRefresh) {
+          try {
+            const refreshRes = await this.refreshToken(storedRefresh);
+            if (refreshRes?.accessToken) {
+              this.authToken = refreshRes.accessToken;
+              localStorage.setItem("billefy_access_token", refreshRes.accessToken);
+              if (refreshRes.refreshToken) {
+                localStorage.setItem("billefy_refresh_token", refreshRes.refreshToken);
+              }
+              const retryHeaders = new Headers(options.headers || {});
+              retryHeaders.set("Content-Type", "application/json");
+              retryHeaders.set("Authorization", `Bearer ${refreshRes.accessToken}`);
+              if (effectiveUserId) retryHeaders.set("X-User-Id", effectiveUserId);
+
+              return this.request<T>(path, {
+                ...options,
+                headers: retryHeaders,
+                _isRetry: true,
+              } as RequestInit);
+            }
+          } catch {
+            localStorage.removeItem("billefy_access_token");
+            localStorage.removeItem("billefy_refresh_token");
+            localStorage.removeItem("billefy_user");
+          }
+        }
+      }
+    }
 
     if (!res.ok) {
       let problem: ApiProblemDetails = {};
@@ -136,9 +197,16 @@ export class BillefyApiClient {
   }
 
   async createAccount(req: CreateAccountRequest): Promise<{ id: string }> {
+    const payload = {
+      ...req,
+      initialBalance:
+        typeof req.initialBalance === "string"
+          ? parseFloat(req.initialBalance) || 0
+          : (req.initialBalance ?? 0),
+    };
     return this.request<{ id: string }>("/v1/accounts", {
       method: "POST",
-      body: JSON.stringify(req),
+      body: JSON.stringify(payload),
     });
   }
 
@@ -491,10 +559,14 @@ export class BillefyApiClient {
     });
   }
 
-  async loginWithGoogle(idToken: string, preferredCurrency = "BOB"): Promise<AuthResponseDto> {
+  async loginWithGoogle(idToken: string, preferredCurrency?: string): Promise<AuthResponseDto> {
+    const body: Record<string, string> = { idToken };
+    if (preferredCurrency) {
+      body.preferredCurrency = preferredCurrency;
+    }
     const res = await this.request<AuthResponseDto>("/api/v1/auth/google", {
       method: "POST",
-      body: JSON.stringify({ idToken, preferredCurrency }),
+      body: JSON.stringify(body),
     });
     this.authToken = res.accessToken;
     this.userId = res.user.id;

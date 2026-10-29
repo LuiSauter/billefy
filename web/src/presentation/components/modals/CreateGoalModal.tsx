@@ -19,10 +19,10 @@ export function CreateGoalModal({
   onSubmit,
   p2pRate = 9.85,
 }: CreateGoalModalProps) {
-  const [name, setName] = useState("🏡 Entrada Departamento");
-  const [targetAmount, setTargetAmount] = useState("15000");
-  const [currency, setCurrency] = useState("USDT");
-  const [targetDate, setTargetDate] = useState("2025-12-31");
+  const [name, setName] = useState("");
+  const [targetAmount, setTargetAmount] = useState("");
+  const [currency, setCurrency] = useState("BOB");
+  const [targetDate, setTargetDate] = useState("");
   const [accountId, setAccountId] = useState(accounts[0]?.id || "");
   const [submitting, setSubmitting] = useState(false);
 
@@ -31,11 +31,6 @@ export function CreateGoalModal({
   const targetNum = parseFloat(targetAmount) || 0;
   const isCrypto = currency === "USDT" || currency === "USD";
   const bobEquivalent = isCrypto ? (targetNum * p2pRate).toFixed(2) : targetNum.toFixed(2);
-
-  // Suggested monthly projection for 19 months
-  const months = 19;
-  const monthlyProjection = (targetNum / months).toFixed(2);
-  const monthlyBob = isCrypto ? (parseFloat(monthlyProjection) * p2pRate).toFixed(2) : monthlyProjection;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,6 +45,9 @@ export function CreateGoalModal({
         targetDate: targetDate || undefined,
         accountId: accountId || undefined,
       });
+      setName("");
+      setTargetAmount("");
+      setTargetDate("");
       onClose();
     } finally {
       setSubmitting(false);
@@ -81,8 +79,8 @@ export function CreateGoalModal({
               required
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="🏡 Entrada Departamento"
-              className="w-full text-[13px] font-[700] text-[#0F172A] bg-transparent focus:outline-none"
+              placeholder="Ej. Fondo de emergencia, Departamento"
+              className="w-full text-[13px] font-[700] text-[#0F172A] bg-transparent focus:outline-none placeholder-slate-400"
             />
           </div>
 
@@ -96,75 +94,68 @@ export function CreateGoalModal({
                 required
                 value={targetAmount}
                 onChange={(e) => setTargetAmount(e.target.value)}
-                className="w-full text-[13px] font-[800] text-[#0F172A] font-mono bg-transparent focus:outline-none"
+                placeholder="0.00"
+                className="w-full text-[13px] font-[800] text-[#0F172A] font-mono bg-transparent focus:outline-none placeholder-slate-400"
               />
-              <select
-                value={currency}
-                onChange={(e) => setCurrency(e.target.value)}
-                className="text-[11px] font-bold text-[#0F172A] bg-slate-100 rounded px-1.5 py-0.5"
-              >
-                <option value="USDT">USDT</option>
-                <option value="USD">USD</option>
-                <option value="BOB">BOB</option>
-              </select>
             </div>
-            {isCrypto && (
-              <span className="text-[11px] font-[600] text-[#166534] font-mono shrink-0">
-                ≈ Bs. {bobEquivalent}
-              </span>
-            )}
+            <select
+              value={currency}
+              onChange={(e) => setCurrency(e.target.value)}
+              className="text-[12px] font-[800] text-[#2563EB] bg-slate-50 border border-slate-200 rounded-[8px] px-2 py-1 focus:outline-none shrink-0"
+            >
+              <option value="BOB">BOB (Bs.)</option>
+              <option value="USD">USD ($)</option>
+              <option value="USDT">USDT</option>
+            </select>
           </div>
 
-          {/* Field 3: Savings Account (InGAccW) */}
-          <div className="h-[44px] px-3.5 rounded-[10px] border border-[#E2E8F0] bg-white flex items-center justify-between">
-            <div className="flex items-center gap-1.5 text-[12px] font-[600] text-[#0F172A]">
-              <span>Cuenta Ahorro:</span>
-              <select
-                value={accountId}
-                onChange={(e) => setAccountId(e.target.value)}
-                className="bg-transparent font-bold text-[#0F172A] focus:outline-none cursor-pointer"
-              >
-                {accounts.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name} ({a.currency})
-                  </option>
-                ))}
-              </select>
-            </div>
-            <span className="text-[11px] font-[700] text-[#2563EB]">Cambiar</span>
-          </div>
-
-          {/* Field 4: Target Date (InGDateW) */}
-          <div className="h-[44px] px-3.5 rounded-[10px] border border-[#E2E8F0] bg-white flex items-center justify-between">
-            <div className="flex items-center gap-1.5 text-[12px] font-[600] text-[#0F172A] flex-1">
-              <span>Fecha Límite:</span>
+          {/* Field 3: Target Date (InGDateW) */}
+          <div className="h-[44px] px-3.5 rounded-[10px] border border-[#E2E8F0] bg-white flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <Calendar className="w-4 h-4 text-[#64748B] shrink-0" />
+              <span className="text-[12px] font-[600] text-[#64748B] shrink-0">Fecha Límite:</span>
               <input
                 type="date"
                 value={targetDate}
                 onChange={(e) => setTargetDate(e.target.value)}
-                className="bg-transparent font-bold text-[#0F172A] focus:outline-none"
+                className="w-full text-[13px] font-[700] text-[#0F172A] bg-transparent focus:outline-none"
               />
             </div>
-            <Calendar className="w-[14px] h-[14px] text-[#64748B] shrink-0" />
           </div>
 
-          {/* Projection Card (OpenPencil ProjCardW) */}
-          <div className="p-3 rounded-[12px] bg-[#EFF6FF] border border-[#BFDBFE] flex flex-col gap-1">
-            <div className="text-[12px] font-[800] text-[#1D4ED8]">
-              Proyección: {monthlyProjection} {currency} / mes (≈ Bs. {monthlyBob}/mes)
-            </div>
-            <div className="text-[10px] font-[500] text-[#475569]">
-              Impacto: Representa el 28% de tu capacidad de ahorro proyectada en Billefy.
-            </div>
+          {/* Field 4: Associated Account */}
+          <div className="flex flex-col gap-1">
+            <label className="text-[11px] font-[700] text-[#64748B]">
+              Cuenta de Ahorro Asociada (Opcional)
+            </label>
+            <select
+              value={accountId}
+              onChange={(e) => setAccountId(e.target.value)}
+              className="h-[42px] px-3.5 rounded-[10px] border border-[#E2E8F0] text-[13px] font-[600] text-[#0F172A] bg-white focus:outline-none"
+            >
+              <option value="">Sin cuenta vinculada (Solo seguimiento)</option>
+              {accounts.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name} ({a.currency})
+                </option>
+              ))}
+            </select>
           </div>
 
-          {/* Submit Button (OpenPencil BtnCrearGW) */}
+          {/* Equiv Banner if Crypto */}
+          {targetNum > 0 && isCrypto && (
+            <div className="p-3 rounded-[12px] bg-[#EFF6FF] border border-[#DBEAFE] flex flex-col gap-0.5 text-[11px] text-[#1D4ED8] font-[600]">
+              <span>≈ Bs. {bobEquivalent} (al cambio P2P de Bs. {p2pRate.toFixed(2)})</span>
+            </div>
+          )}
+
+          {/* Submit Button (BtnGSaveW) */}
           <button
             type="submit"
-            disabled={submitting || targetNum <= 0}
-            className="w-full h-[46px] rounded-[12px] bg-[#2563EB] hover:bg-blue-700 active:scale-[0.99] text-white text-[13px] font-[800] transition flex items-center justify-center shadow-sm disabled:opacity-50"
+            disabled={submitting || !name.trim() || targetNum <= 0}
+            className="w-full h-[46px] rounded-[12px] bg-[#2563EB] hover:bg-blue-700 active:scale-[0.99] text-white text-[13px] font-[800] transition flex items-center justify-center gap-2 shadow-sm disabled:opacity-50 mt-1"
           >
-            Crear Objetivo Financiero (1-Clic)
+            {submitting ? "Creando Objetivo..." : "Guardar Meta Financiera"}
           </button>
         </form>
       </div>

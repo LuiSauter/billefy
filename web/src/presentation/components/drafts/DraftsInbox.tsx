@@ -43,7 +43,7 @@ export function DraftsInbox({
   const getAccountLabel = (draft: DraftDto): string => {
     const accId = resolveAccountId(draft);
     const acc = accounts.find((a) => a.id === accId);
-    const channel = acc?.name || draft.source || "BCP";
+    const channel = acc?.name || draft.source || "Canal Digital";
     const ref = draft.reference || "Gasto detectado";
     return `${ref} • ${channel}`;
   };

@@ -6,9 +6,25 @@ import { BalanceMetrics } from "@/application/hooks/useFinancialMetrics";
 interface BalanceSummaryCardsProps {
   metrics: BalanceMetrics;
   p2pRate?: number;
+  selectedCurrency?: "BOB" | "USD";
+  hasAccounts?: boolean;
 }
 
-export function BalanceSummaryCards({ metrics }: BalanceSummaryCardsProps) {
+export function BalanceSummaryCards({
+  metrics,
+  p2pRate = 9.85,
+  selectedCurrency = "BOB",
+  hasAccounts = true,
+}: BalanceSummaryCardsProps) {
+  const isBob = selectedCurrency === "BOB";
+  const mainPatrimonio = isBob
+    ? `Bs. ${metrics.totalPatrimonioBob}`
+    : `$${metrics.consolidatedUsd} USD`;
+
+  const subPatrimonio = isBob
+    ? `≈ $${metrics.consolidatedUsd} USD (P2P Bs ${p2pRate.toFixed(2)})`
+    : `≈ Bs. ${metrics.totalPatrimonioBob} (P2P Bs ${p2pRate.toFixed(2)})`;
+
   return (
     <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       {/* 1. Patrimonio Total (OpenPencil KCard_0) */}
@@ -17,12 +33,19 @@ export function BalanceSummaryCards({ metrics }: BalanceSummaryCardsProps) {
           <span className="text-[12px] font-[600] text-[#64748B]">
             Patrimonio Total
           </span>
-          <span className="text-[11px] font-[700] text-[#10B981]">
-            +5.4%
+          <span
+            className={`text-[11px] font-[700] ${
+              hasAccounts ? "text-[#10B981]" : "text-slate-400"
+            }`}
+          >
+            {hasAccounts ? "Consolidado" : "Sin cuentas"}
           </span>
         </div>
         <div className="text-[22px] font-[900] text-[#0F172A] tracking-tight font-mono">
-          Bs. {metrics.totalPatrimonioBob}
+          {mainPatrimonio}
+        </div>
+        <div className="text-[11px] font-[500] text-[#64748B] font-mono">
+          {subPatrimonio}
         </div>
       </div>
 
@@ -33,11 +56,14 @@ export function BalanceSummaryCards({ metrics }: BalanceSummaryCardsProps) {
             Liquidez en Bancos
           </span>
           <span className="text-[11px] font-[700] text-[#2563EB]">
-            Disponible
+            {hasAccounts ? "Disponible" : "Sin balance"}
           </span>
         </div>
         <div className="text-[22px] font-[900] text-[#0F172A] tracking-tight font-mono">
           Bs. {metrics.bankLiquidityBob}
+        </div>
+        <div className="text-[11px] font-[500] text-[#64748B]">
+          Saldos en moneda nacional (BOB)
         </div>
       </div>
 
@@ -53,6 +79,9 @@ export function BalanceSummaryCards({ metrics }: BalanceSummaryCardsProps) {
         </div>
         <div className="text-[22px] font-[900] text-[#0F172A] tracking-tight font-mono">
           {metrics.cryptoUsdt} USDT
+        </div>
+        <div className="text-[11px] font-[500] text-[#64748B]">
+          Tether evaluado al cambio P2P
         </div>
       </div>
 
@@ -72,6 +101,9 @@ export function BalanceSummaryCards({ metrics }: BalanceSummaryCardsProps) {
           }`}
         >
           {metrics.netLoansBob}
+        </div>
+        <div className="text-[11px] font-[500] text-[#64748B]">
+          Diferencial entre cobros y pagos
         </div>
       </div>
     </section>

@@ -15,11 +15,12 @@ export function AccountsList({
   onOpenCreateAccountModal,
   onOpenReconcileModal,
 }: AccountsListProps) {
-  const getSublabel = (acc: AccountDto, idx: number) => {
+  const getSublabel = (acc: AccountDto) => {
     if (acc.currency === "USDT" || acc.type === "Exchange") return "P2P Activo";
-    if (acc.type === "Cash") return "Físico";
-    if (idx === 0) return "Sueldo";
-    return "Billetera";
+    if (acc.type === "Cash") return "Efectivo";
+    if (acc.type === "Bank") return "Banco";
+    if (acc.type === "Wallet") return "Billetera";
+    return acc.currency;
   };
 
   const formatBalance = (acc: AccountDto) => {
@@ -65,7 +66,7 @@ export function AccountsList({
       ) : (
         /* AGrid: responsive 4 cards (OpenPencil AGrid) */
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-          {accounts.map((acc, idx) => (
+          {accounts.map((acc) => (
             <div
               key={acc.id}
               onClick={() => onOpenReconcileModal(acc)}
@@ -74,7 +75,7 @@ export function AccountsList({
             >
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-[700] text-[#64748B]">
-                  {getSublabel(acc, idx)}
+                  {getSublabel(acc)}
                 </span>
                 <span className="text-[9px] text-blue-600 font-semibold opacity-0 group-hover:opacity-100 transition">
                   Conciliar
