@@ -39,6 +39,12 @@ public sealed class NotificationsService : INotificationsModule
         var existing = await _deviceTokenRepository.GetByTokenAsync(req.Token, ct);
         if (existing != null)
         {
+            if (existing.UserId != userId)
+            {
+                return Result.Failure<DeviceRegistrationDto>(
+                    Error.Conflict("DeviceToken.AlreadyRegistered", "El token de dispositivo ya se encuentra registrado para otro usuario."));
+            }
+
             existing.Touch(_clock.UtcNow);
             _deviceTokenRepository.Update(existing);
             await _unitOfWork.CommitAsync(ct);
