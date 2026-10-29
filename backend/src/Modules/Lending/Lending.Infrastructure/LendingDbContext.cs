@@ -27,9 +27,9 @@ public class LendingDbContext : DbContext
         base.OnModelCreating(modelBuilder);
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(LendingDbContext).Assembly);
 
-        // Global query filters for user_id multi-tenancy isolation
-        modelBuilder.Entity<Loan>().HasQueryFilter(l => !_currentUserContext.IsAuthenticated || l.UserId == _currentUserContext.UserId.GetValueOrDefault());
-        modelBuilder.Entity<Counterparty>().HasQueryFilter(c => !_currentUserContext.IsAuthenticated || c.UserId == _currentUserContext.UserId.GetValueOrDefault());
-        modelBuilder.Entity<LoanPayment>().HasQueryFilter(p => !_currentUserContext.IsAuthenticated || p.UserId == _currentUserContext.UserId.GetValueOrDefault());
+        // Global query filters for user_id multi-tenancy isolation (fail-closed)
+        modelBuilder.Entity<Loan>().HasQueryFilter(l => _currentUserContext.IsAuthenticated && l.UserId == _currentUserContext.UserId.GetValueOrDefault());
+        modelBuilder.Entity<Counterparty>().HasQueryFilter(c => _currentUserContext.IsAuthenticated && c.UserId == _currentUserContext.UserId.GetValueOrDefault());
+        modelBuilder.Entity<LoanPayment>().HasQueryFilter(p => _currentUserContext.IsAuthenticated && p.UserId == _currentUserContext.UserId.GetValueOrDefault());
     }
 }

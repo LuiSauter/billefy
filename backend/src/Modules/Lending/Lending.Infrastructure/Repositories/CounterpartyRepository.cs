@@ -14,6 +14,7 @@ internal sealed class CounterpartyRepository(LendingDbContext context) : ICounte
     public Task<List<Counterparty>> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken = default)
     {
         return context.Counterparties
+            .IgnoreQueryFilters()
             .Where(c => c.UserId == userId)
             .OrderBy(c => c.Name)
             .ToListAsync(cancellationToken);

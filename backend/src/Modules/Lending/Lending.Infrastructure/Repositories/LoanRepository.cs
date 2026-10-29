@@ -23,6 +23,7 @@ internal sealed class LoanRepository(LendingDbContext context) : ILoanRepository
         CancellationToken cancellationToken = default)
     {
         var query = context.Loans
+            .IgnoreQueryFilters()
             .Include(l => l.Installments)
             .Where(l => l.UserId == userId);
 

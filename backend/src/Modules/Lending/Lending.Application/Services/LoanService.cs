@@ -1,6 +1,7 @@
 using BuildingBlocks.Common;
 using BuildingBlocks.Currencies;
 using BuildingBlocks.Security;
+using BuildingBlocks.Time;
 using BuildingBlocks.ValueObjects;
 using Ledger.Contracts;
 using Lending.Application.Abstractions;
@@ -15,7 +16,8 @@ public sealed class LoanService(
     ICounterpartyRepository counterpartyRepository,
     ILedgerModule ledgerModule,
     ILendingUnitOfWork unitOfWork,
-    ICurrentUserContext userContext) : ILoanService
+    ICurrentUserContext userContext,
+    IClock clock) : ILoanService
 {
     public async Task<Result<Guid>> CreateLoanAsync(CreateLoanRequest request, CancellationToken cancellationToken = default)
     {
@@ -41,7 +43,7 @@ public sealed class LoanService(
         if (request.CounterpartyId.HasValue)
         {
             var existingCp = await counterpartyRepository.GetByIdAsync(request.CounterpartyId.Value, cancellationToken);
-            if (existingCp is null)
+            if (existingCp is null || existingCp.UserId != userId)
             {
                 return Result.Failure<Guid>(Error.NotFound("Counterparty.NotFound", "Counterparty not found."));
             }
@@ -49,7 +51,7 @@ public sealed class LoanService(
         }
         else
         {
-            var newCp = Counterparty.Create(userId, request.CounterpartyName, request.CounterpartyNotes, DateTime.UtcNow);
+            var newCp = Counterparty.Create(userId, request.CounterpartyName, request.CounterpartyNotes, clock.UtcNow);
             await counterpartyRepository.AddAsync(newCp, cancellationToken);
             counterpartyId = newCp.Id;
         }
@@ -70,7 +72,7 @@ public sealed class LoanService(
 
         var currency = Currency.FromCode(request.Currency);
         var principalMoney = Money.Of(request.Principal, currency);
-        var disbursementDate = request.DisbursementDate ?? DateOnly.FromDateTime(DateTime.UtcNow);
+        var disbursementDate = request.DisbursementDate ?? clock.TodayUtc;
 
         // 3. Create Loan with calculated schedule
         var loan = Loan.Create(
@@ -92,7 +94,7 @@ public sealed class LoanService(
             request.CompoundingPeriods,
             request.MaturityDate,
             activateImmediately: true,
-            createdAt: DateTime.UtcNow);
+            createdAt: clock.UtcNow);
 
         // 4. If disbursement account specified, record movement in Ledger (Section 5.4 Architecture)
         if (request.DisbursementAccountId.HasValue)
@@ -102,18 +104,25 @@ public sealed class LoanService(
                 ? $"Loan disbursement to {request.CounterpartyName}"
                 : $"Loan disbursement from {request.CounterpartyName}";
 
-            await ledgerModule.CreateTransactionFromDraftAsync(new CreateTransactionFromDraftDto(
-                userId,
-                request.DisbursementAccountId.Value,
-                request.Principal,
-                currency.Code,
-                ledgerDirection,
-                CategoryId: null,
-                disbursementDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc),
-                desc,
-                loan.Id,
-                Reference: $"LOAN-{loan.Id.ToString()[..8].ToUpperInvariant()}"),
-                cancellationToken);
+            try
+            {
+                await ledgerModule.CreateTransactionFromDraftAsync(new CreateTransactionFromDraftDto(
+                    userId,
+                    request.DisbursementAccountId.Value,
+                    request.Principal,
+                    currency.Code,
+                    ledgerDirection,
+                    CategoryId: null,
+                    disbursementDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc),
+                    desc,
+                    loan.Id,
+                    Reference: $"LOAN-{loan.Id.ToString()[..8].ToUpperInvariant()}"),
+                    cancellationToken);
+            }
+            catch (InvalidOperationException)
+            {
+                return Result.Failure<Guid>(Error.NotFound("Account.NotFound", "Disbursement account was not found."));
+            }
         }
 
         await loanRepository.AddAsync(loan, cancellationToken);
@@ -252,7 +261,7 @@ public sealed class LoanService(
             return Result.Failure<LoanPaymentResultDto>(Error.NotFound("Loan.NotFound", "Loan not found."));
         }
 
-        var paymentDate = request.PaymentDate ?? DateTime.UtcNow;
+        var paymentDate = request.PaymentDate ?? clock.UtcNow;
         Guid? ledgerTxnId = null;
 
         // If an account is linked to the payment, reflect it in the Ledger
@@ -263,18 +272,25 @@ public sealed class LoanService(
                 ? $"Loan repayment collected (Loan #{loan.Id.ToString()[..8]})"
                 : $"Loan payment made (Loan #{loan.Id.ToString()[..8]})";
 
-            ledgerTxnId = await ledgerModule.CreateTransactionFromDraftAsync(new CreateTransactionFromDraftDto(
-                userContext.UserId!.Value,
-                request.AccountId.Value,
-                request.Amount,
-                loan.Principal.Currency.Code,
-                ledgerDirection,
-                CategoryId: null,
-                paymentDate,
-                desc,
-                loan.Id,
-                Reference: $"PAY-{loan.Id.ToString()[..8]}"),
-                cancellationToken);
+            try
+            {
+                ledgerTxnId = await ledgerModule.CreateTransactionFromDraftAsync(new CreateTransactionFromDraftDto(
+                    userContext.UserId!.Value,
+                    request.AccountId.Value,
+                    request.Amount,
+                    loan.Principal.Currency.Code,
+                    ledgerDirection,
+                    CategoryId: null,
+                    paymentDate,
+                    desc,
+                    loan.Id,
+                    Reference: $"PAY-{loan.Id.ToString()[..8]}"),
+                    cancellationToken);
+            }
+            catch (InvalidOperationException)
+            {
+                return Result.Failure<LoanPaymentResultDto>(Error.NotFound("Account.NotFound", "Payment account was not found."));
+            }
         }
 
         try
@@ -306,9 +322,13 @@ public sealed class LoanService(
                 loan.Status.ToString(),
                 allocDtos));
         }
-        catch (Exception ex)
+        catch (InvalidOperationException ex)
         {
-            return Result.Failure<LoanPaymentResultDto>(Error.Failure("Payment.Failed", ex.ToString()));
+            return Result.Failure<LoanPaymentResultDto>(Error.Validation("Payment.InvalidOperation", ex.Message));
+        }
+        catch (Exception)
+        {
+            return Result.Failure<LoanPaymentResultDto>(Error.Failure("Payment.Failed", "An unexpected error occurred while processing the loan payment."));
         }
     }
 }
