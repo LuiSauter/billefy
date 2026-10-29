@@ -28,10 +28,29 @@ public static class MessagingEndpoints
         .ProducesProblem(StatusCodes.Status401Unauthorized);
 
         group.MapPost("/webhook", async (
+            HttpContext httpContext,
             [FromBody] WhatsAppWebhookRequest request,
+            [FromServices] IConfiguration configuration,
             IWhatsAppBotService service,
             CancellationToken ct) =>
         {
+            var webhookSecret = configuration["WhatsApp:WebhookSecret"]
+                                ?? Environment.GetEnvironmentVariable("WHATSAPP_WEBHOOK_SECRET");
+
+            if (!string.IsNullOrWhiteSpace(webhookSecret))
+            {
+                var providedSecret = httpContext.Request.Headers["X-Webhook-Secret"].FirstOrDefault()
+                                     ?? httpContext.Request.Headers["X-Hub-Signature-256"].FirstOrDefault();
+
+                if (string.IsNullOrWhiteSpace(providedSecret) ||
+                    !System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(
+                        System.Text.Encoding.UTF8.GetBytes(providedSecret),
+                        System.Text.Encoding.UTF8.GetBytes(webhookSecret)))
+                {
+                    return Results.Unauthorized();
+                }
+            }
+
             var result = await service.ProcessInboundWebhookAsync(request, ct);
             return result.ToHttpResult();
         })
@@ -39,6 +58,7 @@ public static class MessagingEndpoints
         .WithSummary("Webhook endpoint for inbound WhatsApp messages (BOT-02 to BOT-09). Strictly replies to incoming messages.")
         .Produces<WhatsAppWebhookResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
         .AllowAnonymous();
 
         return group;

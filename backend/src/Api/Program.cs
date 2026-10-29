@@ -72,9 +72,25 @@ if (resolvedConnectionString != null)
 }
 
 // JWT Authentication & Authorization
+const string DefaultDevJwtSecret = "billefy_super_secret_jwt_signing_key_2026_at_least_32_bytes_long!";
+var isDevOrTesting = builder.Environment.IsDevelopment() || builder.Environment.IsEnvironment("Testing");
+
 var jwtSecret = builder.Configuration["Jwt:Secret"]
-    ?? Environment.GetEnvironmentVariable("JWT_SECRET")
-    ?? "billefy_super_secret_jwt_signing_key_2026_at_least_32_bytes_long!";
+    ?? Environment.GetEnvironmentVariable("JWT_SECRET");
+
+if (string.IsNullOrWhiteSpace(jwtSecret))
+{
+    if (!isDevOrTesting)
+    {
+        throw new InvalidOperationException("CRITICAL SECURITY ERROR: Jwt:Secret (or JWT_SECRET) must be explicitly configured with a strong 32+ byte secret in Production.");
+    }
+    jwtSecret = DefaultDevJwtSecret;
+}
+else if (!isDevOrTesting && (jwtSecret == DefaultDevJwtSecret || Encoding.UTF8.GetByteCount(jwtSecret) < 32))
+{
+    throw new InvalidOperationException("CRITICAL SECURITY ERROR: Production Jwt:Secret cannot use the default placeholder and must be at least 32 bytes long.");
+}
+
 var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "BillefyApi";
 var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "BillefyClients";
 
@@ -85,19 +101,37 @@ builder.Services.AddAuthentication(options =>
 })
 .AddJwtBearer(options =>
 {
-    options.RequireHttpsMetadata = false;
+    options.RequireHttpsMetadata = !isDevOrTesting;
     options.SaveToken = true;
     options.TokenValidationParameters = new TokenValidationParameters
     {
         ValidateIssuerSigningKey = true,
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret)),
-        ValidateIssuer = false, // flexible for multi-client origins in dev
-        ValidateAudience = false,
+        ValidateIssuer = true,
+        ValidIssuer = jwtIssuer,
+        ValidateAudience = true,
+        ValidAudience = jwtAudience,
         ValidateLifetime = true,
         ClockSkew = TimeSpan.FromSeconds(30)
     };
 });
 builder.Services.AddAuthorization();
+
+// Rate Limiting (Defense against brute-force and webhook/ingestion flooding)
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.GlobalLimiter = System.Threading.RateLimiting.PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
+        System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "local",
+            factory: _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+            {
+                AutoReplenishment = true,
+                PermitLimit = 300,
+                QueueLimit = 0,
+                Window = TimeSpan.FromMinutes(1)
+            }));
+});
 
 // Modular Monolith Modules
 builder.Services.AddIdentityModule(builder.Configuration);
@@ -149,29 +183,33 @@ var app = builder.Build();
 
 app.UseExceptionHandler();
 
-// Enable CORS
+// Enable CORS & Rate Limiting
 app.UseCors();
+app.UseRateLimiter();
 
 app.UseAuthentication();
 
-// Fallback authentication for integration tests and dev clients providing X-User-Id header
-app.Use(async (context, next) =>
+// Fallback authentication for integration tests and local dev clients providing X-User-Id header (STRICTLY disabled in Production)
+if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Testing"))
 {
-    if ((context.User.Identity == null || !context.User.Identity.IsAuthenticated) &&
-        context.Request.Headers.TryGetValue("X-User-Id", out var userIdVal) &&
-        Guid.TryParse(userIdVal.ToString(), out var userIdGuid) &&
-        userIdGuid != Guid.Empty)
+    app.Use(async (context, next) =>
     {
-        var claims = new[]
+        if ((context.User.Identity == null || !context.User.Identity.IsAuthenticated) &&
+            context.Request.Headers.TryGetValue("X-User-Id", out var userIdVal) &&
+            Guid.TryParse(userIdVal.ToString(), out var userIdGuid) &&
+            userIdGuid != Guid.Empty)
         {
-            new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.NameIdentifier, userIdGuid.ToString()),
-            new System.Security.Claims.Claim("sub", userIdGuid.ToString())
-        };
-        var identity = new System.Security.Claims.ClaimsIdentity(claims, "DevOrTestHeader");
-        context.User = new System.Security.Claims.ClaimsPrincipal(identity);
-    }
-    await next();
-});
+            var claims = new[]
+            {
+                new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.NameIdentifier, userIdGuid.ToString()),
+                new System.Security.Claims.Claim("sub", userIdGuid.ToString())
+            };
+            var identity = new System.Security.Claims.ClaimsIdentity(claims, "DevOrTestHeader");
+            context.User = new System.Security.Claims.ClaimsPrincipal(identity);
+        }
+        await next();
+    });
+}
 
 app.UseAuthorization();
 
@@ -235,7 +273,7 @@ if (!string.IsNullOrWhiteSpace(builder.Configuration.GetConnectionString("Postgr
     }
 }
 
-if (app.Environment.IsDevelopment() || builder.Configuration.GetValue<bool>("EnableSwagger", true))
+if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Testing") || builder.Configuration.GetValue<bool>("EnableSwagger", false))
 {
     app.MapOpenApi();
     app.UseSwaggerUI(options =>

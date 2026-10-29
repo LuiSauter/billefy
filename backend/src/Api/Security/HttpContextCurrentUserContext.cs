@@ -22,22 +22,20 @@ public sealed class HttpContextCurrentUserContext : ICurrentUserContext
                 return null;
             }
 
-            // 1. Check Claims (e.g. JWT 'sub' / NameIdentifier)
+            // Extract UserId strictly from authenticated ClaimsPrincipal (JWT 'sub' / NameIdentifier, or DevOrTestHeader middleware in Development/Testing)
+            if (httpContext.User.Identity?.IsAuthenticated != true)
+            {
+                return null;
+            }
+
             var claimValue = httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value
                              ?? httpContext.User.FindFirst("sub")?.Value
                              ?? httpContext.User.FindFirst("nameid")?.Value
                              ?? httpContext.User.FindFirst(c => c.Type.EndsWith("nameidentifier", StringComparison.OrdinalIgnoreCase))?.Value;
 
-            if (Guid.TryParse(claimValue, out var claimGuid))
+            if (Guid.TryParse(claimValue, out var claimGuid) && claimGuid != Guid.Empty)
             {
                 return claimGuid;
-            }
-
-            // 2. Check X-User-Id header (for development, tests, and API clients in Phase 1)
-            if (httpContext.Request.Headers.TryGetValue("X-User-Id", out var headerValue) &&
-                Guid.TryParse(headerValue.ToString(), out var headerGuid))
-            {
-                return headerGuid;
             }
 
             return null;
