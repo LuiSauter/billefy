@@ -21,7 +21,7 @@ Redesign the Next.js web client (`web/`) for mobile and desktop, following the O
 - [x] Task 5: Convert lending/planning/recurring modals (CreateLoan, LoanDetail, LoanPayment, CreateBudget, CreateGoal, Reschedule) to ResponsiveDrawer
 - [x] Task 6: Dashboard redesign + charts (cash-flow area chart, balance by currency donut, spending trend, KPI cards)
 - [x] Task 7: Budgets & Goals redesign + charts (50/30/20 radial/bar, budget usage bars, goal progress radials)
-- [ ] Task 8: Loans, Recurring & Auth polish + charts (amortization stacked area, principal vs interest)
+- [x] Task 8: Loans, Recurring & Auth polish + charts (amortization stacked area, principal vs interest)
 - [ ] Task 9: Final verification (lint, tests, build) and docs/README update
 
 ## Evidence
@@ -33,3 +33,4 @@ Redesign the Next.js web client (`web/`) for mobile and desktop, following the O
 - Task 5: db707ee (lint clean, 44 tests, build green; alert() completely eliminated; Toaster mounted)
 - Task 6: ebd5a95 (lint clean, 44 tests, build green; CashFlowAreaChart + CurrencyDonutChart responsive in DashboardHomeView)
 - Task 7: 05b652e (lint clean, 44 tests, build green; Split503020Chart + BudgetsComparisonChart in BudgetsTabView)
+- Task 8: a553966 (lint clean, 44 tests, build green; LendingOverviewChart added to LoansList)

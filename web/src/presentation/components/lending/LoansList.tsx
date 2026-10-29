@@ -1,4 +1,5 @@
 import { LoanSummaryDto } from "@/domain/models/types";
+import { LendingOverviewChart } from "./LendingOverviewChart";
 
 interface LoansListProps {
   loans: LoanSummaryDto[];
@@ -16,7 +17,10 @@ export function LoansList({
   onOpenPaymentModal,
 }: LoansListProps) {
   return (
-    <div className="w-full rounded-[16px] bg-white border border-border shadow-2xs overflow-hidden flex flex-col">
+    <div className="flex flex-col gap-5 w-full">
+      {loans.length > 0 && <LendingOverviewChart loans={loans} />}
+
+      <div className="w-full rounded-[16px] bg-white border border-border shadow-2xs overflow-hidden flex flex-col">
       <div className="flex flex-row items-center justify-between border-b border-border bg-background py-4 px-6">
         <div>
           <h2 className="text-[15px] font-extrabold text-foreground">
@@ -94,5 +98,6 @@ export function LoansList({
         )}
       </div>
     </div>
+  </div>
   );
 }
