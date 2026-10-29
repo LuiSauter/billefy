@@ -13,7 +13,9 @@ internal sealed class BudgetRepository(PlanningDbContext context) : IBudgetRepos
 
     public Task<List<Budget>> GetByUserIdAsync(Guid userId, bool onlyActive = true, CancellationToken cancellationToken = default)
     {
-        var query = context.Budgets.Where(b => b.UserId == userId);
+        var query = context.Budgets
+            .IgnoreQueryFilters()
+            .Where(b => b.UserId == userId);
         if (onlyActive)
         {
             query = query.Where(b => b.IsActive);

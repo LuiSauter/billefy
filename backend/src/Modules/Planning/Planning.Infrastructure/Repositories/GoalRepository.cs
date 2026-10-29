@@ -14,6 +14,7 @@ internal sealed class GoalRepository(PlanningDbContext context) : IGoalRepositor
     public Task<List<Goal>> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken = default)
     {
         return context.Goals
+            .IgnoreQueryFilters()
             .Where(g => g.UserId == userId)
             .OrderBy(g => g.TargetDate)
             .ToListAsync(cancellationToken);

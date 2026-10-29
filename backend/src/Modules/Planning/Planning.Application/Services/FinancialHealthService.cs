@@ -1,5 +1,6 @@
 using BuildingBlocks.Common;
 using BuildingBlocks.Security;
+using BuildingBlocks.Time;
 using Ledger.Contracts;
 using Lending.Contracts;
 using Planning.Contracts;
@@ -14,7 +15,8 @@ public interface IFinancialHealthService
 public sealed class FinancialHealthService(
     ILedgerModule ledgerModule,
     ILendingModule lendingModule,
-    ICurrentUserContext userContext) : IFinancialHealthService
+    ICurrentUserContext userContext,
+    IClock clock) : IFinancialHealthService
 {
     public async Task<Result<FinancialHealthDto>> GetFinancialHealthAsync(CancellationToken cancellationToken = default)
     {
@@ -25,7 +27,7 @@ public sealed class FinancialHealthService(
         }
 
         var userId = userContext.UserId!.Value;
-        var now = DateTime.UtcNow;
+        var now = clock.UtcNow;
         var monthStart = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
         var monthEnd = monthStart.AddMonths(1).AddTicks(-1);
 

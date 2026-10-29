@@ -1,6 +1,7 @@
 using BuildingBlocks.Common;
 using BuildingBlocks.Currencies;
 using BuildingBlocks.Security;
+using BuildingBlocks.Time;
 using BuildingBlocks.ValueObjects;
 using Ledger.Contracts;
 using Planning.Application.Abstractions;
@@ -20,7 +21,8 @@ public sealed class BudgetService(
     IBudgetRepository budgetRepository,
     ILedgerModule ledgerModule,
     IPlanningUnitOfWork unitOfWork,
-    ICurrentUserContext userContext) : IBudgetService
+    ICurrentUserContext userContext,
+    IClock clock) : IBudgetService
 {
     public async Task<Result<Guid>> CreateBudgetAsync(CreateBudgetRequest request, CancellationToken cancellationToken = default)
     {
@@ -43,7 +45,7 @@ public sealed class BudgetService(
             limitMoney,
             request.AlertThreshold,
             request.Period,
-            DateTime.UtcNow);
+            clock.UtcNow);
 
         await budgetRepository.AddAsync(budget, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
@@ -62,7 +64,7 @@ public sealed class BudgetService(
         var budgets = await budgetRepository.GetByUserIdAsync(userId, onlyActive: true, cancellationToken);
 
         // Current month bounds
-        var now = DateTime.UtcNow;
+        var now = clock.UtcNow;
         var monthStart = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
         var monthEnd = monthStart.AddMonths(1).AddTicks(-1);
 
