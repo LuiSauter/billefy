@@ -11,6 +11,8 @@ public sealed class Account : Entity
     public Currency Currency { get; private set; }
     public Money InitialBalance { get; private set; }
     public bool IsArchived { get; private set; }
+    public string? IconKey { get; private set; }
+    public string? ColorKey { get; private set; }
 
     // Required by EF Core
     private Account() : base()
@@ -19,7 +21,7 @@ public sealed class Account : Entity
         Currency = null!;
     }
 
-    private Account(Guid id, Guid userId, string name, AccountType type, Currency currency, Money initialBalance, DateTime createdAt)
+    private Account(Guid id, Guid userId, string name, AccountType type, Currency currency, Money initialBalance, DateTime createdAt, string? iconKey = null, string? colorKey = null)
         : base(id, userId, createdAt)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
@@ -35,18 +37,26 @@ public sealed class Account : Entity
         Currency = currency;
         InitialBalance = initialBalance;
         IsArchived = false;
+        IconKey = string.IsNullOrWhiteSpace(iconKey) ? null : iconKey.Trim();
+        ColorKey = string.IsNullOrWhiteSpace(colorKey) ? null : colorKey.Trim();
     }
 
-    public static Account Create(Guid userId, string name, AccountType type, Currency currency, Money? initialBalance, DateTime createdAt)
+    public static Account Create(Guid userId, string name, AccountType type, Currency currency, Money? initialBalance, DateTime createdAt, string? iconKey = null, string? colorKey = null)
     {
         var balance = initialBalance ?? Money.Zero(currency);
-        return new Account(Guid.NewGuid(), userId, name, type, currency, balance, createdAt);
+        return new Account(Guid.NewGuid(), userId, name, type, currency, balance, createdAt, iconKey, colorKey);
     }
 
     public void UpdateName(string newName)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(newName);
         Name = newName.Trim();
+    }
+
+    public void UpdateVisuals(string? iconKey, string? colorKey)
+    {
+        IconKey = string.IsNullOrWhiteSpace(iconKey) ? null : iconKey.Trim();
+        ColorKey = string.IsNullOrWhiteSpace(colorKey) ? null : colorKey.Trim();
     }
 
     public void Archive()

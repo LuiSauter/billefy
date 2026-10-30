@@ -1,6 +1,7 @@
 using Ledger.Application.Abstractions;
 using Ledger.Application.Accounts.CreateAccount;
 using Ledger.Application.Accounts.Services;
+using Ledger.Application.Categories.Services;
 using Ledger.Application.Services;
 using Ledger.Application.Transactions.RegisterTransaction;
 using Ledger.Application.Transactions.RegisterTransfer;
@@ -27,6 +28,7 @@ public static class DependencyInjection
 
         // Repositories & Unit of Work
         services.AddScoped<IAccountRepository, AccountRepository>();
+        services.AddScoped<ICategoryRepository, CategoryRepository>();
         services.AddScoped<ITransactionRepository, TransactionRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
 
@@ -38,6 +40,7 @@ public static class DependencyInjection
 
         // Application Services (Cohesive Facade for Driving Adapters)
         services.AddScoped<IAccountService, AccountService>();
+        services.AddScoped<ICategoryService, CategoryService>();
         services.AddScoped<ITransactionService, TransactionService>();
 
         // Module interop contract

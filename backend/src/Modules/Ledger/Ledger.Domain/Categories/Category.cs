@@ -24,8 +24,8 @@ public sealed class Category : Entity
         Icon = icon?.Trim();
     }
 
-    public static Category Create(Guid userId, string name, Guid? parentCategoryId, string? icon, DateTime createdAt) =>
-        new(Guid.NewGuid(), userId, name, parentCategoryId, icon, createdAt);
+    public static Category Create(Guid userId, string name, Guid? parentCategoryId, string? icon, DateTime createdAt, Guid? id = null) =>
+        new(id.HasValue && id.Value != Guid.Empty ? id.Value : Guid.NewGuid(), userId, name, parentCategoryId, icon, createdAt);
 
     public void Rename(string newName)
     {

@@ -12,7 +12,9 @@ public sealed record CreateAccountCommand(
     string Name,
     AccountType Type,
     string CurrencyCode,
-    decimal InitialBalanceAmount = 0m);
+    decimal InitialBalanceAmount = 0m,
+    string? IconKey = null,
+    string? ColorKey = null);
 
 public sealed class CreateAccountCommandHandler
 {
@@ -54,7 +56,9 @@ public sealed class CreateAccountCommandHandler
             command.Type,
             currency,
             initialBalance,
-            _clock.UtcNow);
+            _clock.UtcNow,
+            command.IconKey,
+            command.ColorKey);
 
         await _accountRepository.AddAsync(account, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);

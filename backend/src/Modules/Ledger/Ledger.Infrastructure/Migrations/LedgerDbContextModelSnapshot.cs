@@ -30,6 +30,11 @@ namespace Ledger.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<string>("ColorKey")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("color_key");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -39,6 +44,11 @@ namespace Ledger.Infrastructure.Migrations
                         .HasMaxLength(10)
                         .HasColumnType("character varying(10)")
                         .HasColumnName("currency");
+
+                    b.Property<string>("IconKey")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("icon_key");
 
                     b.Property<bool>("IsArchived")
                         .ValueGeneratedOnAdd()

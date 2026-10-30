@@ -21,11 +21,15 @@ public static class DependencyInjection
         // Repositories & Unit of Work
         services.AddScoped<IBudgetRepository, BudgetRepository>();
         services.AddScoped<IGoalRepository, GoalRepository>();
+        services.AddScoped<IInvestmentRepository, InvestmentRepository>();
+        services.AddScoped<IDistributionPlanRepository, DistributionPlanRepository>();
         services.AddScoped<IPlanningUnitOfWork, PlanningUnitOfWork>();
 
         // Application Services (Cohesive Facade for Driving Adapters)
         services.AddScoped<IBudgetService, BudgetService>();
         services.AddScoped<IGoalService, GoalService>();
+        services.AddScoped<IInvestmentService, InvestmentService>();
+        services.AddScoped<IDistributionPlanService, DistributionPlanService>();
         services.AddScoped<IFinancialHealthService, FinancialHealthService>();
         services.AddScoped<IIncomeDistributionService, IncomeDistributionService>();
 

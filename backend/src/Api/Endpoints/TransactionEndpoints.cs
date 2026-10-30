@@ -73,6 +73,35 @@ public static class TransactionEndpoints
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status404NotFound);
 
+        group.MapPut("/{id:guid}", async (
+            [FromRoute] Guid id,
+            [FromBody] UpdateTransactionRequest request,
+            ITransactionService service,
+            CancellationToken ct) =>
+        {
+            var result = await service.UpdateTransactionAsync(id, request, ct);
+            return result.ToHttpResult(newId => Results.Ok(new { id = newId, replacedTransactionId = id }));
+        })
+        .WithName("UpdateTransaction")
+        .Produces(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status404NotFound);
+
+        group.MapDelete("/{id:guid}", async (
+            [FromRoute] Guid id,
+            ITransactionService service,
+            CancellationToken ct) =>
+        {
+            var result = await service.ReverseTransactionAsync(id, "Deleted by user", ct);
+            return result.ToHttpResult(res => Results.Ok(new { id = res.Id, reversedTransactionId = res.ReversedTransactionId }));
+        })
+        .WithName("DeleteTransaction")
+        .Produces(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status404NotFound);
+
         return group;
     }
 }

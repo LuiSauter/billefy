@@ -22,7 +22,9 @@ public sealed class AccountService(
             request.Name,
             request.Type,
             request.Currency,
-            request.InitialBalance);
+            request.InitialBalance,
+            request.IconKey,
+            request.ColorKey);
 
         return createAccountHandler.HandleAsync(command, cancellationToken);
     }
@@ -51,10 +53,40 @@ public sealed class AccountService(
                 account.Type.ToString(),
                 account.Currency.Code,
                 balance,
-                account.CreatedAt));
+                account.CreatedAt,
+                account.IconKey,
+                account.ColorKey));
         }
 
         return Result.Success(dtos);
+    }
+
+    public async Task<Result> UpdateAccountAsync(
+        Guid accountId,
+        UpdateAccountRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (!userContext.IsAuthenticated)
+        {
+            return Result.Failure(Error.Unauthorized("Auth.Unauthorized", "User is not authenticated."));
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Name))
+        {
+            return Result.Failure(Error.Validation("Account.EmptyName", "Account name cannot be empty."));
+        }
+
+        var account = await accountRepository.GetByIdAsync(accountId, cancellationToken);
+        if (account is null || account.UserId != userContext.UserId!.Value)
+        {
+            return Result.Failure(Error.NotFound("Account.NotFound", $"Account with id {accountId} was not found."));
+        }
+
+        account.UpdateName(request.Name);
+        account.UpdateVisuals(request.IconKey, request.ColorKey);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return Result.Success();
     }
 
     public async Task<Result<ReconciliationResult>> ReconcileAccountAsync(

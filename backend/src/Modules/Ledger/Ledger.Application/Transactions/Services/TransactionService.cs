@@ -111,4 +111,36 @@ public sealed class TransactionService(
 
         return Result.Success(new ReverseResult(result.Value, id));
     }
+
+    public async Task<Result<Guid>> UpdateTransactionAsync(
+        Guid id,
+        UpdateTransactionRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (!userContext.IsAuthenticated)
+        {
+            return Result.Failure<Guid>(Error.Unauthorized("Auth.Unauthorized", "User is not authenticated."));
+        }
+
+        // 1. Reverse the original transaction in the immutable ledger
+        var reverseResult = await reverseHandler.HandleAsync(
+            new ReverseTransactionCommand(id, "Superseded by edited transaction"),
+            cancellationToken);
+
+        if (reverseResult.IsFailure)
+        {
+            return Result.Failure<Guid>(reverseResult.Error);
+        }
+
+        // 2. Register the updated replacement transaction
+        var registerCommand = new RegisterTransactionCommand(
+            request.AccountId,
+            request.Amount,
+            request.Direction,
+            request.CategoryId,
+            request.OccurredAt ?? clock.UtcNow,
+            request.Description);
+
+        return await registerHandler.HandleAsync(registerCommand, cancellationToken);
+    }
 }

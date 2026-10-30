@@ -1,7 +1,9 @@
 using BuildingBlocks.Security;
 using Microsoft.EntityFrameworkCore;
 using Planning.Domain.Budgets;
+using Planning.Domain.Distribution;
 using Planning.Domain.Goals;
+using Planning.Domain.Investments;
 
 namespace Planning.Infrastructure;
 
@@ -11,6 +13,8 @@ public class PlanningDbContext : DbContext
 
     public DbSet<Budget> Budgets => Set<Budget>();
     public DbSet<Goal> Goals => Set<Goal>();
+    public DbSet<Investment> Investments => Set<Investment>();
+    public DbSet<DistributionPlan> DistributionPlans => Set<DistributionPlan>();
 
     public PlanningDbContext(
         DbContextOptions<PlanningDbContext> options,
@@ -28,5 +32,7 @@ public class PlanningDbContext : DbContext
         // Global query filters for user_id multi-tenancy isolation (fail-closed)
         modelBuilder.Entity<Budget>().HasQueryFilter(b => _currentUserContext.IsAuthenticated && b.UserId == _currentUserContext.UserId.GetValueOrDefault());
         modelBuilder.Entity<Goal>().HasQueryFilter(g => _currentUserContext.IsAuthenticated && g.UserId == _currentUserContext.UserId.GetValueOrDefault());
+        modelBuilder.Entity<Investment>().HasQueryFilter(i => _currentUserContext.IsAuthenticated && i.UserId == _currentUserContext.UserId.GetValueOrDefault());
+        modelBuilder.Entity<DistributionPlan>().HasQueryFilter(p => _currentUserContext.IsAuthenticated && p.UserId == _currentUserContext.UserId.GetValueOrDefault());
     }
 }

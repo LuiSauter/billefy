@@ -54,6 +54,90 @@ public static class PlanningEndpoints
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status404NotFound);
 
+        // Investments & assets
+        group.MapPost("/investments", async (
+            [FromBody] CreateInvestmentRequest request,
+            IInvestmentService service,
+            CancellationToken ct) =>
+        {
+            var result = await service.CreateAsync(request, ct);
+            return result.ToHttpResult(id => Results.Created($"/v1/planning/investments/{id}", new { id }));
+        })
+        .WithName("CreateInvestment")
+        .WithSummary("Register an investment or asset with its current value.")
+        .Produces(StatusCodes.Status201Created)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized);
+
+        group.MapGet("/investments", async (
+            IInvestmentService service,
+            CancellationToken ct) =>
+        {
+            var result = await service.GetAllAsync(ct);
+            return result.ToHttpResult();
+        })
+        .WithName("GetInvestments")
+        .WithSummary("List investments with auto-calculated variation.")
+        .Produces<List<InvestmentDto>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized);
+
+        group.MapPut("/investments/{id:guid}/value", async (
+            [FromRoute] Guid id,
+            [FromBody] UpdateInvestmentValueRequest request,
+            IInvestmentService service,
+            CancellationToken ct) =>
+        {
+            var result = await service.UpdateValueAsync(id, request, ct);
+            return result.ToHttpResult();
+        })
+        .WithName("UpdateInvestmentValue")
+        .WithSummary("Record a new valuation; variation is recalculated from history.")
+        .Produces<InvestmentDto>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status404NotFound);
+
+        group.MapDelete("/investments/{id:guid}", async (
+            [FromRoute] Guid id,
+            IInvestmentService service,
+            CancellationToken ct) =>
+        {
+            var result = await service.DeleteAsync(id, ct);
+            return result.ToHttpResult(() => Results.Ok(new { message = "Investment deleted" }));
+        })
+        .WithName("DeleteInvestment")
+        .WithSummary("Delete an investment.")
+        .Produces(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status404NotFound);
+
+        // Distribution plan (optional per user)
+        group.MapGet("/distribution-plan", async (
+            IDistributionPlanService service,
+            CancellationToken ct) =>
+        {
+            var result = await service.GetAsync(ct);
+            return result.ToHttpResult();
+        })
+        .WithName("GetDistributionPlan")
+        .WithSummary("Get the user's income distribution plan (disabled and empty by default).")
+        .Produces<DistributionPlanDto>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized);
+
+        group.MapPut("/distribution-plan", async (
+            [FromBody] SaveDistributionPlanRequest request,
+            IDistributionPlanService service,
+            CancellationToken ct) =>
+        {
+            var result = await service.SaveAsync(request, ct);
+            return result.ToHttpResult();
+        })
+        .WithName("SaveDistributionPlan")
+        .WithSummary("Create or replace the user's income distribution plan.")
+        .Produces<DistributionPlanDto>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized);
+
         // Goals
         group.MapPost("/goals", async (
             [FromBody] CreateGoalRequest request,

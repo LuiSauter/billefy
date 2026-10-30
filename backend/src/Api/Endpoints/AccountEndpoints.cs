@@ -36,6 +36,22 @@ public static class AccountEndpoints
         .Produces<List<AccountDto>>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status401Unauthorized);
 
+        group.MapPut("/{id:guid}", async (
+            [FromRoute] Guid id,
+            [FromBody] UpdateAccountRequest request,
+            IAccountService service,
+            CancellationToken ct) =>
+        {
+            var result = await service.UpdateAccountAsync(id, request, ct);
+            return result.ToHttpResult(() => Results.NoContent());
+        })
+        .WithName("UpdateAccount")
+        .WithSummary("Rename an account and change its icon and color. Balance and currency are never modified.")
+        .Produces(StatusCodes.Status204NoContent)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status401Unauthorized);
+
         group.MapPost("/{id:guid}/reconcile", async (
             [FromRoute] Guid id,
             [FromBody] ReconcileAccountRequest request,

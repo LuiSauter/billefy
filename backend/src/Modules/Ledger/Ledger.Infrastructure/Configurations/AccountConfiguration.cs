@@ -19,6 +19,8 @@ internal sealed class AccountConfiguration : IEntityTypeConfiguration<Account>
         builder.Property(a => a.Name).HasColumnName("name").HasMaxLength(100).IsRequired();
         builder.Property(a => a.Type).HasColumnName("type").HasConversion<string>().HasMaxLength(20).IsRequired();
         builder.Property(a => a.IsArchived).HasColumnName("is_archived").HasDefaultValue(false);
+        builder.Property(a => a.IconKey).HasColumnName("icon_key").HasMaxLength(30);
+        builder.Property(a => a.ColorKey).HasColumnName("color_key").HasMaxLength(30);
         builder.Property(a => a.CreatedAt).HasColumnName("created_at").IsRequired();
 
         // Map Currency

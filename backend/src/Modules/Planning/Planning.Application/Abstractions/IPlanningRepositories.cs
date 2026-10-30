@@ -25,3 +25,17 @@ public interface IPlanningUnitOfWork
 {
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }
+
+public interface IInvestmentRepository
+{
+    Task<Planning.Domain.Investments.Investment?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
+    Task<List<Planning.Domain.Investments.Investment>> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken = default);
+    Task AddAsync(Planning.Domain.Investments.Investment investment, CancellationToken cancellationToken = default);
+    Task DeleteAsync(Planning.Domain.Investments.Investment investment, CancellationToken cancellationToken = default);
+}
+
+public interface IDistributionPlanRepository
+{
+    Task<Planning.Domain.Distribution.DistributionPlan?> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken = default);
+    Task AddAsync(Planning.Domain.Distribution.DistributionPlan plan, CancellationToken cancellationToken = default);
+}

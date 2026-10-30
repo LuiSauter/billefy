@@ -13,6 +13,14 @@ public sealed record RegisterTransactionRequest(
     decimal? AppliedRate = null,
     string? RateSource = null);
 
+public sealed record UpdateTransactionRequest(
+    Guid AccountId,
+    decimal Amount,
+    TransactionDirection Direction,
+    Guid? CategoryId = null,
+    DateTime? OccurredAt = null,
+    string? Description = null);
+
 public sealed record RegisterTransferRequest(
     Guid SourceAccountId,
     decimal SourceAmount,
@@ -64,5 +72,10 @@ public interface ITransactionService
     Task<Result<ReverseResult>> ReverseTransactionAsync(
         Guid id,
         string? reason = null,
+        CancellationToken cancellationToken = default);
+
+    Task<Result<Guid>> UpdateTransactionAsync(
+        Guid id,
+        UpdateTransactionRequest request,
         CancellationToken cancellationToken = default);
 }

@@ -9,6 +9,7 @@ using Fx.Infrastructure;
 using Ledger.Domain.Accounts;
 using Ledger.Domain.Transactions;
 using Ledger.Application.Accounts.Services;
+using Ledger.Application.Categories.Services;
 using Ledger.Application.Transactions.Services;
 using Ingestion.Application.Services;
 using Ledger.Infrastructure;
@@ -904,6 +905,208 @@ public class ApiIntegrationTests : IClassFixture<CustomWebApplicationFactory>
         logs.Should().NotBeNull();
         logs!.Should().NotBeEmpty();
         logs.First().Title.Should().Be("Alerta de Prueba");
+    }
+
+    [Fact]
+    public async Task Investments_And_DistributionPlan_ShouldPersistPerUser_AndAccountsKeepVisuals()
+    {
+        var userId = Guid.NewGuid();
+        var otherUserId = Guid.NewGuid();
+
+        HttpRequestMessage Req(HttpMethod method, string url, Guid uid, object? body = null)
+        {
+            var msg = new HttpRequestMessage(method, url);
+            if (body is not null) msg.Content = JsonContent.Create(body);
+            msg.Headers.Add("X-User-Id", uid.ToString());
+            return msg;
+        }
+
+        // Account with new type + icon/color persisted server-side
+        var accRes = await _client.SendAsync(Req(HttpMethod.Post, "/v1/accounts", userId,
+            new CreateAccountRequest("Ahorro BNB", AccountType.Savings, "BOB", 100m, "piggy-bank", "emerald")));
+        accRes.StatusCode.Should().Be(HttpStatusCode.Created);
+        var accounts = await (await _client.SendAsync(Req(HttpMethod.Get, "/v1/accounts", userId)))
+            .Content.ReadFromJsonAsync<List<AccountDto>>();
+        accounts.Should().ContainSingle();
+        accounts![0].Type.Should().Be("Savings");
+        accounts[0].IconKey.Should().Be("piggy-bank");
+        accounts[0].ColorKey.Should().Be("emerald");
+
+        // Rename + restyle the account; other users cannot touch it
+        var accountId = accounts[0].Id;
+        var putRes = await _client.SendAsync(Req(HttpMethod.Put, $"/v1/accounts/{accountId}", userId,
+            new UpdateAccountRequest("Ahorro Principal", "shield", "violet")));
+        putRes.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        var foreignPut = await _client.SendAsync(Req(HttpMethod.Put, $"/v1/accounts/{accountId}", otherUserId,
+            new UpdateAccountRequest("Hack", null, null)));
+        foreignPut.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        var renamed = await (await _client.SendAsync(Req(HttpMethod.Get, "/v1/accounts", userId)))
+            .Content.ReadFromJsonAsync<List<AccountDto>>();
+        renamed![0].Name.Should().Be("Ahorro Principal");
+        renamed[0].IconKey.Should().Be("shield");
+        renamed[0].ColorKey.Should().Be("violet");
+
+        // Investment lifecycle with auto-calculated variation
+        var createRes = await _client.SendAsync(Req(HttpMethod.Post, "/v1/planning/investments", userId,
+            new CreateInvestmentRequest("Bitcoin", "crypto", "coins", "amber", "USD", 0.5m, 1000m)));
+        createRes.StatusCode.Should().Be(HttpStatusCode.Created);
+        var created = await createRes.Content.ReadFromJsonAsync<CreatedAccountResponse>();
+
+        var updateRes = await _client.SendAsync(Req(HttpMethod.Put, $"/v1/planning/investments/{created!.Id}/value", userId,
+            new UpdateInvestmentValueRequest(1250m)));
+        updateRes.StatusCode.Should().Be(HttpStatusCode.OK);
+        var updated = await updateRes.Content.ReadFromJsonAsync<InvestmentDto>();
+        updated!.VariationPct.Should().Be(25m);
+        updated.History.Should().HaveCount(2);
+
+        var foreign = await _client.SendAsync(Req(HttpMethod.Get, "/v1/planning/investments", otherUserId));
+        (await foreign.Content.ReadFromJsonAsync<List<InvestmentDto>>()).Should().BeEmpty();
+
+        var foreignUpdate = await _client.SendAsync(Req(HttpMethod.Put, $"/v1/planning/investments/{created.Id}/value", otherUserId,
+            new UpdateInvestmentValueRequest(1m)));
+        foreignUpdate.StatusCode.Should().Be(HttpStatusCode.NotFound);
+
+        var delRes = await _client.SendAsync(Req(HttpMethod.Delete, $"/v1/planning/investments/{created.Id}", userId));
+        delRes.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // Distribution plan: disabled/empty by default, validated, then persisted
+        var defaultPlan = await (await _client.SendAsync(Req(HttpMethod.Get, "/v1/planning/distribution-plan", userId)))
+            .Content.ReadFromJsonAsync<DistributionPlanDto>();
+        defaultPlan!.Enabled.Should().BeFalse();
+        defaultPlan.Buckets.Should().BeEmpty();
+
+        var tooMuch = await _client.SendAsync(Req(HttpMethod.Put, "/v1/planning/distribution-plan", userId,
+            new SaveDistributionPlanRequest(true, [
+                new PlanBucketDto("a", "Necesidades", 70m, "blue", []),
+                new PlanBucketDto("b", "Deseos", 50m, "pink", [])])));
+        tooMuch.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        var saveRes = await _client.SendAsync(Req(HttpMethod.Put, "/v1/planning/distribution-plan", userId,
+            new SaveDistributionPlanRequest(true, [
+                new PlanBucketDto("a", "Necesidades", 50m, "blue", ["cat-1"]),
+                new PlanBucketDto("b", "Deseos", 30m, "pink", []),
+                new PlanBucketDto("c", "Ahorro", 20m, "emerald", [])])));
+        saveRes.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var reloaded = await (await _client.SendAsync(Req(HttpMethod.Get, "/v1/planning/distribution-plan", userId)))
+            .Content.ReadFromJsonAsync<DistributionPlanDto>();
+        reloaded!.Enabled.Should().BeTrue();
+        reloaded.Buckets.Should().HaveCount(3);
+        reloaded.Buckets[0].CategoryIds.Should().ContainSingle("cat-1");
+    }
+
+    [Fact]
+    public async Task Categories_ShouldStartEmpty_AndSupportExpenseAndIncomeCreation_WithTransactionAssignment()
+    {
+        var userId = Guid.NewGuid();
+
+        // 1. Initially 0 categories for a user (no default categories)
+        using var initialGet = new HttpRequestMessage(HttpMethod.Get, "/v1/categories");
+        initialGet.Headers.Add("X-User-Id", userId.ToString());
+        var initialRes = await _client.SendAsync(initialGet);
+        initialRes.StatusCode.Should().Be(HttpStatusCode.OK);
+        var initialCategories = await initialRes.Content.ReadFromJsonAsync<List<CategoryDto>>();
+        initialCategories.Should().BeEmpty();
+
+        // 2. Create an Expense category
+        using var createExpMsg = new HttpRequestMessage(HttpMethod.Post, "/v1/categories")
+        {
+            Content = JsonContent.Create(new CreateCategoryRequest("Supermercado", TransactionDirection.Expense, "utensils", "rose"))
+        };
+        createExpMsg.Headers.Add("X-User-Id", userId.ToString());
+        var createExpRes = await _client.SendAsync(createExpMsg);
+        createExpRes.StatusCode.Should().Be(HttpStatusCode.Created);
+        var expCat = await createExpRes.Content.ReadFromJsonAsync<CategoryDto>();
+        expCat.Should().NotBeNull();
+        expCat!.Name.Should().Be("Supermercado");
+        expCat.Direction.Should().Be("Expense");
+        expCat.IconKey.Should().Be("utensils");
+        expCat.ColorKey.Should().Be("rose");
+
+        // 3. Create an Income category
+        using var createIncMsg = new HttpRequestMessage(HttpMethod.Post, "/v1/categories")
+        {
+            Content = JsonContent.Create(new CreateCategoryRequest("Sueldo", TransactionDirection.Income, "briefcase", "emerald"))
+        };
+        createIncMsg.Headers.Add("X-User-Id", userId.ToString());
+        var createIncRes = await _client.SendAsync(createIncMsg);
+        createIncRes.StatusCode.Should().Be(HttpStatusCode.Created);
+        var incCat = await createIncRes.Content.ReadFromJsonAsync<CategoryDto>();
+        incCat.Should().NotBeNull();
+        incCat!.Direction.Should().Be("Income");
+
+        // 4. Filter by Direction
+        using var getExpOnly = new HttpRequestMessage(HttpMethod.Get, "/v1/categories?direction=Expense");
+        getExpOnly.Headers.Add("X-User-Id", userId.ToString());
+        var expOnlyRes = await _client.SendAsync(getExpOnly);
+        var expOnlyList = await expOnlyRes.Content.ReadFromJsonAsync<List<CategoryDto>>();
+        expOnlyList.Should().ContainSingle(c => c.Id == expCat.Id);
+
+        // 5. Register a transaction assigned to the newly created category Guid
+        using var createAccMsg = new HttpRequestMessage(HttpMethod.Post, "/v1/accounts")
+        {
+            Content = JsonContent.Create(new CreateAccountRequest("Cuenta Principal", AccountType.Bank, "BOB", 1000m))
+        };
+        createAccMsg.Headers.Add("X-User-Id", userId.ToString());
+        var createAccRes = await _client.SendAsync(createAccMsg);
+        var createdAcc = await createAccRes.Content.ReadFromJsonAsync<CreatedAccountResponse>();
+
+        using var regTxnMsg = new HttpRequestMessage(HttpMethod.Post, "/v1/transactions")
+        {
+            Content = JsonContent.Create(new RegisterTransactionRequest(
+                createdAcc!.Id,
+                150m,
+                TransactionDirection.Expense,
+                CategoryId: expCat.Id,
+                Description: "Compra semanal"))
+        };
+        regTxnMsg.Headers.Add("X-User-Id", userId.ToString());
+        var regTxnRes = await _client.SendAsync(regTxnMsg);
+        regTxnRes.StatusCode.Should().Be(HttpStatusCode.Created);
+        var createdTxn = await regTxnRes.Content.ReadFromJsonAsync<CreatedTransactionResponse>();
+
+        using var getTxnsMsg = new HttpRequestMessage(HttpMethod.Get, "/v1/transactions");
+        getTxnsMsg.Headers.Add("X-User-Id", userId.ToString());
+        var getTxnsRes = await _client.SendAsync(getTxnsMsg);
+        var txns = await getTxnsRes.Content.ReadFromJsonAsync<List<TransactionDto>>();
+        txns.Should().ContainSingle(t => t.CategoryId == expCat.Id && t.Description == "Compra semanal");
+
+        // 6. Update the transaction (title + detailed description, amount, occurredAt)
+        var customDate = new DateTime(2026, 5, 10, 14, 30, 0, DateTimeKind.Utc);
+        using var updateTxnMsg = new HttpRequestMessage(HttpMethod.Put, $"/v1/transactions/{createdTxn!.Id}")
+        {
+            Content = JsonContent.Create(new UpdateTransactionRequest(
+                createdAcc.Id,
+                220m,
+                TransactionDirection.Expense,
+                CategoryId: expCat.Id,
+                Description: "Compra mensual\nIncluye productos de limpieza",
+                OccurredAt: customDate))
+        };
+        updateTxnMsg.Headers.Add("X-User-Id", userId.ToString());
+        var updateTxnRes = await _client.SendAsync(updateTxnMsg);
+        updateTxnRes.StatusCode.Should().Be(HttpStatusCode.OK);
+        var updatedTxn = await updateTxnRes.Content.ReadFromJsonAsync<CreatedTransactionResponse>();
+        updatedTxn.Should().NotBeNull();
+
+        // Verify account balance reflects the updated amount (1000 - 220 = 780)
+        using var checkAccMsg = new HttpRequestMessage(HttpMethod.Get, "/v1/accounts");
+        checkAccMsg.Headers.Add("X-User-Id", userId.ToString());
+        var checkAccRes = await _client.SendAsync(checkAccMsg);
+        var accListAfterEdit = await checkAccRes.Content.ReadFromJsonAsync<List<AccountDto>>();
+        accListAfterEdit!.Should().ContainSingle(a => a.Id == createdAcc.Id && a.Balance == 780m);
+
+        // 7. Delete the updated transaction and verify balance returns to 1000
+        using var delTxnMsg = new HttpRequestMessage(HttpMethod.Delete, $"/v1/transactions/{updatedTxn!.Id}");
+        delTxnMsg.Headers.Add("X-User-Id", userId.ToString());
+        var delTxnRes = await _client.SendAsync(delTxnMsg);
+        delTxnRes.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        using var checkAccAfterDelMsg = new HttpRequestMessage(HttpMethod.Get, "/v1/accounts");
+        checkAccAfterDelMsg.Headers.Add("X-User-Id", userId.ToString());
+        var checkAccAfterDelRes = await _client.SendAsync(checkAccAfterDelMsg);
+        var accListAfterDel = await checkAccAfterDelRes.Content.ReadFromJsonAsync<List<AccountDto>>();
+        accListAfterDel!.Should().ContainSingle(a => a.Id == createdAcc.Id && a.Balance == 1000m);
     }
 
     [Fact]
