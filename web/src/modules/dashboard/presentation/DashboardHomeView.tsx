@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import dynamic from "next/dynamic";
 import { Landmark, PlusCircle } from "lucide-react";
 import { AccountDto, TransactionDto } from "@/modules/ledger/domain/ledger.types";
 import { DraftDto } from "@/modules/ingestion/domain/ingestion.types";
@@ -11,8 +12,36 @@ import { AccountsList } from "@/modules/ledger/presentation/AccountsList";
 import { DraftsInbox } from "@/modules/ingestion/presentation/DraftsInbox";
 import { TransactionsList } from "@/modules/ledger/presentation/TransactionsList";
 import { MobileWalletCard } from "@/modules/ledger/presentation/MobileWalletCard";
-import { CashFlowAreaChart } from "@/modules/ledger/presentation/CashFlowAreaChart";
-import { CurrencyDonutChart } from "@/modules/fx/presentation/CurrencyDonutChart";
+import { AccountsSummaryCard } from "@/modules/ledger/presentation/AccountsSummaryCard";
+import { CategoryDistributionCard } from "@/modules/ledger/presentation/CategoryDistributionCard";
+import { InvestmentsSummaryCard } from "@/modules/investments/presentation/InvestmentsSummaryCard";
+import { Investment } from "@/modules/investments/domain/investment.types";
+
+const CashFlowAreaChart = dynamic(
+  () =>
+    import("@/modules/ledger/presentation/CashFlowAreaChart").then(
+      (m) => m.CashFlowAreaChart
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-[260px] rounded-[16px] bg-card border border-border animate-pulse" />
+    ),
+  }
+);
+
+const CurrencyDonutChart = dynamic(
+  () =>
+    import("@/modules/fx/presentation/CurrencyDonutChart").then(
+      (m) => m.CurrencyDonutChart
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-[260px] rounded-[16px] bg-card border border-border animate-pulse" />
+    ),
+  }
+);
 
 interface DashboardHomeViewProps {
   metrics: BalanceMetrics;
@@ -35,6 +64,14 @@ interface DashboardHomeViewProps {
   onDiscardDraft: (draftId: string) => void;
   onConfirmAllDrafts: () => void;
   onReverseTxn: (txnId: string) => void;
+  onEditTxn?: (txn: TransactionDto) => void;
+  investments?: Investment[];
+  onOpenAccountsTab?: () => void;
+  onOpenInvestmentsTab?: () => void;
+  onUpdateAccount?: (
+    accountId: string,
+    data: { name: string; iconKey: string; colorKey: string }
+  ) => Promise<void>;
 }
 
 export function DashboardHomeView({
@@ -57,6 +94,11 @@ export function DashboardHomeView({
   onDiscardDraft,
   onConfirmAllDrafts,
   onReverseTxn,
+  onEditTxn,
+  investments = [],
+  onOpenAccountsTab,
+  onOpenInvestmentsTab,
+  onUpdateAccount,
 }: DashboardHomeViewProps) {
   const hasAccounts = accounts.length > 0;
 
@@ -79,7 +121,7 @@ export function DashboardHomeView({
 
       {/* Desktop Onboarding Banner when 0 Accounts */}
       {!hasAccounts && (
-        <div className="hidden md:flex items-center justify-between p-5 rounded-[18px] bg-linear-to-r from-blue-50 via-indigo-50 to-slate-50 border border-blue-200 shadow-2xs">
+        <div className="hidden md:flex items-center justify-between p-5 rounded-[18px] bg-linear-to-r from-blue-950/60 via-indigo-950/40 to-card border border-primary/30 shadow-2xs">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-[14px] bg-primary text-white flex items-center justify-center shrink-0 shadow-xs">
               <Landmark className="w-6 h-6" />
@@ -95,7 +137,7 @@ export function DashboardHomeView({
           </div>
           <button
             onClick={onOpenCreateAccountModal}
-            className="h-[42px] px-5 rounded-[12px] bg-primary hover:bg-blue-700 active:scale-[0.99] text-white text-sm font-extrabold transition flex items-center gap-2 shadow-2xs shrink-0"
+            className="h-[42px] px-5 rounded-[12px] bg-primary hover:bg-blue-600 active:scale-[0.99] text-white text-sm font-extrabold transition flex items-center gap-2 shadow-2xs shrink-0"
           >
             <PlusCircle className="w-4 h-4" />
             <span>+ Vincular Primera Cuenta</span>
@@ -124,6 +166,31 @@ export function DashboardHomeView({
         </div>
       )}
 
+      {hasAccounts && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+          <AccountsSummaryCard
+            accounts={accounts}
+            transactions={transactions}
+            onOpenAccounts={onOpenAccountsTab}
+          />
+          <InvestmentsSummaryCard
+            investments={investments}
+            p2pRate={p2pRate}
+            onOpenInvestments={onOpenInvestmentsTab ?? (() => {})}
+          />
+          <CategoryDistributionCard
+            direction="Income"
+            transactions={transactions}
+            p2pRate={p2pRate}
+          />
+          <CategoryDistributionCard
+            direction="Expense"
+            transactions={transactions}
+            p2pRate={p2pRate}
+          />
+        </div>
+      )}
+
       {/* Middle Grid: Accounts (Left) & Drafts (Right) (OpenPencil Grid2) */}
       <div className="hidden md:grid grid-cols-1 lg:grid-cols-[1.6fr_1fr] gap-4 items-start">
         <AccountsList
@@ -131,6 +198,7 @@ export function DashboardHomeView({
           loading={loading}
           onOpenCreateAccountModal={onOpenCreateAccountModal}
           onOpenReconcileModal={onOpenReconcileModal}
+          onUpdateAccount={onUpdateAccount}
         />
 
         <DraftsInbox
@@ -148,6 +216,8 @@ export function DashboardHomeView({
         accountsMap={accountsMap}
         loading={loading}
         onReverseTxn={onReverseTxn}
+        onEditTxn={onEditTxn}
+        onOpenNewTxn={onOpenNewTxn}
         p2pRate={p2pRate}
       />
     </div>

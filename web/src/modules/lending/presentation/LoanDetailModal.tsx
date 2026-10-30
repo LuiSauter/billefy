@@ -95,9 +95,9 @@ export function LoanDetailModal({ isOpen, loan, onClose }: LoanDetailModalProps)
                 <span
                   className={`px-2 py-0.5 rounded-md text-xs w-fit font-semibold ${
                     inst.status === "Paid"
-                      ? "bg-emerald-100 text-emerald-800"
+                      ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
                       : inst.status === "Overdue"
-                      ? "bg-rose-100 text-rose-800"
+                      ? "bg-rose-500/15 text-rose-300 border border-rose-500/30"
                       : "bg-muted text-muted-foreground"
                   }`}
                 >

@@ -2,7 +2,7 @@
 
 import React from "react";
 import { AlertTriangle, CheckCircle2, Copy, FileText, Rows3 } from "lucide-react";
-import { cn } from "cn";
+import { cn } from "@/shared/lib/utils";
 import { StatementImportResult } from "@/modules/ingestion/domain/ingestion.types";
 
 export function CsvImportResult({ result }: { result: StatementImportResult }) {

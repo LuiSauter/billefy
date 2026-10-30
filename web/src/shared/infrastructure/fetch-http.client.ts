@@ -80,6 +80,18 @@ export class FetchHttpClient implements IHttpClient {
     });
   }
 
+  async put<T>(
+    path: string,
+    body?: unknown,
+    options: HttpRequestOptions = {}
+  ): Promise<T> {
+    return this.request<T>(path, {
+      ...options,
+      method: "PUT",
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+  }
+
   async delete<T>(path: string, options: HttpRequestOptions = {}): Promise<T> {
     return this.request<T>(path, { ...options, method: "DELETE" });
   }

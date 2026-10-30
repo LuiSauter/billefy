@@ -2,7 +2,7 @@ import * as React from "react"
 import { Button as ButtonPrimitive } from "@base-ui/react/button"
 import { cva, type VariantProps } from "class-variance-authority"
 import { Loader2 } from "lucide-react"
-import { cn } from "cn"
+import { cn } from "@/shared/lib/utils"
 
 const buttonVariants = cva(
   "group/button inline-flex shrink-0 items-center justify-center rounded-xl border border-transparent bg-clip-padding text-sm font-semibold whitespace-nowrap transition-all outline-hidden select-none focus-visible:border-ring focus-visible:ring-4 focus-visible:ring-ring/25 active:scale-[0.99] disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-4 aria-invalid:ring-destructive/20 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",

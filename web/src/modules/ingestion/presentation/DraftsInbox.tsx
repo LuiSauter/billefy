@@ -20,8 +20,8 @@ export function DraftsInbox({
 }: DraftsInboxProps) {
   if (drafts.length === 0) {
     return (
-      <div className="p-[18px] rounded-[16px] bg-white border border-border shadow-2xs flex flex-col items-center justify-center text-center py-8">
-        <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 mb-2">
+      <div className="p-[18px] rounded-[16px] bg-card border border-border shadow-2xs flex flex-col items-center justify-center text-center py-8">
+        <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center text-muted-foreground mb-2">
           <Sparkles className="w-4 h-4" />
         </div>
         <h3 className="text-sm font-bold text-foreground">Bandeja al día (Inbox Zero)</h3>
@@ -58,7 +58,7 @@ export function DraftsInbox({
   };
 
   return (
-    <div className="p-[18px] rounded-[16px] bg-white border border-border flex flex-col gap-3 shadow-2xs">
+    <div className="p-[18px] rounded-[16px] bg-card border border-border flex flex-col gap-3 shadow-2xs">
       {/* Header (OpenPencil InH) */}
       <div className="flex items-center justify-between">
         <h2 className="text-[15px] font-extrabold text-foreground tracking-tight">
@@ -66,7 +66,7 @@ export function DraftsInbox({
         </h2>
         <button
           onClick={handleConfirmAll}
-          className="text-sm font-bold text-indigo-600 hover:underline transition"
+          className="text-sm font-bold text-indigo-400 hover:underline transition"
         >
           Aprobar Todo 1-Tap
         </button>
@@ -81,7 +81,7 @@ export function DraftsInbox({
           return (
             <div
               key={draft.id}
-              className="h-[38px] px-[8px] rounded-[8px] bg-background flex items-center justify-between transition hover:bg-slate-100/70"
+              className="h-[38px] px-[8px] rounded-[8px] bg-background border border-border/60 flex items-center justify-between transition hover:bg-muted/60"
             >
               {/* Left Label */}
               <div className="text-sm font-semibold text-foreground truncate pr-2">
@@ -92,7 +92,7 @@ export function DraftsInbox({
               <div className="flex items-center gap-2 shrink-0">
                 <span
                   className={`text-sm font-bold font-mono ${
-                    isIncome ? "text-emerald-600" : "text-foreground"
+                    isIncome ? "text-emerald-400" : "text-foreground"
                   }`}
                 >
                   {formattedAmount}

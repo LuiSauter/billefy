@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { FileSpreadsheet, UploadCloud } from "lucide-react";
-import { cn } from "cn";
+import { cn } from "@/shared/lib/utils";
 import { AccountDto } from "@/modules/ledger/domain/ledger.types";
 import {
   ImportStatementCsvRequest,

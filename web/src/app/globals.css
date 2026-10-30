@@ -4,31 +4,32 @@
 @custom-variant dark (&:is(.dark *));
 
 /* ------------------------------------------------------------------ */
-/* Design tokens — mirrors OpenPencil `billefy_wallet.op`              */
+/* Design tokens — Light (:root) & Dark (.dark) Dual Theme System     */
 /* ------------------------------------------------------------------ */
 :root {
-  --background: #f8fafc; /* slate-50 */
-  --foreground: #0f172a; /* slate-900 */
+  color-scheme: light;
+  --background: #f8fafc;
+  --foreground: #0f172a;
   --card: #ffffff;
   --card-foreground: #0f172a;
   --popover: #ffffff;
   --popover-foreground: #0f172a;
-  --primary: #2563eb; /* blue-600 */
+  --primary: #2563eb;
   --primary-foreground: #ffffff;
-  --secondary: #f1f5f9; /* slate-100 */
+  --secondary: #f1f5f9;
   --secondary-foreground: #0f172a;
   --muted: #f1f5f9;
-  --muted-foreground: #64748b; /* slate-500 — 4.8:1 on white */
-  --accent: #eff6ff; /* blue-50 */
-  --accent-foreground: #1d4ed8; /* blue-700 */
-  --destructive: #dc2626;
+  --muted-foreground: #64748b;
+  --accent: #eff6ff;
+  --accent-foreground: #1d4ed8;
+  --destructive: #ef4444;
   --destructive-foreground: #ffffff;
-  --success: #059669; /* emerald-600 */
+  --success: #10b981;
   --success-foreground: #ffffff;
-  --warning: #d97706; /* amber-600 */
-  --warning-foreground: #ffffff;
-  --border: #e2e8f0; /* slate-200 */
-  --input: #cbd5e1; /* slate-300: visible form borders */
+  --warning: #f59e0b;
+  --warning-foreground: #0f172a;
+  --border: #e2e8f0;
+  --input: #cbd5e1;
   --ring: #2563eb;
   --radius: 0.75rem;
 
@@ -42,13 +43,14 @@
   --sidebar-foreground: #0f172a;
   --sidebar-primary: #2563eb;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #eff6ff;
-  --sidebar-accent-foreground: #1d4ed8;
+  --sidebar-accent: #f1f5f9;
+  --sidebar-accent-foreground: #0f172a;
   --sidebar-border: #e2e8f0;
   --sidebar-ring: #2563eb;
 }
 
 .dark {
+  color-scheme: dark;
   --background: #0b1220;
   --foreground: #f8fafc;
   --card: #111a2e;
@@ -72,6 +74,14 @@
   --border: #1e293b;
   --input: #334155;
   --ring: #3b82f6;
+  --radius: 0.75rem;
+
+  --chart-1: #3b82f6; /* blue — primary series */
+  --chart-2: #10b981; /* emerald — income / positive */
+  --chart-3: #f59e0b; /* amber — warnings / wants */
+  --chart-4: #8b5cf6; /* violet — savings */
+  --chart-5: #f43f5e; /* rose — expense / negative */
+
   --sidebar: #0f172a;
   --sidebar-foreground: #f8fafc;
   --sidebar-primary: #3b82f6;

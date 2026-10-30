@@ -27,7 +27,7 @@ export function MobileAccountsCarousel({
       </div>
 
       {accounts.length === 0 ? (
-        <div className="p-4 rounded-[14px] bg-white border border-dashed border-slate-300 text-center flex flex-col items-center justify-center gap-1.5 py-6">
+        <div className="p-4 rounded-[14px] bg-card border border-dashed border-border text-center flex flex-col items-center justify-center gap-1.5 py-6">
           <p className="text-sm font-semibold text-muted-foreground">
             No tenés cuentas registradas todavía.
           </p>
@@ -51,7 +51,7 @@ export function MobileAccountsCarousel({
                 })}`;
             const dotColor =
               acc.type === "Bank"
-                ? "#004481"
+                ? "#3B82F6"
                 : acc.type === "Wallet"
                 ? "#F59E0B"
                 : "#10B981";
@@ -67,7 +67,7 @@ export function MobileAccountsCarousel({
             return (
               <div
                 key={acc.id}
-                className="min-w-[130px] p-3 rounded-[14px] bg-white border border-border shadow-2xs snap-start flex flex-col gap-1.5 shrink-0"
+                className="min-w-[130px] p-3 rounded-[14px] bg-card border border-border shadow-2xs snap-start flex flex-col gap-1.5 shrink-0"
               >
                 <div className="flex items-center justify-between">
                   <span

@@ -36,7 +36,7 @@ export function RecurringPaymentsView({
   }, 0);
 
   return (
-    <div className="w-full max-w-[920px] p-[24px_28px_32px_28px] rounded-[24px] bg-white border border-border shadow-xs flex flex-col gap-[18px]">
+    <div className="w-full max-w-[920px] p-[24px_28px_32px_28px] rounded-[24px] bg-card border border-border shadow-xs flex flex-col gap-[18px]">
       {/* Header (OpenPencil RWHead) */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -55,38 +55,38 @@ export function RecurringPaymentsView({
               "Podrás vincular pagos recurrentes a partir de tus transacciones periódicas detectadas."
             );
           }}
-          className="h-[38px] px-4 rounded-[10px] bg-primary hover:bg-blue-700 active:scale-[0.99] text-white text-sm font-extrabold transition flex items-center gap-1.5 shadow-xs shrink-0"
+          className="h-[38px] px-4 rounded-[10px] bg-primary hover:bg-blue-600 active:scale-[0.99] text-white text-sm font-extrabold transition flex items-center gap-1.5 shadow-xs shrink-0"
         >
           <Plus className="w-4 h-4" />
           <span>+ Programar Nuevo Flujo</span>
         </button>
       </div>
 
-      {/* Dark Slate Summary Card (OpenPencil RWCard) */}
-      <div className="p-4 rounded-[16px] bg-slate-900 text-white shadow-md grid grid-cols-2 md:grid-cols-3 gap-4">
+      {/* Summary Card (OpenPencil RWCard) */}
+      <div className="p-4 rounded-[16px] bg-background border border-border text-foreground shadow-md grid grid-cols-2 md:grid-cols-3 gap-4">
         {/* Col 0: Compromisos Fijos */}
         <div className="flex flex-col gap-0.5">
-          <span className="text-xs font-semibold text-slate-500">Compromisos Fijos Mensuales</span>
-          <span className="text-[18px] font-black text-white font-mono">
+          <span className="text-xs font-semibold text-muted-foreground">Compromisos Fijos Mensuales</span>
+          <span className="text-[18px] font-black text-foreground font-mono">
             {totalFixedExpensesBob > 0 ? `-Bs. ${totalFixedExpensesBob.toFixed(2)}` : "Bs. 0.00"}
           </span>
-          <span className="text-xs font-medium text-slate-500">
+          <span className="text-xs font-medium text-muted-foreground">
             {payments.length} {payments.length === 1 ? "Servicio programado" : "Servicios programados"}
           </span>
         </div>
 
         {/* Col 1: Vencimientos Próximos */}
         <div className="flex flex-col gap-0.5">
-          <span className="text-xs font-semibold text-slate-500">Por Vencer (&lt; 3 días)</span>
-          <span className="text-[18px] font-black text-white font-mono">
+          <span className="text-xs font-semibold text-muted-foreground">Por Vencer (&lt; 3 días)</span>
+          <span className="text-[18px] font-black text-foreground font-mono">
             {payments.filter((p) => p.daysRemaining <= 3).length}
           </span>
-          <span className="text-xs font-medium text-[#F87171]">Alertas activas</span>
+          <span className="text-xs font-medium text-rose-400">Alertas activas</span>
         </div>
 
         {/* Col 2: Estado general */}
         <div className="flex flex-col gap-0.5">
-          <span className="text-xs font-semibold text-slate-500">Conciliación Predictiva</span>
+          <span className="text-xs font-semibold text-muted-foreground">Conciliación Predictiva</span>
           <span className="text-[18px] font-black text-emerald-400 font-mono">Al Día</span>
           <span className="text-xs font-medium text-emerald-400">Sin pagos vencidos</span>
         </div>
@@ -95,12 +95,12 @@ export function RecurringPaymentsView({
       {/* Recurring Items List */}
       <div className="flex flex-col gap-3">
         {payments.length === 0 ? (
-          <div className="p-8 rounded-[16px] bg-white border border-border text-center text-muted-foreground text-xs space-y-2">
-            <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center mx-auto text-slate-400 mb-2">
+          <div className="p-8 rounded-[16px] bg-background border border-border text-center text-muted-foreground text-xs space-y-2">
+            <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center mx-auto text-muted-foreground mb-2">
               <Calendar className="w-5 h-5" />
             </div>
-            <p className="font-semibold text-slate-700">No tenés pagos programados todavía.</p>
-            <p className="text-slate-500 max-w-sm mx-auto">
+            <p className="font-semibold text-foreground">No tenés pagos programados todavía.</p>
+            <p className="text-muted-foreground max-w-sm mx-auto">
               Cuando programes suscripciones o servicios, verás aquí sus fechas de vencimiento con alertas predictivas y confirmación en 1-Clic.
             </p>
           </div>
@@ -112,7 +112,7 @@ export function RecurringPaymentsView({
             return (
               <div
                 key={item.id}
-                className="p-4 rounded-[16px] bg-white border border-border shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 hover:border-slate-300 transition"
+                className="p-4 rounded-[16px] bg-background border border-border shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 hover:border-primary/40 transition"
               >
                 <div className="flex flex-col gap-0.5">
                   <div className="flex items-center gap-2">
@@ -120,8 +120,8 @@ export function RecurringPaymentsView({
                     <span
                       className={`text-xs font-extrabold px-2 py-0.5 rounded-full ${
                         item.status === "DueSoon"
-                          ? "bg-rose-100 text-rose-700"
-                          : "bg-blue-100 text-blue-700"
+                          ? "bg-rose-500/15 text-rose-300 border border-rose-500/30"
+                          : "bg-blue-500/15 text-blue-300 border border-blue-500/30"
                       }`}
                     >
                       {item.status === "DueSoon" ? `Vence en ${item.daysRemaining}d` : item.dueDate}
@@ -138,7 +138,7 @@ export function RecurringPaymentsView({
                   </span>
                   <button
                     onClick={() => onOpenRescheduleModal(item)}
-                    className="h-[32px] px-3 rounded-[8px] border border-slate-200 hover:bg-slate-50 text-xs font-semibold text-slate-700 transition"
+                    className="h-[32px] px-3 rounded-[8px] border border-border bg-secondary/50 hover:bg-muted text-xs font-semibold text-foreground transition"
                   >
                     Reprogramar
                   </button>

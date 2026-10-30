@@ -44,8 +44,30 @@ export function CashFlowAreaChart({
       ];
     }
 
+    const reversedOriginalIds = new Set<string>();
+    for (const t of transactions) {
+      if (t.reversesId) {
+        reversedOriginalIds.add(t.reversesId);
+      }
+    }
+    const activeTxns = transactions.filter(
+      (t) => !t.reversesId && !reversedOriginalIds.has(t.id)
+    );
+
+    if (activeTxns.length === 0) {
+      return [
+        { label: "Lun", income: 0, expense: 0 },
+        { label: "Mar", income: 0, expense: 0 },
+        { label: "Mié", income: 0, expense: 0 },
+        { label: "Jue", income: 0, expense: 0 },
+        { label: "Vie", income: 0, expense: 0 },
+        { label: "Sáb", income: 0, expense: 0 },
+        { label: "Dom", income: 0, expense: 0 },
+      ];
+    }
+
     const byDate = new Map<string, { income: number; expense: number }>();
-    const sorted = [...transactions].sort(
+    const sorted = [...activeTxns].sort(
       (a, b) => new Date(a.occurredAt).getTime() - new Date(b.occurredAt).getTime()
     );
 
@@ -91,14 +113,14 @@ export function CashFlowAreaChart({
           <div className="flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
             <span className="text-muted-foreground">Ingresos:</span>
-            <span className="text-emerald-600 font-mono font-bold">
+            <span className="text-emerald-400 font-mono font-bold">
               +{currencySymbol} {totalIncome.toLocaleString()}
             </span>
           </div>
           <div className="flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
             <span className="text-muted-foreground">Gastos:</span>
-            <span className="text-rose-600 font-mono font-bold">
+            <span className="text-rose-400 font-mono font-bold">
               -{currencySymbol} {totalExpense.toLocaleString()}
             </span>
           </div>

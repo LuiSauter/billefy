@@ -20,14 +20,14 @@ export function UserAvatar({ user, size = "md" }: UserAvatarProps) {
         src={user.pictureUrl}
         alt={displayName}
         referrerPolicy="no-referrer"
-        className={`${dim} rounded-full object-cover shrink-0 ring-1 ring-slate-200`}
+        className={`${dim} rounded-full object-cover shrink-0 ring-1 ring-border`}
       />
     );
   }
 
   return (
     <div
-      className={`${dim} rounded-full bg-slate-900 text-white font-bold flex items-center justify-center shrink-0`}
+      className={`${dim} rounded-full bg-secondary border border-border text-foreground font-bold flex items-center justify-center shrink-0`}
     >
       {initials}
     </div>

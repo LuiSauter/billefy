@@ -7,6 +7,7 @@ import {
   AccountDto,
   CreateAccountRequest,
   RegisterTransactionRequest,
+  UpdateTransactionRequest,
   TransactionDto,
 } from "../domain/ledger.types";
 import { LedgerApiRepository } from "../infrastructure/ledger-api.repository";
@@ -33,7 +34,7 @@ export function useLedgerModule(http: IHttpClient | null) {
     if (!repo) return;
     const [accountsData, txnsData] = await Promise.all([
       repo.getAccounts(),
-      repo.getTransactions({ limit: 20 }),
+      repo.getTransactions({ limit: 500 }),
     ]);
     setAccounts(accountsData);
     setTransactions(txnsData);
@@ -56,10 +57,28 @@ export function useLedgerModule(http: IHttpClient | null) {
     [repo, refreshLedger]
   );
 
+  const updateAccount = useCallback(
+    async (id: string, data: { name: string; iconKey: string; colorKey: string }) => {
+      if (!repo) return;
+      await repo.updateAccount(id, data);
+      await refreshLedger();
+    },
+    [repo, refreshLedger]
+  );
+
   const registerTransaction = useCallback(
     async (req: RegisterTransactionRequest) => {
       if (!repo) return;
       await repo.registerTransaction(req);
+      await refreshLedger();
+    },
+    [repo, refreshLedger]
+  );
+
+  const updateTransaction = useCallback(
+    async (txnId: string, req: UpdateTransactionRequest) => {
+      if (!repo) return;
+      await repo.updateTransaction(txnId, req);
       await refreshLedger();
     },
     [repo, refreshLedger]
@@ -135,7 +154,9 @@ export function useLedgerModule(http: IHttpClient | null) {
     setTransactions,
     refreshLedger,
     createAccount,
+    updateAccount,
     registerTransaction,
+    updateTransaction,
     reverseTransaction,
     reconcileAccount,
     executeFxTransfer,

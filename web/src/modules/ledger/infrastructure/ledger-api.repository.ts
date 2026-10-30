@@ -1,5 +1,6 @@
 import { IHttpClient } from "@/shared/application/http-client.contract";
 import { toDecimal } from "@/shared/domain/money";
+import { resolveAccountVisualMeta } from "../domain/account-meta";
 import {
   AccountDto,
   CreateAccountRequest,
@@ -7,6 +8,7 @@ import {
   ReconcileAccountRequest,
   ReconciliationResult,
   RegisterTransactionRequest,
+  UpdateTransactionRequest,
   TransactionDirection,
   TransactionDto,
   TransactionFilter,
@@ -23,24 +25,42 @@ export class LedgerApiRepository implements ILedgerRepository {
       currency: string;
       balance: number | string;
       createdAt: string;
+      iconKey?: string | null;
+      colorKey?: string | null;
     }
 
     const raw = await this.http.get<RawAccountDto[]>("/v1/accounts");
-    return raw.map((a) => ({
-      ...a,
-      balance: toDecimal(a.balance),
-    }));
+    return raw.map((a) => {
+      const meta = resolveAccountVisualMeta(a);
+      return {
+        ...a,
+        balance: toDecimal(a.balance),
+        iconKey: meta.iconKey,
+        colorKey: meta.colorKey,
+      };
+    });
   }
 
   async createAccount(req: CreateAccountRequest): Promise<{ id: string }> {
     const payload = {
-      ...req,
+      name: req.name,
+      type: req.type,
+      currency: req.currency,
       initialBalance:
         typeof req.initialBalance === "string"
           ? parseFloat(req.initialBalance) || 0
           : (req.initialBalance ?? 0),
+      iconKey: req.iconKey,
+      colorKey: req.colorKey,
     };
     return this.http.post<{ id: string }>("/v1/accounts", payload);
+  }
+
+  async updateAccount(
+    id: string,
+    data: { name: string; iconKey: string; colorKey: string }
+  ): Promise<void> {
+    await this.http.put<void>(`/v1/accounts/${id}`, data);
   }
 
   async reconcileAccount(
@@ -88,6 +108,16 @@ export class LedgerApiRepository implements ILedgerRepository {
 
   async registerTransaction(req: RegisterTransactionRequest): Promise<{ id: string }> {
     return this.http.post<{ id: string }>("/v1/transactions", req);
+  }
+
+  async updateTransaction(
+    id: string,
+    req: UpdateTransactionRequest
+  ): Promise<{ id: string; replacedTransactionId: string }> {
+    return this.http.put<{ id: string; replacedTransactionId: string }>(
+      `/v1/transactions/${id}`,
+      req
+    );
   }
 
   async reverseTransaction(

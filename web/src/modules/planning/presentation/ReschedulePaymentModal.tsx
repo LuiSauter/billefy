@@ -84,7 +84,7 @@ export function ReschedulePaymentModal({
             <span className="text-sm font-bold text-primary">
               {item.name} ({item.category})
             </span>
-            <span className="text-xs font-bold text-amber-700 bg-amber-100 rounded-md px-2 py-0.5">
+            <span className="text-xs font-bold text-amber-300 bg-amber-500/15 border border-amber-500/30 rounded-md px-2 py-0.5">
               Vence en {item.daysRemaining} días
             </span>
           </div>

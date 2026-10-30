@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { AccountDto } from "@/modules/ledger/domain/ledger.types";
+import { AccountDto, TransactionDto } from "@/modules/ledger/domain/ledger.types";
 import { LoanDetailDto } from "@/modules/lending/domain/lending.types";
 import { notify } from "@/shared/lib/notify";
 import { RecurringItem } from "@/modules/planning/presentation/RecurringPaymentsView";
@@ -13,6 +13,7 @@ export function useDashboardModals(getLoanById: (loanId: string) => Promise<Loan
   const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false);
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
   const [isTxnModalOpen, setIsTxnModalOpen] = useState(false);
+  const [isEditTxnModalOpen, setIsEditTxnModalOpen] = useState(false);
   const [isMobile1TapTxnOpen, setIsMobile1TapTxnOpen] = useState(false);
   const [isSimulateModalOpen, setIsSimulateModalOpen] = useState(false);
   const [isReconcileModalOpen, setIsReconcileModalOpen] = useState(false);
@@ -25,12 +26,20 @@ export function useDashboardModals(getLoanById: (loanId: string) => Promise<Loan
   const [isWhatsAppModalOpen, setIsWhatsAppModalOpen] = useState(false);
   const [isBinanceModalOpen, setIsBinanceModalOpen] = useState(false);
   const [isDistributeModalOpen, setIsDistributeModalOpen] = useState(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
 
   // Selected entities for modals
   const [reconcileAccountTarget, setReconcileAccountTarget] = useState<AccountDto | null>(null);
+  const [editingTransaction, setEditingTransaction] = useState<TransactionDto | null>(null);
   const [selectedLoanId, setSelectedLoanId] = useState("");
   const [selectedLoanDetail, setSelectedLoanDetail] = useState<LoanDetailDto | null>(null);
   const [selectedRecurringItem, setSelectedRecurringItem] = useState<RecurringItem | null>(null);
+
+  const openEditTransaction = (txn: TransactionDto) => {
+    setEditingTransaction(txn);
+    setIsEditTxnModalOpen(true);
+  };
 
   const openLoanDetail = async (loanId: string) => {
     try {
@@ -69,6 +78,8 @@ export function useDashboardModals(getLoanById: (loanId: string) => Promise<Loan
     setIsAccountModalOpen,
     isTxnModalOpen,
     setIsTxnModalOpen,
+    isEditTxnModalOpen,
+    setIsEditTxnModalOpen,
     isMobile1TapTxnOpen,
     setIsMobile1TapTxnOpen,
     isSimulateModalOpen,
@@ -93,9 +104,14 @@ export function useDashboardModals(getLoanById: (loanId: string) => Promise<Loan
     setIsBinanceModalOpen,
     isDistributeModalOpen,
     setIsDistributeModalOpen,
+    isProfileModalOpen,
+    setIsProfileModalOpen,
+    isSettingsModalOpen,
+    setIsSettingsModalOpen,
 
     // Targets
     reconcileAccountTarget,
+    editingTransaction,
     selectedLoanId,
     selectedLoanDetail,
     selectedRecurringItem,
@@ -105,6 +121,7 @@ export function useDashboardModals(getLoanById: (loanId: string) => Promise<Loan
     openLoanPayment,
     openReconcile,
     openReschedule,
+    openEditTransaction,
   };
 }
 

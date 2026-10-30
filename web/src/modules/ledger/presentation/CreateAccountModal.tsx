@@ -2,13 +2,23 @@
 
 import React, { useEffect, useState } from "react";
 import { AccountType, CreateAccountRequest } from "@/modules/ledger/domain/ledger.types";
+import {
+  ACCOUNT_ICON_CHOICES,
+  ACCOUNT_TYPE_OPTIONS,
+  getDefaultAccountVisualMeta,
+} from "@/modules/ledger/domain/account-meta";
+import {
+  CATEGORY_COLOR_LIST,
+  CategoryColorKey,
+  CategoryIconKey,
+} from "@/modules/ledger/domain/category.types";
+import { CategoryIcon, CategoryIconBadge } from "./CategoryIcon";
 import { Button } from "@/shared/ui/button";
 import { FormField } from "@/shared/ui/form-field";
 import { Input } from "@/shared/ui/input";
 import { MoneyInput } from "@/shared/ui/money-input";
 import { ResponsiveDrawer } from "@/shared/ui/responsive-drawer";
 import { SegmentedControl } from "@/shared/ui/segmented-control";
-import { SelectField } from "@/shared/ui/select-field";
 import { currencyChipLabel, normalizeAmountString } from "@/shared/lib/keypad";
 
 interface CreateAccountModalProps {
@@ -18,13 +28,6 @@ interface CreateAccountModalProps {
 }
 
 const FORM_ID = "create-account-form";
-
-const TYPE_OPTIONS: { value: AccountType; label: string }[] = [
-  { value: "Bank", label: "Banco" },
-  { value: "Wallet", label: "Billetera Digital" },
-  { value: "Cash", label: "Efectivo" },
-  { value: "Exchange", label: "Exchange (Crypto)" },
-];
 
 const CURRENCY_OPTIONS = [
   { value: "BOB", label: "BOB" },
@@ -40,20 +43,36 @@ const CURRENCY_NAMES: Record<string, string> = {
 
 export function CreateAccountModal({ isOpen, onClose, onSubmit }: CreateAccountModalProps) {
   const [name, setName] = useState("");
-  const [type, setType] = useState<AccountType>("Bank");
+  const [type, setType] = useState<AccountType>("Savings");
   const [currency, setCurrency] = useState("BOB");
   const [initialBalance, setInitialBalance] = useState("");
+  const [iconKey, setIconKey] = useState<CategoryIconKey>("piggy-bank");
+  const [colorKey, setColorKey] = useState<CategoryColorKey>("emerald");
   const [submitting, setSubmitting] = useState(false);
 
   // Reset the form whenever the drawer closes.
   useEffect(() => {
     if (!isOpen) {
       setName("");
-      setType("Bank");
+      setType("Savings");
       setCurrency("BOB");
       setInitialBalance("");
+      setIconKey("piggy-bank");
+      setColorKey("emerald");
     }
   }, [isOpen]);
+
+  const handleSelectType = (nextType: AccountType) => {
+    setType(nextType);
+    const defaults = getDefaultAccountVisualMeta(nextType);
+    setIconKey(defaults.iconKey);
+    setColorKey(defaults.colorKey);
+    if (nextType === "CryptoWallet") {
+      setCurrency("USDT");
+    } else if (nextType === "International") {
+      setCurrency("USD");
+    }
+  };
 
   const isValid = name.trim().length > 0;
 
@@ -70,6 +89,8 @@ export function CreateAccountModal({ isOpen, onClose, onSubmit }: CreateAccountM
         type,
         currency,
         initialBalance: balance ? balance : 0,
+        iconKey,
+        colorKey,
       });
       setName("");
       setInitialBalance("");
@@ -84,7 +105,8 @@ export function CreateAccountModal({ isOpen, onClose, onSubmit }: CreateAccountM
       open={isOpen}
       onOpenChange={(open) => !open && onClose()}
       title="Crear nueva cuenta"
-      description="Elegí el tipo, la moneda y con cuánto arranca."
+      description="Elegí el tipo de cuenta, su ícono personalizado, moneda y saldo inicial."
+      size="md"
       footer={
         <>
           <Button
@@ -110,6 +132,64 @@ export function CreateAccountModal({ isOpen, onClose, onSubmit }: CreateAccountM
       }
     >
       <form id={FORM_ID} onSubmit={handleSubmit} className="flex flex-col gap-5">
+        {/* Live Preview */}
+        <div className="p-3.5 rounded-2xl bg-muted/40 border border-border flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <CategoryIconBadge iconKey={iconKey} colorKey={colorKey} size="lg" />
+            <div className="flex flex-col min-w-0">
+              <span className="text-sm font-extrabold text-foreground truncate">
+                {name.trim() || "Nombre de tu cuenta"}
+              </span>
+              <span className="text-xs text-muted-foreground font-medium">
+                {ACCOUNT_TYPE_OPTIONS.find((o) => o.value === type)?.label || "Ahorros"} •{" "}
+                {CURRENCY_NAMES[currency] ?? currency} ({currency})
+              </span>
+            </div>
+          </div>
+          <span className="text-sm font-mono font-extrabold text-primary shrink-0">
+            {currency === "BOB" ? "Bs. " : currency === "USD" ? "$ " : ""}
+            {initialBalance.trim() || "0.00"}
+            {currency === "USDT" ? " USDT" : ""}
+          </span>
+        </div>
+
+        {/* Account Type Cards */}
+        <FormField label="Tipo de cuenta" required>
+          {() => (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {ACCOUNT_TYPE_OPTIONS.map((opt) => {
+                const active = type === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => handleSelectType(opt.value)}
+                    className={`p-3 rounded-xl border text-left transition flex items-start gap-2.5 ${
+                      active
+                        ? "bg-accent border-primary ring-1 ring-primary/40"
+                        : "bg-background border-border hover:bg-muted/60"
+                    }`}
+                  >
+                    <CategoryIconBadge
+                      iconKey={opt.defaultIcon}
+                      colorKey={opt.defaultColor}
+                      size="sm"
+                    />
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-xs font-extrabold text-foreground">
+                        {opt.label}
+                      </span>
+                      <span className="text-[11px] text-muted-foreground leading-tight mt-0.5">
+                        {opt.description}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </FormField>
+
         <FormField label="Nombre de la cuenta" required>
           {(control) => (
             <Input
@@ -117,22 +197,63 @@ export function CreateAccountModal({ isOpen, onClose, onSubmit }: CreateAccountM
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Ej. Banco Unión, Billetera USDT, Efectivo"
+              placeholder="Ej. Caja de Ahorros BNB, Binance USDT, Wise USD"
               autoComplete="off"
             />
           )}
         </FormField>
 
-        <FormField label="Tipo de cuenta">
-          {(control) => (
-            <SelectField
-              {...control}
-              value={type}
-              onChange={(e) => setType(e.target.value as AccountType)}
-              options={TYPE_OPTIONS}
-            />
-          )}
-        </FormField>
+        {/* Icon & Color Customizer */}
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-foreground">
+              Ícono y color de la cuenta
+            </span>
+            <div className="flex items-center gap-1.5">
+              {CATEGORY_COLOR_LIST.slice(0, 7).map((c) => {
+                const isSelected = colorKey === c.key;
+                return (
+                  <button
+                    key={c.key}
+                    type="button"
+                    onClick={() => setColorKey(c.key)}
+                    title={c.label}
+                    className={`w-5 h-5 rounded-full transition ${
+                      isSelected
+                        ? "ring-2 ring-offset-2 ring-offset-background ring-foreground scale-110"
+                        : "opacity-75 hover:opacity-100"
+                    }`}
+                    style={{ backgroundColor: c.swatchHex }}
+                  />
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-6 gap-2">
+            {ACCOUNT_ICON_CHOICES.map((item) => {
+              const selected = iconKey === item.key;
+              return (
+                <button
+                  key={item.key}
+                  type="button"
+                  onClick={() => setIconKey(item.key)}
+                  title={item.label}
+                  className={`p-2 rounded-xl border flex flex-col items-center justify-center gap-1 transition ${
+                    selected
+                      ? "bg-accent border-primary text-primary ring-1 ring-primary/40"
+                      : "bg-background border-border text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                  }`}
+                >
+                  <CategoryIcon iconKey={item.key} className="w-4 h-4" />
+                  <span className="text-[10px] font-semibold truncate w-full text-center">
+                    {item.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
         <FormField label="Moneda" hint={`${CURRENCY_NAMES[currency] ?? currency} (${currency})`}>
           <SegmentedControl

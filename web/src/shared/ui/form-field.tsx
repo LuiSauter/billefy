@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { cn } from "cn"
+import { cn } from "@/shared/lib/utils"
 
 /** Props a control must receive to be wired to its `FormField`. */
 export type FormFieldControlProps = {

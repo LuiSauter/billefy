@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import dynamic from "next/dynamic";
 import { useAuth } from "@/modules/identity/application/AuthContext";
 import { useDashboardData } from "@/modules/dashboard/application/useDashboardData";
 import { useDashboardModals } from "@/modules/dashboard/application/useDashboardModals";
@@ -9,20 +10,57 @@ import { Sidebar, NavigationTab } from "@/modules/dashboard/presentation/Sidebar
 import { Topbar } from "@/modules/dashboard/presentation/Topbar";
 import { MobileHeader } from "@/modules/dashboard/presentation/MobileHeader";
 import { MobileBottomNav } from "@/modules/dashboard/presentation/MobileBottomNav";
-import { AuthScreen } from "@/modules/identity/presentation/AuthScreen";
 import { DashboardHomeView } from "@/modules/dashboard/presentation/DashboardHomeView";
-import { AccountsTabView } from "@/modules/ledger/presentation/AccountsTabView";
-import { BudgetsTabView } from "@/modules/planning/presentation/BudgetsTabView";
-import { LoansList } from "@/modules/lending/presentation/LoansList";
-import { RecurringPaymentsView } from "@/modules/planning/presentation/RecurringPaymentsView";
-import { ModalsContainer } from "@/modules/dashboard/presentation/ModalsContainer";
+import { useInvestments } from "@/modules/investments/application/useInvestments";
+import { useDistributionPlan } from "@/modules/planning/application/useDistributionPlan";
+import { FetchHttpClient } from "@/shared/infrastructure/fetch-http.client";
+import { defaultTokenStorage } from "@/shared/infrastructure/local-storage-token.adapter";
 import { notify } from "@/shared/lib/notify";
 import { Loader2, Wallet } from "lucide-react";
+
+const AuthScreen = dynamic(() =>
+  import("@/modules/identity/presentation/AuthScreen").then((m) => m.AuthScreen)
+);
+const AccountsTabView = dynamic(() =>
+  import("@/modules/ledger/presentation/AccountsTabView").then((m) => m.AccountsTabView)
+);
+const BudgetsTabView = dynamic(() =>
+  import("@/modules/planning/presentation/BudgetsTabView").then((m) => m.BudgetsTabView)
+);
+const LoansList = dynamic(() =>
+  import("@/modules/lending/presentation/LoansList").then((m) => m.LoansList)
+);
+const RecurringPaymentsView = dynamic(() =>
+  import("@/modules/planning/presentation/RecurringPaymentsView").then(
+    (m) => m.RecurringPaymentsView
+  )
+);
+const ModalsContainer = dynamic(() =>
+  import("@/modules/dashboard/presentation/ModalsContainer").then((m) => m.ModalsContainer)
+);
+const InvestmentsView = dynamic(() =>
+  import("@/modules/investments/presentation/InvestmentsView").then((m) => m.InvestmentsView)
+);
+const DistributionPlanView = dynamic(() =>
+  import("@/modules/planning/presentation/DistributionPlanView").then(
+    (m) => m.DistributionPlanView
+  )
+);
 
 export default function DashboardPage() {
   const { isAuthenticated, isLoading: authLoading, token, user, logout } = useAuth();
   const dashboard = useDashboardData(token, user?.id);
   const modals = useDashboardModals(dashboard.getLoanById);
+  const planningHttp = useMemo(() => {
+    const effectiveToken = token || defaultTokenStorage.getAccessToken();
+    if (!effectiveToken) return null;
+    return new FetchHttpClient({
+      authToken: effectiveToken,
+      userId: user?.id || defaultTokenStorage.getUser()?.id,
+    });
+  }, [token, user?.id]);
+  const investmentsCtl = useInvestments(planningHttp);
+  const planCtl = useDistributionPlan(planningHttp);
 
   const [activeTab, setActiveTab] = useState<NavigationTab>("inicio");
   const [searchQuery, setSearchQuery] = useState("");
@@ -75,7 +113,7 @@ export default function DashboardPage() {
     if (dashboard.accounts.length === 0) {
       modals.setIsAccountModalOpen(true);
     } else {
-      modals.setIsMobile1TapTxnOpen(true);
+      modals.setIsTxnModalOpen(true);
     }
   };
 
@@ -98,30 +136,30 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex font-sans text-foreground">
+    <div className="h-dvh overflow-hidden bg-background flex font-sans text-foreground">
       <Sidebar
-        user={user}
+        planEnabled={planCtl.plan.enabled}
         activeTab={activeTab}
         onTabChange={(tab) =>
           tab === "borradores" ? modals.setIsDraftsDrawerOpen(true) : setActiveTab(tab)
         }
         draftsCount={dashboard.pendingDrafts.length}
         p2pRate={p2pRate}
-        onLogout={logout}
+        onOpenFxTransfer={() => modals.setIsFxTransferOpen(true)}
+        onOpenWhatsApp={() => modals.setIsWhatsAppModalOpen(true)}
+        onOpenBinance={() => modals.setIsBinanceModalOpen(true)}
       />
 
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Mobile Header (OpenPencil Mobile n2160 Island + UBar) */}
+      <div className="flex-1 flex flex-col min-w-0 h-dvh overflow-y-auto">
+        {/* Mobile Header */}
         <MobileHeader
           user={user}
           p2pRate={p2pRate}
           draftsCount={dashboard.pendingDrafts.length}
-          selectedCurrency={selectedCurrency}
-          onToggleCurrency={() =>
-            setSelectedCurrency((prev) => (prev === "BOB" ? "USD" : "BOB"))
-          }
           onOpenDrafts={() => modals.setIsDraftsDrawerOpen(true)}
           onOpenFx={() => modals.setIsFxTransferOpen(true)}
+          onOpenProfile={() => modals.setIsProfileModalOpen(true)}
+          onOpenSettings={() => modals.setIsSettingsModalOpen(true)}
           onLogout={logout}
         />
 
@@ -135,15 +173,15 @@ export default function DashboardPage() {
           onToggleCurrency={() =>
             setSelectedCurrency((prev) => (prev === "BOB" ? "USD" : "BOB"))
           }
-          onOpenFxTransfer={() => modals.setIsFxTransferOpen(true)}
           onOpenNewTransaction={() => modals.setIsTxnModalOpen(true)}
           onOpenCreateAccount={() => modals.setIsAccountModalOpen(true)}
-          onOpenWhatsApp={() => modals.setIsWhatsAppModalOpen(true)}
-          onOpenBinance={() => modals.setIsBinanceModalOpen(true)}
+          onOpenProfile={() => modals.setIsProfileModalOpen(true)}
+          onOpenSettings={() => modals.setIsSettingsModalOpen(true)}
+          onLogout={logout}
         />
 
         {dashboard.error && (
-          <div className="mx-4 sm:mx-8 mt-4 p-4 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-semibold">
+          <div className="mx-4 sm:mx-8 mt-4 p-4 bg-rose-500/10 border border-rose-500/30 text-rose-300 rounded-xl text-xs font-semibold">
             {dashboard.error}
           </div>
         )}
@@ -178,6 +216,23 @@ export default function DashboardPage() {
               onDiscardDraft={dashboard.discardDraft}
               onConfirmAllDrafts={handleConfirmAllDrafts}
               onReverseTxn={dashboard.reverseTransaction}
+              onEditTxn={modals.openEditTransaction}
+              investments={investmentsCtl.investments}
+              onUpdateAccount={dashboard.updateAccount}
+              onOpenAccountsTab={() => setActiveTab("cuentas")}
+              onOpenInvestmentsTab={() => setActiveTab("inversiones")}
+            />
+          )}
+
+          {activeTab === "inversiones" && (
+            <InvestmentsView controller={investmentsCtl} p2pRate={p2pRate} />
+          )}
+
+          {activeTab === "plan" && planCtl.plan.enabled && (
+            <DistributionPlanView
+              controller={planCtl}
+              transactions={dashboard.transactions}
+              p2pRate={p2pRate}
             />
           )}
 
@@ -188,6 +243,7 @@ export default function DashboardPage() {
               onOpenCreateAccountModal={() => modals.setIsAccountModalOpen(true)}
               onOpenCsvModal={() => modals.setIsCsvModalOpen(true)}
               onOpenReconcileModal={modals.openReconcile}
+              onUpdateAccount={dashboard.updateAccount}
             />
           )}
 
@@ -240,16 +296,28 @@ export default function DashboardPage() {
           tab === "borradores" ? modals.setIsDraftsDrawerOpen(true) : setActiveTab(tab)
         }
         onOpenQuickTxn={handleOpenQuickTxn}
+        planEnabled={planCtl.plan.enabled}
       />
 
       <ModalsContainer
         modals={modals}
+        user={user}
         accounts={dashboard.accounts}
         pendingDrafts={dashboard.pendingDrafts}
         p2pRate={p2pRate}
+        selectedCurrency={selectedCurrency}
+        onSelectCurrency={setSelectedCurrency}
+        onLogout={logout}
+        planEnabled={planCtl.plan.enabled}
+        onTogglePlan={(enabled) => {
+          planCtl.setEnabled(enabled);
+          if (!enabled && activeTab === "plan") setActiveTab("inicio");
+        }}
         actions={{
           createAccount: dashboard.createAccount,
           registerTransaction: dashboard.registerTransaction,
+          updateTransaction: dashboard.updateTransaction,
+          reverseTransaction: dashboard.reverseTransaction,
           executeFxTransfer: dashboard.executeFxTransfer,
           reconcileAccount: dashboard.reconcileAccount,
           simulateLoan: dashboard.simulateLoan,

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { AccountDto } from "@/modules/ledger/domain/ledger.types";
 import { DraftDto } from "@/modules/ingestion/domain/ingestion.types";
 import { CheckCheck, Check, Inbox } from "lucide-react";
-import { cn } from "cn";
+import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
 import { ResponsiveDrawer } from "@/shared/ui/responsive-drawer";
 import { formatSignedAmount } from "@/shared/lib/format";

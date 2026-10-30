@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useRef } from "react";
-import { cn } from "cn";
+import { cn } from "@/shared/lib/utils";
 
 export type ChipOption = { value: string; label: string };
 

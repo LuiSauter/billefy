@@ -69,7 +69,7 @@ export function GoogleSignInButton({
         if (googleBtnRef.current) {
           googleBtnRef.current.innerHTML = "";
           window.google.accounts.id.renderButton(googleBtnRef.current, {
-            theme: "outline",
+            theme: "filled_black",
             size: "large",
             text: "continue_with",
             shape: "rectangular",
@@ -124,7 +124,7 @@ export function GoogleSignInButton({
           type="button"
           disabled={busy}
           onClick={handleFallbackClick}
-          className="w-full h-[52px] px-6 rounded-[14px] border border-slate-300 bg-white hover:bg-slate-50 text-[15px] font-extrabold text-foreground transition flex items-center justify-center gap-3 shadow-2xs active:scale-[0.99] disabled:opacity-60"
+          className="w-full h-[52px] px-6 rounded-[14px] border border-border bg-secondary hover:bg-muted text-[15px] font-extrabold text-foreground transition flex items-center justify-center gap-3 shadow-2xs active:scale-[0.99] disabled:opacity-60"
         >
           {busy ? (
             <>

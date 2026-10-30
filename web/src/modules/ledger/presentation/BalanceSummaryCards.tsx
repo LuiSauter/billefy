@@ -28,14 +28,14 @@ export function BalanceSummaryCards({
   return (
     <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       {/* 1. Patrimonio Total (OpenPencil KCard_0) */}
-      <div className="p-4 rounded-[14px] bg-white border border-border flex flex-col gap-[6px] shadow-2xs">
+      <div className="p-4 rounded-[14px] bg-card border border-border flex flex-col gap-[6px] shadow-2xs">
         <div className="flex items-center justify-between">
           <span className="text-sm font-semibold text-muted-foreground">
             Patrimonio Total
           </span>
           <span
             className={`text-xs font-bold ${
-              hasAccounts ? "text-emerald-500" : "text-slate-400"
+              hasAccounts ? "text-emerald-400" : "text-muted-foreground"
             }`}
           >
             {hasAccounts ? "Consolidado" : "Sin cuentas"}
@@ -50,7 +50,7 @@ export function BalanceSummaryCards({
       </div>
 
       {/* 2. Liquidez en Bancos (OpenPencil KCard_1) */}
-      <div className="p-4 rounded-[14px] bg-white border border-border flex flex-col gap-[6px] shadow-2xs">
+      <div className="p-4 rounded-[14px] bg-card border border-border flex flex-col gap-[6px] shadow-2xs">
         <div className="flex items-center justify-between">
           <span className="text-sm font-semibold text-muted-foreground">
             Liquidez en Bancos
@@ -68,12 +68,12 @@ export function BalanceSummaryCards({
       </div>
 
       {/* 3. Cripto (Binance) (OpenPencil KCard_2) */}
-      <div className="p-4 rounded-[14px] bg-white border border-border flex flex-col gap-[6px] shadow-2xs">
+      <div className="p-4 rounded-[14px] bg-card border border-border flex flex-col gap-[6px] shadow-2xs">
         <div className="flex items-center justify-between">
           <span className="text-sm font-semibold text-muted-foreground">
             Cripto (Binance)
           </span>
-          <span className="text-xs font-bold text-amber-500">
+          <span className="text-xs font-bold text-amber-400">
             Bs. {metrics.cryptoEquivalentBob}
           </span>
         </div>
@@ -86,18 +86,18 @@ export function BalanceSummaryCards({
       </div>
 
       {/* 4. Préstamos Netos (OpenPencil KCard_3) */}
-      <div className="p-4 rounded-[14px] bg-white border border-border flex flex-col gap-[6px] shadow-2xs">
+      <div className="p-4 rounded-[14px] bg-card border border-border flex flex-col gap-[6px] shadow-2xs">
         <div className="flex items-center justify-between">
           <span className="text-sm font-semibold text-muted-foreground">
             Préstamos Netos
           </span>
-          <span className="text-xs font-bold text-violet-500">
+          <span className="text-xs font-bold text-violet-400">
             {metrics.isNetLoansPositive ? "A favor" : "Por pagar"}
           </span>
         </div>
         <div
           className={`text-[22px] font-black tracking-tight font-mono ${
-            metrics.isNetLoansPositive ? "text-foreground" : "text-rose-600"
+            metrics.isNetLoansPositive ? "text-foreground" : "text-rose-400"
           }`}
         >
           {metrics.netLoansBob}

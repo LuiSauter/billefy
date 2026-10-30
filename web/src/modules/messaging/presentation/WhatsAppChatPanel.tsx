@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef } from "react";
-import { cn } from "cn";
+import { cn } from "@/shared/lib/utils";
 import { LinkWhatsAppResponse } from "@/modules/messaging/domain/messaging.types";
 
 export type WhatsAppChatMessage = { from: "user" | "bot"; text: string };
