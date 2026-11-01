@@ -68,11 +68,10 @@ export default function DashboardPage() {
 
   const p2pRate = dashboard.rate?.appliedRate || 9.85;
 
-  const { balanceMetrics, budgetMetrics, totalSavedBob } = useFinancialMetrics({
+  const { balanceMetrics, budgetMetrics } = useFinancialMetrics({
     accounts: dashboard.accounts,
     loans: dashboard.loans,
     budgets: dashboard.budgets,
-    goals: dashboard.goals,
     bobTotal: dashboard.totals.bobTotal,
     usdTotal: dashboard.totals.usdTotal,
     consolidatedUsd: dashboard.totals.consolidatedUsd,
@@ -186,7 +185,7 @@ export default function DashboardPage() {
           </div>
         )}
 
-        <main className="flex-1 px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6 pb-24 md:pb-10 flex flex-col gap-6 max-w-[1240px] w-full mx-auto">
+        <main className="flex-1 px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6 pb-24 md:pb-10 flex flex-col gap-6 w-full mx-auto">
           {activeTab === "inicio" && (
             <DashboardHomeView
               metrics={balanceMetrics}
@@ -228,7 +227,7 @@ export default function DashboardPage() {
             <InvestmentsView controller={investmentsCtl} p2pRate={p2pRate} />
           )}
 
-          {activeTab === "plan" && planCtl.plan.enabled && (
+          {activeTab === "plan" && (
             <DistributionPlanView
               controller={planCtl}
               transactions={dashboard.transactions}
@@ -259,21 +258,24 @@ export default function DashboardPage() {
 
           {activeTab === "presupuestos" && (
             <BudgetsTabView
+              plan={planCtl.plan}
+              planStatus={planCtl.loadStatus}
+              onRetryPlan={planCtl.reloadPlan}
               budgets={dashboard.budgets}
+              budgetsLoading={dashboard.budgetsLoading}
+              budgetsError={dashboard.budgetsError}
+              onRetryBudgets={() => void dashboard.refreshBudgets()}
+              goalsLoading={dashboard.planningOverviewStatus === "loading"}
+              overviewError={dashboard.planningOverviewError}
+              overviewLoading={dashboard.planningOverviewStatus === "loading" || dashboard.planningOverviewStatus === "refreshing"}
+              onRetryOverview={() => void dashboard.retryPlanningOverview()}
+              onUpdateBudget={dashboard.updateBudget}
               goals={dashboard.goals}
               health={dashboard.health}
               budgetMetrics={budgetMetrics}
-              totalSavedBob={totalSavedBob}
-              p2pRate={p2pRate}
               onOpenCreateBudgetModal={() => modals.setIsBudgetModalOpen(true)}
               onOpenCreateGoalModal={() => modals.setIsGoalModalOpen(true)}
-              onOpenContributeModal={() => {
-                if (dashboard.accounts.length === 0) {
-                  modals.setIsAccountModalOpen(true);
-                } else {
-                  modals.setIsTxnModalOpen(true);
-                }
-              }}
+              onOpenAccounts={() => setActiveTab("cuentas")}
             />
           )}
 
@@ -302,6 +304,7 @@ export default function DashboardPage() {
       <ModalsContainer
         modals={modals}
         user={user}
+        onOpenAccounts={() => setActiveTab("cuentas")}
         accounts={dashboard.accounts}
         pendingDrafts={dashboard.pendingDrafts}
         p2pRate={p2pRate}
@@ -310,7 +313,11 @@ export default function DashboardPage() {
         onLogout={logout}
         planEnabled={planCtl.plan.enabled}
         onTogglePlan={(enabled) => {
-          planCtl.setEnabled(enabled);
+          const accepted = planCtl.setEnabled(enabled);
+          if (enabled && !accepted) {
+            modals.setIsSettingsModalOpen(false);
+            setActiveTab("plan");
+          }
           if (!enabled && activeTab === "plan") setActiveTab("inicio");
         }}
         actions={{
