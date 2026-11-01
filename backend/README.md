@@ -221,6 +221,14 @@ Verifica la API y la documentación interactiva en:
 * **Scalar API Reference**: `http://localhost:5267/scalar/v1`
 * **Especificación OpenAPI 3.1 JSON**: `http://localhost:5267/openapi/v1.json`
 
+## Safe loan cancellation
+
+`POST /v1/loans/{id}/cancel` is owner-scoped and cancels only active loans with no recorded payments. A loan without a disbursement account creates no ledger movement. A linked disbursement is reversed only when its exact transaction ID and account, owner, currency, principal, and direction match; its original transaction and installment schedule remain in history. Repeated successful requests return the stored cancellation status and reversal transaction ID.
+
+Conflicts use stable problem `title` codes: `Loan.HasPayments`, `Loan.LegacyDisbursementUnlinked`, `Loan.InvalidStatus`, `Loan.InvalidDisbursementLink`, `Loan.DisbursementMismatch`, and `Loan.DisbursementAlreadyReversed`. Loan summary and detail responses expose `cancellationEligibility.canCancel` and `cancellationEligibility.reasonCode` (`HasPayments`, `LegacyDisbursementUnlinked`, `InvalidStatus`, `InvalidDisbursementLink`, `DisbursementNotFound`, `DisbursementMismatch`, or `DisbursementAlreadyReversed`) for client decisions; the server remains authoritative.
+
+The `AddUniqueTransactionReversalPerOriginal` migration adds a filtered unique index so a ledger transaction can have at most one reversal, including reversals created outside loan cancellation. If legacy data contains multiple rows with the same non-null `reverses_id`, PostgreSQL will reject that migration. The migration intentionally does not delete, rewrite, or infer historical ledger data; resolve any such records through an explicitly approved data-correction plan before applying it. Cancellation and payment coordination uses a PostgreSQL row lock plus one shared relational transaction. SQLite integration tests verify deterministic behavior and rollback, not PostgreSQL locking or cross-context enlistment.
+
 ### D. Verificación de Formato y Estilo de Código
 
 * **macOS / Linux / Windows**:
