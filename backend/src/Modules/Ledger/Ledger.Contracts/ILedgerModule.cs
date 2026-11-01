@@ -28,6 +28,10 @@ public sealed record MonthlyLedgerMetricsDto(
 
 public sealed record LoanDisbursementReversalResultDto(Guid? ReversalTransactionId, string? ErrorCode);
 
+public sealed record InvestmentCashTransactionRequestDto(Guid UserId, Guid InvestmentId, Guid AccountId, decimal Amount,
+    string Kind, DateTime OccurredAt, string? Description);
+public sealed record InvestmentCashTransactionResultDto(Guid? TransactionId, string? ErrorCode);
+
 public sealed record LoanDisbursementReversalRequestDto(
     Guid UserId,
     Guid TransactionId,
@@ -41,6 +45,13 @@ public sealed record LedgerCurrencyHealthMetricsDto(
     decimal MonthlyIncome,
     decimal MonthlyExpenses,
     decimal CurrentBalance);
+
+public sealed record LedgerCategoryExpenseDto(Guid CategoryId, decimal Amount);
+
+public sealed record LedgerCurrencySpendingDto(
+    string Currency,
+    decimal TotalExpenses,
+    IReadOnlyList<LedgerCategoryExpenseDto> ExpensesByCategory);
 
 public interface ILedgerModule
 {
@@ -60,16 +71,30 @@ public interface ILedgerModule
         LoanDisbursementReversalRequestDto request,
         CancellationToken cancellationToken = default);
 
+    Task<InvestmentCashTransactionResultDto> RegisterInvestmentCashAsync(InvestmentCashTransactionRequestDto request, CancellationToken cancellationToken = default);
+    Task<InvestmentCashTransactionResultDto> ReverseInvestmentCashAsync(Guid userId, Guid transactionId, CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<LedgerCurrencyHealthMetricsDto>> GetMonthlyHealthMetricsAsync(
         Guid userId,
         DateTime monthStartUtc,
         DateTime monthEndUtcExclusive,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Legacy compatibility aggregate. Its scalar totals have no currency dimension and must not be used
+    /// for currency-sensitive reporting; new consumers should use GetMonthlySpendingByCurrencyAsync.
+    /// </summary>
     Task<MonthlyLedgerMetricsDto> GetMonthlyMetricsAsync(
         Guid userId,
         DateTime monthStart,
         DateTime monthEnd,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Returns active expense totals and category allocations grouped by native currency.</summary>
+    Task<IReadOnlyList<LedgerCurrencySpendingDto>> GetMonthlySpendingByCurrencyAsync(
+        Guid userId,
+        DateTime monthStartUtc,
+        DateTime monthEndUtcExclusive,
         CancellationToken cancellationToken = default);
 
     Task<decimal> GetAccountBalanceAsync(

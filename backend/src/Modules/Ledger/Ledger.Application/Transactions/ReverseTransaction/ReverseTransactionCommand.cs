@@ -47,6 +47,9 @@ public sealed class ReverseTransactionCommandHandler
             return Result.Failure<Guid>(Error.NotFound("Transaction.NotFound", "Transaction not found."));
         }
 
+        if (original.InvestmentId.HasValue)
+            return Result.Failure<Guid>(Error.Conflict("InvestmentCash.RequiresCoordinatedReverse", "Investment cash movements must be reversed through the investment endpoint."));
+
         if (original.ReversesId.HasValue)
         {
             return Result.Failure<Guid>(Error.Conflict("Transaction.ReversalCannotBeReversed", "A reversal cannot be reversed."));

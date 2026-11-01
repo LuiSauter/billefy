@@ -12,16 +12,16 @@ internal sealed class InvestmentRepository(PlanningDbContext context) : IInvestm
     public Task<List<Investment>> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken = default) =>
         context.Investments
             .IgnoreQueryFilters()
-            .Where(i => i.UserId == userId)
+            .Where(i => i.UserId == userId && i.ArchivedAt == null)
             .OrderByDescending(i => i.CreatedAt)
             .ToListAsync(cancellationToken);
 
     public async Task AddAsync(Investment investment, CancellationToken cancellationToken = default) =>
         await context.Investments.AddAsync(investment, cancellationToken);
 
-    public Task DeleteAsync(Investment investment, CancellationToken cancellationToken = default)
-    {
-        context.Investments.Remove(investment);
-        return Task.CompletedTask;
-    }
+    public async Task AddCashLinkAsync(InvestmentCashLink link, CancellationToken cancellationToken = default) =>
+        await context.InvestmentCashLinks.AddAsync(link, cancellationToken);
+
+    public Task<InvestmentCashLink?> GetCashLinkByLedgerTransactionIdAsync(Guid transactionId, CancellationToken cancellationToken = default) =>
+        context.InvestmentCashLinks.FirstOrDefaultAsync(link => link.LedgerTransactionId == transactionId, cancellationToken);
 }

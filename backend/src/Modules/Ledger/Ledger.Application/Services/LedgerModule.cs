@@ -56,11 +56,12 @@ public sealed class LedgerModule : ILedgerModule
         decimal? appliedRate = null;
         string? rateSource = null;
 
-        if (_rateSnapshotProvider is not null && account.Currency.Code != "USD")
+        if (_rateSnapshotProvider is not null)
         {
+            var targetBase = account.Currency.Code == "USD" ? "BOB" : "USD";
             var snapshot = await _rateSnapshotProvider.GetSnapshotAsync(
                 account.Currency.Code,
-                "USD",
+                targetBase,
                 dto.UserId,
                 cancellationToken);
 
@@ -93,6 +94,50 @@ public sealed class LedgerModule : ILedgerModule
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return transaction.Id;
+    }
+
+    public async Task<InvestmentCashTransactionResultDto> RegisterInvestmentCashAsync(
+        InvestmentCashTransactionRequestDto request, CancellationToken cancellationToken = default)
+    {
+        if (request.Amount <= 0 || !Enum.TryParse<InvestmentCashKind>(request.Kind, true, out var kind))
+            return new(null, "InvestmentCash.InvalidAmountOrKind");
+        var account = await _accountRepository.GetByIdForUserAsync(request.UserId, request.AccountId, cancellationToken);
+        if (account is null) return new(null, "Account.NotFound");
+        if (account.IsArchived) return new(null, "Account.Archived");
+        if (request.Amount != decimal.Round(request.Amount, account.Currency.DecimalPlaces))
+            return new(null, "InvestmentCash.InvalidPrecision");
+        decimal? rate = null;
+        string? source = null;
+        if (_rateSnapshotProvider is not null && account.Currency.Code != "USD")
+        {
+            var snapshot = await _rateSnapshotProvider.GetSnapshotAsync(account.Currency.Code, "USD", request.UserId, cancellationToken);
+            if (snapshot is not null) { rate = snapshot.AppliedRate; source = snapshot.RateSource; }
+        }
+        var transaction = Transaction.CreateInvestmentCash(request.UserId, account.Id, Money.Of(request.Amount, account.Currency),
+            kind, request.InvestmentId, request.OccurredAt, request.Description, rate, source, _clock.UtcNow);
+        await _transactionRepository.AddAsync(transaction, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        return new(transaction.Id, null);
+    }
+
+    public async Task<InvestmentCashTransactionResultDto> ReverseInvestmentCashAsync(
+        Guid userId, Guid transactionId, CancellationToken cancellationToken = default)
+    {
+        var original = await _transactionRepository.GetByIdAsync(transactionId, cancellationToken);
+        if (original is null || original.UserId != userId || !original.InvestmentId.HasValue || original.ReversesId.HasValue)
+            return new(null, "InvestmentCash.NotFound");
+        if (await _transactionRepository.GetReversalByOriginalIdAsync(transactionId, cancellationToken) is not null)
+            return new(null, "InvestmentCash.AlreadyReversed");
+        var reversal = Transaction.CreateReversal(original, _clock.UtcNow, "Investment cash reversal", _clock.UtcNow);
+        await _transactionRepository.AddAsync(reversal, cancellationToken);
+        try { await _unitOfWork.SaveChangesAsync(cancellationToken); }
+        catch
+        {
+            if (await _transactionRepository.GetReversalByOriginalIdAsync(transactionId, cancellationToken) is not null)
+                return new(null, "InvestmentCash.AlreadyReversed");
+            throw;
+        }
+        return new(reversal.Id, null);
     }
 
     public async Task<LoanDisbursementReversalResultDto> ValidateLoanDisbursementReversalAsync(
@@ -168,6 +213,31 @@ public sealed class LedgerModule : ILedgerModule
             .ToArray();
     }
 
+    public async Task<IReadOnlyList<LedgerCurrencySpendingDto>> GetMonthlySpendingByCurrencyAsync(
+        Guid userId,
+        DateTime monthStartUtc,
+        DateTime monthEndUtcExclusive,
+        CancellationToken cancellationToken = default)
+    {
+        var currencyTotals = await _transactionRepository.GetMonthlyActivityByCurrencyAsync(
+            userId, monthStartUtc, monthEndUtcExclusive, cancellationToken);
+        var categoryTotals = await _transactionRepository.GetMonthlyCategoryExpensesAsync(
+            userId, monthStartUtc, monthEndUtcExclusive, cancellationToken);
+        var categoryGroups = categoryTotals.GroupBy(total => total.Currency, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key,
+                group => (IReadOnlyList<LedgerCategoryExpenseDto>)group
+                    .OrderBy(total => total.CategoryId)
+                    .Select(total => new LedgerCategoryExpenseDto(total.CategoryId, total.Amount)).ToArray(),
+                StringComparer.Ordinal);
+
+        return currencyTotals.OrderBy(total => total.Currency, StringComparer.Ordinal)
+            .Select(total => new LedgerCurrencySpendingDto(
+                total.Currency,
+                total.Expenses,
+                categoryGroups.GetValueOrDefault(total.Currency, [])))
+            .ToArray();
+    }
+
     public async Task<MonthlyLedgerMetricsDto> GetMonthlyMetricsAsync(
         Guid userId,
         DateTime monthStart,
@@ -189,8 +259,8 @@ public sealed class LedgerModule : ILedgerModule
 
         foreach (var t in txns)
         {
-            // Internal movements are neither income nor spending, even when categorized.
-            if (t.TransferId.HasValue) continue;
+            // Transfers and linked investment cash are balance movements, not ordinary income/spending.
+            if (t.TransferId.HasValue || t.InvestmentId.HasValue) continue;
 
             if (t.Direction == TransactionDirection.Income)
             {

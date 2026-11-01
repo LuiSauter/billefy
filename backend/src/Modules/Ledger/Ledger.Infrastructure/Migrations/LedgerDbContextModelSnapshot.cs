@@ -167,6 +167,15 @@ namespace Ledger.Infrastructure.Migrations
                         .HasColumnType("character varying(20)")
                         .HasColumnName("direction");
 
+                    b.Property<string>("InvestmentCashKind")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("investment_cash_kind");
+
+                    b.Property<Guid?>("InvestmentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("investment_id");
+
                     b.Property<DateTime>("OccurredAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("occurred_at");

@@ -3,6 +3,7 @@ using Ledger.Domain.Transactions;
 namespace Ledger.Application.Abstractions;
 
 public sealed record MonthlyTransactionCurrencyTotal(string Currency, decimal Income, decimal Expenses);
+public sealed record MonthlyCategoryExpense(string Currency, Guid CategoryId, decimal Amount);
 
 public sealed record MovementRepositoryQuery(
     DateTime? StartUtc,
@@ -18,12 +19,13 @@ public sealed record MovementRepositoryQuery(
 public sealed record MovementQueryRow(
     Guid Id, Guid AccountId, string AccountName, decimal Amount, string Currency, TransactionDirection Direction,
     Guid? CategoryId, string? CategoryName, DateTime OccurredAt, string? Description, Guid? ReversesId,
-    Guid? TransferId, decimal? AppliedRate, string? RateSource, DateTime CreatedAt);
+    Guid? TransferId, decimal? AppliedRate, string? RateSource, DateTime CreatedAt, Guid? InvestmentId, string? InvestmentCashKind);
 
 public sealed record AllocationQueryRow(Guid CategoryId, string? CategoryName, decimal Amount);
 public sealed record MovementQueryEntry(MovementQueryRow Representative, IReadOnlyList<MovementQueryRow> Legs, bool IsTransfer,
     IReadOnlyList<AllocationQueryRow> Allocations);
-public sealed record MovementQueryCurrencySummary(string Currency, decimal Income, decimal Expenses);
+public sealed record MovementQueryCurrencySummary(string Currency, decimal Income, decimal Expenses,
+    decimal TransferOut, decimal TransferIn, decimal Contributions, decimal Disposals);
 public sealed record MovementQueryPage(
     IReadOnlyList<MovementQueryEntry> Items,
     int TotalCount,
@@ -45,6 +47,11 @@ public interface ITransactionRepository
         int limit = 50,
         CancellationToken cancellationToken = default);
     Task<IReadOnlyList<MonthlyTransactionCurrencyTotal>> GetMonthlyActivityByCurrencyAsync(
+        Guid userId,
+        DateTime monthStartUtc,
+        DateTime monthEndUtcExclusive,
+        CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<MonthlyCategoryExpense>> GetMonthlyCategoryExpensesAsync(
         Guid userId,
         DateTime monthStartUtc,
         DateTime monthEndUtcExclusive,

@@ -11,6 +11,7 @@ internal sealed class InvestmentConfiguration : IEntityTypeConfiguration<Investm
         builder.ToTable("investments");
 
         builder.HasKey(i => i.Id);
+        builder.HasAlternateKey(i => new { i.Id, i.UserId });
         builder.Property(i => i.Id).HasColumnName("id");
         builder.Property(i => i.UserId).HasColumnName("user_id").IsRequired();
         builder.Property(i => i.Name).HasColumnName("name").HasMaxLength(150).IsRequired();
@@ -23,6 +24,7 @@ internal sealed class InvestmentConfiguration : IEntityTypeConfiguration<Investm
         builder.Property(i => i.CurrentValue).HasColumnName("current_value").HasPrecision(20, 6).IsRequired();
         builder.Property(i => i.HistoryJson).HasColumnName("history_json").IsRequired();
         builder.Property(i => i.CreatedAt).HasColumnName("created_at").IsRequired();
+        builder.Property(i => i.ArchivedAt).HasColumnName("archived_at");
 
         builder.HasIndex(i => new { i.UserId, i.CreatedAt });
     }

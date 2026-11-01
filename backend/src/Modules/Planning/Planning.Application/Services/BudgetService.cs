@@ -67,24 +67,20 @@ public sealed class BudgetService(
         // Current month bounds
         var now = clock.UtcNow;
         var monthStart = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
-        var monthEnd = monthStart.AddMonths(1).AddTicks(-1);
+        var monthEndExclusive = monthStart.AddMonths(1);
 
-        var ledgerMetrics = await ledgerModule.GetMonthlyMetricsAsync(userId, monthStart, monthEnd, cancellationToken);
+        var spendingByCurrency = await ledgerModule.GetMonthlySpendingByCurrencyAsync(
+            userId, monthStart, monthEndExclusive, cancellationToken);
+        var spendingMap = spendingByCurrency.ToDictionary(item => item.Currency, StringComparer.Ordinal);
 
         var dtos = new List<BudgetDto>();
 
         foreach (var b in budgets)
         {
-            decimal spent;
-            if (b.CategoryId.HasValue)
-            {
-                spent = ledgerMetrics.ExpensesByCategory.GetValueOrDefault(b.CategoryId.Value, decimal.Zero);
-            }
-            else
-            {
-                // Overall budget
-                spent = ledgerMetrics.TotalExpense;
-            }
+            var currencySpending = spendingMap.GetValueOrDefault(b.LimitAmount.Currency.Code);
+            var spent = b.CategoryId is Guid categoryId
+                ? currencySpending?.ExpensesByCategory.FirstOrDefault(category => category.CategoryId == categoryId)?.Amount ?? decimal.Zero
+                : currencySpending?.TotalExpenses ?? decimal.Zero;
 
             var eval = b.EvaluateConsumption(spent);
 

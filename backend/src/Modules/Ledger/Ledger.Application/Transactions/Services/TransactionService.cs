@@ -39,15 +39,17 @@ public sealed class TransactionService(
         var items = result.Items.Select(entry =>
         {
             var row = entry.Representative;
-            var kind = entry.IsTransfer ? "Transfer" : row.Direction.ToString();
+            var kind = entry.IsTransfer ? "Transfer" : row.InvestmentId.HasValue ? "Investment" : row.Direction.ToString();
             return new MovementDto(entry.IsTransfer ? row.TransferId!.Value : row.Id, kind, row.Amount, row.Currency,
                 row.Direction.ToString(), row.OccurredAt, row.AccountId, row.AccountName, row.CategoryId, row.CategoryName,
                 row.Description, row.AppliedRate, row.RateSource, row.ReversesId.HasValue, row.ReversesId,
                 entry.Legs.Select(leg => new MovementLegDto(leg.Id, leg.AccountId, leg.AccountName, leg.Amount, leg.Currency,
                     leg.Direction.ToString(), leg.AppliedRate, leg.RateSource)).ToList(),
-                entry.Allocations.Select(item => new TransactionAllocationDto(item.CategoryId, item.CategoryName, item.Amount)).ToList());
+                entry.Allocations.Select(item => new TransactionAllocationDto(item.CategoryId, item.CategoryName, item.Amount)).ToList(),
+                row.InvestmentId, row.InvestmentCashKind);
         }).ToList();
-        var summary = result.Summary.Select(row => new MovementCurrencySummary(row.Currency, row.Income, row.Expenses)).ToList();
+        var summary = result.Summary.Select(row => new MovementCurrencySummary(row.Currency, row.Income, row.Expenses,
+            row.TransferOut, row.TransferIn, row.Contributions, row.Disposals)).ToList();
         return Result.Success(new MovementPage(items, query.Page, query.PageSize, result.TotalCount, summary));
     }
 
@@ -232,6 +234,8 @@ public sealed class TransactionService(
         var original = await transactionRepository.GetByIdAsync(id, cancellationToken);
         if (original is null || original.UserId != userContext.UserId)
             return Result.Failure<Guid>(Error.NotFound("Transaction.NotFound", "Transaction not found."));
+        if (original.InvestmentId.HasValue)
+            return Result.Failure<Guid>(Error.Conflict("InvestmentCash.Immutable", "Investment cash movements cannot be edited as ordinary transactions."));
         if (original.TransferId.HasValue || original.ReversesId.HasValue)
             return Result.Failure<Guid>(Error.Conflict("Transaction.TransferRequiresAtomicEdit", "Transfers and reversals cannot be edited as ordinary transactions."));
 

@@ -173,6 +173,10 @@ namespace Planning.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<DateTime?>("ArchivedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("archived_at");
+
                     b.Property<string>("ColorKey")
                         .IsRequired()
                         .HasMaxLength(30)
@@ -236,6 +240,65 @@ namespace Planning.Infrastructure.Migrations
                     b.HasIndex("UserId", "CreatedAt");
 
                     b.ToTable("investments", (string)null);
+                });
+
+            modelBuilder.Entity("Planning.Domain.Investments.InvestmentCashLink", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("InvestmentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("investment_id");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("kind");
+
+                    b.Property<Guid>("LedgerTransactionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("ledger_transaction_id");
+
+                    b.Property<DateTime>("LinkedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("linked_at");
+
+                    b.Property<Guid?>("ReversesLinkId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("reverses_link_id");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LedgerTransactionId")
+                        .IsUnique();
+
+                    b.HasIndex("InvestmentId", "UserId");
+
+                    b.HasIndex("UserId", "InvestmentId", "LinkedAt");
+
+                    b.ToTable("investment_cash_links", (string)null);
+                });
+
+            modelBuilder.Entity("Planning.Domain.Investments.InvestmentCashLink", b =>
+                {
+                    b.HasOne("Planning.Domain.Investments.Investment", null)
+                        .WithMany()
+                        .HasForeignKey("InvestmentId", "UserId")
+                        .HasPrincipalKey("Id", "UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 #pragma warning restore 612, 618
         }

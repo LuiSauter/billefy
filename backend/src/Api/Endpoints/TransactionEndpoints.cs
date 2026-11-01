@@ -29,6 +29,28 @@ public static class TransactionEndpoints
         .Produces<List<TransactionDto>>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status401Unauthorized);
 
+        group.MapGet("/movements", async (
+            [FromQuery] DateTime? startUtc,
+            [FromQuery] DateTime? endUtcExclusive,
+            [FromQuery] Guid? accountId,
+            [FromQuery] Guid? categoryId,
+            [FromQuery] MovementKind? type,
+            [FromQuery] string? search,
+            [FromQuery] MovementHistoryMode? mode,
+            [FromQuery] int? page,
+            [FromQuery] int? pageSize,
+            ITransactionService service,
+            CancellationToken ct) =>
+        {
+            var result = await service.GetMovementsAsync(new MovementQuery(startUtc, endUtcExclusive, accountId,
+                categoryId, type, search, mode ?? MovementHistoryMode.Active, page ?? 1, pageSize ?? 50), ct);
+            return result.ToHttpResult();
+        })
+        .WithName("GetMovements")
+        .Produces<MovementPage>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized);
+
         group.MapPost("/", async (
             [FromBody] RegisterTransactionRequest request,
             ITransactionService service,
@@ -58,6 +80,22 @@ public static class TransactionEndpoints
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status401Unauthorized);
 
+        group.MapPut("/transfers/{id:guid}", async (
+            [FromRoute] Guid id,
+            [FromBody] CorrectTransferRequest request,
+            ITransactionService service,
+            CancellationToken ct) =>
+        {
+            var result = await service.CorrectTransferAsync(id, request, ct);
+            return result.ToHttpResult(pair => Results.Ok(new { outflowId = pair.OutflowId, inflowId = pair.InflowId, replacedTransferId = id }));
+        })
+        .WithName("CorrectTransfer")
+        .Produces(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict);
+
         group.MapPost("/{id:guid}/reverse", async (
             [FromRoute] Guid id,
             [FromBody] ReverseTransactionRequest? request,
@@ -71,7 +109,8 @@ public static class TransactionEndpoints
         .Produces(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
-        .ProducesProblem(StatusCodes.Status404NotFound);
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict);
 
         group.MapPut("/{id:guid}", async (
             [FromRoute] Guid id,
@@ -100,7 +139,8 @@ public static class TransactionEndpoints
         .Produces(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
-        .ProducesProblem(StatusCodes.Status404NotFound);
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict);
 
         return group;
     }

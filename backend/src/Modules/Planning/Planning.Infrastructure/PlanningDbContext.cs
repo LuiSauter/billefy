@@ -14,6 +14,7 @@ public class PlanningDbContext : DbContext
     public DbSet<Budget> Budgets => Set<Budget>();
     public DbSet<Goal> Goals => Set<Goal>();
     public DbSet<Investment> Investments => Set<Investment>();
+    public DbSet<InvestmentCashLink> InvestmentCashLinks => Set<InvestmentCashLink>();
     public DbSet<DistributionPlan> DistributionPlans => Set<DistributionPlan>();
 
     public PlanningDbContext(
@@ -33,6 +34,7 @@ public class PlanningDbContext : DbContext
         modelBuilder.Entity<Budget>().HasQueryFilter(b => _currentUserContext.IsAuthenticated && b.UserId == _currentUserContext.UserId.GetValueOrDefault());
         modelBuilder.Entity<Goal>().HasQueryFilter(g => _currentUserContext.IsAuthenticated && g.UserId == _currentUserContext.UserId.GetValueOrDefault());
         modelBuilder.Entity<Investment>().HasQueryFilter(i => _currentUserContext.IsAuthenticated && i.UserId == _currentUserContext.UserId.GetValueOrDefault());
+        modelBuilder.Entity<InvestmentCashLink>().HasQueryFilter(link => _currentUserContext.IsAuthenticated && link.UserId == _currentUserContext.UserId.GetValueOrDefault());
         modelBuilder.Entity<DistributionPlan>().HasQueryFilter(p => _currentUserContext.IsAuthenticated && p.UserId == _currentUserContext.UserId.GetValueOrDefault());
     }
 }

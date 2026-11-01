@@ -18,6 +18,7 @@ public sealed class Investment : Entity
     public decimal InitialValue { get; private set; }
     public decimal CurrentValue { get; private set; }
     public string HistoryJson { get; private set; }
+    public DateTime? ArchivedAt { get; private set; }
 
     // Required by EF Core
     private Investment() : base()
@@ -91,6 +92,8 @@ public sealed class Investment : Entity
         if (quantity.HasValue) Quantity = quantity.Value;
         HistoryJson = Serialize(history);
     }
+
+    public void Archive(DateTime at) => ArchivedAt ??= at;
 
     public decimal? VariationPct() =>
         InitialValue <= decimal.Zero ? null : Math.Round((CurrentValue - InitialValue) / InitialValue * 100m, 2);

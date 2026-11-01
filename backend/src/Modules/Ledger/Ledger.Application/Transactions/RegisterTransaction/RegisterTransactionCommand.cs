@@ -55,9 +55,10 @@ public sealed class RegisterTransactionCommandHandler
             return Result.Failure<Transaction>(Error.NotFound("Account.NotFound", "Account not found."));
         var appliedRate = command.AppliedRate;
         var rateSource = command.RateSource;
-        if (!appliedRate.HasValue && _rateSnapshotProvider is not null && account.Currency.Code != "USD")
+        if (!appliedRate.HasValue && _rateSnapshotProvider is not null)
         {
-            var snapshot = await _rateSnapshotProvider.GetSnapshotAsync(account.Currency.Code, "USD", _currentUserContext.UserId, cancellationToken);
+            var targetBase = account.Currency.Code == "USD" ? "BOB" : "USD";
+            var snapshot = await _rateSnapshotProvider.GetSnapshotAsync(account.Currency.Code, targetBase, _currentUserContext.UserId, cancellationToken);
             if (snapshot is not null) { appliedRate = snapshot.AppliedRate; rateSource = snapshot.RateSource; }
         }
         try

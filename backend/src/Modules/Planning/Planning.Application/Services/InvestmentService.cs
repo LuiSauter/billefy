@@ -72,6 +72,8 @@ public sealed class InvestmentService(
         if (investment is null || investment.UserId != userContext.UserId!.Value)
             return Result.Failure<InvestmentDto>(Error.NotFound("Investment.NotFound", $"Investment {id} was not found."));
 
+        if (investment.ArchivedAt.HasValue)
+            return Result.Failure<InvestmentDto>(Error.Conflict("Investment.Archived", "Archived investments cannot be revalued."));
         investment.UpdateValue(request.CurrentValue, request.Quantity, clock.UtcNow);
         await unitOfWork.SaveChangesAsync(cancellationToken);
         return Result.Success(ToDto(investment));
@@ -86,7 +88,7 @@ public sealed class InvestmentService(
         if (investment is null || investment.UserId != userContext.UserId!.Value)
             return Result.Failure(Error.NotFound("Investment.NotFound", $"Investment {id} was not found."));
 
-        await repository.DeleteAsync(investment, cancellationToken);
+        investment.Archive(clock.UtcNow);
         await unitOfWork.SaveChangesAsync(cancellationToken);
         return Result.Success();
     }
@@ -103,5 +105,6 @@ public sealed class InvestmentService(
         i.CurrentValue,
         i.VariationPct(),
         i.GetHistory().Select(p => new InvestmentValuePointDto(p.At, p.Value)).ToList(),
-        i.CreatedAt);
+        i.CreatedAt,
+        i.ArchivedAt);
 }

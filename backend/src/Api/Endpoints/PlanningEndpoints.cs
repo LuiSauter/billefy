@@ -1,4 +1,8 @@
 using Api.Common;
+using Api.Infrastructure.Transactions;
+using BuildingBlocks.Security;
+using BuildingBlocks.Time;
+using Ledger.Contracts;
 using Microsoft.AspNetCore.Mvc;
 using Planning.Application.Services;
 using Planning.Contracts;
@@ -114,6 +118,46 @@ public static class PlanningEndpoints
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status404NotFound);
 
+        group.MapPost("/investments/{id:guid}/cash/{kind}", async (
+            [FromRoute] Guid id,
+            [FromRoute] string kind,
+            [FromBody] InvestmentCashRequest request,
+            RelationalInvestmentCashTransaction coordinator,
+            ILedgerModule ledger,
+            ICurrentUserContext user,
+            IClock clock,
+            CancellationToken ct) =>
+        {
+            if (!Enum.TryParse<Ledger.Domain.Transactions.InvestmentCashKind>(kind, true, out var parsed) || !Enum.IsDefined(parsed))
+                return Results.Problem(statusCode: StatusCodes.Status400BadRequest, title: "InvestmentCash.InvalidKind", detail: "Kind must be Contribution or Disposal.");
+            var result = await coordinator.RegisterAsync(id, parsed.ToString(), request, ledger, user, clock, ct);
+            if (result.IsSuccess) return Results.Created($"/v1/transactions/{result.Value.LedgerTransactionId}", result.Value);
+            return result.ToHttpResult();
+        })
+        .WithName("RegisterInvestmentCash")
+        .WithSummary("Register an account-affecting investment contribution or disposal without changing valuation.")
+        .Produces<InvestmentCashResult>(StatusCodes.Status201Created)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict);
+
+        group.MapPost("/investment-cash/{transactionId:guid}/reverse", async (
+            [FromRoute] Guid transactionId,
+            RelationalInvestmentCashTransaction coordinator,
+            ILedgerModule ledger,
+            ICurrentUserContext user,
+            IClock clock,
+            CancellationToken ct) =>
+        {
+            var result = await coordinator.ReverseAsync(transactionId, ledger, user, clock, ct);
+            return result.ToHttpResult(value => Results.Ok(value));
+        })
+        .WithName("ReverseInvestmentCash")
+        .WithSummary("Reverse a linked investment cash movement atomically while retaining its audit link.")
+        .Produces<InvestmentCashResult>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict);
+
         group.MapDelete("/investments/{id:guid}", async (
             [FromRoute] Guid id,
             IInvestmentService service,
@@ -122,8 +166,8 @@ public static class PlanningEndpoints
             var result = await service.DeleteAsync(id, ct);
             return result.ToHttpResult(() => Results.Ok(new { message = "Investment deleted" }));
         })
-        .WithName("DeleteInvestment")
-        .WithSummary("Delete an investment.")
+        .WithName("ArchiveInvestment")
+        .WithSummary("Archive an investment without deleting linked cash history.")
         .Produces(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status404NotFound);

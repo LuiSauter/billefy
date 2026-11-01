@@ -59,7 +59,7 @@ public sealed record TransactionDto(
     IReadOnlyList<TransactionAllocationDto>? Allocations = null);
 
 public enum MovementHistoryMode { Active, Audit }
-public enum MovementKind { Income, Expense, Transfer }
+public enum MovementKind { Income, Expense, Transfer, Investment }
 
 public sealed record MovementQuery(
     DateTime? StartUtc = null, DateTime? EndUtcExclusive = null, Guid? AccountId = null,
@@ -71,8 +71,10 @@ public sealed record MovementDto(
     Guid AccountId, string AccountName, Guid? CategoryId, string? CategoryName, string? Description,
     decimal? AppliedRate, string? RateSource, bool IsReversal, Guid? ReversesId,
     IReadOnlyList<MovementLegDto> Legs,
-    IReadOnlyList<TransactionAllocationDto> Allocations);
-public sealed record MovementCurrencySummary(string Currency, decimal Income, decimal Expenses);
+    IReadOnlyList<TransactionAllocationDto> Allocations,
+    Guid? InvestmentId = null, string? InvestmentCashKind = null);
+public sealed record MovementCurrencySummary(string Currency, decimal Income, decimal Expenses,
+    decimal TransferOut = 0, decimal TransferIn = 0, decimal Contributions = 0, decimal Disposals = 0);
 public sealed record MovementPage(IReadOnlyList<MovementDto> Items, int Page, int PageSize, int TotalCount,
     IReadOnlyList<MovementCurrencySummary> Summary);
 

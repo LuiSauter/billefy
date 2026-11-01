@@ -16,7 +16,8 @@ public sealed record InvestmentDto(
     decimal CurrentValue,
     decimal? VariationPct,
     List<InvestmentValuePointDto> History,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    DateTime? ArchivedAt = null);
 
 public sealed record CreateInvestmentRequest(
     string Name,
@@ -28,6 +29,9 @@ public sealed record CreateInvestmentRequest(
     decimal CurrentValue);
 
 public sealed record UpdateInvestmentValueRequest(decimal CurrentValue, decimal? Quantity = null);
+
+public sealed record InvestmentCashRequest(Guid AccountId, decimal Amount, string? Description = null, DateTime? OccurredAt = null);
+public sealed record InvestmentCashResult(Guid LedgerTransactionId, Guid InvestmentId, string Kind);
 
 public sealed record PlanBucketDto(
     string Id,

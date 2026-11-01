@@ -46,17 +46,24 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
     private readonly SqliteConnection _ledgerConnection = new("DataSource=:memory:");
     private readonly SqliteConnection _fxConnection = new("DataSource=:memory:");
     private readonly SqliteConnection _ingestionConnection = new("DataSource=:memory:");
-    private readonly SqliteConnection _planningConnection = new("DataSource=:memory:");
+    private readonly SqliteConnection _planningConnection;
+    private readonly bool _shareLedgerPlanning;
     private readonly SqliteConnection _messagingConnection = new("DataSource=:memory:");
     private readonly SqliteConnection _identityConnection = new("DataSource=:memory:");
     private readonly SqliteConnection _notificationsConnection = new("DataSource=:memory:");
+
+    public CustomWebApplicationFactory(bool shareLedgerPlanning = false)
+    {
+        _shareLedgerPlanning = shareLedgerPlanning;
+        _planningConnection = shareLedgerPlanning ? _ledgerConnection : new SqliteConnection("DataSource=:memory:");
+    }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         _ledgerConnection.Open();
         _fxConnection.Open();
         _ingestionConnection.Open();
-        _planningConnection.Open();
+        if (!ReferenceEquals(_planningConnection, _ledgerConnection)) _planningConnection.Open();
         _messagingConnection.Open();
         _identityConnection.Open();
         _notificationsConnection.Open();
@@ -80,7 +87,8 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             var sp = services.BuildServiceProvider();
             using var scope = sp.CreateScope();
             var ledgerDb = scope.ServiceProvider.GetRequiredService<LedgerDbContext>();
-            ledgerDb.Database.EnsureCreated();
+            if (_shareLedgerPlanning) ledgerDb.Database.GetService<IRelationalDatabaseCreator>().CreateTables();
+            else ledgerDb.Database.EnsureCreated();
 
             var fxDb = scope.ServiceProvider.GetRequiredService<FxDbContext>();
             fxDb.Database.EnsureCreated();
@@ -100,7 +108,8 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             lendingDb.Database.GetService<IRelationalDatabaseCreator>().CreateTables();
 
             var planningDb = scope.ServiceProvider.GetRequiredService<PlanningDbContext>();
-            planningDb.Database.EnsureCreated();
+            if (_shareLedgerPlanning) planningDb.Database.GetService<IRelationalDatabaseCreator>().CreateTables();
+            else planningDb.Database.EnsureCreated();
 
             var messagingDb = scope.ServiceProvider.GetRequiredService<MessagingDbContext>();
             messagingDb.Database.EnsureCreated();
@@ -119,7 +128,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
         _ledgerConnection.Dispose();
         _fxConnection.Dispose();
         _ingestionConnection.Dispose();
-        _planningConnection.Dispose();
+        if (!ReferenceEquals(_planningConnection, _ledgerConnection)) _planningConnection.Dispose();
         _messagingConnection.Dispose();
         _identityConnection.Dispose();
         _notificationsConnection.Dispose();
@@ -208,6 +217,228 @@ public class ApiIntegrationTests : IDisposable
     }
 
     [Fact]
+    public async Task TransferCorrectionEndpoint_ReplacesTransferPairAtomically()
+    {
+        async Task<Guid> CreateAccount(string name, decimal balance)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, "/v1/accounts")
+            {
+                Content = JsonContent.Create(new CreateAccountRequest(name, AccountType.Bank, "BOB", balance))
+            };
+            request.Headers.Add("X-User-Id", _testUserId.ToString());
+            var response = await _client.SendAsync(request);
+            response.StatusCode.Should().Be(HttpStatusCode.Created);
+            return (await response.Content.ReadFromJsonAsync<CreatedAccountResponse>())!.Id;
+        }
+
+        var source = await CreateAccount("Transfer source", 100m);
+        var destination = await CreateAccount("Transfer destination", 0m);
+        using var createRequest = new HttpRequestMessage(HttpMethod.Post, "/v1/transactions/transfers")
+        {
+            Content = JsonContent.Create(new RegisterTransferRequest(source, 10m, destination, 10m))
+        };
+        createRequest.Headers.Add("X-User-Id", _testUserId.ToString());
+        var createResponse = await _client.SendAsync(createRequest);
+        createResponse.StatusCode.Should().Be(HttpStatusCode.Created);
+        var createdPair = await createResponse.Content.ReadFromJsonAsync<TransferResult>();
+        var txns = (await (await SendAsUser(HttpMethod.Get, "/v1/transactions?limit=20"))
+            .Content.ReadFromJsonAsync<List<TransactionDto>>())!;
+        var transferId = txns.Single(txn => txn.Id == createdPair!.OutflowId).TransferId!.Value;
+
+        using var correctionRequest = new HttpRequestMessage(HttpMethod.Put, $"/v1/transactions/transfers/{transferId}")
+        {
+            Content = JsonContent.Create(new CorrectTransferRequest(source, 20m, destination, 20m, Description: "Corrected"))
+        };
+        correctionRequest.Headers.Add("X-User-Id", _testUserId.ToString());
+        var correctionResponse = await _client.SendAsync(correctionRequest);
+        correctionResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var accountResponse = await SendAsUser(HttpMethod.Get, "/v1/accounts");
+        var accounts = (await accountResponse.Content.ReadFromJsonAsync<List<AccountDto>>())!;
+        accounts.Single(account => account.Id == source).Balance.Should().Be(80m);
+        accounts.Single(account => account.Id == destination).Balance.Should().Be(20m);
+    }
+
+    private async Task<HttpResponseMessage> SendAsUser(HttpMethod method, string path)
+    {
+        using var request = new HttpRequestMessage(method, path);
+        request.Headers.Add("X-User-Id", _testUserId.ToString());
+        return await _client.SendAsync(request);
+    }
+
+    [Fact]
+    public async Task InvestmentCashMovements_AffectBalanceButHaveSeparateMovementTotals()
+    {
+        var accountId = await CreateTransactionAccountAsync("Investment cash account", 100m);
+        var investmentId = Guid.NewGuid();
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var ledgerDb = scope.ServiceProvider.GetRequiredService<LedgerDbContext>();
+            ledgerDb.Transactions.AddRange(
+                Transaction.CreateInvestmentCash(_testUserId, accountId, Money.Of(25m, Currency.BOB),
+                    Ledger.Domain.Transactions.InvestmentCashKind.Contribution, investmentId, DateTime.UtcNow, "Contribution", null, null),
+                Transaction.CreateInvestmentCash(_testUserId, accountId, Money.Of(5m, Currency.BOB),
+                    Ledger.Domain.Transactions.InvestmentCashKind.Disposal, investmentId, DateTime.UtcNow, "Disposal", null, null));
+            await ledgerDb.SaveChangesAsync();
+        }
+
+        var page = await (await SendAsUser(HttpMethod.Get, "/v1/transactions/movements?type=Investment"))
+            .Content.ReadFromJsonAsync<JsonElement>();
+        page.GetProperty("totalCount").GetInt32().Should().Be(2);
+        var summary = page.GetProperty("summary").EnumerateArray().Single();
+        summary.GetProperty("income").GetDecimal().Should().Be(0m);
+        summary.GetProperty("expenses").GetDecimal().Should().Be(0m);
+        summary.GetProperty("contributions").GetDecimal().Should().Be(25m);
+        summary.GetProperty("disposals").GetDecimal().Should().Be(5m);
+        var accounts = await (await SendAsUser(HttpMethod.Get, "/v1/accounts")).Content.ReadFromJsonAsync<List<AccountDto>>();
+        accounts!.Single(account => account.Id == accountId).Balance.Should().Be(80m);
+    }
+
+    [Fact]
+    public async Task TransactionAllocations_AcceptAndReadBackWithCategoryLabels()
+    {
+        var accountId = await CreateTransactionAccountAsync("Allocation account", 100m);
+        var expenseCategory = await CreateTransactionCategoryAsync("Dining", TransactionDirection.Expense);
+        var otherCategory = await CreateTransactionCategoryAsync("Transport", TransactionDirection.Expense);
+        using var response = await SendJsonAsUser(HttpMethod.Post, "/v1/transactions", new
+        {
+            accountId,
+            amount = 12m,
+            direction = "Expense",
+            description = "Split",
+            allocations = new[] { new { categoryId = expenseCategory, amount = 7m }, new { categoryId = otherCategory, amount = 5m } }
+        });
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+        var created = (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
+
+        var raw = await (await SendAsUser(HttpMethod.Get, "/v1/transactions?limit=10")).Content.ReadFromJsonAsync<JsonElement[]>();
+        var transaction = raw!.Single(row => row.GetProperty("id").GetGuid() == created);
+        transaction.GetProperty("allocations").GetArrayLength().Should().Be(2);
+        transaction.GetProperty("allocations").EnumerateArray().Select(row => row.GetProperty("categoryName").GetString())
+            .Should().BeEquivalentTo("Dining", "Transport");
+
+        var page = await (await SendAsUser(HttpMethod.Get, $"/v1/transactions/movements?categoryId={otherCategory}"))
+            .Content.ReadFromJsonAsync<JsonElement>();
+        page.GetProperty("totalCount").GetInt32().Should().Be(1);
+        page.GetProperty("items")[0].GetProperty("allocations").GetArrayLength().Should().Be(2);
+    }
+
+    [Fact]
+    public async Task TransactionAllocations_RejectForeignCategoryAndDirectionMismatchWithoutRows()
+    {
+        var accountId = await CreateTransactionAccountAsync("Owned category account", 100m);
+        var foreignUser = Guid.NewGuid();
+        using var foreignResponse = await SendJsonAsUserWithId(HttpMethod.Post, "/v1/categories",
+            new Ledger.Application.Categories.Services.CreateCategoryRequest("Private", TransactionDirection.Expense), foreignUser);
+        foreignResponse.StatusCode.Should().Be(HttpStatusCode.Created);
+        var foreignId = (await foreignResponse.Content.ReadFromJsonAsync<Ledger.Application.Categories.Services.CategoryDto>())!.Id;
+        var incomeCategory = await CreateTransactionCategoryAsync("Income", TransactionDirection.Income);
+
+        var foreign = await SendJsonAsUser(HttpMethod.Post, "/v1/transactions", new
+        {
+            accountId,
+            amount = 5m,
+            direction = "Expense",
+            categoryId = foreignId
+        });
+        foreign.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        var mismatch = await SendJsonAsUser(HttpMethod.Post, "/v1/transactions", new
+        {
+            accountId,
+            amount = 5m,
+            direction = "Expense",
+            allocations = new[] { new { categoryId = incomeCategory, amount = 5m } }
+        });
+        mismatch.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var rows = await (await SendAsUser(HttpMethod.Get, "/v1/transactions?limit=10")).Content.ReadFromJsonAsync<JsonElement[]>();
+        rows.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task OrdinaryCorrection_CopiesAllocationsAndKeepsAccountSnapshot()
+    {
+        var accountId = await CreateTransactionAccountAsync("Correction account", 100m);
+        var category = await CreateTransactionCategoryAsync("Dining", TransactionDirection.Expense);
+        var createdResponse = await SendJsonAsUser(HttpMethod.Post, "/v1/transactions", new
+        {
+            accountId,
+            amount = 10m,
+            direction = "Expense",
+            appliedRate = 12m,
+            rateSource = "Manual",
+            allocations = new[] { new { categoryId = category, amount = 10m } }
+        });
+        createdResponse.StatusCode.Should().Be(HttpStatusCode.Created);
+        var originalId = (await createdResponse.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
+        var correction = await SendJsonAsUser(HttpMethod.Put, $"/v1/transactions/{originalId}", new
+        {
+            accountId,
+            amount = 15m,
+            direction = "Expense",
+            allocations = new[] { new { categoryId = category, amount = 15m } },
+            description = "Corrected"
+        });
+        correction.StatusCode.Should().Be(HttpStatusCode.OK);
+        var replacementId = (await correction.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
+        using var repeatedCorrection = await SendJsonAsUser(HttpMethod.Put, $"/v1/transactions/{originalId}", new
+        {
+            accountId,
+            amount = 15m,
+            direction = "Expense",
+            allocations = new[] { new { categoryId = category, amount = 15m } }
+        });
+        repeatedCorrection.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        var rows = await (await SendAsUser(HttpMethod.Get, "/v1/transactions?limit=10")).Content.ReadFromJsonAsync<JsonElement[]>();
+        var original = rows!.Single(row => row.GetProperty("id").GetGuid() == originalId);
+        var replacement = rows!.Single(row => row.GetProperty("id").GetGuid() == replacementId);
+        original.GetProperty("appliedRate").GetDecimal().Should().Be(12m);
+        replacement.GetProperty("appliedRate").GetDecimal().Should().Be(12m);
+        replacement.GetProperty("allocations")[0].GetProperty("amount").GetDecimal().Should().Be(15m);
+    }
+
+    [Theory]
+    [InlineData("empty", "[]")]
+    [InlineData("sum", """[{"categoryId":"CATEGORY","amount":11}]""")]
+    [InlineData("duplicate", """[{"categoryId":"CATEGORY","amount":6},{"categoryId":"CATEGORY","amount":6}]""")]
+    [InlineData("precision", """[{"categoryId":"CATEGORY","amount":11.999}]""")]
+    public async Task TransactionAllocations_InvalidPayloadsReturnBadRequest(string scenario, string template)
+    {
+        var accountId = await CreateTransactionAccountAsync("Invalid allocation account", 100m);
+        var categoryId = await CreateTransactionCategoryAsync("Expense", TransactionDirection.Expense);
+        var allocations = scenario == "empty" ? template : template.Replace("CATEGORY", categoryId.ToString(), StringComparison.Ordinal);
+        var json = $$"""{"accountId":"{{accountId}}","amount":12,"direction":"Expense","allocations":{{allocations}}}""";
+        using var response = await SendRawAsUser(HttpMethod.Post, "/v1/transactions", json);
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    private async Task<Guid> CreateTransactionAccountAsync(string name, decimal balance)
+    {
+        using var response = await SendJsonAsUser(HttpMethod.Post, "/v1/accounts", new CreateAccountRequest(name, AccountType.Bank, "BOB", balance));
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+        return (await response.Content.ReadFromJsonAsync<CreatedAccountResponse>())!.Id;
+    }
+
+    private async Task<Guid> CreateTransactionCategoryAsync(string name, TransactionDirection direction)
+    {
+        using var response = await SendJsonAsUser(HttpMethod.Post, "/v1/categories", new Ledger.Application.Categories.Services.CreateCategoryRequest(name, direction));
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+        return (await response.Content.ReadFromJsonAsync<Ledger.Application.Categories.Services.CategoryDto>())!.Id;
+    }
+
+    private Task<HttpResponseMessage> SendJsonAsUser(HttpMethod method, string path, object body) => SendRawAsUser(method, path, JsonSerializer.Serialize(body));
+
+    private Task<HttpResponseMessage> SendJsonAsUserWithId(HttpMethod method, string path, object body, Guid userId) =>
+        SendRawAsUserWithId(method, path, JsonSerializer.Serialize(body), userId);
+
+    private Task<HttpResponseMessage> SendRawAsUser(HttpMethod method, string path, string json) => SendRawAsUserWithId(method, path, json, _testUserId);
+
+    private Task<HttpResponseMessage> SendRawAsUserWithId(HttpMethod method, string path, string json, Guid userId)
+    {
+        var request = new HttpRequestMessage(method, path) { Content = new StringContent(json, System.Text.Encoding.UTF8, "application/json") };
+        request.Headers.Add("X-User-Id", userId.ToString());
+        return _client.SendAsync(request);
+    }
+
+    [Fact]
     public async Task GetLatestRate_ShouldReturnCurrentSnapshot()
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, "/v1/rates/latest?currency=BOB&baseCurrency=USD");
@@ -216,10 +447,14 @@ public class ApiIntegrationTests : IDisposable
         var response = await _client.SendAsync(request);
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        var rate = await response.Content.ReadFromJsonAsync<RateSnapshotDto>();
+        var rate = await response.Content.ReadFromJsonAsync<RateSnapshotDto>(new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
+        });
         rate.Should().NotBeNull();
         rate!.AppliedRate.Should().Be(12.00m); // Buy rate for BOB
         rate.RateSource.Should().Be("DolarApi:BinanceP2P");
+        rate.Side.Should().Be(Fx.Contracts.RateSide.Buy);
     }
 
     [Fact]
@@ -858,6 +1093,142 @@ public class ApiIntegrationTests : IDisposable
         return await _client.SendAsync(request);
     }
 
+    [Fact]
+    public async Task Budgets_UseActiveAllocationAndCurrencySafeSpending()
+    {
+        using var factory = new CustomWebApplicationFactory();
+        using var client = factory.CreateClient();
+        var ownerId = Guid.NewGuid();
+        var otherOwnerId = Guid.NewGuid();
+
+        async Task<HttpResponseMessage> Send(Guid userId, HttpMethod method, string url, object? body = null)
+        {
+            using var request = new HttpRequestMessage(method, url);
+            request.Headers.Add("X-User-Id", userId.ToString());
+            if (body is not null) request.Content = JsonContent.Create(body);
+            return await client.SendAsync(request);
+        }
+
+        async Task<Guid> Account(Guid userId, string name, string currency)
+        {
+            using var response = await Send(userId, HttpMethod.Post, "/v1/accounts",
+                new CreateAccountRequest(name, AccountType.Bank, currency, 1000m));
+            response.StatusCode.Should().Be(HttpStatusCode.Created);
+            return (await response.Content.ReadFromJsonAsync<CreatedAccountResponse>())!.Id;
+        }
+
+        async Task<Guid> Category(Guid userId, string name)
+        {
+            using var response = await Send(userId, HttpMethod.Post, "/v1/categories",
+                new CreateCategoryRequest(name, TransactionDirection.Expense));
+            response.StatusCode.Should().Be(HttpStatusCode.Created);
+            return (await response.Content.ReadFromJsonAsync<CategoryDto>())!.Id;
+        }
+
+        async Task<Guid> Budget(Guid userId, decimal limit, string currency, Guid? categoryId)
+        {
+            using var response = await Send(userId, HttpMethod.Post, "/v1/planning/budgets",
+                new CreateBudgetRequest(limit, currency, categoryId));
+            response.StatusCode.Should().Be(HttpStatusCode.Created);
+            return (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
+        }
+
+        async Task<List<BudgetDto>> Budgets(Guid userId)
+        {
+            using var response = await Send(userId, HttpMethod.Get, "/v1/planning/budgets");
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            return (await response.Content.ReadFromJsonAsync<List<BudgetDto>>())!;
+        }
+
+        var bob = await Account(ownerId, "BOB account", "BOB");
+        var usd = await Account(ownerId, "USD account", "USD");
+        var secondBob = await Account(ownerId, "Second BOB account", "BOB");
+        var food = await Category(ownerId, "Food");
+        var travel = await Category(ownerId, "Travel");
+        var foreignAccount = await Account(otherOwnerId, "Other account", "BOB");
+        var foreignFood = await Category(otherOwnerId, "Other food");
+        var bobFoodBudget = await Budget(ownerId, 500m, "BOB", food);
+        var usdFoodBudget = await Budget(ownerId, 500m, "USD", food);
+        var bobTravelBudget = await Budget(ownerId, 500m, "BOB", travel);
+        var bobGeneralBudget = await Budget(ownerId, 500m, "BOB", null);
+        var usdGeneralBudget = await Budget(ownerId, 500m, "USD", null);
+
+        using var splitResponse = await Send(ownerId, HttpMethod.Post, "/v1/transactions", new
+        {
+            accountId = bob,
+            amount = 100m,
+            direction = "Expense",
+            allocations = new[] { new { categoryId = food, amount = 60m }, new { categoryId = travel, amount = 40m } }
+        });
+        splitResponse.StatusCode.Should().Be(HttpStatusCode.Created);
+        var splitId = (await splitResponse.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
+        using var usdExpense = await Send(ownerId, HttpMethod.Post, "/v1/transactions", new
+        {
+            accountId = usd,
+            amount = 25m,
+            direction = "Expense",
+            categoryId = food
+        });
+        usdExpense.StatusCode.Should().Be(HttpStatusCode.Created);
+        using var foreignExpense = await Send(otherOwnerId, HttpMethod.Post, "/v1/transactions", new
+        {
+            accountId = foreignAccount,
+            amount = 999m,
+            direction = "Expense",
+            categoryId = foreignFood
+        });
+        foreignExpense.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var initial = await Budgets(ownerId);
+        initial.Single(budget => budget.Id == bobFoodBudget).SpentAmount.Should().Be(60m);
+        initial.Single(budget => budget.Id == bobTravelBudget).SpentAmount.Should().Be(40m);
+        initial.Single(budget => budget.Id == bobGeneralBudget).SpentAmount.Should().Be(100m);
+        initial.Single(budget => budget.Id == usdFoodBudget).SpentAmount.Should().Be(25m);
+        initial.Single(budget => budget.Id == usdGeneralBudget).SpentAmount.Should().Be(25m);
+
+        using var correction = await Send(ownerId, HttpMethod.Put, $"/v1/transactions/{splitId}", new
+        {
+            accountId = bob,
+            amount = 100m,
+            direction = "Expense",
+            allocations = new[] { new { categoryId = food, amount = 30m }, new { categoryId = travel, amount = 70m } }
+        });
+        correction.StatusCode.Should().Be(HttpStatusCode.OK);
+        var corrected = await Budgets(ownerId);
+        corrected.Single(budget => budget.Id == bobFoodBudget).SpentAmount.Should().Be(30m);
+        corrected.Single(budget => budget.Id == bobTravelBudget).SpentAmount.Should().Be(70m);
+        corrected.Single(budget => budget.Id == bobGeneralBudget).SpentAmount.Should().Be(100m);
+
+        var priorMonth = DateTime.UtcNow.Date.AddMonths(-1);
+        using var oldExpense = await Send(ownerId, HttpMethod.Post, "/v1/transactions", new
+        {
+            accountId = bob,
+            amount = 20m,
+            direction = "Expense",
+            categoryId = food,
+            occurredAt = priorMonth
+        });
+        oldExpense.StatusCode.Should().Be(HttpStatusCode.Created);
+        var oldId = (await oldExpense.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
+        using var oldReversal = await Send(ownerId, HttpMethod.Post, $"/v1/transactions/{oldId}/reverse",
+            new ReverseTransactionRequest("Outside reporting window"));
+        oldReversal.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        using var transfer = await Send(ownerId, HttpMethod.Post, "/v1/transactions/transfers",
+            new RegisterTransferRequest(bob, 10m, secondBob, 10m));
+        transfer.StatusCode.Should().Be(HttpStatusCode.Created);
+        var replacementId = (await correction.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
+        using var reverse = await Send(ownerId, HttpMethod.Post, $"/v1/transactions/{replacementId}/reverse",
+            new ReverseTransactionRequest("Remove replacement"));
+        reverse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var activeOnly = await Budgets(ownerId);
+        activeOnly.Single(budget => budget.Id == bobFoodBudget).SpentAmount.Should().Be(0m);
+        activeOnly.Single(budget => budget.Id == bobTravelBudget).SpentAmount.Should().Be(0m);
+        activeOnly.Single(budget => budget.Id == bobGeneralBudget).SpentAmount.Should().Be(0m);
+        activeOnly.Single(budget => budget.Id == usdFoodBudget).SpentAmount.Should().Be(25m);
+        activeOnly.Single(budget => budget.Id == usdGeneralBudget).SpentAmount.Should().Be(25m);
+    }
+
     [Theory]
     [InlineData("BOB", "BOB", false)]
     [InlineData("BOB", "BOB", true)]
@@ -924,29 +1295,30 @@ public class ApiIntegrationTests : IDisposable
         {
             await Send(HttpMethod.Post, "/v1/transactions/transfers",
                 new RegisterTransferRequest(sourceAccount, 120m, destinationAccount, destinationAmount,
-                    AppliedRate: sourceCurrency == destinationCurrency ? null : 12m, RateSource: "Test"));
+                    AppliedRate: sourceCurrency == "USD" && destinationCurrency == "BOB" ? 12m : null,
+                    RateSource: sourceCurrency == "USD" && destinationCurrency == "BOB" ? "Manual" : null));
         }
 
-        async Task AssertMetrics(decimal income, decimal expenseAccountBalance)
+        async Task AssertMetrics(decimal income, decimal expenseAccountBalance, decimal categorySpent, decimal generalSpent, decimal monthlyExpenses)
         {
             var budgets = (await (await Send(HttpMethod.Get, "/v1/planning/budgets"))
                 .Content.ReadFromJsonAsync<List<BudgetDto>>())!;
             budgets.Should().HaveCount(2);
             var categoryBudget = budgets.Single(b => b.CategoryId == categoryId);
-            categoryBudget.SpentAmount.Should().Be(60m);
-            categoryBudget.RemainingAmount.Should().Be(40m);
+            categoryBudget.SpentAmount.Should().Be(categorySpent);
+            categoryBudget.RemainingAmount.Should().Be(100m - categorySpent);
             categoryBudget.LimitAmount.Should().Be(100m);
             categoryBudget.Currency.Should().Be("BOB");
             var generalBudget = budgets.Single(b => b.CategoryId is null);
-            generalBudget.SpentAmount.Should().Be(75m);
-            generalBudget.RemainingAmount.Should().Be(125m);
+            generalBudget.SpentAmount.Should().Be(generalSpent);
+            generalBudget.RemainingAmount.Should().Be(200m - generalSpent);
             generalBudget.LimitAmount.Should().Be(200m);
 
             var health = (await (await Send(HttpMethod.Get, "/v1/planning/financial-health"))
                 .Content.ReadFromJsonAsync<FinancialHealthDto>())!;
             var bobHealth = health.Currencies.Single(currency => currency.Currency == "BOB");
             bobHealth.MonthlyIncome.Should().Be(income);
-            bobHealth.MonthlyExpenses.Should().Be(75m);
+            bobHealth.MonthlyExpenses.Should().Be(monthlyExpenses);
             bobHealth.CurrentBalance.Should().Be(expenseAccountBalance
                 + (sourceCurrency == "BOB" ? 380m : 0m)
                 + (destinationCurrency == "BOB" ? destinationAmount : 0m));
@@ -957,10 +1329,10 @@ public class ApiIntegrationTests : IDisposable
             accounts.Single(a => a.Id == destinationAccount).Balance.Should().Be(destinationAmount);
         }
 
-        await AssertMetrics(500m, 1425m);
+        await AssertMetrics(500m, 1425m, 60m, 75m, 75m);
         await Send(HttpMethod.Post, $"/v1/transactions/{expenseId}/reverse", new ReverseTransactionRequest("Correction"));
-        // Existing metrics are gross flows: an expense reversal is income, not negative budget spending.
-        await AssertMetrics(560m, 1485m);
+        // Active reporting excludes both the reversed original and its reversal; only other active transactions remain.
+        await AssertMetrics(500m, 1485m, 0m, 15m, 15m);
         var transactions = (await (await Send(HttpMethod.Get, "/v1/transactions?limit=100"))
             .Content.ReadFromJsonAsync<List<TransactionDto>>())!;
         transactions.Should().HaveCount(6);
@@ -1250,6 +1622,11 @@ public class ApiIntegrationTests : IDisposable
 
         var delRes = await _client.SendAsync(Req(HttpMethod.Delete, $"/v1/planning/investments/{created.Id}", userId));
         delRes.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await (await _client.SendAsync(Req(HttpMethod.Get, "/v1/planning/investments", userId)))
+            .Content.ReadFromJsonAsync<List<InvestmentDto>>()).Should().BeEmpty();
+        var archivedValuation = await _client.SendAsync(Req(HttpMethod.Put, $"/v1/planning/investments/{created.Id}/value", userId,
+            new UpdateInvestmentValueRequest(1400m)));
+        archivedValuation.StatusCode.Should().Be(HttpStatusCode.Conflict);
 
         // Distribution plan: disabled/empty by default, validated, then persisted
         var defaultPlan = await (await _client.SendAsync(Req(HttpMethod.Get, "/v1/planning/distribution-plan", userId)))
@@ -1801,4 +2178,164 @@ public class ApiIntegrationTests : IDisposable
     private sealed record CreatedAccountResponse(Guid Id);
     private sealed record CreatedTransactionResponse(Guid Id);
     private sealed record CreatedLoanResponse(Guid Id);
+}
+
+public sealed class InvestmentCashApiTests : IDisposable
+{
+    private readonly CustomWebApplicationFactory _factory = new(shareLedgerPlanning: true);
+    private readonly HttpClient _client;
+    private readonly Guid _userId = Guid.NewGuid();
+
+    public InvestmentCashApiTests() => _client = _factory.CreateClient();
+
+    public void Dispose()
+    {
+        _client.Dispose();
+        _factory.Dispose();
+    }
+
+    [Fact]
+    public async Task LinkedCashActions_ChangeCashOnly_AndRepeatReverseConflicts()
+    {
+        var accountId = await CreateAccountAsync(_userId, "Investment cash", 100m);
+        var investmentId = await CreateInvestmentAsync(_userId);
+        var contribution = await SendAsync(HttpMethod.Post, $"/v1/planning/investments/{investmentId}/cash/Contribution",
+            _userId, new InvestmentCashRequest(accountId, 50m, "Add cash"));
+        contribution.StatusCode.Should().Be(HttpStatusCode.Created);
+        var contributionResult = (await contribution.Content.ReadFromJsonAsync<InvestmentCashResult>())!;
+        contributionResult.Kind.Should().Be("Contribution");
+
+        var ordinaryExpense = await SendAsync(HttpMethod.Post, "/v1/transactions", _userId,
+            new RegisterTransactionRequest(accountId, 7m, TransactionDirection.Expense));
+        ordinaryExpense.StatusCode.Should().Be(HttpStatusCode.Created);
+        var budgetResponse = await SendAsync(HttpMethod.Post, "/v1/planning/budgets", _userId, new CreateBudgetRequest(100m, "BOB"));
+        budgetResponse.StatusCode.Should().Be(HttpStatusCode.Created);
+        var budgetList = await (await SendAsync(HttpMethod.Get, "/v1/planning/budgets", _userId)).Content.ReadFromJsonAsync<List<BudgetDto>>();
+        budgetList!.Single().SpentAmount.Should().Be(7m);
+
+        var disposal = await SendAsync(HttpMethod.Post, $"/v1/planning/investments/{investmentId}/cash/Disposal",
+            _userId, new InvestmentCashRequest(accountId, 10m, "Sell cash"));
+        disposal.StatusCode.Should().Be(HttpStatusCode.Created);
+        var disposalResult = (await disposal.Content.ReadFromJsonAsync<InvestmentCashResult>())!;
+        var movements = await (await SendAsync(HttpMethod.Get, "/v1/transactions/movements", _userId)).Content.ReadFromJsonAsync<JsonElement>();
+        var summary = movements.GetProperty("summary").EnumerateArray().Single();
+        summary.GetProperty("expenses").GetDecimal().Should().Be(7m);
+        summary.GetProperty("contributions").GetDecimal().Should().Be(50m);
+        summary.GetProperty("disposals").GetDecimal().Should().Be(10m);
+
+        var originalInvestment = await GetInvestmentAsync(investmentId);
+        var reverse = await SendAsync(HttpMethod.Post,
+            $"/v1/planning/investment-cash/{contributionResult.LedgerTransactionId}/reverse", _userId);
+        reverse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var reversalResult = (await reverse.Content.ReadFromJsonAsync<InvestmentCashResult>())!;
+        var repeated = await SendAsync(HttpMethod.Post,
+            $"/v1/planning/investment-cash/{contributionResult.LedgerTransactionId}/reverse", _userId);
+        repeated.StatusCode.Should().Be(HttpStatusCode.Conflict);
+
+        var afterInvestment = await GetInvestmentAsync(investmentId);
+        afterInvestment.CurrentValue.Should().Be(originalInvestment.CurrentValue);
+        afterInvestment.InitialValue.Should().Be(originalInvestment.InitialValue);
+        afterInvestment.Quantity.Should().Be(originalInvestment.Quantity);
+        afterInvestment.History.Should().BeEquivalentTo(originalInvestment.History);
+        var accounts = await (await SendAsync(HttpMethod.Get, "/v1/accounts", _userId)).Content.ReadFromJsonAsync<List<AccountDto>>();
+        accounts!.Single(a => a.Id == accountId).Balance.Should().Be(103m);
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var planningDb = scope.ServiceProvider.GetRequiredService<PlanningDbContext>();
+            var links = await planningDb.InvestmentCashLinks.IgnoreQueryFilters()
+                .Where(link => link.InvestmentId == investmentId).OrderBy(link => link.LinkedAt).ToListAsync();
+            links.Should().HaveCount(3);
+            links.Single(link => link.LedgerTransactionId == reversalResult.LedgerTransactionId).ReversesLinkId
+                .Should().Be(links.Single(link => link.LedgerTransactionId == contributionResult.LedgerTransactionId).Id);
+            links.Should().Contain(link => link.LedgerTransactionId == disposalResult.LedgerTransactionId);
+            var archived = await SendAsync(HttpMethod.Delete, $"/v1/planning/investments/{investmentId}", _userId);
+            archived.StatusCode.Should().Be(HttpStatusCode.OK);
+            (await planningDb.InvestmentCashLinks.IgnoreQueryFilters().CountAsync(link => link.InvestmentId == investmentId)).Should().Be(3);
+        }
+    }
+
+    [Fact]
+    public async Task CashRegistration_RejectsForeignInvestmentAndArchivedInvestment()
+    {
+        var accountId = await CreateAccountAsync(_userId, "Owner account", 100m);
+        var foreignUser = Guid.NewGuid();
+        var foreignInvestment = await CreateInvestmentAsync(foreignUser);
+        var foreign = await SendAsync(HttpMethod.Post, $"/v1/planning/investments/{foreignInvestment}/cash/Contribution",
+            _userId, new InvestmentCashRequest(accountId, 10m));
+        foreign.StatusCode.Should().Be(HttpStatusCode.NotFound);
+
+        var ownInvestment = await CreateInvestmentAsync(_userId);
+        (await SendAsync(HttpMethod.Delete, $"/v1/planning/investments/{ownInvestment}", _userId)).StatusCode.Should().Be(HttpStatusCode.OK);
+        var archived = await SendAsync(HttpMethod.Post, $"/v1/planning/investments/{ownInvestment}/cash/Contribution",
+            _userId, new InvestmentCashRequest(accountId, 10m));
+        archived.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        var foreignAccount = await CreateAccountAsync(foreignUser, "Foreign account", 100m);
+        var ownedInvestment = await CreateInvestmentAsync(_userId);
+        var foreignFunding = await SendAsync(HttpMethod.Post, $"/v1/planning/investments/{ownedInvestment}/cash/Contribution",
+            _userId, new InvestmentCashRequest(foreignAccount, 10m));
+        foreignFunding.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task PlanningLinkSaveFailure_RollsBackLedgerAndCoordinatorContextsCanBeReused()
+    {
+        var accountId = await CreateAccountAsync(_userId, "Rollback account", 100m);
+        var investmentId = await CreateInvestmentAsync(_userId);
+        using var scope = _factory.Services.CreateScope();
+        var accessor = scope.ServiceProvider.GetRequiredService<Microsoft.AspNetCore.Http.IHttpContextAccessor>();
+        accessor.HttpContext = new Microsoft.AspNetCore.Http.DefaultHttpContext
+        {
+            User = new System.Security.Claims.ClaimsPrincipal(new System.Security.Claims.ClaimsIdentity(
+                [new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.NameIdentifier, _userId.ToString())], "test"))
+        };
+        var ledgerDb = scope.ServiceProvider.GetRequiredService<LedgerDbContext>();
+        var planningDb = scope.ServiceProvider.GetRequiredService<PlanningDbContext>();
+        var coordinator = scope.ServiceProvider.GetRequiredService<Api.Infrastructure.Transactions.RelationalInvestmentCashTransaction>();
+        var ledger = scope.ServiceProvider.GetRequiredService<Ledger.Contracts.ILedgerModule>();
+        var user = scope.ServiceProvider.GetRequiredService<BuildingBlocks.Security.ICurrentUserContext>();
+        var clock = scope.ServiceProvider.GetRequiredService<BuildingBlocks.Time.IClock>();
+        await planningDb.Database.ExecuteSqlRawAsync("CREATE TRIGGER reject_cash_link BEFORE INSERT ON investment_cash_links BEGIN SELECT RAISE(ABORT, 'test failure after ledger save'); END;");
+
+        await Assert.ThrowsAsync<DbUpdateException>(() => coordinator.RegisterAsync(investmentId, "Contribution",
+            new InvestmentCashRequest(accountId, 20m), ledger, user, clock, CancellationToken.None));
+        ledgerDb.ChangeTracker.Entries().Should().BeEmpty();
+        planningDb.ChangeTracker.Entries().Should().BeEmpty();
+        (await ledgerDb.Transactions.IgnoreQueryFilters().CountAsync(t => t.UserId == _userId)).Should().Be(0);
+        (await planningDb.InvestmentCashLinks.IgnoreQueryFilters().CountAsync(l => l.UserId == _userId)).Should().Be(0);
+
+        await planningDb.Database.ExecuteSqlRawAsync("DROP TRIGGER reject_cash_link;");
+        var retry = await coordinator.RegisterAsync(investmentId, "Contribution",
+            new InvestmentCashRequest(accountId, 20m), ledger, user, clock, CancellationToken.None);
+        retry.IsSuccess.Should().BeTrue();
+        (await ledgerDb.Transactions.IgnoreQueryFilters().CountAsync(t => t.InvestmentId == investmentId)).Should().Be(1);
+        (await planningDb.InvestmentCashLinks.IgnoreQueryFilters().CountAsync(l => l.InvestmentId == investmentId)).Should().Be(1);
+    }
+
+    private async Task<Guid> CreateAccountAsync(Guid userId, string name, decimal balance)
+    {
+        var response = await SendAsync(HttpMethod.Post, "/v1/accounts", userId,
+            new CreateAccountRequest(name, AccountType.Bank, "BOB", balance));
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+        return (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
+    }
+
+    private async Task<Guid> CreateInvestmentAsync(Guid userId)
+    {
+        var response = await SendAsync(HttpMethod.Post, "/v1/planning/investments", userId,
+            new CreateInvestmentRequest("Asset", "other", "sparkles", "blue", "USD", 2m, 1000m));
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+        return (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
+    }
+
+    private async Task<InvestmentDto> GetInvestmentAsync(Guid id) =>
+        (await (await SendAsync(HttpMethod.Get, "/v1/planning/investments", _userId))
+            .Content.ReadFromJsonAsync<List<InvestmentDto>>())!.Single(i => i.Id == id);
+
+    private async Task<HttpResponseMessage> SendAsync(HttpMethod method, string path, Guid userId, object? body = null)
+    {
+        using var request = new HttpRequestMessage(method, path);
+        request.Headers.Add("X-User-Id", userId.ToString());
+        if (body is not null) request.Content = JsonContent.Create(body);
+        return await _client.SendAsync(request);
+    }
 }
