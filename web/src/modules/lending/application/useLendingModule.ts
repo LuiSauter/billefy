@@ -4,6 +4,7 @@ import { useState, useMemo, useCallback } from "react";
 import { IHttpClient } from "@/shared/application/http-client.contract";
 import {
   CreateLoanRequest,
+  LoanCancellationResultDto,
   LoanSummaryDto,
   RegisterLoanPaymentRequest,
   SimulateLoanRequest,
@@ -52,6 +53,17 @@ export function useLendingModule(
     [repo]
   );
 
+  const cancelLoan = useCallback(
+    async (loanId: string): Promise<LoanCancellationResultDto> => {
+      if (!repo) throw new Error("Cliente no inicializado");
+      const result = await repo.cancelLoan(loanId);
+      setLoans((current) => current.map((loan) => loan.id === loanId ? { ...loan, status: result.status } : loan));
+      await Promise.allSettled([refreshLoans(), onLedgerImpacted?.()]);
+      return result;
+    },
+    [repo, refreshLoans, onLedgerImpacted]
+  );
+
   const registerLoanPayment = useCallback(
     async (loanId: string, req: RegisterLoanPaymentRequest) => {
       if (!repo) return;
@@ -70,5 +82,6 @@ export function useLendingModule(
     createLoan,
     getLoanById,
     registerLoanPayment,
+    cancelLoan,
   };
 }

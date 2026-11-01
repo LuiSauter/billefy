@@ -3,6 +3,7 @@ import { toDecimal } from "@/shared/domain/money";
 import {
   CreateLoanRequest,
   ILendingRepository,
+  LoanCancellationResultDto,
   LoanDetailDto,
   LoanPaymentResultDto,
   LoanScheduleDto,
@@ -41,6 +42,7 @@ export class LendingApiRepository implements ILendingRepository {
       firstDueDate: string;
       totalInstallments: number;
       createdAt: string;
+      cancellationEligibility?: LoanSummaryDto["cancellationEligibility"];
     }
 
     const params = new URLSearchParams();
@@ -75,6 +77,7 @@ export class LendingApiRepository implements ILendingRepository {
         firstDueDate: string;
         totalInstallments: number;
         createdAt: string;
+        cancellationEligibility?: LoanSummaryDto["cancellationEligibility"];
       };
       installments: {
         id: string;
@@ -122,6 +125,10 @@ export class LendingApiRepository implements ILendingRepository {
         amount: toDecimal(p.amount),
       })),
     };
+  }
+
+  async cancelLoan(loanId: string): Promise<LoanCancellationResultDto> {
+    return this.http.post<LoanCancellationResultDto>(`/v1/loans/${loanId}/cancel`);
   }
 
   async registerLoanPayment(

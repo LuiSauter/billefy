@@ -66,6 +66,16 @@ export interface CreateLoanRequest {
   lateRate?: number;
 }
 
+export interface LoanCancellationEligibilityDto {
+  canCancel: boolean;
+  reasonCode: string | null;
+}
+
+export interface LoanCancellationResultDto {
+  status: "Cancelled";
+  reversalTransactionId: string | null;
+}
+
 export interface LoanSummaryDto {
   id: string;
   counterpartyId: string;
@@ -82,6 +92,7 @@ export interface LoanSummaryDto {
   firstDueDate: string;
   totalInstallments: number;
   createdAt: string;
+  cancellationEligibility?: LoanCancellationEligibilityDto;
 }
 
 export interface PaymentAllocationDto {
@@ -139,4 +150,5 @@ export interface ILendingRepository {
   getLoans(type?: LoanType, status?: string): Promise<LoanSummaryDto[]>;
   getLoanById(id: string): Promise<LoanDetailDto>;
   registerLoanPayment(loanId: string, req: RegisterLoanPaymentRequest): Promise<LoanPaymentResultDto>;
+  cancelLoan(loanId: string): Promise<LoanCancellationResultDto>;
 }
