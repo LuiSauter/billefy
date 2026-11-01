@@ -1712,6 +1712,70 @@
       }
     },
     "/v1/planning/budgets/{id}": {
+      "put": {
+        "tags": [
+          "Planning"
+        ],
+        "summary": "Edit an active recurrent budget's limit and alert fraction without recreating it.",
+        "description": "Both limitAmount and alertThreshold are required. Amount is in the existing currency; alertThreshold is a fraction (0 < value <= 1, e.g. 0.80 = 80%). Preserves owner, category, currency, period, ID, creation time and active state. Missing, foreign and inactive budgets return 404; invalid values return 400 without mutation. Does not create historical monthly versions.",
+        "operationId": "UpdateBudget",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateBudgetRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
       "delete": {
         "tags": [
           "Planning"
@@ -2702,49 +2766,6 @@
           }
         }
       },
-      "BudgetSplit503020Dto": {
-        "required": [
-          "monthlyIncome",
-          "needsTarget",
-          "wantsTarget",
-          "savingsTarget"
-        ],
-        "type": "object",
-        "properties": {
-          "monthlyIncome": {
-            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
-            "type": [
-              "number",
-              "string"
-            ],
-            "format": "double"
-          },
-          "needsTarget": {
-            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
-            "type": [
-              "number",
-              "string"
-            ],
-            "format": "double"
-          },
-          "wantsTarget": {
-            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
-            "type": [
-              "number",
-              "string"
-            ],
-            "format": "double"
-          },
-          "savingsTarget": {
-            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
-            "type": [
-              "number",
-              "string"
-            ],
-            "format": "double"
-          }
-        }
-      },
       "CategoryDto": {
         "required": [
           "id",
@@ -3357,19 +3378,21 @@
           }
         }
       },
-      "FinancialHealthDto": {
+      "FinancialHealthCurrencyDto": {
         "required": [
+          "currency",
           "monthlyIncome",
           "monthlyExpenses",
-          "netSavings",
-          "savingsRate",
-          "totalLiquidBalance",
-          "emergencyFundMonths",
-          "totalDebtLiabilities",
-          "split503020"
+          "netCashFlow",
+          "savingsRatePercentage",
+          "currentBalance",
+          "outstandingDebtPrincipal"
         ],
         "type": "object",
         "properties": {
+          "currency": {
+            "type": "string"
+          },
           "monthlyIncome": {
             "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
             "type": [
@@ -3386,7 +3409,7 @@
             ],
             "format": "double"
           },
-          "netSavings": {
+          "netCashFlow": {
             "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
             "type": [
               "number",
@@ -3394,7 +3417,16 @@
             ],
             "format": "double"
           },
-          "savingsRate": {
+          "savingsRatePercentage": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "currentBalance": {
             "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
             "type": [
               "number",
@@ -3402,32 +3434,37 @@
             ],
             "format": "double"
           },
-          "totalLiquidBalance": {
+          "outstandingDebtPrincipal": {
             "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
             "type": [
               "number",
               "string"
             ],
             "format": "double"
+          }
+        }
+      },
+      "FinancialHealthDto": {
+        "required": [
+          "monthStartUtc",
+          "monthEndUtcExclusive",
+          "currencies"
+        ],
+        "type": "object",
+        "properties": {
+          "monthStartUtc": {
+            "type": "string",
+            "format": "date-time"
           },
-          "emergencyFundMonths": {
-            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
-            "type": [
-              "number",
-              "string"
-            ],
-            "format": "double"
+          "monthEndUtcExclusive": {
+            "type": "string",
+            "format": "date-time"
           },
-          "totalDebtLiabilities": {
-            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
-            "type": [
-              "number",
-              "string"
-            ],
-            "format": "double"
-          },
-          "split503020": {
-            "$ref": "#/components/schemas/BudgetSplit503020Dto"
+          "currencies": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FinancialHealthCurrencyDto"
+            }
           }
         }
       },
@@ -3435,6 +3472,9 @@
         "required": [
           "id",
           "accountId",
+          "accountName",
+          "trackingStatus",
+          "sharedGoalCount",
           "name",
           "targetAmount",
           "currency",
@@ -3458,6 +3498,23 @@
               "string"
             ],
             "format": "uuid"
+          },
+          "accountName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "trackingStatus": {
+            "type": "string"
+          },
+          "sharedGoalCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           },
           "name": {
             "type": "string"
@@ -3483,6 +3540,7 @@
           "currentAmount": {
             "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
             "type": [
+              "null",
               "number",
               "string"
             ],
@@ -3491,6 +3549,7 @@
           "remainingAmount": {
             "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
             "type": [
+              "null",
               "number",
               "string"
             ],
@@ -3499,6 +3558,7 @@
           "percentageAchieved": {
             "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
             "type": [
+              "null",
               "number",
               "string"
             ],
@@ -4327,6 +4387,11 @@
             "items": {
               "type": "string"
             }
+          },
+          "trackingMode": {
+            "type": "string",
+            "description": "Expenses tracks assigned category expenses. TargetOnly is an allocation target without contribution tracking and requires no assigned categories. Omission defaults to Expenses; explicit null and other values are rejected.",
+            "default": "Expenses"
           }
         }
       },
@@ -5074,6 +5139,35 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "UpdateBudgetRequest": {
+        "required": [
+          "limitAmount",
+          "alertThreshold"
+        ],
+        "type": "object",
+        "properties": {
+          "limitAmount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "description": "Required non-null limit in the budget's existing currency units (e.g. 275.55 BOB), rounded to that currency's precision; must remain strictly positive after rounding. Currency cannot be changed.",
+            "format": "double"
+          },
+          "alertThreshold": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "description": "Required non-null alert fraction greater than 0 and at most 1; 0.80 means 80%, 1 means 100% (not 80 or 100).",
+            "format": "double"
           }
         }
       },
