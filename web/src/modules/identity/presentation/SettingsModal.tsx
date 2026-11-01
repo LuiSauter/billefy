@@ -175,7 +175,9 @@ export function SettingsModal({
                   {planEnabled ? "Activado" : "Desactivado"}
                 </span>
                 <span className="text-xs text-muted-foreground">
-                  Repartí tus ingresos del mes en grupos (50/30/20 o personalizado).
+                  Opcional: repartí los ingresos reales del mes, sin transferencias, en grupos personalizables.
+                  Ahorro/inversión puede ser solo objetivo, sin registro de aportes. Los presupuestos siguen limitando gastos por categoría.
+                  Para activarlo, necesitás 2–8 grupos con porcentajes positivos que sumen 100%.
                 </span>
               </div>
               <span
