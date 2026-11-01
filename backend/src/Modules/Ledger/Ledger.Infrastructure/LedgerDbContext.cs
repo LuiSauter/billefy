@@ -14,6 +14,7 @@ public class LedgerDbContext : DbContext
     public DbSet<Account> Accounts => Set<Account>();
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<Transaction> Transactions => Set<Transaction>();
+    public DbSet<TransactionCategoryAllocation> TransactionCategoryAllocations => Set<TransactionCategoryAllocation>();
 
     public LedgerDbContext(DbContextOptions<LedgerDbContext> options, ICurrentUserContext currentUserContext)
         : base(options)
@@ -30,6 +31,7 @@ public class LedgerDbContext : DbContext
         modelBuilder.Entity<Account>().HasQueryFilter(a => _currentUserContext.IsAuthenticated && a.UserId == _currentUserContext.UserId.GetValueOrDefault());
         modelBuilder.Entity<Category>().HasQueryFilter(c => _currentUserContext.IsAuthenticated && c.UserId == _currentUserContext.UserId.GetValueOrDefault());
         modelBuilder.Entity<Transaction>().HasQueryFilter(t => _currentUserContext.IsAuthenticated && t.UserId == _currentUserContext.UserId.GetValueOrDefault());
+        modelBuilder.Entity<TransactionCategoryAllocation>().HasQueryFilter(a => _currentUserContext.IsAuthenticated && a.UserId == _currentUserContext.UserId.GetValueOrDefault());
     }
 
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
@@ -49,6 +51,12 @@ public class LedgerDbContext : DbContext
         var mutatedTransactions = ChangeTracker.Entries<Transaction>()
             .Where(e => e.State is EntityState.Modified or EntityState.Deleted)
             .ToList();
+        var mutatedAllocations = ChangeTracker.Entries<TransactionCategoryAllocation>()
+            .Where(e => e.State is EntityState.Modified or EntityState.Deleted)
+            .ToList();
+
+        if (mutatedAllocations.Count > 0)
+            throw new InvalidOperationException("Transaction allocations are immutable and cannot be updated or deleted. Use a reversal transaction instead.");
 
         if (mutatedTransactions.Count > 0)
         {

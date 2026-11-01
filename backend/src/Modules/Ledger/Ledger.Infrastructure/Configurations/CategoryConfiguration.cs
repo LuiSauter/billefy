@@ -11,6 +11,7 @@ internal sealed class CategoryConfiguration : IEntityTypeConfiguration<Category>
         builder.ToTable("categories");
 
         builder.HasKey(c => c.Id);
+        builder.HasAlternateKey(c => new { c.Id, c.UserId });
         builder.Property(c => c.Id).HasColumnName("id");
 
         builder.Property(c => c.UserId).HasColumnName("user_id").IsRequired();

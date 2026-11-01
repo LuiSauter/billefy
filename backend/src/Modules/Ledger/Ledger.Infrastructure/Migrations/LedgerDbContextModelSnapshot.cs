@@ -216,6 +216,70 @@ namespace Ledger.Infrastructure.Migrations
 
                     b.ToTable("transactions", (string)null);
                 });
+
+            modelBuilder.Entity("Ledger.Domain.Transactions.TransactionCategoryAllocation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(20, 6)
+                        .HasColumnType("numeric(20,6)")
+                        .HasColumnName("amount");
+
+                    b.Property<Guid>("CategoryId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("category_id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("TransactionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("transaction_id");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CategoryId", "UserId");
+
+                    b.HasIndex("TransactionId", "CategoryId")
+                        .IsUnique();
+
+                    b.HasIndex("TransactionId", "UserId");
+
+                    b.HasIndex("UserId", "CategoryId");
+
+                    b.ToTable("transaction_category_allocations", (string)null);
+                });
+
+            modelBuilder.Entity("Ledger.Domain.Transactions.TransactionCategoryAllocation", b =>
+                {
+                    b.HasOne("Ledger.Domain.Categories.Category", null)
+                        .WithMany()
+                        .HasForeignKey("CategoryId", "UserId")
+                        .HasPrincipalKey("Id", "UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Ledger.Domain.Transactions.Transaction", null)
+                        .WithMany("_categoryAllocations")
+                        .HasForeignKey("TransactionId", "UserId")
+                        .HasPrincipalKey("Id", "UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Ledger.Domain.Transactions.Transaction", b =>
+                {
+                    b.Navigation("_categoryAllocations");
+                });
 #pragma warning restore 612, 618
         }
     }

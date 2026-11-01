@@ -118,29 +118,16 @@ export function useLedgerModule(http: IHttpClient | null) {
       if (!repo) return;
       const fromAcc = accountsMap.get(cmd.fromAccountId);
       const toAcc = accountsMap.get(cmd.toAccountId);
+      if (!fromAcc || !toAcc) throw new Error("No se encontraron las cuentas de la transferencia.");
 
-      await repo.registerTransaction({
-        accountId: cmd.fromAccountId,
-        amount: cmd.amount.toString(),
-        direction: "Expense",
+      const converted = convertCurrencyAmount(cmd.amount, fromAcc.currency, toAcc.currency, cmd.p2pRate);
+      await repo.registerTransfer({
+        sourceAccountId: fromAcc.id,
+        sourceAmount: cmd.amount.toString(),
+        destinationAccountId: toAcc.id,
+        destinationAmount: converted.toFixed(2),
         description: cmd.description,
       });
-
-      if (toAcc && cmd.toAccountId !== cmd.fromAccountId) {
-        const converted = convertCurrencyAmount(
-          cmd.amount,
-          fromAcc?.currency || "BOB",
-          toAcc.currency,
-          cmd.p2pRate
-        );
-        await repo.registerTransaction({
-          accountId: cmd.toAccountId,
-          amount: converted.toFixed(2),
-          direction: "Income",
-          description: cmd.description,
-        });
-      }
-
       await refreshLedger();
     },
     [repo, accountsMap, refreshLedger]

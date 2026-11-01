@@ -1,11 +1,21 @@
 "use client";
 
-import React from "react";
-import { AccountDto } from "@/modules/ledger/domain/ledger.types";
-import { AccountsList } from "@/modules/ledger/presentation/AccountsList";
+import React, { useState, useMemo } from "react";
+import { AccountDto, TransactionDto } from "@/modules/ledger/domain/ledger.types";
+import {
+  calculateAccountsOverview,
+  classifyAccountCategory,
+} from "@/modules/ledger/domain/accounts-overview";
+import { AccountsHeaderStats } from "./AccountsHeaderStats";
+import { AccountsFilterToolbar, FilterCategory, ViewMode } from "./AccountsFilterToolbar";
+import { AccountsMainView } from "./AccountsMainView";
+import { AccountsAnalyticsSidePanels } from "./AccountsAnalyticsSidePanels";
 
 interface AccountsTabViewProps {
   accounts: AccountDto[];
+  transactions?: TransactionDto[];
+  p2pRate?: number;
+  selectedCurrency?: "BOB" | "USD";
   loading: boolean;
   onOpenCreateAccountModal: () => void;
   onOpenCsvModal: () => void;
@@ -18,47 +28,72 @@ interface AccountsTabViewProps {
 
 export function AccountsTabView({
   accounts,
+  transactions = [],
+  p2pRate = 9.85,
+  selectedCurrency = "USD",
   loading,
   onOpenCreateAccountModal,
   onOpenCsvModal,
   onOpenReconcileModal,
   onUpdateAccount,
 }: AccountsTabViewProps) {
+  const [selectedCategory, setSelectedCategory] = useState<FilterCategory>("all");
+  const [viewMode, setViewMode] = useState<ViewMode>("grid");
+
+  const metrics = useMemo(() => {
+    return calculateAccountsOverview(accounts, transactions, p2pRate);
+  }, [accounts, transactions, p2pRate]);
+
+  const filteredAccounts = useMemo(() => {
+    if (selectedCategory === "all") return accounts;
+    return accounts.filter((a) => classifyAccountCategory(a) === selectedCategory);
+  }, [accounts, selectedCategory]);
+
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="text-[18px] font-black text-foreground tracking-tight">
-            Mis Cuentas & Billeteras
-          </h1>
-          <p className="text-xs font-medium text-muted-foreground mt-0.5">
-            Conciliación bancaria y saldos en vivo multimoneda
-          </p>
+      {/* 1. Header with Title, Description, "+ Agregar cuenta" & 6 Stat Cards */}
+      <AccountsHeaderStats
+        metrics={metrics}
+        currency={selectedCurrency}
+        onOpenCreateAccountModal={onOpenCreateAccountModal}
+        onOpenCsvModal={onOpenCsvModal}
+      />
+
+      {/* 2. Filter Tabs & View Mode Switcher */}
+      <AccountsFilterToolbar
+        selectedCategory={selectedCategory}
+        onSelectCategory={setSelectedCategory}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        totalCount={accounts.length}
+        categoryTotals={metrics.categoryTotals}
+      />
+
+      {/* 3. Main 2-Column Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Left Column: Mis Cuentas (Grid or List) */}
+        <div className="lg:col-span-7 xl:col-span-8 flex flex-col gap-4">
+          <AccountsMainView
+            accounts={filteredAccounts}
+            loading={loading}
+            viewMode={viewMode}
+            onOpenCreateAccountModal={onOpenCreateAccountModal}
+            onOpenReconcileModal={onOpenReconcileModal}
+            onUpdateAccount={onUpdateAccount}
+          />
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={onOpenCsvModal}
-            className="h-[38px] px-3.5 rounded-[10px] border border-border bg-card text-sm font-semibold text-foreground hover:bg-muted transition"
-          >
-            📄 Importar CSV
-          </button>
-          <button
-            onClick={onOpenCreateAccountModal}
-            className="h-[38px] px-4 rounded-[10px] bg-primary hover:bg-blue-600 text-white text-sm font-bold transition shadow-2xs"
-          >
-            + Nueva Cuenta
-          </button>
+
+        {/* Right Column: Distribución Donut & Evolución Area Chart */}
+        <div className="lg:col-span-5 xl:col-span-4 flex flex-col gap-4">
+          <AccountsAnalyticsSidePanels
+            metrics={metrics}
+            accounts={accounts}
+            transactions={transactions}
+            p2pRate={p2pRate}
+            currency={selectedCurrency}
+          />
         </div>
       </div>
-
-      <AccountsList
-        accounts={accounts}
-        loading={loading}
-        hideHeader
-        onOpenCreateAccountModal={onOpenCreateAccountModal}
-        onOpenReconcileModal={onOpenReconcileModal}
-        onUpdateAccount={onUpdateAccount}
-      />
     </div>
   );
 }

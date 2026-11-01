@@ -56,6 +56,17 @@ export interface RegisterTransactionRequest {
   description?: string;
 }
 
+export interface RegisterTransferRequest {
+  sourceAccountId: string;
+  sourceAmount: string;
+  destinationAccountId: string;
+  destinationAmount: string;
+  appliedRate?: string;
+  rateSource?: string;
+  description?: string;
+  occurredAt?: string;
+}
+
 export interface UpdateTransactionRequest {
   accountId: string;
   amount: string | number;
@@ -118,6 +129,7 @@ export interface ILedgerRepository {
   reconcileAccount(accountId: string, req: ReconcileAccountRequest): Promise<ReconciliationResult>;
   getTransactions(filter?: TransactionFilter): Promise<TransactionDto[]>;
   registerTransaction(req: RegisterTransactionRequest): Promise<{ id: string }>;
+  registerTransfer(req: RegisterTransferRequest): Promise<{ outflowId: string; inflowId: string }>;
   updateTransaction(id: string, req: UpdateTransactionRequest): Promise<{ id: string; replacedTransactionId: string }>;
   reverseTransaction(id: string, reason?: string): Promise<{ id: string; reversedTransactionId: string }>;
 }

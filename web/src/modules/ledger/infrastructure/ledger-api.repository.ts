@@ -8,6 +8,7 @@ import {
   ReconcileAccountRequest,
   ReconciliationResult,
   RegisterTransactionRequest,
+  RegisterTransferRequest,
   UpdateTransactionRequest,
   TransactionDirection,
   TransactionDto,
@@ -108,6 +109,10 @@ export class LedgerApiRepository implements ILedgerRepository {
 
   async registerTransaction(req: RegisterTransactionRequest): Promise<{ id: string }> {
     return this.http.post<{ id: string }>("/v1/transactions", req);
+  }
+
+  async registerTransfer(req: RegisterTransferRequest): Promise<{ outflowId: string; inflowId: string }> {
+    return this.http.post<{ outflowId: string; inflowId: string }>("/v1/transactions/transfers", req);
   }
 
   async updateTransaction(

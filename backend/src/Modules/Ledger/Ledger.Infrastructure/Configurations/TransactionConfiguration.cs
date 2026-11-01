@@ -10,8 +10,15 @@ internal sealed class TransactionConfiguration : IEntityTypeConfiguration<Transa
     public void Configure(EntityTypeBuilder<Transaction> builder)
     {
         builder.ToTable("transactions");
+        builder.Ignore(transaction => transaction.CategoryAllocations);
+        builder.HasMany<TransactionCategoryAllocation>("_categoryAllocations")
+            .WithOne()
+            .HasForeignKey(allocation => new { allocation.TransactionId, allocation.UserId })
+            .HasPrincipalKey(transaction => new { transaction.Id, transaction.UserId })
+            .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasKey(t => t.Id);
+        builder.HasAlternateKey(t => new { t.Id, t.UserId });
         builder.Property(t => t.Id).HasColumnName("id");
 
         builder.Property(t => t.UserId).HasColumnName("user_id").IsRequired();
