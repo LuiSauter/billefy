@@ -37,9 +37,14 @@ public sealed class ReverseTransactionCommandHandler
         }
 
         var original = await _transactionRepository.GetByIdAsync(command.TransactionId, cancellationToken);
-        if (original is null)
+        if (original is null || original.UserId != _currentUserContext.UserId!.Value)
         {
-            return Result.Failure<Guid>(Error.NotFound("Transaction.NotFound", $"Transaction with id {command.TransactionId} was not found."));
+            return Result.Failure<Guid>(Error.NotFound("Transaction.NotFound", "Transaction not found."));
+        }
+
+        if (await _transactionRepository.GetReversalByOriginalIdAsync(original.Id, cancellationToken) is not null)
+        {
+            return Result.Failure<Guid>(Error.Conflict("Transaction.AlreadyReversed", "Transaction already has a reversal."));
         }
 
         var reversal = Transaction.CreateReversal(
@@ -49,7 +54,16 @@ public sealed class ReverseTransactionCommandHandler
             _clock.UtcNow);
 
         await _transactionRepository.AddAsync(reversal, cancellationToken);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        catch
+        {
+            if (await _transactionRepository.GetReversalByOriginalIdAsync(original.Id, cancellationToken) is not null)
+                return Result.Failure<Guid>(Error.Conflict("Transaction.AlreadyReversed", "Transaction already has a reversal."));
+            throw;
+        }
 
         return Result.Success(reversal.Id);
     }

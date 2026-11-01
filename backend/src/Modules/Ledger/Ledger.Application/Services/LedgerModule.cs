@@ -1,8 +1,10 @@
+using BuildingBlocks.Common;
 using BuildingBlocks.Currencies;
 using BuildingBlocks.Time;
 using BuildingBlocks.ValueObjects;
 using Fx.Contracts;
 using Ledger.Application.Abstractions;
+using Ledger.Application.Categories.Services;
 using Ledger.Contracts;
 using Ledger.Domain.Transactions;
 
@@ -12,6 +14,7 @@ public sealed class LedgerModule : ILedgerModule
 {
     private readonly IAccountRepository _accountRepository;
     private readonly ITransactionRepository _transactionRepository;
+    private readonly ICategoryService _categoryService;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IClock _clock;
     private readonly IRateSnapshotProvider? _rateSnapshotProvider;
@@ -19,15 +22,24 @@ public sealed class LedgerModule : ILedgerModule
     public LedgerModule(
         IAccountRepository accountRepository,
         ITransactionRepository transactionRepository,
+        ICategoryService categoryService,
         IUnitOfWork unitOfWork,
         IClock clock,
         IRateSnapshotProvider? rateSnapshotProvider = null)
     {
         _accountRepository = accountRepository;
         _transactionRepository = transactionRepository;
+        _categoryService = categoryService;
         _unitOfWork = unitOfWork;
         _clock = clock;
         _rateSnapshotProvider = rateSnapshotProvider;
+    }
+
+    public async Task<IReadOnlyList<Guid>> GetExpenseCategoryIdsForCurrentUserAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var categories = await _categoryService.GetCategoriesAsync(TransactionDirection.Expense, cancellationToken);
+        return categories.IsSuccess ? categories.Value.Select(c => c.Id).ToArray() : [];
     }
 
     public async Task<Guid> CreateTransactionFromDraftAsync(
@@ -83,6 +95,79 @@ public sealed class LedgerModule : ILedgerModule
         return transaction.Id;
     }
 
+    public async Task<LoanDisbursementReversalResultDto> ValidateLoanDisbursementReversalAsync(
+        LoanDisbursementReversalRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        var original = await _transactionRepository.GetByIdAsync(request.TransactionId, cancellationToken);
+        if (original is null || original.UserId != request.UserId)
+            return new(null, "Loan.DisbursementNotFound");
+
+        var expectedDirection = Enum.TryParse<TransactionDirection>(request.ExpectedDirection, true, out var direction)
+            ? direction
+            : (TransactionDirection?)null;
+        if (original.AccountId != request.AccountId || original.Amount.Amount != request.Principal ||
+            !StringComparer.Ordinal.Equals(original.Amount.Currency.Code, request.Currency) ||
+            original.Direction != expectedDirection || original.ReversesId.HasValue || original.TransferId.HasValue)
+        {
+            return new(null, "Loan.DisbursementMismatch");
+        }
+
+        if (await _transactionRepository.GetReversalByOriginalIdAsync(original.Id, cancellationToken) is not null)
+            return new(null, "Loan.DisbursementAlreadyReversed");
+
+        return new(null, null);
+    }
+
+    public async Task<LoanDisbursementReversalResultDto> ReverseLoanDisbursementAsync(
+        LoanDisbursementReversalRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        var validation = await ValidateLoanDisbursementReversalAsync(request, cancellationToken);
+        if (validation.ErrorCode is not null)
+            return validation;
+        var original = await _transactionRepository.GetByIdAsync(request.TransactionId, cancellationToken);
+        if (original is null)
+            return new(null, "Loan.DisbursementNotFound");
+        var reversal = Transaction.CreateReversal(original, _clock.UtcNow, "Loan cancellation", _clock.UtcNow);
+        await _transactionRepository.AddAsync(reversal, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        return new(reversal.Id, null);
+    }
+
+    public async Task<IReadOnlyList<LedgerCurrencyHealthMetricsDto>> GetMonthlyHealthMetricsAsync(
+        Guid userId,
+        DateTime monthStartUtc,
+        DateTime monthEndUtcExclusive,
+        CancellationToken cancellationToken = default)
+    {
+        var totals = await _transactionRepository.GetMonthlyActivityByCurrencyAsync(
+            userId, monthStartUtc, monthEndUtcExclusive, cancellationToken);
+        var metrics = new Dictionary<string, (decimal Income, decimal Expenses, decimal Balance)>(StringComparer.Ordinal);
+
+        foreach (var total in totals)
+        {
+            var current = metrics.GetValueOrDefault(total.Currency);
+            metrics[total.Currency] = (
+                current.Income + total.Income,
+                current.Expenses + total.Expenses,
+                current.Balance);
+        }
+
+        var accounts = await _accountRepository.GetByUserIdAsync(userId, includeArchived: false, cancellationToken);
+        foreach (var account in accounts)
+        {
+            var balance = await _transactionRepository.CalculateBalanceAsync(account.Id, cancellationToken);
+            var current = metrics.GetValueOrDefault(account.Currency.Code);
+            metrics[account.Currency.Code] = (current.Income, current.Expenses, current.Balance + balance);
+        }
+
+        return metrics.OrderBy(pair => pair.Key, StringComparer.Ordinal)
+            .Select(pair => new LedgerCurrencyHealthMetricsDto(
+                pair.Key, pair.Value.Income, pair.Value.Expenses, pair.Value.Balance))
+            .ToArray();
+    }
+
     public async Task<MonthlyLedgerMetricsDto> GetMonthlyMetricsAsync(
         Guid userId,
         DateTime monthStart,
@@ -104,6 +189,9 @@ public sealed class LedgerModule : ILedgerModule
 
         foreach (var t in txns)
         {
+            // Internal movements are neither income nor spending, even when categorized.
+            if (t.TransferId.HasValue) continue;
+
             if (t.Direction == TransactionDirection.Income)
             {
                 totalIncome += t.Amount.Amount;

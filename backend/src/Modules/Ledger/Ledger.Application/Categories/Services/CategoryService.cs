@@ -112,10 +112,15 @@ public sealed class CategoryService(
 
         if (!string.IsNullOrWhiteSpace(category.Icon))
         {
-            var parts = category.Icon.Split('|', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-            if (parts.Length == 3)
-            {
+            var parts = category.Icon.Split('|', StringSplitOptions.TrimEntries);
+            // Direction survives extra delimiters or truncated visuals; legacy icons have no canonical prefix.
+            var hasDirection = parts.Length >= 2
+                && parts[0] is nameof(TransactionDirection.Income) or nameof(TransactionDirection.Expense);
+            if (hasDirection)
                 direction = parts[0];
+
+            if (hasDirection && parts.Length == 3)
+            {
                 iconKey = parts[1];
                 colorKey = parts[2];
             }

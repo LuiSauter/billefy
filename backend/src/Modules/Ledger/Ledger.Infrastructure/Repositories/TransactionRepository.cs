@@ -16,6 +16,10 @@ public sealed class TransactionRepository : ITransactionRepository
     public async Task<Transaction?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
         await _context.Transactions.FirstOrDefaultAsync(t => t.Id == id, cancellationToken);
 
+    public async Task<Transaction?> GetReversalByOriginalIdAsync(Guid originalId, CancellationToken cancellationToken = default) =>
+        await _context.Transactions.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(t => t.ReversesId == originalId, cancellationToken);
+
     public async Task<IReadOnlyList<Transaction>> GetByAccountIdAsync(Guid accountId, CancellationToken cancellationToken = default) =>
         await _context.Transactions
             .Where(t => t.AccountId == accountId)
@@ -58,6 +62,26 @@ public sealed class TransactionRepository : ITransactionRepository
         return await query
             .OrderByDescending(t => t.OccurredAt)
             .Take(Math.Clamp(limit, 1, 100))
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<MonthlyTransactionCurrencyTotal>> GetMonthlyActivityByCurrencyAsync(
+        Guid userId,
+        DateTime monthStartUtc,
+        DateTime monthEndUtcExclusive,
+        CancellationToken cancellationToken = default)
+    {
+        return await _context.Database.SqlQuery<MonthlyTransactionCurrencyTotal>($"""
+            SELECT currency AS "Currency",
+                   COALESCE(SUM(CASE WHEN direction = 'Income' THEN amount ELSE 0 END), 0) AS "Income",
+                   COALESCE(SUM(CASE WHEN direction = 'Expense' THEN amount ELSE 0 END), 0) AS "Expenses"
+            FROM transactions
+            WHERE user_id = {userId}
+              AND occurred_at >= {monthStartUtc}
+              AND occurred_at < {monthEndUtcExclusive}
+              AND transfer_id IS NULL
+            GROUP BY currency
+            """)
             .ToListAsync(cancellationToken);
     }
 

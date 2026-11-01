@@ -206,7 +206,9 @@ namespace Ledger.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ReversesId");
+                    b.HasIndex("ReversesId")
+                        .IsUnique()
+                        .HasFilter("\"reverses_id\" IS NOT NULL");
 
                     b.HasIndex("TransferId");
 
