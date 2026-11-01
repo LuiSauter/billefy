@@ -1,3 +1,5 @@
+import Decimal from "decimal.js";
+import { toDecimal } from "@/shared/domain/money";
 import { AccountDto, TransactionDto } from "./ledger.types";
 
 export function toBob(amount: number, currency: string, p2pRate: number): number {
@@ -78,18 +80,61 @@ export function computeAccountMonthlyChanges(
   return result;
 }
 
+/** Income/spending flows only; never use this filter to derive account balances. */
+export function getActiveFlowTransactions(transactions: TransactionDto[]): TransactionDto[] {
+  return getActiveTransactions(transactions).filter((t) => !t.transferId);
+}
+
+function getMonthlyFlows(
+  transactions: TransactionDto[],
+  month: string,
+  direction: "Income" | "Expense"
+): TransactionDto[] {
+  return getActiveFlowTransactions(transactions).filter((t) => {
+    const date = new Date(t.occurredAt);
+    return t.direction === direction && !isNaN(date.getTime()) && monthKey(date) === month;
+  });
+}
+
+/** Preserve the existing BOB/current-rate valuation, but aggregate in decimal. */
+function flowAmountBob(transaction: TransactionDto, p2pRate: number): Decimal {
+  const parsed = toDecimal(transaction.amount);
+  const amount = parsed.isNaN() ? new Decimal(0) : parsed;
+  return transaction.currency === "BOB" ? amount : amount.times(p2pRate);
+}
+
+export function sumMonthlyFlow(
+  transactions: TransactionDto[],
+  month: string,
+  direction: "Income" | "Expense",
+  p2pRate: number
+): Decimal {
+  return getMonthlyFlows(transactions, month, direction).reduce(
+    (total, t) => total.plus(flowAmountBob(t, p2pRate)),
+    new Decimal(0)
+  );
+}
+
+/** Uncategorized expenses still count in sumMonthlyFlow, but have no category entry. */
+export function sumMonthlySpendingByCategory(
+  transactions: TransactionDto[],
+  month: string,
+  p2pRate: number
+): Map<string, Decimal> {
+  const totals = new Map<string, Decimal>();
+  for (const t of getMonthlyFlows(transactions, month, "Expense")) {
+    if (!t.categoryId) continue;
+    totals.set(t.categoryId, (totals.get(t.categoryId) ?? new Decimal(0)).plus(flowAmountBob(t, p2pRate)));
+  }
+  return totals;
+}
+
+/** Numeric compatibility boundary for display callers; excludes internal transfers. */
 export function sumByMonth(
   transactions: TransactionDto[],
   month: string,
   direction: "Income" | "Expense",
   p2pRate: number
 ): number {
-  let total = 0;
-  for (const t of getActiveTransactions(transactions)) {
-    if (t.direction !== direction) continue;
-    const d = new Date(t.occurredAt);
-    if (isNaN(d.getTime()) || monthKey(d) !== month) continue;
-    total += toBob(Number(t.amount) || 0, t.currency, p2pRate);
-  }
-  return total;
+  return sumMonthlyFlow(transactions, month, direction, p2pRate).toNumber();
 }
