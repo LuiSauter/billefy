@@ -51,6 +51,10 @@ public sealed record CreateLoanRequest(
     int CompoundingPeriods = 1,
     DateOnly? MaturityDate = null);
 
+public sealed record LoanCancellationEligibilityDto(bool CanCancel, string? ReasonCode);
+
+public sealed record LoanCancellationResultDto(string Status, Guid? ReversalTransactionId);
+
 public sealed record LoanSummaryDto(
     Guid Id,
     Guid CounterpartyId,
@@ -66,7 +70,8 @@ public sealed record LoanSummaryDto(
     DateOnly DisbursementDate,
     DateOnly FirstDueDate,
     int TotalInstallments,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    LoanCancellationEligibilityDto CancellationEligibility);
 
 public sealed record LoanInstallmentDto(
     Guid Id,

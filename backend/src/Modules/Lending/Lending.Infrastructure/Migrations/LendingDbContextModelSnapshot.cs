@@ -104,6 +104,14 @@ namespace Lending.Infrastructure.Migrations
                         .HasColumnType("date")
                         .HasColumnName("disbursement_date");
 
+                    b.Property<Guid?>("DisbursementReversalTransactionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("disbursement_reversal_transaction_id");
+
+                    b.Property<Guid?>("DisbursementTransactionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("disbursement_transaction_id");
+
                     b.Property<string>("EarlyPaymentPolicy")
                         .IsRequired()
                         .HasMaxLength(30)

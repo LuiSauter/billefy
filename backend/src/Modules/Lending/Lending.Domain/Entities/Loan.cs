@@ -13,6 +13,8 @@ public sealed class Loan : Entity
 
     public Guid CounterpartyId { get; private init; }
     public Guid? DisbursementAccountId { get; private init; }
+    public Guid? DisbursementTransactionId { get; private set; }
+    public Guid? DisbursementReversalTransactionId { get; private set; }
     public LoanType Type { get; private init; }
     public LoanTemplate Template { get; private init; }
     public LoanStatus Status { get; private set; }
@@ -181,6 +183,18 @@ public sealed class Loan : Entity
         return loan;
     }
 
+    public void LinkDisbursementTransaction(Guid transactionId)
+    {
+        if (DisbursementAccountId is null)
+            throw new InvalidOperationException("A disbursement transaction requires a linked account.");
+        if (transactionId == Guid.Empty)
+            throw new ArgumentException("Transaction ID must not be empty.", nameof(transactionId));
+        if (DisbursementTransactionId.HasValue)
+            throw new InvalidOperationException("A disbursement transaction is already linked.");
+
+        DisbursementTransactionId = transactionId;
+    }
+
     public PaymentAllocationResult RecordPayment(
         decimal paymentAmount,
         DateTime paymentDateTime,
@@ -290,12 +304,21 @@ public sealed class Loan : Entity
         ClosedAt = forgivenAt;
     }
 
-    public void Cancel(DateTime cancelledAt)
+    public void Cancel(DateTime cancelledAt, Guid? reversalTransactionId = null)
     {
-        if (Status != LoanStatus.PendingAcceptance && Status != LoanStatus.Simulated)
+        if (Status != LoanStatus.Active)
             throw new InvalidOperationException($"Cannot cancel loan in state '{Status}'.");
+        if (_payments.Count != 0)
+            throw new InvalidOperationException("A loan with recorded payments cannot be cancelled.");
+        if (DisbursementAccountId is null && DisbursementTransactionId.HasValue)
+            throw new InvalidOperationException("A disbursement transaction cannot exist without an account.");
+        if (DisbursementAccountId.HasValue != DisbursementTransactionId.HasValue)
+            throw new InvalidOperationException("The loan disbursement linkage is incomplete.");
+        if (DisbursementTransactionId.HasValue != reversalTransactionId.HasValue)
+            throw new InvalidOperationException("A linked disbursement must be reversed exactly once when cancelling.");
 
         Status = LoanStatus.Cancelled;
         ClosedAt = cancelledAt;
+        DisbursementReversalTransactionId = reversalTransactionId;
     }
 }

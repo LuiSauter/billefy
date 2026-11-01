@@ -17,6 +17,8 @@ internal sealed class LoanConfiguration : IEntityTypeConfiguration<Loan>
         builder.Property(l => l.UserId).HasColumnName("user_id").IsRequired();
         builder.Property(l => l.CounterpartyId).HasColumnName("counterparty_id").IsRequired();
         builder.Property(l => l.DisbursementAccountId).HasColumnName("disbursement_account_id");
+        builder.Property(l => l.DisbursementTransactionId).HasColumnName("disbursement_transaction_id");
+        builder.Property(l => l.DisbursementReversalTransactionId).HasColumnName("disbursement_reversal_transaction_id");
 
         builder.Property(l => l.Type)
             .HasColumnName("type")

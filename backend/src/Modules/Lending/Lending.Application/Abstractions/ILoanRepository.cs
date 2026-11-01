@@ -6,6 +6,7 @@ namespace Lending.Application.Abstractions;
 public interface ILoanRepository
 {
     Task<Loan?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
+    Task<Loan?> GetByIdForUpdateAsync(Guid id, Guid userId, CancellationToken cancellationToken = default);
     Task<List<Loan>> GetByUserIdAsync(
         Guid userId,
         LoanType? type = null,
