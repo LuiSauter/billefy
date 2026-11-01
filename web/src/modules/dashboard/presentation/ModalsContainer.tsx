@@ -17,6 +17,7 @@ import {
 } from "@/modules/ingestion/domain/ingestion.types";
 import {
   CreateLoanRequest,
+  LoanCancellationResultDto,
   LoanScheduleDto,
   RegisterLoanPaymentRequest,
   SimulateLoanRequest,
@@ -114,6 +115,7 @@ interface ModalsContainerProps {
   selectedCurrency: "BOB" | "USD";
   onSelectCurrency: (currency: "BOB" | "USD") => void;
   onLogout?: () => void;
+  onOpenAccounts?: () => void;
   planEnabled?: boolean;
   onTogglePlan?: (enabled: boolean) => void;
   actions: {
@@ -135,6 +137,7 @@ interface ModalsContainerProps {
     simulateLoan: (req: SimulateLoanRequest) => Promise<LoanScheduleDto>;
     createLoan: (req: CreateLoanRequest) => Promise<void>;
     registerLoanPayment: (loanId: string, req: RegisterLoanPaymentRequest) => Promise<unknown>;
+    cancelLoan: (loanId: string) => Promise<LoanCancellationResultDto>;
     createBudget: (req: CreateBudgetRequest) => Promise<void>;
     createGoal: (req: CreateGoalRequest) => Promise<void>;
     linkWhatsApp: (phone: string) => Promise<LinkWhatsAppResponse>;
@@ -163,6 +166,7 @@ export function ModalsContainer({
   selectedCurrency,
   onSelectCurrency,
   onLogout,
+  onOpenAccounts,
   planEnabled,
   onTogglePlan,
   actions,
@@ -285,6 +289,11 @@ export function ModalsContainer({
           isOpen={modals.isLoanDetailModalOpen}
           loan={modals.selectedLoanDetail}
           onClose={() => modals.setIsLoanDetailModalOpen(false)}
+          onCancelLoan={async (loanId) => {
+            const result = await actions.cancelLoan(loanId);
+            modals.setIsLoanDetailModalOpen(false);
+            return result;
+          }}
         />
       )}
 
@@ -313,7 +322,7 @@ export function ModalsContainer({
           accounts={accounts}
           onClose={() => modals.setIsGoalModalOpen(false)}
           onSubmit={actions.createGoal}
-          p2pRate={p2pRate}
+          onOpenAccounts={onOpenAccounts}
         />
       )}
 

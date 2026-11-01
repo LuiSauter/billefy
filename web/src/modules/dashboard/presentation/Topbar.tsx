@@ -41,7 +41,7 @@ export function Topbar({
   };
 
   return (
-    <header className="hidden md:flex h-[72px] px-8 bg-card/90 backdrop-blur-md border-b border-border items-center justify-between gap-4 sticky top-0 z-20">
+    <header className="hidden md:flex py-2 px-8 bg-card/90 backdrop-blur-md border-b border-border items-center justify-between gap-4 sticky top-0 z-20">
       <div className="relative w-[320px] lg:w-[380px] h-[40px] rounded-[10px] bg-background border border-border flex items-center px-[12px] justify-between focus-within:border-primary/60 transition">
         <div className="flex items-center gap-2 flex-1 min-w-0">
           <Search className="w-[15px] h-[15px] text-muted-foreground shrink-0" />
