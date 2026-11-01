@@ -11,5 +11,7 @@
 # Windows example:
 # sdk.dir=C\:\\Users\\TU_USUARIO\\AppData\\Local\\Android\\Sdk
 
-# Billefy Backend API Endpoint (Optional override for development):
-# billefy.api.url=http://10.0.2.2:5000
+# Non-secret Android app configuration. Values are copied into BuildConfig; never put client secrets here.
+# Required to use authentication/API features. Use a deployed HTTPS API origin for release builds.
+# billefy.api.baseUrl=https://api.example.test
+# billefy.google.serverClientId=YOUR_GOOGLE_WEB_CLIENT_ID

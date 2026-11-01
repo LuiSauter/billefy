@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidApplication)
@@ -46,6 +48,10 @@ kotlin {
         }
         androidMain.dependencies {
             implementation("androidx.activity:activity-compose:1.9.3")
+            implementation(libs.androidx.credentials)
+            implementation(libs.androidx.credentials.play.services.auth)
+            implementation(libs.googleid)
+            implementation(libs.ktor.client.android)
         }
         commonTest.dependencies {
             implementation(kotlin("test"))
@@ -53,7 +59,17 @@ kotlin {
     }
 }
 
+val localConfig = Properties().apply {
+    val localFile = rootProject.file("local.properties")
+    if (localFile.isFile) localFile.inputStream().use { load(it) }
+}
+
+fun configValue(name: String): String = localConfig.getProperty(name, "")
+    .replace("\\", "\\\\").replace("\"", "\\\"")
+    .replace("\r", "\\r").replace("\n", "\\n")
+
 android {
+    buildFeatures { buildConfig = true }
     namespace = "com.billefy.app"
     compileSdk = 34
 
@@ -63,6 +79,8 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "0.1.0"
+        buildConfigField("String", "BILLEFY_API_BASE_URL", "\"${configValue("billefy.api.baseUrl")}\"")
+        buildConfigField("String", "BILLEFY_GOOGLE_SERVER_CLIENT_ID", "\"${configValue("billefy.google.serverClientId")}\"")
     }
 
     packaging {

@@ -94,7 +94,32 @@ Cuando ejecutes la app en un emulador o dispositivo físico, ten en cuenta la di
 
 ---
 
-## 4. Comandos de Ejecución
+## 4. Base compartida de API y sesión (unidad Android inicial)
+
+`:shared` ya expone transporte Ktor inyectable, autenticación Google contra `/api/v1/auth/google`, rotación con `/api/v1/auth/refresh`, cierre en `/api/v1/auth/logout` y lecturas autenticadas de cuentas (`/v1/accounts`), movimientos (`/v1/transactions`) y tasa vigente (`/v1/rates/latest`). Los importes JSON se convierten desde su texto decimal directamente a `Money`, sin pasar por `Double`.
+
+La aplicación anfitriona proporciona una URL base y un `HttpClient` Ktor; el motor Android está disponible en `:shared`. Android usa `AndroidSessionStore`: ambos tokens se cifran juntos con AES-GCM mediante una clave Android Keystore y se escriben como un único ciphertext en preferencias privadas. Si la clave, el ciphertext o la escritura falla, no hay fallback en texto claro. Las reglas Android excluyen esa preferencia de backup y transferencia de dispositivo.
+
+La configuración no secreta se lee de `mobile/local.properties` y se incorpora a `BuildConfig`:
+
+| Propiedad | Valor | Requisito |
+|---|---|---|
+| `billefy.api.baseUrl` | Origen API, por ejemplo `https://api.example.test` | Obligatorio; sin credenciales, ruta, query ni fragmento. Release exige HTTPS. |
+| `billefy.google.serverClientId` | OAuth Web/server client ID | Obligatorio para Google Credential Manager; debe coincidir con el audience que valida el backend. |
+
+Copia `local.properties.example` a `local.properties` y sustituye los valores de ejemplo por los propios; nunca incluyas un client secret. No se consumen variables de entorno nuevas; `.env.example` lo indica explícitamente. La ausencia de estos valores falla cerrada al crear configuración. `AndroidAppConfig.create` también valida el origen antes de uso.
+
+`GoogleIdTokenProvider` usa AndroidX Credential Manager con el server client ID, y distingue cancelación, credencial ausente, configuración vacía y error genérico sin registrar tokens. La llamada requiere un `Activity` solo durante la operación y el adaptador no lo conserva. El ID token se intercambia después usando `SessionManager`; no se permite saltar el intercambio con un token de correo.
+
+**Dependencia de seguridad pendiente:** `IdentityService` en el backend parsea claims de JWT Google sin verificar firma/JWK. Esta unidad no modifica ese componente y no declara OAuth producción-seguro ni login end-to-end hasta que backend valide firma, issuer, audience, expiry y nonce. No se hicieron llamadas a Google ni al backend real. No registres tokens, cuerpos financieros ni errores con contenido sensible.
+
+## 4. Cuentas e ingresos/gastos en Android
+
+La billetera conectada permite crear cuentas (Bank, Wallet, Cash, Exchange, Savings, Checking, CryptoWallet o International; monedas BOB, USD y USDT) y registrar ingresos/gastos en una cuenta cargada del usuario. El saldo inicial puede ser negativo; las cantidades usan texto decimal exacto, admiten hasta 14 dígitos enteros y 6 decimales y nunca pasan por `Float`/`Double`. No se inventan categorías: el movimiento usa la categoría opcional omitida por el endpoint.
+
+Un 4xx definitivo conserva los datos del formulario. Si la respuesta de escritura es ambigua (fallo de transporte, 5xx o respuesta 201 ilegible), la app no reenvía automáticamente: indica actualizar/revisar cuentas y movimientos y exige reconocimiento consciente antes de otro registro. Esa lectura no demuestra que la primera escritura no se haya guardado. Tras una confirmación 201, el formulario se cierra y se actualizan los datos reales; un fallo de lectura no convierte el guardado en fallo ni debe motivar volver a registrar. Los endpoints de ledger no ofrecen garantía de idempotencia para estas operaciones. No se realizó verificación visual en dispositivo.
+
+## 5. Comandos de Ejecución
 
 Ubícate en el directorio `mobile/`. 
 

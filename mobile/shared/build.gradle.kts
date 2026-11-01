@@ -39,6 +39,11 @@ kotlin {
             api(libs.bignum)
             implementation(libs.kotlinx.datetime)
             implementation(libs.kotlinx.coroutines.core)
+            implementation(libs.kotlinx.serialization.json)
+            implementation(libs.ktor.client.core)
+        }
+        androidMain.dependencies {
+            implementation(libs.ktor.client.android)
         }
         commonTest.dependencies {
             implementation(kotlin("test"))
