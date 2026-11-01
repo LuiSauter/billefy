@@ -1,5 +1,6 @@
 using Api.Endpoints;
 using Api.Security;
+using Api.Infrastructure.Transactions;
 using BuildingBlocks.Security;
 using BuildingBlocks.Time;
 using Fx.Infrastructure;
@@ -139,6 +140,7 @@ builder.Services.AddLedgerModule(builder.Configuration);
 builder.Services.AddFxModule(builder.Configuration);
 builder.Services.AddIngestionModule(builder.Configuration);
 builder.Services.AddLendingModule(builder.Configuration);
+builder.Services.AddScoped<Lending.Application.Abstractions.ILoanTransaction, RelationalLoanTransaction>();
 builder.Services.AddPlanningModule(builder.Configuration);
 builder.Services.AddNotificationsModule(builder.Configuration);
 builder.Services.AddWhatsAppIntegration(builder.Configuration);

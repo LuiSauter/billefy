@@ -69,6 +69,21 @@ public static class LoanEndpoints
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status404NotFound);
 
+        group.MapPost("/{id:guid}/cancel", async (
+            [FromRoute] Guid id,
+            ILoanService loanService,
+            CancellationToken ct) =>
+        {
+            var result = await loanService.CancelLoanAsync(id, ct);
+            return result.ToHttpResult();
+        })
+        .WithName("CancelLoan")
+        .WithSummary("Cancel an active loan with no payments, reversing only its exactly linked disbursement.")
+        .Produces<LoanCancellationResultDto>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict);
+
         group.MapPost("/{id:guid}/payments", async (
             [FromRoute] Guid id,
             [FromBody] RegisterLoanPaymentRequest request,

@@ -40,6 +40,23 @@ public static class PlanningEndpoints
         .Produces<List<BudgetDto>>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status401Unauthorized);
 
+        group.MapPut("/budgets/{id:guid}", async (
+            [FromRoute] Guid id,
+            [FromBody] UpdateBudgetRequest request,
+            IBudgetService service,
+            CancellationToken ct) =>
+        {
+            var result = await service.UpdateBudgetAsync(id, request, ct);
+            return result.ToHttpResult(() => Results.NoContent());
+        })
+        .WithName("UpdateBudget")
+        .WithSummary("Edit an active recurrent budget's limit and alert fraction without recreating it.")
+        .WithDescription("Both limitAmount and alertThreshold are required. Amount is in the existing currency; alertThreshold is a fraction (0 < value <= 1, e.g. 0.80 = 80%). Preserves owner, category, currency, period, ID, creation time and active state. Missing, foreign and inactive budgets return 404; invalid values return 400 without mutation. Does not create historical monthly versions.")
+        .Produces(StatusCodes.Status204NoContent)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status404NotFound);
+
         group.MapDelete("/budgets/{id:guid}", async (
             [FromRoute] Guid id,
             IBudgetService service,
