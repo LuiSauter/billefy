@@ -1,6 +1,8 @@
 using BuildingBlocks.Common;
+using BuildingBlocks.Currencies;
 using BuildingBlocks.Security;
 using BuildingBlocks.Time;
+using BuildingBlocks.ValueObjects;
 using Ledger.Contracts;
 using Lending.Contracts;
 using Planning.Contracts;
@@ -28,39 +30,45 @@ public sealed class FinancialHealthService(
 
         var userId = userContext.UserId!.Value;
         var now = clock.UtcNow;
-        var monthStart = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
-        var monthEnd = monthStart.AddMonths(1).AddTicks(-1);
+        var monthStartUtc = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+        var monthEndUtcExclusive = monthStartUtc.AddMonths(1);
 
-        var ledgerMetrics = await ledgerModule.GetMonthlyMetricsAsync(userId, monthStart, monthEnd, cancellationToken);
-        var debtLiabilities = await lendingModule.GetTotalDebtLiabilitiesAsync(userId, cancellationToken);
+        var ledgerMetrics = await ledgerModule.GetMonthlyHealthMetricsAsync(
+            userId, monthStartUtc, monthEndUtcExclusive, cancellationToken);
+        var debtByCurrency = await lendingModule.GetDebtLiabilitiesByCurrencyAsync(userId, cancellationToken);
 
-        var income = ledgerMetrics.TotalIncome;
-        var expenses = ledgerMetrics.TotalExpense;
-        var netSavings = Math.Max(decimal.Zero, income - expenses);
+        var currencies = new Dictionary<string, (decimal Income, decimal Expenses, decimal Balance, decimal Debt)>(StringComparer.Ordinal);
+        foreach (var metric in ledgerMetrics)
+        {
+            currencies[metric.Currency] = (metric.MonthlyIncome, metric.MonthlyExpenses, metric.CurrentBalance, 0m);
+        }
 
-        var savingsRate = income > decimal.Zero
-            ? Math.Round((netSavings / income) * 100m, 2)
-            : decimal.Zero;
+        foreach (var debt in debtByCurrency)
+        {
+            var current = currencies.GetValueOrDefault(debt.Currency);
+            currencies[debt.Currency] = (current.Income, current.Expenses, current.Balance, debt.OutstandingPrincipal);
+        }
 
-        var liquid = ledgerMetrics.TotalLiquidBalance;
-        var emergencyFundMonths = expenses > decimal.Zero
-            ? Math.Round(liquid / expenses, 2)
-            : (liquid > decimal.Zero ? 12.00m : decimal.Zero);
+        var rows = currencies.OrderBy(pair => pair.Key, StringComparer.Ordinal)
+            .Select(pair =>
+            {
+                var currency = Currency.FromCode(pair.Key);
+                var netCashFlow = Money.RoundToScale(pair.Value.Income - pair.Value.Expenses, currency.DecimalPlaces);
+                decimal? savingsRate = pair.Value.Income > decimal.Zero
+                    ? Math.Round(netCashFlow / pair.Value.Income * 100m, 2, MidpointRounding.AwayFromZero)
+                    : null;
 
-        var split = new BudgetSplit503020Dto(
-            MonthlyIncome: income,
-            NeedsTarget: Math.Round(income * 0.50m, 2),
-            WantsTarget: Math.Round(income * 0.30m, 2),
-            SavingsTarget: Math.Round(income * 0.20m, 2));
+                return new FinancialHealthCurrencyDto(
+                    pair.Key,
+                    pair.Value.Income,
+                    pair.Value.Expenses,
+                    netCashFlow,
+                    savingsRate,
+                    pair.Value.Balance,
+                    Money.RoundToScale(pair.Value.Debt, currency.DecimalPlaces));
+            })
+            .ToArray();
 
-        return Result.Success(new FinancialHealthDto(
-            MonthlyIncome: income,
-            MonthlyExpenses: expenses,
-            NetSavings: netSavings,
-            SavingsRate: savingsRate,
-            TotalLiquidBalance: liquid,
-            EmergencyFundMonths: emergencyFundMonths,
-            TotalDebtLiabilities: debtLiabilities,
-            Split503020: split));
+        return Result.Success(new FinancialHealthDto(monthStartUtc, monthEndUtcExclusive, rows));
     }
 }

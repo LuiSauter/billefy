@@ -14,6 +14,7 @@ public interface IBudgetService
 {
     Task<Result<Guid>> CreateBudgetAsync(CreateBudgetRequest request, CancellationToken cancellationToken = default);
     Task<Result<List<BudgetDto>>> GetBudgetsAsync(CancellationToken cancellationToken = default);
+    Task<Result> UpdateBudgetAsync(Guid id, UpdateBudgetRequest request, CancellationToken cancellationToken = default);
     Task<Result> DeleteBudgetAsync(Guid id, CancellationToken cancellationToken = default);
 }
 
@@ -104,6 +105,42 @@ public sealed class BudgetService(
         }
 
         return Result.Success(dtos);
+    }
+
+    public async Task<Result> UpdateBudgetAsync(Guid id, UpdateBudgetRequest request, CancellationToken cancellationToken = default)
+    {
+        if (!userContext.IsAuthenticated)
+        {
+            return Result.Failure(Error.Unauthorized("Auth.Unauthorized", "User is not authenticated."));
+        }
+
+        var budget = await budgetRepository.GetByIdAsync(id, cancellationToken);
+        if (budget is null || budget.UserId != userContext.UserId!.Value || !budget.IsActive)
+        {
+            return Result.Failure(Error.NotFound("Budget.NotFound", "Active budget not found."));
+        }
+
+        if (request.LimitAmount is not > decimal.Zero)
+        {
+            return Result.Failure(Error.Validation("Budget.InvalidLimit", "Budget limit is required and must be strictly positive."));
+        }
+
+        var limitMoney = Money.Of(request.LimitAmount.Value, budget.LimitAmount.Currency);
+        if (limitMoney.Amount <= decimal.Zero)
+        {
+            return Result.Failure(Error.Validation("Budget.InvalidLimit", "Budget limit must be strictly positive after currency rounding."));
+        }
+
+        if (request.AlertThreshold is not > decimal.Zero || request.AlertThreshold > 1m)
+        {
+            return Result.Failure(Error.Validation("Budget.InvalidAlertThreshold", "Alert threshold must be greater than 0 and at most 1 (0.80 means 80%)."));
+        }
+
+        budget.UpdateLimit(limitMoney, request.AlertThreshold.Value);
+        await budgetRepository.UpdateAsync(budget, cancellationToken);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return Result.Success();
     }
 
     public async Task<Result> DeleteBudgetAsync(Guid id, CancellationToken cancellationToken = default)

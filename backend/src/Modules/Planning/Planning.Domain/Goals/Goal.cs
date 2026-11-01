@@ -67,24 +67,23 @@ public sealed class Goal : Entity
 
     public GoalProgress EvaluateProgress(decimal currentBalance, DateOnly currentDate)
     {
-        var current = Math.Max(decimal.Zero, currentBalance);
+        var current = currentBalance;
         var target = TargetAmount.Amount;
-        var remaining = Math.Max(decimal.Zero, target - current);
+        var remaining = Money.RoundToScale(Math.Max(decimal.Zero, target - current), TargetAmount.Currency.DecimalPlaces);
         var percentage = target > decimal.Zero
-            ? Math.Round((current / target) * 100m, 2)
+            ? Math.Round((current / target) * 100m, 2, MidpointRounding.AwayFromZero)
             : 100m;
 
         int? monthsRemaining = null;
         decimal? monthlyContribution = null;
 
-        if (TargetDate.HasValue)
+        if (TargetDate is { } targetDate && targetDate > currentDate && remaining > decimal.Zero)
         {
-            var targetDate = TargetDate.Value;
             var months = ((targetDate.Year - currentDate.Year) * 12) + (targetDate.Month - currentDate.Month);
             var safeMonths = Math.Max(1, months);
 
             monthsRemaining = safeMonths;
-            monthlyContribution = Math.Round(remaining / safeMonths, 2);
+            monthlyContribution = Money.RoundToScale(remaining / safeMonths, TargetAmount.Currency.DecimalPlaces);
         }
 
         return new GoalProgress(

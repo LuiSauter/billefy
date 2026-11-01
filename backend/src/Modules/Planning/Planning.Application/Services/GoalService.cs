@@ -42,17 +42,27 @@ public sealed class GoalService(
         }
 
         var userId = userContext.UserId!.Value;
-
-        if (request.AccountId.HasValue && request.AccountId.Value != Guid.Empty)
+        if (request.AccountId == Guid.Empty)
         {
-            var userAccounts = await ledgerModule.GetAccountsByUserIdAsync(userId, cancellationToken);
-            if (!userAccounts.Any(a => a.Id == request.AccountId.Value))
-            {
-                return Result.Failure<Guid>(Error.NotFound("Goal.AccountNotFound", "Linked account was not found or does not belong to the user."));
-            }
+            return Result.Failure<Guid>(Error.Validation("Goal.InvalidAccount", "Linked account ID must not be empty."));
         }
 
         var currency = Currency.FromCode(request.Currency);
+        if (request.AccountId.HasValue)
+        {
+            var userAccounts = await ledgerModule.GetAccountsByUserIdAsync(userId, cancellationToken);
+            var account = userAccounts.FirstOrDefault(a => a.Id == request.AccountId.Value);
+            if (account is null)
+            {
+                return Result.Failure<Guid>(Error.NotFound("Goal.AccountNotFound", "Linked active account was not found or does not belong to the user."));
+            }
+
+            if (!string.Equals(account.Currency, currency.Code, StringComparison.Ordinal))
+            {
+                return Result.Failure<Guid>(Error.Validation("Goal.CurrencyMismatch", "Goal currency must match the linked account currency."));
+            }
+        }
+
         var targetMoney = Money.Of(request.TargetAmount, currency);
 
         var goal = Goal.Create(
@@ -79,33 +89,43 @@ public sealed class GoalService(
         var userId = userContext.UserId!.Value;
         var goals = await goalRepository.GetByUserIdAsync(userId, cancellationToken);
         var userAccounts = await ledgerModule.GetAccountsByUserIdAsync(userId, cancellationToken);
-        var accountBalances = userAccounts.ToDictionary(a => a.Id, a => a.Balance);
+        var accountsById = userAccounts.ToDictionary(a => a.Id);
+        var goalCountsByAccount = goals
+            .Where(goal => goal.AccountId.HasValue)
+            .GroupBy(goal => goal.AccountId!.Value)
+            .ToDictionary(group => group.Key, group => group.Count());
         var today = DateOnly.FromDateTime(clock.UtcNow);
 
         var dtos = new List<GoalDto>();
 
         foreach (var g in goals)
         {
-            decimal balance = decimal.Zero;
-            if (g.AccountId.HasValue && accountBalances.TryGetValue(g.AccountId.Value, out var accBalance))
-            {
-                balance = accBalance;
-            }
-
-            var eval = g.EvaluateProgress(balance, today);
+            accountsById.TryGetValue(g.AccountId ?? Guid.Empty, out var account);
+            var status = g.AccountId is null
+                ? "unlinked"
+                : account is null
+                    ? "unavailable"
+                    : !string.Equals(account.Currency, g.TargetAmount.Currency.Code, StringComparison.Ordinal)
+                        ? "currency_mismatch"
+                        : "tracked";
+            var isTracked = status == "tracked";
+            var eval = isTracked ? g.EvaluateProgress(account!.Balance, today) : null;
 
             dtos.Add(new GoalDto(
                 g.Id,
                 g.AccountId,
+                account?.Name,
+                status,
+                g.AccountId.HasValue ? Math.Max(0, goalCountsByAccount.GetValueOrDefault(g.AccountId.Value) - 1) : 0,
                 g.Name,
                 g.TargetAmount.Amount,
                 g.TargetAmount.Currency.Code,
                 g.TargetDate,
-                eval.CurrentAmount,
-                eval.RemainingAmount,
-                eval.PercentageAchieved,
-                eval.MonthsRemaining,
-                eval.MonthlyContributionNeeded,
+                eval?.CurrentAmount,
+                eval?.RemainingAmount,
+                eval?.PercentageAchieved,
+                eval?.MonthsRemaining,
+                eval?.MonthlyContributionNeeded,
                 g.CreatedAt));
         }
 

@@ -1,3 +1,5 @@
+using System.ComponentModel;
+
 namespace Planning.Contracts;
 
 public sealed record InvestmentValuePointDto(DateTime At, decimal Value);
@@ -32,7 +34,10 @@ public sealed record PlanBucketDto(
     string Name,
     decimal Percent,
     string ColorKey,
-    List<string> CategoryIds);
+    List<string> CategoryIds,
+    [property: Description("Expenses tracks assigned category expenses. TargetOnly is an allocation target without contribution tracking and requires no assigned categories. Omission defaults to Expenses; explicit null and other values are rejected.")]
+    [property: DefaultValue("Expenses")]
+    string TrackingMode = "Expenses");
 
 public sealed record DistributionPlanDto(bool Enabled, List<PlanBucketDto> Buckets);
 
