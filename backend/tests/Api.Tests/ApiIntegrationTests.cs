@@ -1,7 +1,11 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
+using Planning.Domain.Distribution;
+using Planning.Domain.Budgets;
 using Api.Endpoints;
 using BuildingBlocks.Currencies;
+using BuildingBlocks.ValueObjects;
 using FluentAssertions;
 using Fx.Contracts;
 using Fx.Domain.Rates;
@@ -30,6 +34,8 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
@@ -40,7 +46,6 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
     private readonly SqliteConnection _ledgerConnection = new("DataSource=:memory:");
     private readonly SqliteConnection _fxConnection = new("DataSource=:memory:");
     private readonly SqliteConnection _ingestionConnection = new("DataSource=:memory:");
-    private readonly SqliteConnection _lendingConnection = new("DataSource=:memory:");
     private readonly SqliteConnection _planningConnection = new("DataSource=:memory:");
     private readonly SqliteConnection _messagingConnection = new("DataSource=:memory:");
     private readonly SqliteConnection _identityConnection = new("DataSource=:memory:");
@@ -51,7 +56,6 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
         _ledgerConnection.Open();
         _fxConnection.Open();
         _ingestionConnection.Open();
-        _lendingConnection.Open();
         _planningConnection.Open();
         _messagingConnection.Open();
         _identityConnection.Open();
@@ -66,7 +70,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             services.AddDbContext<LedgerDbContext>(options => options.UseSqlite(_ledgerConnection));
             services.AddDbContext<FxDbContext>(options => options.UseSqlite(_fxConnection));
             services.AddDbContext<IngestionDbContext>(options => options.UseSqlite(_ingestionConnection));
-            services.AddDbContext<LendingDbContext>(options => options.UseSqlite(_lendingConnection));
+            services.AddDbContext<LendingDbContext>(options => options.UseSqlite(_ledgerConnection));
             services.AddDbContext<PlanningDbContext>(options => options.UseSqlite(_planningConnection));
             services.AddDbContext<MessagingDbContext>(options => options.UseSqlite(_messagingConnection));
             services.AddDbContext<IdentityDbContext>(options => options.UseSqlite(_identityConnection));
@@ -93,7 +97,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             ingestionDb.Database.EnsureCreated();
 
             var lendingDb = scope.ServiceProvider.GetRequiredService<LendingDbContext>();
-            lendingDb.Database.EnsureCreated();
+            lendingDb.Database.GetService<IRelationalDatabaseCreator>().CreateTables();
 
             var planningDb = scope.ServiceProvider.GetRequiredService<PlanningDbContext>();
             planningDb.Database.EnsureCreated();
@@ -115,7 +119,6 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
         _ledgerConnection.Dispose();
         _fxConnection.Dispose();
         _ingestionConnection.Dispose();
-        _lendingConnection.Dispose();
         _planningConnection.Dispose();
         _messagingConnection.Dispose();
         _identityConnection.Dispose();
@@ -123,14 +126,22 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
     }
 }
 
-public class ApiIntegrationTests : IClassFixture<CustomWebApplicationFactory>
+public class ApiIntegrationTests : IDisposable
 {
     private readonly HttpClient _client;
+    private readonly CustomWebApplicationFactory _factory;
     private readonly Guid _testUserId = Guid.NewGuid();
 
-    public ApiIntegrationTests(CustomWebApplicationFactory factory)
+    public ApiIntegrationTests()
     {
-        _client = factory.CreateClient();
+        _factory = new CustomWebApplicationFactory();
+        _client = _factory.CreateClient();
+    }
+
+    public void Dispose()
+    {
+        _client.Dispose();
+        _factory.Dispose();
     }
 
     [Fact]
@@ -233,6 +244,30 @@ public class ApiIntegrationTests : IClassFixture<CustomWebApplicationFactory>
         content.Should().Contain("/v1/accounts");
         content.Should().Contain("/v1/transactions");
         content.Should().Contain("/v1/rates/latest");
+        using var specification = JsonDocument.Parse(content);
+        var bucketSchema = specification.RootElement.GetProperty("components").GetProperty("schemas").GetProperty("PlanBucketDto");
+        bucketSchema.GetProperty("required").EnumerateArray().Select(p => p.GetString()).Should().NotContain("trackingMode");
+        var trackingSchema = bucketSchema.GetProperty("properties").GetProperty("trackingMode");
+        trackingSchema.GetProperty("type").GetString().Should().Be("string");
+        trackingSchema.GetProperty("default").GetString().Should().Be("Expenses");
+        trackingSchema.GetProperty("description").GetString().Should().Contain("Expenses").And.Contain("TargetOnly")
+            .And.Contain("requires no assigned categories").And.Contain("explicit null and other values are rejected");
+
+        var budgetUpdate = specification.RootElement.GetProperty("paths")
+            .GetProperty("/v1/planning/budgets/{id}").GetProperty("put");
+        budgetUpdate.GetProperty("operationId").GetString().Should().Be("UpdateBudget");
+        budgetUpdate.GetProperty("responses").EnumerateObject().Select(p => p.Name)
+            .Should().BeEquivalentTo("204", "400", "401", "404");
+        var updateSchema = specification.RootElement.GetProperty("components").GetProperty("schemas")
+            .GetProperty("UpdateBudgetRequest");
+        updateSchema.GetProperty("properties").EnumerateObject().Select(p => p.Name)
+            .Should().BeEquivalentTo("limitAmount", "alertThreshold");
+        updateSchema.GetProperty("required").EnumerateArray().Select(p => p.GetString())
+            .Should().BeEquivalentTo("limitAmount", "alertThreshold");
+        updateSchema.GetProperty("properties").GetProperty("limitAmount").GetProperty("description")
+            .GetString().Should().Contain("existing currency units").And.Contain("strictly positive after rounding");
+        updateSchema.GetProperty("properties").GetProperty("alertThreshold").GetProperty("description")
+            .GetString().Should().Contain("greater than 0 and at most 1").And.Contain("0.80 means 80%");
 
         // Write to docs/openapi.json to keep contract updated
         var baseDir = AppContext.BaseDirectory;
@@ -650,13 +685,23 @@ public class ApiIntegrationTests : IClassFixture<CustomWebApplicationFactory>
         budget.LimitAmount.Should().Be(500m);
         budget.AlertThreshold.Should().Be(0.80m);
 
-        // 3. Create a savings goal
+        // 3. Create a savings goal linked to an active same-currency account.
+        using var goalAccountMsg = new HttpRequestMessage(HttpMethod.Post, "/v1/accounts")
+        {
+            Content = JsonContent.Create(new CreateAccountRequest("Ahorros", AccountType.Bank, "BOB", 0m))
+        };
+        goalAccountMsg.Headers.Add("X-User-Id", _testUserId.ToString());
+        var goalAccountRes = await _client.SendAsync(goalAccountMsg);
+        goalAccountRes.StatusCode.Should().Be(HttpStatusCode.Created);
+        var goalAccountId = (await goalAccountRes.Content.ReadFromJsonAsync<CreatedAccountResponse>())!.Id;
+
         var targetDate = DateOnly.FromDateTime(DateTime.UtcNow.AddMonths(5));
         var createGoalReq = new CreateGoalRequest(
             Name: "Fondo de Emergencia",
             TargetAmount: 3000m,
             Currency: "BOB",
-            TargetDate: targetDate);
+            TargetDate: targetDate,
+            AccountId: goalAccountId);
 
         using var goalMsg = new HttpRequestMessage(HttpMethod.Post, "/v1/planning/goals")
         {
@@ -683,7 +728,244 @@ public class ApiIntegrationTests : IClassFixture<CustomWebApplicationFactory>
         healthRes.StatusCode.Should().Be(HttpStatusCode.OK);
         var health = await healthRes.Content.ReadFromJsonAsync<FinancialHealthDto>();
         health.Should().NotBeNull();
-        health!.Split503020.Should().NotBeNull();
+        health!.Currencies.Should().NotBeNull();
+    }
+
+    [Theory]
+    [InlineData("BOB", true, 0.01)]
+    [InlineData("USD", false, 0.80)]
+    [InlineData("BOB", false, 1.00)]
+    public async Task UpdateBudget_Owner_ShouldPersistLimitAndThreshold_AndPreserveMetadata(
+        string currency, bool categorized, decimal threshold)
+    {
+        var original = await CreateBudgetFixtureAsync(currency, categorized);
+        using var response = await PutBudgetAsync(original.Id, _testUserId, 275.55m, threshold);
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        (await response.Content.ReadAsStringAsync()).Should().BeEmpty();
+
+        var persisted = await ReadBudgetFixtureAsync();
+        persisted.Should().BeEquivalentTo(original, options => options
+            .Excluding(b => b.LimitAmount).Excluding(b => b.AlertThreshold));
+        persisted.LimitAmount.Should().Be(Money.Of(275.55m, original.LimitAmount.Currency));
+        persisted.AlertThreshold.Should().Be(threshold);
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/v1/planning/budgets");
+        request.Headers.Add("X-User-Id", _testUserId.ToString());
+        using var listed = await _client.SendAsync(request);
+        listed.StatusCode.Should().Be(HttpStatusCode.OK);
+        var budget = (await listed.Content.ReadFromJsonAsync<List<BudgetDto>>())!.Should().ContainSingle().Subject;
+        budget.Id.Should().Be(original.Id);
+        budget.CategoryId.Should().Be(original.CategoryId);
+        budget.Currency.Should().Be(currency);
+        budget.Period.Should().Be(original.Period);
+        budget.CreatedAt.Should().Be(original.CreatedAt);
+        budget.IsActive.Should().BeTrue();
+        budget.LimitAmount.Should().Be(275.55m);
+        budget.AlertThreshold.Should().Be(threshold);
+    }
+
+    [Theory]
+    [InlineData(0, 0.8, "Budget.InvalidLimit")]
+    [InlineData(-1, 0.8, "Budget.InvalidLimit")]
+    [InlineData(0.001, 0.8, "Budget.InvalidLimit")]
+    [InlineData(275, 0, "Budget.InvalidAlertThreshold")]
+    [InlineData(275, -0.01, "Budget.InvalidAlertThreshold")]
+    [InlineData(275, 1.01, "Budget.InvalidAlertThreshold")]
+    public async Task UpdateBudget_InvalidInput_ShouldReturnValidation_WithoutMutation(
+        decimal limit, decimal threshold, string errorCode)
+    {
+        var original = await CreateBudgetFixtureAsync();
+        using var response = await PutBudgetAsync(original.Id, _testUserId, limit, threshold);
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+        problem.GetProperty("title").GetString().Should().Be(errorCode);
+        problem.GetProperty("detail").GetString().Should().NotBeNullOrWhiteSpace();
+        (await ReadBudgetFixtureAsync()).Should().BeEquivalentTo(original);
+    }
+
+    [Theory]
+    [InlineData("{\"limitAmount\":275}")]
+    [InlineData("{\"alertThreshold\":0.8}")]
+    [InlineData("{\"limitAmount\":275,\"alertThreshold\":null}")]
+    public async Task UpdateBudget_IncompleteBody_ShouldReturnBadRequest_WithoutMutation(string json)
+    {
+        var original = await CreateBudgetFixtureAsync();
+        using var request = new HttpRequestMessage(HttpMethod.Put, $"/v1/planning/budgets/{original.Id}")
+        {
+            Content = new StringContent(json, System.Text.Encoding.UTF8, "application/json")
+        };
+        request.Headers.Add("X-User-Id", _testUserId.ToString());
+        using var response = await _client.SendAsync(request);
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await ReadBudgetFixtureAsync()).Should().BeEquivalentTo(original);
+    }
+
+    [Theory]
+    [InlineData("missing", false, HttpStatusCode.NotFound)]
+    [InlineData("missing", true, HttpStatusCode.NotFound)]
+    [InlineData("foreign", false, HttpStatusCode.NotFound)]
+    [InlineData("foreign", true, HttpStatusCode.NotFound)]
+    [InlineData("unauthenticated", false, HttpStatusCode.Unauthorized)]
+    [InlineData("unauthenticated", true, HttpStatusCode.Unauthorized)]
+    [InlineData("inactive", false, HttpStatusCode.NotFound)]
+    [InlineData("inactive", true, HttpStatusCode.NotFound)]
+    public async Task UpdateBudget_Inaccessible_ShouldRejectBeforeValidation_WithoutMutation(
+        string scenario, bool invalidInput, HttpStatusCode expected)
+    {
+        var original = await CreateBudgetFixtureAsync(active: scenario != "inactive");
+        var id = scenario == "missing" ? Guid.NewGuid() : original.Id;
+        Guid? caller = scenario == "unauthenticated" ? null
+            : scenario == "foreign" ? Guid.NewGuid() : _testUserId;
+        using var response = await PutBudgetAsync(id, caller, invalidInput ? 0m : 275m, invalidInput ? 0m : 0.9m);
+        response.StatusCode.Should().Be(expected);
+        if (expected == HttpStatusCode.NotFound)
+        {
+            var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+            problem.GetProperty("title").GetString().Should().Be("Budget.NotFound");
+        }
+        (await ReadBudgetFixtureAsync()).Should().BeEquivalentTo(original);
+    }
+
+    private async Task<Budget> CreateBudgetFixtureAsync(string currency = "BOB", bool categorized = true, bool active = true)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<PlanningDbContext>();
+        db.Database.ProviderName.Should().Be("Microsoft.EntityFrameworkCore.Sqlite");
+        var budget = new Budget(Guid.NewGuid(), _testUserId, categorized ? Guid.NewGuid() : null,
+            "monthly", Money.Of(100m, Currency.FromCode(currency)), 0.8m, active,
+            new DateTime(2025, 1, 15, 12, 0, 0, DateTimeKind.Utc));
+        db.Budgets.Add(budget);
+        await db.SaveChangesAsync();
+        return budget;
+    }
+
+    private async Task<Budget> ReadBudgetFixtureAsync()
+    {
+        // Fresh scope proves database persistence, not just a tracked entity change; Single also guards against recreation.
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<PlanningDbContext>();
+        db.Database.ProviderName.Should().Be("Microsoft.EntityFrameworkCore.Sqlite");
+        return await db.Budgets.IgnoreQueryFilters().AsNoTracking().SingleAsync();
+    }
+
+    private async Task<HttpResponseMessage> PutBudgetAsync(Guid id, Guid? caller, decimal limit, decimal threshold)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Put, $"/v1/planning/budgets/{id}")
+        {
+            Content = JsonContent.Create(new { limitAmount = limit, alertThreshold = threshold })
+        };
+        if (caller.HasValue) request.Headers.Add("X-User-Id", caller.Value.ToString());
+        return await _client.SendAsync(request);
+    }
+
+    [Theory]
+    [InlineData("BOB", "BOB", false)]
+    [InlineData("BOB", "BOB", true)]
+    [InlineData("BOB", "USD", false)]
+    [InlineData("BOB", "USD", true)]
+    [InlineData("USD", "BOB", false)]
+    [InlineData("USD", "BOB", true)]
+    public async Task Budgets_ShouldExcludeTransferLegs_AndPreserveExpensesReversalsAndBalances(
+        string sourceCurrency, string destinationCurrency, bool categorizeTransfer)
+    {
+        // Isolate the HTTP rate-limit window as well as the in-memory databases from the shared fixture.
+        using var factory = new CustomWebApplicationFactory();
+        using var client = factory.CreateClient();
+
+        async Task<HttpResponseMessage> Send(HttpMethod method, string url, object? body = null)
+        {
+            using var request = new HttpRequestMessage(method, url);
+            request.Headers.Add("X-User-Id", _testUserId.ToString());
+            if (body is not null) request.Content = JsonContent.Create(body);
+            var response = await client.SendAsync(request);
+            response.EnsureSuccessStatusCode();
+            return response;
+        }
+
+        async Task<Guid> Account(string name, string currency, decimal initialBalance)
+        {
+            var response = await Send(HttpMethod.Post, "/v1/accounts",
+                new CreateAccountRequest(name, AccountType.Bank, currency, initialBalance));
+            return (await response.Content.ReadFromJsonAsync<CreatedAccountResponse>())!.Id;
+        }
+
+        var categoryResponse = await Send(HttpMethod.Post, "/v1/categories",
+            new CreateCategoryRequest("Budget category", TransactionDirection.Expense));
+        var categoryId = (await categoryResponse.Content.ReadFromJsonAsync<CategoryDto>())!.Id;
+        var expenseAccount = await Account("Expenses", "BOB", 1000m);
+        var sourceAccount = await Account("Transfer source", sourceCurrency, 500m);
+        var destinationAccount = await Account("Transfer destination", destinationCurrency, 0m);
+        await Send(HttpMethod.Post, "/v1/planning/budgets", new CreateBudgetRequest(100m, "BOB", categoryId));
+        await Send(HttpMethod.Post, "/v1/planning/budgets", new CreateBudgetRequest(200m, "BOB"));
+        var expenseResponse = await Send(HttpMethod.Post, "/v1/transactions",
+            new RegisterTransactionRequest(expenseAccount, 60m, TransactionDirection.Expense, categoryId));
+        var expenseId = (await expenseResponse.Content.ReadFromJsonAsync<CreatedTransactionResponse>())!.Id;
+        await Send(HttpMethod.Post, "/v1/transactions",
+            new RegisterTransactionRequest(expenseAccount, 15m, TransactionDirection.Expense));
+        await Send(HttpMethod.Post, "/v1/transactions",
+            new RegisterTransactionRequest(expenseAccount, 500m, TransactionDirection.Income));
+        var destinationAmount = sourceCurrency == destinationCurrency ? 120m : sourceCurrency == "BOB" ? 10m : 1440m;
+        if (categorizeTransfer)
+        {
+            // No category-only transfer API exists. Insert synthetic categorized legs before persistence, never update the ledger.
+            using var scope = factory.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<LedgerDbContext>();
+            db.Database.ProviderName.Should().Be("Microsoft.EntityFrameworkCore.Sqlite");
+            var legs = Transaction.CreateTransfer(_testUserId, sourceAccount,
+                Money.Of(120m, Currency.FromCode(sourceCurrency)), destinationAccount,
+                Money.Of(destinationAmount, Currency.FromCode(destinationCurrency)), DateTime.UtcNow,
+                appliedRate: 12m, rateSource: "Test", description: "Categorized transfer fixture");
+            db.Transactions.AddRange(legs.Outflow, legs.Inflow);
+            db.Entry(legs.Outflow).Property(t => t.CategoryId).CurrentValue = categoryId;
+            db.Entry(legs.Inflow).Property(t => t.CategoryId).CurrentValue = categoryId;
+            await db.SaveChangesAsync();
+        }
+        else
+        {
+            await Send(HttpMethod.Post, "/v1/transactions/transfers",
+                new RegisterTransferRequest(sourceAccount, 120m, destinationAccount, destinationAmount,
+                    AppliedRate: sourceCurrency == destinationCurrency ? null : 12m, RateSource: "Test"));
+        }
+
+        async Task AssertMetrics(decimal income, decimal expenseAccountBalance)
+        {
+            var budgets = (await (await Send(HttpMethod.Get, "/v1/planning/budgets"))
+                .Content.ReadFromJsonAsync<List<BudgetDto>>())!;
+            budgets.Should().HaveCount(2);
+            var categoryBudget = budgets.Single(b => b.CategoryId == categoryId);
+            categoryBudget.SpentAmount.Should().Be(60m);
+            categoryBudget.RemainingAmount.Should().Be(40m);
+            categoryBudget.LimitAmount.Should().Be(100m);
+            categoryBudget.Currency.Should().Be("BOB");
+            var generalBudget = budgets.Single(b => b.CategoryId is null);
+            generalBudget.SpentAmount.Should().Be(75m);
+            generalBudget.RemainingAmount.Should().Be(125m);
+            generalBudget.LimitAmount.Should().Be(200m);
+
+            var health = (await (await Send(HttpMethod.Get, "/v1/planning/financial-health"))
+                .Content.ReadFromJsonAsync<FinancialHealthDto>())!;
+            var bobHealth = health.Currencies.Single(currency => currency.Currency == "BOB");
+            bobHealth.MonthlyIncome.Should().Be(income);
+            bobHealth.MonthlyExpenses.Should().Be(75m);
+            bobHealth.CurrentBalance.Should().Be(expenseAccountBalance
+                + (sourceCurrency == "BOB" ? 380m : 0m)
+                + (destinationCurrency == "BOB" ? destinationAmount : 0m));
+            var accounts = (await (await Send(HttpMethod.Get, "/v1/accounts"))
+                .Content.ReadFromJsonAsync<List<AccountDto>>())!;
+            accounts.Single(a => a.Id == expenseAccount).Balance.Should().Be(expenseAccountBalance);
+            accounts.Single(a => a.Id == sourceAccount).Balance.Should().Be(380m);
+            accounts.Single(a => a.Id == destinationAccount).Balance.Should().Be(destinationAmount);
+        }
+
+        await AssertMetrics(500m, 1425m);
+        await Send(HttpMethod.Post, $"/v1/transactions/{expenseId}/reverse", new ReverseTransactionRequest("Correction"));
+        // Existing metrics are gross flows: an expense reversal is income, not negative budget spending.
+        await AssertMetrics(560m, 1485m);
+        var transactions = (await (await Send(HttpMethod.Get, "/v1/transactions?limit=100"))
+            .Content.ReadFromJsonAsync<List<TransactionDto>>())!;
+        transactions.Should().HaveCount(6);
+        transactions.Should().ContainSingle(t => t.ReversesId == expenseId && t.Direction == "Income");
+        transactions.Count(t => t.TransferId.HasValue).Should().Be(2);
     }
 
     [Fact]
@@ -981,9 +1263,10 @@ public class ApiIntegrationTests : IClassFixture<CustomWebApplicationFactory>
                 new PlanBucketDto("b", "Deseos", 50m, "pink", [])])));
         tooMuch.StatusCode.Should().Be(HttpStatusCode.BadRequest);
 
+        var categoryId = await CreateDistributionCategoryAsync(userId);
         var saveRes = await _client.SendAsync(Req(HttpMethod.Put, "/v1/planning/distribution-plan", userId,
             new SaveDistributionPlanRequest(true, [
-                new PlanBucketDto("a", "Necesidades", 50m, "blue", ["cat-1"]),
+                new PlanBucketDto("a", "Necesidades", 50m, "blue", [categoryId]),
                 new PlanBucketDto("b", "Deseos", 30m, "pink", []),
                 new PlanBucketDto("c", "Ahorro", 20m, "emerald", [])])));
         saveRes.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -992,7 +1275,398 @@ public class ApiIntegrationTests : IClassFixture<CustomWebApplicationFactory>
             .Content.ReadFromJsonAsync<DistributionPlanDto>();
         reloaded!.Enabled.Should().BeTrue();
         reloaded.Buckets.Should().HaveCount(3);
-        reloaded.Buckets[0].CategoryIds.Should().ContainSingle("cat-1");
+        reloaded.Buckets[0].CategoryIds.Should().ContainSingle(categoryId);
+    }
+
+    [Theory]
+    [InlineData("empty")]
+    [InlineData("single")]
+    [InlineData("under")]
+    [InlineData("over")]
+    [InlineData("near")]
+    [InlineData("zero")]
+    [InlineData("negative")]
+    [InlineData("above100")]
+    [InlineData("blank")]
+    [InlineData("longName")]
+    [InlineData("tooMany")]
+    public async Task DistributionPlan_Enabled_InvalidGroups_ShouldReject_AndPreservePlan(string scenario)
+    {
+        var buckets = DistributionBuckets(50m, 50m);
+        switch (scenario)
+        {
+            case "empty": buckets = []; break;
+            case "single": buckets = DistributionBuckets(100m); break;
+            case "under": buckets[1] = buckets[1] with { Percent = 49m }; break;
+            case "over": buckets[1] = buckets[1] with { Percent = 51m }; break;
+            case "near": buckets[1] = buckets[1] with { Percent = 49.9999m }; break;
+            case "zero": buckets = DistributionBuckets(100m, 0m); break;
+            case "negative": buckets = DistributionBuckets(100m, -1m); break;
+            case "above100": buckets = DistributionBuckets(101m, 1m); break;
+            case "blank": buckets[0] = buckets[0] with { Name = "  " }; break;
+            case "longName": buckets[0] = buckets[0] with { Name = new string('a', 61) }; break;
+            case "tooMany": buckets = DistributionBuckets(Enumerable.Repeat(10m, 9).ToArray()); break;
+        }
+
+        (await SaveDistributionAsync(false, [])).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await SaveDistributionAsync(true, buckets)).StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var saved = await GetDistributionAsync();
+        saved.Enabled.Should().BeFalse();
+        saved.Buckets.Should().BeEmpty();
+    }
+
+    [Theory]
+    [InlineData(2)]
+    [InlineData(4)]
+    [InlineData(8)]
+    public async Task DistributionPlan_CustomGroups_ShouldPersistExactDecimals_AndOwnedExpenseCategory(int count)
+    {
+        var categoryId = await CreateDistributionCategoryAsync(_testUserId);
+        var buckets = DistributionBuckets(count switch
+        {
+            2 => [33.33m, 66.67m],
+            4 => [1.25m, 23.75m, 25m, 50m],
+            _ => Enumerable.Repeat(12.5m, 8).ToArray()
+        });
+        buckets[0] = buckets[0] with { Name = "  Custom allocation  ", CategoryIds = [categoryId] };
+
+        (await SaveDistributionAsync(true, buckets)).StatusCode.Should().Be(HttpStatusCode.OK);
+        var saved = await GetDistributionAsync();
+        saved.Enabled.Should().BeTrue();
+        saved.Buckets.Should().BeEquivalentTo(buckets.Select(b => b with { Name = b.Name.Trim() }),
+            options => options.WithStrictOrdering());
+    }
+
+    [Theory]
+    [InlineData("within", true)]
+    [InlineData("across", true)]
+    [InlineData("case", true)]
+    [InlineData("malformed", true)]
+    [InlineData("unknown", true)]
+    [InlineData("foreign", true)]
+    [InlineData("income", true)]
+    [InlineData("within", false)]
+    [InlineData("across", false)]
+    [InlineData("case", false)]
+    [InlineData("malformed", false)]
+    [InlineData("unknown", false)]
+    [InlineData("foreign", false)]
+    [InlineData("income", false)]
+    public async Task DistributionPlan_InvalidCategoryReferences_ShouldReject(string scenario, bool enabled)
+    {
+        var categoryId = await CreateDistributionCategoryAsync(_testUserId);
+        var buckets = DistributionBuckets(50m, 50m);
+        buckets[0] = buckets[0] with { CategoryIds = [categoryId] };
+        switch (scenario)
+        {
+            case "within": buckets[0].CategoryIds.Add(categoryId); break;
+            case "across": buckets[1].CategoryIds.Add(categoryId); break;
+            case "case": buckets[1].CategoryIds.Add(Guid.Parse(categoryId).ToString("B").ToUpperInvariant()); break;
+            case "malformed": buckets[0].CategoryIds[0] = "cat-1"; break;
+            case "unknown": buckets[0].CategoryIds[0] = Guid.NewGuid().ToString(); break;
+            case "foreign": buckets[0].CategoryIds[0] = await CreateDistributionCategoryAsync(Guid.NewGuid()); break;
+            case "income": buckets[0].CategoryIds[0] = await CreateDistributionCategoryAsync(_testUserId, TransactionDirection.Income); break;
+        }
+
+        (await SaveDistributionAsync(false, [])).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await SaveDistributionAsync(enabled, buckets)).StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await GetDistributionAsync()).Buckets.Should().BeEmpty();
+    }
+
+    [Theory]
+    [InlineData("empty")]
+    [InlineData("single")]
+    [InlineData("zero")]
+    [InlineData("under")]
+    public async Task DistributionPlan_DisabledDraft_ShouldPersist_AndRemainEditable(string scenario)
+    {
+        var buckets = scenario switch
+        {
+            "empty" => new List<PlanBucketDto>(),
+            "single" => DistributionBuckets(40m),
+            "zero" => DistributionBuckets(100m, 0m),
+            _ => DistributionBuckets(20m, 30m)
+        };
+        (await SaveDistributionAsync(false, buckets)).StatusCode.Should().Be(HttpStatusCode.OK);
+        var draft = await GetDistributionAsync();
+        draft.Enabled.Should().BeFalse();
+        draft.Buckets.Should().BeEquivalentTo(buckets, options => options.WithStrictOrdering());
+        (await SaveDistributionAsync(true, buckets)).StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await GetDistributionAsync()).Buckets.Should().BeEquivalentTo(buckets);
+        (await SaveDistributionAsync(true, DistributionBuckets(60m, 40m))).StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Theory]
+    [InlineData("cat-1")]
+    [InlineData("00000000-0000-0000-0000-000000000001")]
+    public async Task DistributionPlan_LegacyIncompletePlan_ShouldDisableWithoutDeleting_ThenRequireValidEdits(string categoryId)
+    {
+        var buckets = DistributionBuckets(40m);
+        buckets[0].CategoryIds.Add(categoryId);
+        var json = JsonSerializer.Serialize(buckets);
+        var legacy = DistributionPlan.Create(_testUserId, true, json, DateTime.UtcNow);
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<PlanningDbContext>();
+            db.Database.ProviderName.Should().Be("Microsoft.EntityFrameworkCore.Sqlite");
+            db.DistributionPlans.Add(legacy);
+            await db.SaveChangesAsync();
+        }
+
+        var existing = await GetDistributionAsync();
+        existing.Enabled.Should().BeTrue();
+        existing.Buckets.Should().BeEquivalentTo(buckets);
+        (await SaveDistributionAsync(false, existing.Buckets)).StatusCode.Should().Be(HttpStatusCode.OK);
+        // Repeated saves remain safe, but editing cannot introduce or retain invalid references.
+        (await SaveDistributionAsync(false, existing.Buckets)).StatusCode.Should().Be(HttpStatusCode.OK);
+        var disabled = await GetDistributionAsync();
+        disabled.Enabled.Should().BeFalse();
+        disabled.Buckets.Should().BeEquivalentTo(buckets);
+        (await SaveDistributionAsync(true, buckets)).StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await SaveDistributionAsync(false, [buckets[0] with { Name = "Changed" }]))
+            .StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<PlanningDbContext>();
+            var preserved = await db.DistributionPlans.IgnoreQueryFilters().SingleAsync(p => p.UserId == _testUserId);
+            preserved.Id.Should().Be(legacy.Id);
+            preserved.BucketsJson.Should().Be(json);
+            preserved.IsEnabled.Should().BeFalse();
+        }
+        (await SaveDistributionAsync(true, DistributionBuckets(60m, 40m))).StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task DistributionPlan_OmittedTrackingMode_ShouldDefaultToExpenses_WithoutNameInference(bool enabled)
+    {
+        var categoryId = await CreateDistributionCategoryAsync(_testUserId);
+        var buckets = new[]
+        {
+            new { id = "a", name = "Ahorro", percent = 50m, colorKey = "blue", categoryIds = new[] { categoryId } },
+            new { id = "b", name = "Investment", percent = 50m, colorKey = "green", categoryIds = Array.Empty<string>() }
+        };
+        var response = await SaveDistributionJsonAsync(enabled, buckets);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var saved = await response.Content.ReadFromJsonAsync<JsonElement>();
+        saved.GetProperty("buckets").EnumerateArray().Should().OnlyContain(
+            b => b.GetProperty("trackingMode").GetString() == "Expenses");
+        (await GetDistributionAsync()).Buckets[0].CategoryIds.Should().ContainSingle(categoryId);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task DistributionPlan_ExplicitTrackingModes_ShouldRoundTrip_AndPersist(bool enabled)
+    {
+        var categoryId = await CreateDistributionCategoryAsync(_testUserId);
+        var buckets = new[]
+        {
+            new { id = "a", name = "Savings", percent = 60m, colorKey = "blue", categoryIds = new[] { categoryId }, trackingMode = "Expenses" },
+            new { id = "b", name = "Custom target", percent = 40m, colorKey = "green", categoryIds = Array.Empty<string>(), trackingMode = "TargetOnly" }
+        };
+        var response = await SaveDistributionJsonAsync(enabled, buckets);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var saved = await response.Content.ReadFromJsonAsync<JsonElement>();
+        saved.GetProperty("buckets")[0].GetProperty("trackingMode").GetString().Should().Be("Expenses");
+        saved.GetProperty("buckets")[1].GetProperty("trackingMode").GetString().Should().Be("TargetOnly");
+
+        using var get = new HttpRequestMessage(HttpMethod.Get, "/v1/planning/distribution-plan");
+        get.Headers.Add("X-User-Id", _testUserId.ToString());
+        var reloadResponse = await _client.SendAsync(get);
+        reloadResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var reloaded = await reloadResponse.Content.ReadFromJsonAsync<JsonElement>();
+        reloaded.GetRawText().Should().Be(saved.GetRawText());
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<PlanningDbContext>();
+        db.Database.ProviderName.Should().Be("Microsoft.EntityFrameworkCore.Sqlite");
+        var plan = await db.DistributionPlans.IgnoreQueryFilters().SingleAsync(p => p.UserId == _testUserId);
+        var stored = JsonSerializer.Deserialize<JsonElement>(plan.BucketsJson);
+        stored[0].GetProperty("TrackingMode").GetString().Should().Be("Expenses");
+        stored[1].GetProperty("TrackingMode").GetString().Should().Be("TargetOnly");
+    }
+
+    [Theory]
+    [InlineData("Unknown", true)]
+    [InlineData("Unknown", false)]
+    [InlineData("expenses", true)]
+    [InlineData("expenses", false)]
+    [InlineData("", true)]
+    [InlineData("", false)]
+    [InlineData(null, true)]
+    [InlineData(null, false)]
+    public async Task DistributionPlan_InvalidTrackingMode_ShouldReject_AndPreservePlan(string? mode, bool enabled)
+    {
+        (await SaveDistributionAsync(true, DistributionBuckets(60m, 40m))).StatusCode.Should().Be(HttpStatusCode.OK);
+        var before = await GetDistributionAsync();
+        var response = await SaveDistributionJsonAsync(enabled, new[]
+        {
+            new { id = "a", name = "Group A", percent = 60m, colorKey = "blue", categoryIds = Array.Empty<string>(), trackingMode = mode },
+            new { id = "b", name = "Group B", percent = 40m, colorKey = "green", categoryIds = Array.Empty<string>(), trackingMode = (string?)"Expenses" }
+        });
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await response.Content.ReadAsStringAsync()).Should().Contain("Plan.InvalidTrackingMode");
+        (await GetDistributionAsync()).Should().BeEquivalentTo(before);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task DistributionPlan_TargetOnlyWithExpenseCategory_ShouldReject_AndPreservePlan(bool enabled)
+    {
+        var categoryId = await CreateDistributionCategoryAsync(_testUserId);
+        (await SaveDistributionAsync(false, [])).StatusCode.Should().Be(HttpStatusCode.OK);
+        var response = await SaveDistributionJsonAsync(enabled, new[]
+        {
+            new { id = "a", name = "Target", percent = 60m, colorKey = "blue", categoryIds = new[] { categoryId }, trackingMode = "TargetOnly" },
+            new { id = "b", name = "Expenses", percent = 40m, colorKey = "green", categoryIds = Array.Empty<string>(), trackingMode = "Expenses" }
+        });
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await response.Content.ReadAsStringAsync()).Should().Contain("Plan.TargetOnlyCategories");
+        (await GetDistributionAsync()).Buckets.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task DistributionPlan_LegacyOmittedTrackingMode_ShouldDisableWithoutRewritingJson()
+    {
+        const string json = """
+            [ { "Id": "old", "Name": "Ahorro", "Percent": 40, "ColorKey": "blue", "CategoryIds": ["stale-category"] } ]
+            """;
+        var legacy = DistributionPlan.Create(_testUserId, true, json, DateTime.UtcNow);
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<PlanningDbContext>();
+            db.Database.ProviderName.Should().Be("Microsoft.EntityFrameworkCore.Sqlite");
+            db.DistributionPlans.Add(legacy);
+            await db.SaveChangesAsync();
+        }
+        var existing = await GetDistributionAsync();
+        existing.Enabled.Should().BeTrue();
+        existing.Buckets.Should().ContainSingle();
+        existing.Buckets[0].TrackingMode.Should().Be("Expenses");
+        // A legacy client omits the field; a current client sends the default explicitly.
+        var omitted = JsonSerializer.Deserialize<JsonElement>(json);
+        (await SaveDistributionJsonAsync(false, omitted)).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await SaveDistributionAsync(false, existing.Buckets)).StatusCode.Should().Be(HttpStatusCode.OK);
+        using var checkScope = _factory.Services.CreateScope();
+        var checkDb = checkScope.ServiceProvider.GetRequiredService<PlanningDbContext>();
+        var preserved = await checkDb.DistributionPlans.IgnoreQueryFilters().SingleAsync(p => p.UserId == _testUserId);
+        preserved.Id.Should().Be(legacy.Id);
+        preserved.IsEnabled.Should().BeFalse();
+        preserved.BucketsJson.Should().Be(json);
+        (await SaveDistributionAsync(true, existing.Buckets)).StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await SaveDistributionAsync(false, [existing.Buckets[0] with { Name = "Changed" }]))
+            .StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    private async Task<HttpResponseMessage> SaveDistributionJsonAsync(bool enabled, object buckets)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Put, "/v1/planning/distribution-plan")
+        {
+            Content = JsonContent.Create(new { enabled, buckets })
+        };
+        request.Headers.Add("X-User-Id", _testUserId.ToString());
+        return await _client.SendAsync(request);
+    }
+
+    [Theory]
+    [InlineData("x|y", "blue")]
+    [InlineData("coins", "blue|rose")]
+    [InlineData("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "blue")]
+    [InlineData("coins", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")]
+    public async Task Categories_IncomeMetadata_ShouldRetainDirection_AndRejectDistributionAssignment(string icon, string color)
+    {
+        var categoryId = await CreateDistributionCategoryAsync(_testUserId, TransactionDirection.Income, icon, color);
+        var buckets = DistributionBuckets(50m, 50m);
+        buckets[0].CategoryIds.Add(categoryId);
+        (await SaveDistributionAsync(true, buckets)).StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await SaveDistributionAsync(false, buckets)).StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        foreach (var direction in new[] { "Expense", "Income" })
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, $"/v1/categories?direction={direction}");
+            request.Headers.Add("X-User-Id", _testUserId.ToString());
+            var response = await _client.SendAsync(request);
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            var categories = await response.Content.ReadFromJsonAsync<List<CategoryDto>>();
+            if (direction == "Income")
+                categories.Should().ContainSingle(c => c.Id == Guid.Parse(categoryId) && c.Direction == "Income");
+            else
+                categories.Should().BeEmpty();
+        }
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<LedgerDbContext>();
+        var stored = await db.Categories.IgnoreQueryFilters().SingleAsync(c => c.Id == Guid.Parse(categoryId));
+        var metadata = $"Income|{icon}|{color}";
+        stored.Icon.Should().Be(metadata.Length <= 50 ? metadata : metadata[..50]);
+    }
+
+    [Theory]
+    [InlineData("utensils")]
+    [InlineData("Income")]
+    [InlineData("legacy|icon|color")]
+    [InlineData("1|icon|color")]
+    [InlineData("income|icon|color")]
+    [InlineData("|Income|icon|color")]
+    public async Task Categories_LegacyIconsWithoutCanonicalPrefix_ShouldRemainExpense(string icon)
+    {
+        var category = Ledger.Domain.Categories.Category.Create(_testUserId, "Legacy category", null, icon, DateTime.UtcNow);
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<LedgerDbContext>();
+            db.Database.ProviderName.Should().Be("Microsoft.EntityFrameworkCore.Sqlite");
+            db.Categories.Add(category);
+            await db.SaveChangesAsync();
+        }
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/v1/categories?direction=Expense");
+        request.Headers.Add("X-User-Id", _testUserId.ToString());
+        var response = await _client.SendAsync(request);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var categories = await response.Content.ReadFromJsonAsync<List<CategoryDto>>();
+        categories.Should().ContainSingle(c => c.Id == category.Id && c.Direction == "Expense"
+            && c.IconKey == icon && c.ColorKey == "blue");
+        var buckets = DistributionBuckets(50m, 50m);
+        buckets[0].CategoryIds.Add(category.Id.ToString());
+        (await SaveDistributionAsync(true, buckets)).StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    private static List<PlanBucketDto> DistributionBuckets(params decimal[] percentages) =>
+        percentages.Select((percent, index) => new PlanBucketDto(
+            $"group-{index}", $"Custom group {index}", percent, "blue", [])).ToList();
+
+    private async Task<string> CreateDistributionCategoryAsync(Guid userId,
+        TransactionDirection direction = TransactionDirection.Expense, string? iconKey = null, string? colorKey = null)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/v1/categories")
+        {
+            Content = JsonContent.Create(new CreateCategoryRequest("Plan category", direction, iconKey, colorKey))
+        };
+        request.Headers.Add("X-User-Id", userId.ToString());
+        var response = await _client.SendAsync(request);
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+        return (await response.Content.ReadFromJsonAsync<CategoryDto>())!.Id.ToString();
+    }
+
+    private async Task<HttpResponseMessage> SaveDistributionAsync(bool enabled, List<PlanBucketDto> buckets)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Put, "/v1/planning/distribution-plan")
+        {
+            Content = JsonContent.Create(new SaveDistributionPlanRequest(enabled, buckets))
+        };
+        request.Headers.Add("X-User-Id", _testUserId.ToString());
+        return await _client.SendAsync(request);
+    }
+
+    private async Task<DistributionPlanDto> GetDistributionAsync()
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/v1/planning/distribution-plan");
+        request.Headers.Add("X-User-Id", _testUserId.ToString());
+        var response = await _client.SendAsync(request);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        return (await response.Content.ReadFromJsonAsync<DistributionPlanDto>())!;
     }
 
     [Fact]
