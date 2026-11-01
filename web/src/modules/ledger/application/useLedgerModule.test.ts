@@ -22,7 +22,7 @@ function createHttp() {
   } as unknown as IHttpClient;
 }
 
-function renderLedger(http: IHttpClient) {
+function useLedgerForTest(http: IHttpClient) {
   vi.mocked(useState).mockImplementationOnce(() => [accounts, vi.fn()] as never)
     .mockImplementationOnce(() => [[], vi.fn()] as never);
   return useLedgerModule(http);
@@ -33,7 +33,7 @@ beforeEach(() => vi.mocked(useState).mockReset());
 describe("FX transfer module flow", () => {
   it("creates one transfer pair and refreshes ledger after success", async () => {
     const http = createHttp();
-    const ledger = renderLedger(http);
+    const ledger = useLedgerForTest(http);
 
     await ledger.executeFxTransfer({ fromAccountId: "bob", toAccountId: "usd", amount: "120.10", description: "FX", p2pRate: 12 });
 
@@ -48,7 +48,7 @@ describe("FX transfer module flow", () => {
   it("does not refresh after the atomic transfer request fails", async () => {
     const http = createHttp();
     vi.mocked(http.post).mockRejectedValueOnce(new Error("conflict"));
-    const ledger = renderLedger(http);
+    const ledger = useLedgerForTest(http);
 
     await expect(ledger.executeFxTransfer({ fromAccountId: "bob", toAccountId: "usd", amount: "120", description: "FX", p2pRate: 12 })).rejects.toThrow("conflict");
     expect(http.post).toHaveBeenCalledTimes(1);

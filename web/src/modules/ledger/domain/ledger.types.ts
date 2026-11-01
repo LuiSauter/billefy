@@ -31,6 +31,8 @@ export interface CreateAccountRequest {
   colorKey?: string;
 }
 
+export interface TransactionAllocationDto { categoryId: string; categoryName?: string; amount: Decimal }
+
 export interface TransactionDto {
   id: string;
   accountId: string;
@@ -38,14 +40,19 @@ export interface TransactionDto {
   currency: string;
   direction: TransactionDirection;
   categoryId?: string;
+  allocations?: TransactionAllocationDto[];
   occurredAt: string;
   description?: string;
   reversesId?: string;
   transferId?: string;
+  investmentId?: string;
+  investmentCashKind?: "Contribution" | "Disposal";
   appliedRate?: number;
   rateSource?: string;
   createdAt: string;
 }
+
+export interface TransactionAllocationRequest { categoryId: string; amount: string }
 
 export interface RegisterTransactionRequest {
   accountId: string;
@@ -54,6 +61,7 @@ export interface RegisterTransactionRequest {
   categoryId?: string;
   occurredAt?: string;
   description?: string;
+  allocations?: TransactionAllocationRequest[];
 }
 
 export interface RegisterTransferRequest {
@@ -74,6 +82,7 @@ export interface UpdateTransactionRequest {
   categoryId?: string;
   occurredAt?: string;
   description?: string;
+  allocations?: TransactionAllocationRequest[];
 }
 
 export function encodeTransactionText(title: string, details?: string): string {

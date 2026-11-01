@@ -5,6 +5,9 @@ import { IHttpClient } from "@/shared/application/http-client.contract";
 import { notify } from "@/shared/lib/notify";
 import { CreateInvestmentInput, Investment } from "../domain/investment.types";
 
+export interface InvestmentCashInput { accountId: string; amount: string; description?: string; occurredAt?: string }
+export interface InvestmentCashResult { ledgerTransactionId: string; investmentId: string; kind: "Contribution" | "Disposal" }
+
 export function useInvestments(http: IHttpClient | null) {
   const [investments, setInvestments] = useState<Investment[]>([]);
 
@@ -21,6 +24,22 @@ export function useInvestments(http: IHttpClient | null) {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  const refreshAfterCash = useCallback(async () => {
+    if (!http) throw new Error("No hay conexión disponible.");
+    const data = await http.get<Investment[]>("/v1/planning/investments");
+    setInvestments(Array.isArray(data) ? data : []);
+  }, [http]);
+
+  const recordCash = useCallback(async (id: string, kind: "Contribution" | "Disposal", input: InvestmentCashInput) => {
+    if (!http) throw new Error("No hay conexión disponible.");
+    return http.post<InvestmentCashResult>(`/v1/planning/investments/${id}/cash/${kind}`, input);
+  }, [http]);
+
+  const reverseCash = useCallback(async (transactionId: string) => {
+    if (!http) throw new Error("No hay conexión disponible.");
+    return http.post<InvestmentCashResult>(`/v1/planning/investment-cash/${transactionId}/reverse`);
+  }, [http]);
 
   const createInvestment = useCallback(
     async (input: CreateInvestmentInput) => {
@@ -69,8 +88,8 @@ export function useInvestments(http: IHttpClient | null) {
   );
 
   return useMemo(
-    () => ({ investments, createInvestment, updateInvestmentValue, deleteInvestment }),
-    [investments, createInvestment, updateInvestmentValue, deleteInvestment]
+    () => ({ investments, createInvestment, updateInvestmentValue, deleteInvestment, refreshAfterCash, recordCash, reverseCash }),
+    [investments, createInvestment, updateInvestmentValue, deleteInvestment, refreshAfterCash, recordCash, reverseCash]
   );
 }
 

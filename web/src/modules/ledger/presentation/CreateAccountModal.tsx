@@ -106,7 +106,7 @@ export function CreateAccountModal({ isOpen, onClose, onSubmit }: CreateAccountM
       onOpenChange={(open) => !open && onClose()}
       title="Crear nueva cuenta"
       description="Elegí el tipo de cuenta, su ícono personalizado, moneda y saldo inicial."
-      size="md"
+      size="lg"
       footer={
         <>
           <Button

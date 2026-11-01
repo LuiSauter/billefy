@@ -21,6 +21,9 @@ import { Loader2, Wallet } from "lucide-react";
 const AuthScreen = dynamic(() =>
   import("@/modules/identity/presentation/AuthScreen").then((m) => m.AuthScreen)
 );
+const MovimientosView = dynamic(() =>
+  import("@/modules/ledger/presentation/MovimientosView").then((m) => m.MovimientosView)
+);
 const AccountsTabView = dynamic(() =>
   import("@/modules/ledger/presentation/AccountsTabView").then((m) => m.AccountsTabView)
 );
@@ -224,7 +227,7 @@ export default function DashboardPage() {
           )}
 
           {activeTab === "inversiones" && (
-            <InvestmentsView controller={investmentsCtl} p2pRate={p2pRate} />
+            <InvestmentsView controller={investmentsCtl} p2pRate={p2pRate} accounts={dashboard.accounts} onCashComplete={dashboard.refreshLedger} />
           )}
 
           {activeTab === "plan" && (
@@ -235,9 +238,24 @@ export default function DashboardPage() {
             />
           )}
 
+          {activeTab === "movimientos" && (
+            <MovimientosView
+              http={planningHttp}
+              accounts={dashboard.accounts}
+              onRegister={() => modals.setIsTxnModalOpen(true)}
+              onRefresh={dashboard.refreshLedger}
+              investmentsController={investmentsCtl}
+              selectedCurrency={selectedCurrency}
+              p2pRate={p2pRate}
+            />
+          )}
+
           {activeTab === "cuentas" && (
             <AccountsTabView
               accounts={dashboard.accounts}
+              transactions={dashboard.transactions}
+              p2pRate={p2pRate}
+              selectedCurrency={selectedCurrency}
               loading={dashboard.loading}
               onOpenCreateAccountModal={() => modals.setIsAccountModalOpen(true)}
               onOpenCsvModal={() => modals.setIsCsvModalOpen(true)}
@@ -330,6 +348,7 @@ export default function DashboardPage() {
           simulateLoan: dashboard.simulateLoan,
           createLoan: dashboard.createLoan,
           registerLoanPayment: dashboard.registerLoanPayment,
+          cancelLoan: dashboard.cancelLoan,
           createBudget: dashboard.createBudget,
           createGoal: dashboard.createGoal,
           linkWhatsApp: dashboard.linkWhatsApp,

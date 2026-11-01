@@ -45,6 +45,15 @@ describe("monthly non-transfer flows", () => {
     expect(getActiveTransactions(legs)).toEqual(legs);
   });
 
+  it("excludes investment cash entries and their reversals from legacy income and spending analytics", () => {
+    const investment = txn("investment", { investmentId: "inv-1", investmentCashKind: "Contribution", amount: new Decimal("90") });
+    const disposal = txn("disposal", { direction: "Income", investmentId: "inv-1", investmentCashKind: "Disposal", amount: new Decimal("30") });
+    const regular = txn("regular", { amount: new Decimal("5") });
+    expect(sumByMonth([investment, disposal, regular], month, "Expense", rate)).toBe(5);
+    expect(sumByMonth([investment, disposal, regular], month, "Income", rate)).toBe(0);
+    expect(categoryTotal([investment, disposal, regular])).toBe("5");
+  });
+
   it("keeps ordinary flows and aggregates decimal amounts and FX without float drift", () => {
     const transactions = [
       ...transfer("USD"),
@@ -61,6 +70,22 @@ describe("monthly non-transfer flows", () => {
     expect(categoryTotal(transactions)).toBe("0.3");
     expect(categoryTotal(transactions, "travel")).toBe("0.713");
     expect(sumMonthlySpendingByCategory(transactions, month, rate).size).toBe(2);
+  });
+
+  it("uses active allocation amounts per category without duplicating parent flow totals", () => {
+    const split = txn("split", { amount: new Decimal("100"), categoryId: "legacy", allocations: [
+      { categoryId: "food", amount: new Decimal("60") },
+      { categoryId: "home", amount: new Decimal("40") },
+    ] });
+    const reversal = txn("split-reversal", { id: "split-reversal", amount: new Decimal("100"), direction: "Income", reversesId: "split", allocations: split.allocations });
+    expect(sumByMonth([split, reversal], month, "Expense", rate)).toBe(0);
+    expect(categoryTotal([split, reversal], "food")).toBeUndefined();
+    expect(categoryTotal([split, reversal], "home")).toBeUndefined();
+    expect(categoryTotal([split], "food")).toBe("60");
+    expect(categoryTotal([split], "home")).toBe("40");
+    expect(categoryTotal([split], "legacy")).toBeUndefined();
+    expect(sumMonthlyFlow([split], month, "Expense", rate).toString()).toBe("100");
+    expect(categoryTotal([...transfer(), split], "food")).toBe("60");
   });
 
   it("removes reversed income/expenses and their counterparts, retaining replacements", () => {

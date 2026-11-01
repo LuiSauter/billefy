@@ -27,6 +27,14 @@ web/src/
         └── modals/                       # Diálogos modulares (WhatsApp, Binance, CSV, etc.)
 ```
 
+### Movimientos
+La sección **Movimientos** está disponible desde el menú lateral. Consulta el mes local seleccionado; sus límites de inicio y fin de mes se envían como instantes UTC al backend (`startUtc` inclusivo y `endUtcExclusive` exclusivo). Búsqueda, filtros e historial usan paginación del servidor; los resúmenes de ingresos, gastos, transferencias y efectivo de inversiones se mantienen separados por moneda. Desde Movimientos se registran aportes y retiros vinculados a una inversión y una cuenta real. El monto usa la moneda de la cuenta; estas operaciones no cambian la valuación ni la cantidad del activo. El historial de efectivo conserva el vínculo con la inversión y solo se revierte mediante su acción coordinada. Archivar un activo no es un retiro y conserva su historial. Los recibos están explícitamente diferidos.
+
+Pruebas enfocadas del módulo:
+```bash
+pnpm --dir web exec vitest run src/modules/ledger/application/useMovements.test.ts src/modules/ledger/presentation/MovimientosView.test.tsx src/modules/ledger/infrastructure/ledger-api.repository.test.ts src/modules/ledger/application/useLedgerModule.test.ts
+```
+
 ### Reglas Clave:
 * **Cero mocks**: Toda la información se obtiene en tiempo real del backend ASP.NET Core y PostgreSQL.
 * **Aritmética monetaria exacta**: Se utiliza `Decimal.js` para cálculos de saldos consolidados; nunca tipos de coma flotante primitivos (`number`).

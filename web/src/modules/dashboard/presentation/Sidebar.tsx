@@ -19,6 +19,7 @@ import {
 export type NavigationTab =
   | "inicio"
   | "cuentas"
+  | "movimientos"
   | "inversiones"
   | "plan"
   | "borradores"
@@ -50,6 +51,7 @@ export function Sidebar({
   const navItems = [
     { id: "inicio" as NavigationTab, label: "Inicio", icon: LayoutDashboard },
     { id: "cuentas" as NavigationTab, label: "Mis Cuentas", icon: Landmark },
+    { id: "movimientos" as NavigationTab, label: "Movimientos", icon: ArrowLeftRight },
     { id: "inversiones" as NavigationTab, label: "Inversiones", icon: TrendingUp },
     ...(planEnabled
       ? [{ id: "plan" as NavigationTab, label: "Plan de distribución", icon: SlidersHorizontal }]

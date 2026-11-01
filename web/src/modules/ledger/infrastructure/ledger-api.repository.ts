@@ -14,6 +14,9 @@ import {
   TransactionDto,
   TransactionFilter,
 } from "../domain/ledger.types";
+import { MovementPage, MovementQuery, parseMovementPage } from "../domain/movement";
+
+export type CorrectTransferRequest = RegisterTransferRequest;
 
 export class LedgerApiRepository implements ILedgerRepository {
   constructor(private readonly http: IHttpClient) {}
@@ -82,6 +85,7 @@ export class LedgerApiRepository implements ILedgerRepository {
       currency: string;
       direction: TransactionDirection;
       categoryId?: string;
+      allocations?: Array<{ categoryId: string; categoryName?: string; amount: number | string }>;
       occurredAt: string;
       description?: string;
       reversesId?: string;
@@ -104,7 +108,23 @@ export class LedgerApiRepository implements ILedgerRepository {
     return raw.map((t) => ({
       ...t,
       amount: toDecimal(t.amount),
+      allocations: t.allocations?.map((allocation) => ({ ...allocation, amount: toDecimal(allocation.amount) })),
     }));
+  }
+
+  async getMovements(query: MovementQuery, signal?: AbortSignal): Promise<MovementPage> {
+    const params = new URLSearchParams();
+    if (query.startUtc) params.set("startUtc", query.startUtc);
+    if (query.endUtcExclusive) params.set("endUtcExclusive", query.endUtcExclusive);
+    if (query.accountId) params.set("accountId", query.accountId);
+    if (query.categoryId) params.set("categoryId", query.categoryId);
+    if (query.type) params.set("type", query.type);
+    if (query.search) params.set("search", query.search);
+    params.set("mode", query.mode);
+    params.set("page", String(query.page));
+    params.set("pageSize", String(query.pageSize));
+    const raw = await this.http.get<unknown>(`/v1/transactions/movements?${params.toString()}`, { signal });
+    return parseMovementPage(raw as Parameters<typeof parseMovementPage>[0]);
   }
 
   async registerTransaction(req: RegisterTransactionRequest): Promise<{ id: string }> {
@@ -123,6 +143,10 @@ export class LedgerApiRepository implements ILedgerRepository {
       `/v1/transactions/${id}`,
       req
     );
+  }
+
+  async correctTransfer(id: string, req: CorrectTransferRequest): Promise<{ outflowId: string; inflowId: string; replacedTransferId: string }> {
+    return this.http.put<{ outflowId: string; inflowId: string; replacedTransferId: string }>(`/v1/transactions/transfers/${id}`, req);
   }
 
   async reverseTransaction(

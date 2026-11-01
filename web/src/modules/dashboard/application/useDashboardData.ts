@@ -94,6 +94,7 @@ export function useDashboardData(authToken?: string | null, authUserId?: string 
     accounts: ledger.accounts,
     accountsMap: ledger.accountsMap,
     transactions: ledger.transactions,
+    refreshLedger: ledger.refreshLedger,
     drafts: ingestion.drafts,
     pendingDrafts: ingestion.pendingDrafts,
     loans: lending.loans,

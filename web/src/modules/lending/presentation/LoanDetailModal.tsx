@@ -1,6 +1,6 @@
 "use client";
 
-import { LoanDetailDto } from "@/modules/lending/domain/lending.types";
+import { LoanDetailDto, LoanCancellationResultDto } from "@/modules/lending/domain/lending.types";
 import { Button } from "@/shared/ui/button";
 import { ResponsiveDrawer } from "@/shared/ui/responsive-drawer";
 import { Progress } from "@/shared/ui/progress";
@@ -9,9 +9,11 @@ interface LoanDetailModalProps {
   isOpen: boolean;
   loan: LoanDetailDto | null;
   onClose: () => void;
+  onCancelLoan?: (loanId: string) => Promise<LoanCancellationResultDto>;
 }
 
-export function LoanDetailModal({ isOpen, loan, onClose }: LoanDetailModalProps) {
+export function LoanDetailModal(props: LoanDetailModalProps) {
+  const { isOpen, loan, onClose } = props;
   if (!isOpen || !loan) return null;
 
   const principal = Number(loan.summary.principal) || 1;

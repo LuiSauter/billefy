@@ -36,7 +36,14 @@ export function getLoanCancellationAvailability(
 }
 
 export function loanCancellationErrorMessage(error: unknown): string {
-  const message = error instanceof Error ? error.message : "";
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof error === "object" && error !== null && "code" in error && typeof (error as { code: unknown }).code === "string"
+      ? (error as { code: string }).code
+      : typeof error === "string"
+      ? error
+      : "";
   const code = Object.keys(reasonMessages).find((candidate) => message.includes(candidate));
   return code
     ? reasonMessages[code]

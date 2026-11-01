@@ -82,7 +82,7 @@ export function computeAccountMonthlyChanges(
 
 /** Income/spending flows only; never use this filter to derive account balances. */
 export function getActiveFlowTransactions(transactions: TransactionDto[]): TransactionDto[] {
-  return getActiveTransactions(transactions).filter((t) => !t.transferId);
+  return getActiveTransactions(transactions).filter((t) => !t.transferId && !t.investmentCashKind && !t.investmentId);
 }
 
 function getMonthlyFlows(
@@ -123,8 +123,14 @@ export function sumMonthlySpendingByCategory(
 ): Map<string, Decimal> {
   const totals = new Map<string, Decimal>();
   for (const t of getMonthlyFlows(transactions, month, "Expense")) {
-    if (!t.categoryId) continue;
-    totals.set(t.categoryId, (totals.get(t.categoryId) ?? new Decimal(0)).plus(flowAmountBob(t, p2pRate)));
+    if (t.allocations?.length) {
+      for (const allocation of t.allocations) {
+        const amount = flowAmountBob({ ...t, amount: allocation.amount }, p2pRate);
+        totals.set(allocation.categoryId, (totals.get(allocation.categoryId) ?? new Decimal(0)).plus(amount));
+      }
+    } else if (t.categoryId) {
+      totals.set(t.categoryId, (totals.get(t.categoryId) ?? new Decimal(0)).plus(flowAmountBob(t, p2pRate)));
+    }
   }
   return totals;
 }

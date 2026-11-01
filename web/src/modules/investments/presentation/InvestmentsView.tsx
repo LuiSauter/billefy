@@ -27,10 +27,14 @@ import {
   lastChangePct,
 } from "../domain/investment.types";
 import { InvestmentsController } from "../application/useInvestments";
+import { AccountDto } from "@/modules/ledger/domain/ledger.types";
+import { InvestmentCashModal } from "./InvestmentCashModal";
 
 interface InvestmentsViewProps {
   controller: InvestmentsController;
   p2pRate: number;
+  accounts: AccountDto[];
+  onCashComplete: () => Promise<void>;
 }
 
 const CURRENCIES = [
@@ -304,7 +308,7 @@ function UpdateValueDrawer({
           {confirmDelete ? (
             <div className="flex items-center justify-between gap-2">
               <span className="text-xs font-semibold text-foreground">
-                ¿Seguro que querés eliminar «{investment.name}»?
+                ¿Archivar «{investment.name}»? El historial de efectivo se conserva; archivar no es un retiro.
               </span>
               <div className="flex gap-2">
                 <Button type="button" variant="ghost" onClick={() => setConfirmDelete(false)}>
@@ -317,7 +321,7 @@ function UpdateValueDrawer({
                     onClose();
                   }}
                 >
-                  Sí, eliminar
+                  Sí, archivar
                 </Button>
               </div>
             </div>
@@ -327,7 +331,7 @@ function UpdateValueDrawer({
               onClick={() => setConfirmDelete(true)}
               className="inline-flex items-center gap-1.5 text-xs font-bold text-rose-500 hover:underline"
             >
-              <Trash2 className="w-3.5 h-3.5" /> Eliminar activo
+              <Trash2 className="w-3.5 h-3.5" /> Archivar activo
             </button>
           )}
         </div>
@@ -336,9 +340,10 @@ function UpdateValueDrawer({
   );
 }
 
-export function InvestmentsView({ controller, p2pRate }: InvestmentsViewProps) {
+export function InvestmentsView({ controller, p2pRate, accounts, onCashComplete }: InvestmentsViewProps) {
   const { investments, createInvestment, updateInvestmentValue, deleteInvestment } = controller;
   const [createOpen, setCreateOpen] = useState(false);
+  const [cashOpen, setCashOpen] = useState(false);
   const [editing, setEditing] = useState<Investment | null>(null);
 
   const totalValue = investments.reduce(
@@ -366,9 +371,12 @@ export function InvestmentsView({ controller, p2pRate }: InvestmentsViewProps) {
             <ChangeBadge pct={totalPct} />
           </p>
         </div>
-        <Button type="button" onClick={() => setCreateOpen(true)} className="gap-1.5">
-          <Plus className="w-4 h-4" /> Nuevo activo
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" variant="outline" onClick={() => setCashOpen(true)}>Registrar aporte o retiro</Button>
+          <Button type="button" onClick={() => setCreateOpen(true)} className="gap-1.5">
+            <Plus className="w-4 h-4" /> Nuevo activo
+          </Button>
+        </div>
       </div>
 
       {investments.length === 0 ? (
@@ -428,6 +436,7 @@ export function InvestmentsView({ controller, p2pRate }: InvestmentsViewProps) {
         </div>
       )}
 
+      <InvestmentCashModal open={cashOpen} onClose={() => setCashOpen(false)} controller={controller} accounts={accounts} onComplete={onCashComplete} />
       <CreateInvestmentDrawer
         open={createOpen}
         onClose={() => setCreateOpen(false)}
