@@ -71,7 +71,7 @@ export function CreateBudgetModal({ isOpen, onClose, onSubmit }: CreateBudgetMod
     <ResponsiveDrawer
       open={isOpen}
       onOpenChange={(open) => !open && onClose()}
-      size="md"
+      size="lg"
       title={
         isCreatingCategory
           ? "Nueva categoría de gasto"

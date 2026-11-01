@@ -1,180 +1,48 @@
 "use client";
 
-import Decimal from "decimal.js";
+import React from "react";
 import { Plus } from "lucide-react";
-import {
-  FinancialHealthDto,
-  GoalDto,
-  getGoalEmoji,
-} from "@/modules/planning/domain/planning.types";
+import { GoalDto } from "@/modules/planning/domain/planning.types";
+import { buildGoalOverview } from "@/modules/planning/domain/goals-overview";
 
 interface FinancialGoalsViewProps {
   goals: GoalDto[];
-  health: FinancialHealthDto | null;
-  totalSavedBob: string;
+  loading?: boolean;
+  error?: Error | null;
+  onRetry?: () => void;
   onOpenCreateGoalModal: () => void;
-  onOpenContributeModal?: (goal: GoalDto) => void;
-  p2pRate: number;
+  onOpenAccounts: () => void;
 }
+const retryClass = "min-h-11 rounded-lg border border-border px-4 font-semibold hover:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary";
+const statusCopy = { unlinked: "Sin cuenta vinculada", unavailable: "Cuenta no disponible", currency_mismatch: "Moneda distinta" } as const;
 
-const PROGRESS_COLORS = ["bg-primary", "bg-emerald-500", "bg-blue-500", "bg-violet-500"];
-const TEXT_COLORS = ["text-primary", "text-emerald-400", "text-blue-400", "text-violet-400"];
-
-export function FinancialGoalsView({
-  goals,
-  health,
-  totalSavedBob,
-  onOpenCreateGoalModal,
-  onOpenContributeModal,
-}: FinancialGoalsViewProps) {
+export function FinancialGoalsView({ goals, loading = false, error = null, onRetry = () => {}, onOpenCreateGoalModal, onOpenAccounts }: FinancialGoalsViewProps) {
+  const hasData = goals.length > 0;
   return (
-    <div className="w-full max-w-[880px] p-[24px_24px_32px_24px] rounded-[24px] bg-card border border-border shadow-xs flex flex-col gap-[18px]">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-[18px] font-black text-foreground tracking-tight">
-            Objetivos Financieros & Metas de Ahorro
-          </h1>
-          <p className="text-xs font-medium text-muted-foreground mt-0.5">
-            Seguimiento patrimonial en bolivianos (BOB) y criptoactivos (USDT)
-          </p>
-        </div>
-
-        <button
-          onClick={onOpenCreateGoalModal}
-          className="h-[38px] px-4 rounded-[10px] bg-primary hover:bg-blue-600 active:scale-[0.99] text-white text-sm font-extrabold transition flex items-center gap-1.5 shadow-xs shrink-0"
-        >
-          <Plus className="w-4 h-4" />
-          <span>+ Nuevo Objetivo</span>
-        </button>
-      </div>
-
-      <div className="p-4 rounded-[16px] bg-background border border-border text-foreground shadow-md grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="flex flex-col gap-0.5">
-          <span className="text-xs font-semibold text-muted-foreground">Tasa de Ahorro</span>
-          <span className="text-[20px] font-black text-foreground font-mono">
-            {health ? `${(health.savingsRate * 100).toFixed(1)}%` : "0.0%"}
-          </span>
-          <span className="text-xs font-medium text-emerald-400">Meta: &gt;20%</span>
-        </div>
-
-        <div className="flex flex-col gap-0.5">
-          <span className="text-xs font-semibold text-muted-foreground">Fondo Emergencia</span>
-          <span className="text-[20px] font-black text-foreground font-mono">
-            {health?.emergencyFundMonths ? `${health.emergencyFundMonths.toFixed(1)} meses` : "0.0 meses"}
-          </span>
-          <span className="text-xs font-medium text-blue-400">Objetivo 3 a 6 meses</span>
-        </div>
-
-        <div className="flex flex-col gap-0.5">
-          <span className="text-xs font-semibold text-muted-foreground">Carga de Deuda</span>
-          <span className="text-[20px] font-black text-foreground font-mono">
-            {health && health.monthlyIncome > 0
-              ? `${((health.totalDebtLiabilities / health.monthlyIncome) * 100).toFixed(1)}%`
-              : "0.0%"}
-          </span>
-          <span className="text-xs font-medium text-emerald-400">Límite prudente: 30%</span>
-        </div>
-
-        <div className="flex flex-col gap-0.5">
-          <span className="text-xs font-semibold text-muted-foreground">Total Asignado a Metas</span>
-          <span className="text-[20px] font-black text-foreground font-mono">
-            Bs. {totalSavedBob}
-          </span>
-          <span className="text-xs font-medium text-amber-400">
-            {goals.length} {goals.length === 1 ? "Meta activa" : "Metas activas"}
-          </span>
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-3">
-        {goals.length === 0 ? (
-          <div className="p-8 rounded-[16px] bg-background border border-border text-center text-muted-foreground text-xs space-y-2">
-            <p className="font-semibold text-foreground">No tenés metas de ahorro creadas todavía.</p>
-            <p className="text-muted-foreground max-w-sm mx-auto">
-              Definí objetivos como tu fondo de emergencia, vehículo o vacaciones para proyectar tu ahorro mes a mes.
-            </p>
-            <button
-              onClick={onOpenCreateGoalModal}
-              className="mt-2 text-primary font-bold text-xs hover:underline"
-            >
-              + Crear mi primera meta
-            </button>
-          </div>
-        ) : (
-          goals.map((g, idx) => {
-            const current = new Decimal(g.currentAmount);
-            const target = new Decimal(g.targetAmount);
-            const percentage = target.gt(0)
-              ? Math.min(100, Math.round(current.div(target).times(100).toNumber()))
-              : 0;
-            const remaining = Decimal.max(0, target.minus(current));
-            const progressColor = PROGRESS_COLORS[idx % PROGRESS_COLORS.length];
-            const percentColor = TEXT_COLORS[idx % TEXT_COLORS.length];
-
-            const isCrypto = g.currency === "USDT" || g.currency === "USD";
-            const targetFormatted = isCrypto
-              ? `${target.toNumber().toLocaleString()} ${g.currency}`
-              : `Bs ${target.toNumber().toLocaleString()}`;
-            const currentFormatted = isCrypto
-              ? `${current.toNumber().toLocaleString()} ${g.currency}`
-              : `Bs ${current.toNumber().toLocaleString()}`;
-            const remainingFormatted = isCrypto
-              ? `${remaining.toNumber().toLocaleString()} ${g.currency}`
-              : `Bs ${remaining.toNumber().toLocaleString()}`;
-
-            return (
-              <div
-                key={g.id}
-                className="p-4 rounded-[16px] bg-background border border-border shadow-2xs flex flex-col gap-3 hover:border-primary/40 transition"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <span className="text-[20px] shrink-0">{getGoalEmoji(g.name)}</span>
-                    <div className="flex flex-col min-w-0">
-                      <span className="text-[15px] font-extrabold text-foreground truncate">
-                        {g.name}
-                      </span>
-                      <span className="text-xs text-muted-foreground font-medium">
-                        Meta: {targetFormatted} {g.targetDate ? `• Fecha: ${g.targetDate}` : ""}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-3 shrink-0">
-                    <span className={`text-[15px] font-black font-mono ${percentColor}`}>
-                      {percentage}%
-                    </span>
-                    {onOpenContributeModal && (
-                      <button
-                        onClick={() => onOpenContributeModal(g)}
-                        className="h-[30px] px-2.5 rounded-[8px] bg-secondary border border-border hover:bg-muted text-foreground text-xs font-bold transition"
-                      >
-                        Aportar
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                <div className="w-full h-[8px] rounded-full bg-muted overflow-hidden">
-                  <div
-                    className={`h-full ${progressColor} transition-all duration-300`}
-                    style={{ width: `${percentage}%` }}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between text-xs font-mono text-muted-foreground">
-                  <span>
-                    Ahorrado: <b className="text-foreground">{currentFormatted}</b>
-                  </span>
-                  <span>
-                    Faltan: <b className="text-foreground">{remainingFormatted}</b>
-                  </span>
-                </div>
-              </div>
-            );
-          })
-        )}
-      </div>
-    </div>
+    <section aria-labelledby="goals-heading" className="min-w-0 rounded-2xl border border-border bg-card p-4 sm:p-6 flex flex-col gap-4">
+      <header className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0"><h2 id="goals-heading" className="text-lg font-extrabold">Tus metas</h2><p className="text-sm text-muted-foreground">El saldo completo de la cuenta vinculada cuenta para el avance.</p></div>
+        <button type="button" onClick={onOpenCreateGoalModal} className="min-h-11 w-full sm:w-auto shrink-0 rounded-lg bg-primary px-4 text-sm font-bold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"><Plus aria-hidden="true" className="mr-1 inline h-4 w-4" />Nueva meta</button>
+      </header>
+      {loading && !hasData && <p role="status" className="text-sm text-muted-foreground">Cargando metas…</p>}
+      {error && <div role="alert" className="flex flex-col gap-3 rounded-xl border border-rose-500/40 bg-rose-500/10 p-3 text-sm sm:flex-row sm:items-center sm:justify-between"><span>{hasData ? "No se pudieron actualizar las metas. Los datos pueden estar desactualizados." : "No se pudieron cargar las metas."}</span><button type="button" onClick={onRetry} className={retryClass}>Reintentar</button></div>}
+      {!loading && !error && goals.length === 0 && <div className="rounded-xl border border-border bg-background p-5 text-sm"><p className="font-semibold">Todavía no tienes metas.</p><p className="mt-1 text-muted-foreground">Crea una meta y, si quieres, vincúlala a una cuenta de la misma moneda.</p></div>}
+      {hasData && <ul className="grid min-w-0 gap-3">
+        {goals.map((goal) => {
+          const view = buildGoalOverview(goal);
+          return <li key={goal.id} className="min-w-0 rounded-xl border border-border bg-background p-4">
+            <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0"><h3 className="break-words font-bold">{goal.name}</h3><p className="mt-1 break-words text-sm text-muted-foreground">Meta: <span className="font-mono text-foreground">{view.target}</span>{goal.targetDate ? ` · Fecha: ${goal.targetDate}` : ""}</p></div>
+              <div className="min-w-0 text-left sm:text-right">{view.tracked ? <><p className="break-words font-mono text-sm">Actual: <strong>{view.current}</strong></p><p className="break-words font-mono text-sm text-muted-foreground">Faltan: {view.remaining}</p></> : <p className="text-sm font-semibold text-amber-700 dark:text-amber-300">{statusCopy[view.trackingStatus === "tracked" ? "unavailable" : view.trackingStatus]}</p>}</div>
+            </div>
+            {view.tracked ? <div className="mt-3 min-w-0">
+              <div className="mb-1 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs"><span>{view.percentage}% completado</span>{view.monthly !== null && view.months !== null && view.months > 0 && <span className="break-words">En {view.months} {view.months === 1 ? "mes" : "meses"}: {view.monthly}/mes</span>}</div>
+              <div role="progressbar" aria-label={`Avance de ${goal.name}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={view.percentage!} className="h-2 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary" style={{ width: `${view.percentage}%` }} /></div>
+              <p className="mt-2 break-words text-xs text-muted-foreground">Saldo de {view.accountName ?? "la cuenta vinculada"}{view.shared ? ` · Compartida con ${goal.sharedGoalCount} metas` : ""}</p>
+            </div> : <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><span className="text-xs text-muted-foreground">Vincula una cuenta para seguir el saldo real.</span><button type="button" onClick={onOpenAccounts} className="min-h-11 self-start rounded-lg border border-border px-3 text-sm font-semibold hover:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">Ver cuentas</button></div>}
+          </li>;
+        })}
+      </ul>}
+    </section>
   );
 }

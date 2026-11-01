@@ -8,6 +8,7 @@ import {
   IPlanningRepository,
   IncomeDistributionProposal,
   ProposeIncomeDistributionRequest,
+  UpdateBudgetRequest,
 } from "../domain/planning.types";
 
 export class PlanningApiRepository implements IPlanningRepository {
@@ -19,6 +20,11 @@ export class PlanningApiRepository implements IPlanningRepository {
 
   async getBudgets(): Promise<BudgetDto[]> {
     return this.http.get<BudgetDto[]>("/v1/planning/budgets");
+  }
+
+  async updateBudget(id: string, req: UpdateBudgetRequest): Promise<void> {
+    const { limitAmount, alertThreshold } = req;
+    await this.http.put<void>(`/v1/planning/budgets/${id}`, { limitAmount, alertThreshold });
   }
 
   async deleteBudget(id: string): Promise<{ message: string }> {

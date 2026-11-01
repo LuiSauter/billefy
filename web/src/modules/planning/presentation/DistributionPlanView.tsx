@@ -1,14 +1,14 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
+import Decimal from "decimal.js";
 import { AlertTriangle, Plus, Trash2 } from "lucide-react";
 import { TransactionDto } from "@/modules/ledger/domain/ledger.types";
 import {
-  getActiveTransactions,
   monthKey,
   monthLabel,
-  sumByMonth,
-  toBob,
+  sumMonthlyFlow,
+  sumMonthlySpendingByCategory,
 } from "@/modules/ledger/domain/monthly-analytics";
 import { CATEGORY_COLOR_THEMES } from "@/modules/ledger/domain/category.types";
 import { useUserCategories } from "@/modules/ledger/application/CategoriesContext";
@@ -20,6 +20,9 @@ import {
   PlanBucket,
   bucketFromPreset,
   totalPercent,
+  bucketTrackingMode,
+  changeBucketTrackingMode,
+  TrackingMode,
 } from "../domain/distribution-plan";
 import { DistributionPlanController } from "../application/useDistributionPlan";
 
@@ -34,32 +37,23 @@ export function DistributionPlanView({
   transactions,
   p2pRate,
 }: DistributionPlanViewProps) {
-  const { plan, setBuckets } = controller;
+  const { plan, setBuckets, setEnabled, validationErrors } = controller;
   const { buckets } = plan;
   const { getCategoriesByDirection } = useUserCategories();
   const expenseCategories = getCategoriesByDirection("Expense");
   const [editOverride, setEditOverride] = useState<boolean | null>(null);
-  const editing = editOverride ?? buckets.length === 0;
+  const editing = editOverride ?? (!plan.enabled || buckets.length === 0);
 
   const month = monthKey(new Date());
   const income = useMemo(
-    () => sumByMonth(transactions, month, "Income", p2pRate),
+    () => sumMonthlyFlow(transactions, month, "Income", p2pRate),
     [transactions, month, p2pRate]
   );
 
-  const spentByCategory = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const t of getActiveTransactions(transactions)) {
-      if (t.direction !== "Expense" || !t.categoryId) continue;
-      const d = new Date(t.occurredAt);
-      if (isNaN(d.getTime()) || monthKey(d) !== month) continue;
-      map.set(
-        t.categoryId,
-        (map.get(t.categoryId) ?? 0) + toBob(Number(t.amount) || 0, t.currency, p2pRate)
-      );
-    }
-    return map;
-  }, [transactions, month, p2pRate]);
+  const spentByCategory = useMemo(
+    () => sumMonthlySpendingByCategory(transactions, month, p2pRate),
+    [transactions, month, p2pRate]
+  );
 
   const total = totalPercent(buckets);
   const assigned = new Set(buckets.flatMap((b) => b.categoryIds));
@@ -92,6 +86,7 @@ export function DistributionPlanView({
         name: `Grupo ${buckets.length + 1}`,
         percent: Math.max(0, 100 - total),
         colorKey: "violet",
+        trackingMode: "Expenses",
         categoryIds: [],
       },
     ]);
@@ -106,7 +101,7 @@ export function DistributionPlanView({
           <p className="text-xs font-medium text-muted-foreground mt-0.5">
             {monthLabel(month)} • Ingresos del mes:{" "}
             <span className="font-mono font-bold text-foreground">
-              Bs {Math.round(income).toLocaleString("en-US")}
+              Bs {Math.round(income.toNumber()).toLocaleString("en-US")}
             </span>
           </p>
         </div>
@@ -119,6 +114,22 @@ export function DistributionPlanView({
           {editing ? "Ver seguimiento" : "Configurar plan"}
         </Button>
       </div>
+
+      <p className="text-xs text-muted-foreground">
+        El plan reparte los ingresos reales del mes actual, sin transferencias internas.
+        Los presupuestos son complementarios: ponen topes a los gastos por categoría.
+      </p>
+      {validationErrors.length > 0 && (
+        <div role="alert" className="text-xs text-amber-500">
+          <p>Para activar o guardar el plan activo, corregí lo siguiente (podés seguir editando):</p>
+          <ul>{validationErrors.map((error) => <li key={error}>{error}</li>)}</ul>
+        </div>
+      )}
+      {!plan.enabled && (
+        <Button type="button" disabled={validationErrors.length > 0} onClick={() => setEnabled(true)}>
+          Activar plan
+        </Button>
+      )}
 
       {editing ? (
         <div className="flex flex-col gap-5">
@@ -161,11 +172,13 @@ export function DistributionPlanView({
                   <div className="flex items-center gap-1 shrink-0">
                     <Input
                       aria-label="Porcentaje"
-                      inputMode="numeric"
+                      type="number"
+                      step="any"
+                      inputMode="decimal"
                       value={String(b.percent)}
                       onChange={(e) =>
                         patch(b.id, {
-                          percent: Math.min(100, Math.max(0, parseInt(e.target.value) || 0)),
+                          percent: Number(e.target.value.replace(",", ".")) || 0,
                         })
                       }
                       className="w-16 text-right"
@@ -182,7 +195,21 @@ export function DistributionPlanView({
                   </button>
                 </div>
 
-                <div className="flex flex-wrap gap-1.5">
+                <label className="text-xs text-muted-foreground flex flex-col gap-1.5">
+                  Seguimiento del grupo
+                  <select
+                    aria-label={`Seguimiento de ${b.name}`}
+                    value={bucketTrackingMode(b)}
+                    onChange={(e) => setBuckets(buckets.map((item) => item.id === b.id
+                      ? changeBucketTrackingMode(item, e.target.value as TrackingMode) : item))}
+                    className="rounded-lg border border-border bg-background p-2 text-foreground"
+                  >
+                    <option value="Expenses">Gastos por categorías</option>
+                    <option value="TargetOnly">Solo objetivo (ahorro/inversión)</option>
+                  </select>
+                  Al elegir solo objetivo se quitan las categorías asignadas; no se registran aportes.
+                </label>
+                {bucketTrackingMode(b) === "Expenses" && <div className="flex flex-wrap gap-1.5">
                   {expenseCategories.length === 0 && (
                     <span className="text-xs text-muted-foreground">
                       Creá categorías de gasto para asignarlas a este grupo.
@@ -209,13 +236,18 @@ export function DistributionPlanView({
                       </button>
                     );
                   })}
-                </div>
+                </div>}
+                {b.categoryIds.length > 0 && (
+                  <button type="button" className="text-xs text-muted-foreground text-left underline" onClick={() => patch(b.id, { categoryIds: [] })}>
+                    Quitar todas las categorías asignadas ({b.categoryIds.length})
+                  </button>
+                )}
               </div>
             );
           })}
 
           <div className="flex items-center justify-between">
-            <Button type="button" variant="ghost" onClick={addBucket} className="gap-1.5 border border-border">
+            <Button type="button" variant="ghost" onClick={addBucket} disabled={buckets.length >= 8} className="gap-1.5 border border-border">
               <Plus className="w-4 h-4" /> Agregar grupo
             </Button>
             <span
@@ -242,10 +274,13 @@ export function DistributionPlanView({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {buckets.map((b) => {
             const theme = CATEGORY_COLOR_THEMES[b.colorKey];
-            const target = (income * b.percent) / 100;
-            const spent = b.categoryIds.reduce((a, id) => a + (spentByCategory.get(id) ?? 0), 0);
-            const ratio = target > 0 ? Math.min(100, (spent / target) * 100) : 0;
-            const over = target > 0 && spent > target;
+            const target = income.times(b.percent).dividedBy(100);
+            const spent = b.categoryIds.reduce(
+              (total, id) => total.plus(spentByCategory.get(id) ?? 0),
+              new Decimal(0)
+            );
+            const ratio = target.gt(0) ? Math.min(100, spent.dividedBy(target).times(100).toNumber()) : 0;
+            const over = target.gt(0) && spent.gt(target);
             return (
               <div key={b.id} className="rounded-2xl bg-card border border-border p-4 flex flex-col gap-2.5">
                 <div className="flex items-center justify-between">
@@ -255,6 +290,12 @@ export function DistributionPlanView({
                   </span>
                   <span className="text-xs font-bold text-muted-foreground">{b.percent}%</span>
                 </div>
+                {bucketTrackingMode(b) === "TargetOnly" ? (
+                  <>
+                    <p className="text-sm font-bold font-mono">Objetivo asignado: Bs {Math.round(target.toNumber()).toLocaleString("en-US")}</p>
+                    <p className="text-xs text-muted-foreground">No registra aportes ni mide avance de ahorro/inversión.</p>
+                  </>
+                ) : <>
                 <div className="h-2 rounded-full bg-muted overflow-hidden">
                   <div
                     className={`h-full transition-all ${over ? "bg-rose-500" : ""}`}
@@ -266,12 +307,13 @@ export function DistributionPlanView({
                 </div>
                 <div className="flex items-center justify-between text-xs font-mono">
                   <span className={over ? "text-rose-500 font-bold" : "text-foreground font-bold"}>
-                    Bs {Math.round(spent).toLocaleString("en-US")}
+                    Bs {Math.round(spent.toNumber()).toLocaleString("en-US")}
                   </span>
                   <span className="text-muted-foreground">
-                    de Bs {Math.round(target).toLocaleString("en-US")}
+                    de Bs {Math.round(target.toNumber()).toLocaleString("en-US")}
                   </span>
                 </div>
+                </>}
               </div>
             );
           })}

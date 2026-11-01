@@ -1,100 +1,33 @@
-export interface CreateBudgetRequest {
-  limitAmount: number;
-  currency: string;
-  categoryId?: string;
-  alertThreshold?: number;
-  period?: string;
-}
-
-export interface BudgetDto {
-  id: string;
-  categoryId?: string;
-  period: string;
-  limitAmount: number;
-  currency: string;
-  alertThreshold: number;
-  spentAmount: number;
-  remainingAmount: number;
-  percentageUsed: number;
-  isAlertTriggered: boolean;
-  isExceeded: boolean;
-  isActive: boolean;
-  createdAt: string;
-}
-
-export interface CreateGoalRequest {
-  name: string;
-  targetAmount: number;
-  currency: string;
-  targetDate?: string;
-  accountId?: string;
-}
-
+export interface CreateBudgetRequest { limitAmount: number; currency: string; categoryId?: string; alertThreshold?: number; period?: string; }
+export interface UpdateBudgetRequest { limitAmount: number; /** Fraction in (0, 1], e.g. 0.8 for 80%. */ alertThreshold: number; }
+export interface BudgetDto { id: string; categoryId?: string; period: string; limitAmount: number; currency: string; alertThreshold: number; spentAmount: number; remainingAmount: number; percentageUsed: number; isAlertTriggered: boolean; isExceeded: boolean; isActive: boolean; createdAt: string; }
+export interface CreateGoalRequest { name: string; targetAmount: number; currency: string; targetDate?: string; accountId?: string; }
+export type GoalTrackingStatus = "tracked" | "unlinked" | "unavailable" | "currency_mismatch";
 export interface GoalDto {
-  id: string;
-  accountId?: string;
-  name: string;
-  targetAmount: number;
-  currency: string;
-  targetDate?: string;
-  currentAmount: number;
-  remainingAmount: number;
-  percentageAchieved: number;
-  monthsRemaining?: number;
-  monthlyContributionNeeded?: number;
-  createdAt: string;
+  id: string; accountId?: string | null; accountName?: string | null; trackingStatus: GoalTrackingStatus; sharedGoalCount: number;
+  name: string; targetAmount: number; currency: string; targetDate?: string | null;
+  currentAmount: number | null; remainingAmount: number | null; percentageAchieved: number | null;
+  monthsRemaining?: number | null; monthlyContributionNeeded?: number | null; createdAt: string;
 }
-
-export interface BudgetSplit503020Dto {
-  monthlyIncome: number;
-  needsTarget: number;
-  wantsTarget: number;
-  savingsTarget: number;
+export interface FinancialHealthCurrencyDto {
+  currency: string; monthlyIncome: number; monthlyExpenses: number; netCashFlow: number;
+  /** Percentage points, e.g. 12.5 means 12.5%. */ savingsRatePercentage: number | null;
+  currentBalance: number; outstandingDebtPrincipal: number;
 }
-
-export interface FinancialHealthDto {
-  monthlyIncome: number;
-  monthlyExpenses: number;
-  netSavings: number;
-  savingsRate: number;
-  totalLiquidBalance: number;
-  emergencyFundMonths: number;
-  totalDebtLiabilities: number;
-  split503020: BudgetSplit503020Dto;
-}
-
-export interface ProposeIncomeDistributionRequest {
-  incomeAmount: number;
-  currency?: string;
-}
-
-export interface IncomeDistributionProposal {
-  totalIncome: number;
-  currency: string;
-  needsAmount: number;
-  wantsAmount: number;
-  debtPaymentAmount: number;
-  savingsAmount: number;
-  needsPercentage: number;
-  wantsPercentage: number;
-  debtPercentage: number;
-  savingsPercentage: number;
-  rationale: string;
-}
-
+export interface FinancialHealthDto { monthStartUtc: string; monthEndUtcExclusive: string; currencies: FinancialHealthCurrencyDto[]; }
+export interface ProposeIncomeDistributionRequest { incomeAmount: number; currency?: string; }
+export interface IncomeDistributionProposal { totalIncome: number; currency: string; needsAmount: number; wantsAmount: number; debtPaymentAmount: number; savingsAmount: number; needsPercentage: number; wantsPercentage: number; debtPercentage: number; savingsPercentage: number; rationale: string; }
 export interface IPlanningRepository {
   createBudget(req: CreateBudgetRequest): Promise<{ id: string }>;
   getBudgets(): Promise<BudgetDto[]>;
+  updateBudget(id: string, req: UpdateBudgetRequest): Promise<void>;
   deleteBudget(id: string): Promise<{ message: string }>;
   createGoal(req: CreateGoalRequest): Promise<{ id: string }>;
   getGoals(): Promise<GoalDto[]>;
   deleteGoal(id: string): Promise<{ message: string }>;
   getFinancialHealth(): Promise<FinancialHealthDto>;
-  proposeIncomeDistribution(
-    req: ProposeIncomeDistributionRequest
-  ): Promise<IncomeDistributionProposal>;
+  proposeIncomeDistribution(req: ProposeIncomeDistributionRequest): Promise<IncomeDistributionProposal>;
 }
-
 export function getBudgetCategoryEmoji(category: string): string {
   const c = category.toLowerCase();
   if (c.includes("alimento") || c.includes("comida") || c.includes("super")) return "🍔";
@@ -104,7 +37,6 @@ export function getBudgetCategoryEmoji(category: string): string {
   if (c.includes("salud") || c.includes("farmacia")) return "💊";
   return "💡";
 }
-
 export function getGoalEmoji(name: string): string {
   const n = name.toLowerCase();
   if (n.includes("fondo") || n.includes("emergencia") || n.includes("colchon")) return "🛡️";

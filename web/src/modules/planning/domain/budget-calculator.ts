@@ -1,6 +1,69 @@
 import Decimal from "decimal.js";
-import { toDecimal } from "@/shared/domain/money";
+import { createMoney, toDecimal } from "@/shared/domain/money";
+import { budgetCurrencyDecimals } from "./budget-edit";
 import { BudgetDto, GoalDto } from "./planning.types";
+
+export type BudgetRowStatus = "exceeded" | "alert" | "ok";
+
+export interface BudgetRowViewModel {
+  budget: BudgetDto;
+  status: BudgetRowStatus;
+  usedPercent: number;
+  barPercent: number;
+  thresholdPercent: number;
+  thresholdLabel: string;
+  limit: string;
+  spent: string;
+  balanceLabel: "Disponible" | "Excedido";
+  balance: string;
+}
+
+export function buildBudgetRows(budgets: readonly BudgetDto[]): BudgetRowViewModel[] {
+  const rows = budgets.map((b): BudgetRowViewModel => {
+    const decimals = budgetCurrencyDecimals(b.currency);
+    const limitDec = createMoney(b.limitAmount, b.currency).amount.toDecimalPlaces(decimals, Decimal.ROUND_HALF_UP);
+    const spentDec = createMoney(b.spentAmount, b.currency).amount.toDecimalPlaces(decimals, Decimal.ROUND_HALF_UP);
+    const thresholdDec = new Decimal(b.alertThreshold ?? 0.8);
+    const thresholdPercent = thresholdDec.times(100).toNumber();
+    const thresholdLabel = `${thresholdDec.times(100).toString()}%`;
+
+    const usedRatio = limitDec.gt(0) ? spentDec.dividedBy(limitDec) : new Decimal(0);
+    const usedPercent = Math.round(usedRatio.times(100).toNumber());
+    const barPercent = Math.min(100, Math.max(0, usedPercent));
+
+    let status: BudgetRowStatus = "ok";
+    if (spentDec.gt(limitDec)) {
+      status = "exceeded";
+    } else if (usedRatio.gte(thresholdDec)) {
+      status = "alert";
+    }
+
+    const isExceeded = spentDec.gt(limitDec);
+    const diff = isExceeded ? spentDec.minus(limitDec) : limitDec.minus(spentDec);
+    const balanceLabel: "Disponible" | "Excedido" = isExceeded ? "Excedido" : "Disponible";
+
+    return {
+      budget: b,
+      status,
+      usedPercent,
+      barPercent,
+      thresholdPercent,
+      thresholdLabel,
+      limit: `${b.currency} ${limitDec.toFixed(decimals)}`,
+      spent: `${b.currency} ${spentDec.toFixed(decimals)}`,
+      balanceLabel,
+      balance: `${b.currency} ${diff.toFixed(decimals)}`,
+    };
+  });
+
+  const priorityOrder: Record<BudgetRowStatus, number> = { exceeded: 0, alert: 1, ok: 2 };
+  return rows.sort((a, b) => {
+    const pDiff = priorityOrder[a.status] - priorityOrder[b.status];
+    if (pDiff !== 0) return pDiff;
+    // Within same status, higher used percentage first
+    return b.usedPercent - a.usedPercent;
+  });
+}
 
 export interface BudgetMetrics {
   totalLimitBob: string;
@@ -52,14 +115,11 @@ export function calculateBudgetMetrics(
   };
 }
 
+// Retained for legacy callers; current goals UI deliberately avoids this FX-converted aggregate.
 export function calculateTotalSavedBob(goals: GoalDto[], p2pRate: number): string {
   const rate = toDecimal(p2pRate > 0 ? p2pRate : 9.85);
-  return goals
-    .reduce((acc, g) => {
-      const cur = toDecimal(g.currentAmount);
-      return g.currency === "USDT" || g.currency === "USD"
-        ? acc.plus(cur.times(rate))
-        : acc.plus(cur);
-    }, new Decimal(0))
-    .toFixed(2);
+  return goals.reduce((sum, goal) => {
+    const current = toDecimal(goal.currentAmount);
+    return goal.currency === "USDT" || goal.currency === "USD" ? sum.plus(current.times(rate)) : sum.plus(current);
+  }, new Decimal(0)).toFixed(2);
 }
