@@ -105,6 +105,18 @@ public class ArchitectureTests
     }
 
     [Fact]
+    public void Identity_Application_May_Use_Only_Fx_Contracts_For_CurrencyCatalog()
+    {
+        var identityApplication = typeof(Identity.Application.Services.IdentityService).Assembly;
+        identityApplication.GetReferencedAssemblies().Select(reference => reference.Name)
+            .Should().Contain("Fx.Contracts", "Identity validates preferences through the Fx public catalog contract.");
+
+        var avoidsFxInternals = Types.InAssembly(identityApplication)
+            .ShouldNot().HaveDependencyOnAny("Fx.Domain", "Fx.Application", "Fx.Infrastructure").GetResult();
+        avoidsFxInternals.IsSuccessful.Should().BeTrue("Identity may not depend on Fx internals.");
+    }
+
+    [Fact]
     public void ModuleApplication_Should_Only_Depend_On_Other_Modules_Via_Contracts()
     {
         var moduleApplications = new (string ModuleName, System.Reflection.Assembly Assembly)[]

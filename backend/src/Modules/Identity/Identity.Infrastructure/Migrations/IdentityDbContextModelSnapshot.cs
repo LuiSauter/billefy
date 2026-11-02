@@ -101,6 +101,20 @@ namespace Identity.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("last_login_at");
 
+                    b.Property<int>("MaximumDecimalPlaces")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(2)
+                        .HasColumnName("maximum_decimal_places");
+
+                    b.Property<string>("NumberGroupingConvention")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasDefaultValue("es-BO")
+                        .HasColumnName("number_grouping_convention");
+
                     b.Property<string>("PictureUrl")
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)")

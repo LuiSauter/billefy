@@ -29,6 +29,8 @@ public sealed class User : Entity
     public string FullName { get; private set; } = null!;
     public string? PictureUrl { get; private set; }
     public string PreferredCurrency { get; private set; } = "BOB";
+    public string NumberGroupingConvention { get; private set; } = "es-BO";
+    public int MaximumDecimalPlaces { get; private set; } = 2;
     public DateTime LastLoginAt { get; private set; }
     public bool IsDeleted { get; private set; }
     public DateTime? DeletionRequestedAt { get; private set; }
@@ -82,6 +84,18 @@ public sealed class User : Entity
         {
             PreferredCurrency = currency.Trim().ToUpperInvariant();
         }
+    }
+
+    public bool UpdateNumberFormatPreferences(string groupingConvention, int maximumDecimalPlaces)
+    {
+        if (groupingConvention is not ("es-BO" or "en-US") || maximumDecimalPlaces is < 0 or > 6)
+        {
+            return false;
+        }
+
+        NumberGroupingConvention = groupingConvention;
+        MaximumDecimalPlaces = maximumDecimalPlaces;
+        return true;
     }
 
     public void RequestDeletion(DateTime now)

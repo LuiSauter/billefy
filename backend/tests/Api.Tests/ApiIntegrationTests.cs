@@ -1486,6 +1486,122 @@ public class ApiIntegrationTests : IDisposable
     }
 
     [Fact]
+    public async Task GetCurrencies_ReturnsSupportedGlobalCatalog()
+    {
+        var response = await _client.GetAsync("/v1/currencies");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var currencies = await response.Content.ReadFromJsonAsync<JsonElement[]>();
+        currencies.Should().NotBeNull();
+        currencies!.Select(currency => currency.GetProperty("code").GetString())
+            .Should().BeEquivalentTo("BOB", "USD", "USDT");
+        currencies.Should().OnlyContain(currency => currency.GetProperty("isActive").GetBoolean());
+    }
+
+    [Fact]
+    public async Task Auth_LoginWithGoogle_RejectsCurrencyOutsideActiveCatalog()
+    {
+        var response = await _client.PostAsJsonAsync("/v1/auth/google",
+            new GoogleLoginRequest($"unsupported_{Guid.NewGuid()}@billefy.app", "EUR"));
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task Auth_NumberFormatPreferences_AreValidatedPersistedAndIncludedInAuthResponses()
+    {
+        var email = $"number_format_{Guid.NewGuid()}@billefy.app";
+        var login = await _client.PostAsJsonAsync("/v1/auth/google",
+            new GoogleLoginRequest(email, "BOB"));
+        login.StatusCode.Should().Be(HttpStatusCode.OK);
+        var auth = (await login.Content.ReadFromJsonAsync<AuthResponseDto>())!;
+        auth.User.NumberGroupingConvention.Should().Be("es-BO");
+        auth.User.MaximumDecimalPlaces.Should().Be(2);
+
+        async Task<HttpResponseMessage> Update(object body)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Put, "/v1/auth/number-format")
+            {
+                Content = JsonContent.Create(body)
+            };
+            request.Headers.Add("X-User-Id", auth.User.Id.ToString());
+            return await _client.SendAsync(request);
+        }
+
+        (await Update(new { numberGroupingConvention = "fr-FR", maximumDecimalPlaces = 4 }))
+            .StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await Update(new { numberGroupingConvention = "en-US", maximumDecimalPlaces = 7 }))
+            .StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        var updateResponse = await Update(new { numberGroupingConvention = "en-US", maximumDecimalPlaces = 4 });
+        updateResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var updated = (await updateResponse.Content.ReadFromJsonAsync<UserDto>())!;
+        updated.NumberGroupingConvention.Should().Be("en-US");
+        updated.MaximumDecimalPlaces.Should().Be(4);
+
+        using var profileRequest = new HttpRequestMessage(HttpMethod.Get, "/v1/auth/me");
+        profileRequest.Headers.Add("X-User-Id", auth.User.Id.ToString());
+        var profile = (await (await _client.SendAsync(profileRequest)).Content.ReadFromJsonAsync<UserDto>())!;
+        profile.NumberGroupingConvention.Should().Be("en-US");
+        profile.MaximumDecimalPlaces.Should().Be(4);
+
+        var refresh = await _client.PostAsJsonAsync("/v1/auth/refresh", new RefreshTokenRequest(auth.RefreshToken));
+        refresh.StatusCode.Should().Be(HttpStatusCode.OK);
+        var refreshed = (await refresh.Content.ReadFromJsonAsync<AuthResponseDto>())!;
+        refreshed.User.NumberGroupingConvention.Should().Be("en-US");
+        refreshed.User.MaximumDecimalPlaces.Should().Be(4);
+
+        var subsequentLogin = await _client.PostAsJsonAsync("/v1/auth/google", new GoogleLoginRequest(email, "BOB"));
+        subsequentLogin.StatusCode.Should().Be(HttpStatusCode.OK);
+        var loggedInAgain = (await subsequentLogin.Content.ReadFromJsonAsync<AuthResponseDto>())!;
+        loggedInAgain.User.NumberGroupingConvention.Should().Be("en-US");
+        loggedInAgain.User.MaximumDecimalPlaces.Should().Be(4);
+    }
+
+    [Fact]
+    public async Task Auth_PreferredCurrencyUpdate_IsUserScopedAndValidatesCatalog()
+    {
+        var email = $"settings_{Guid.NewGuid()}@billefy.app";
+        var login = await _client.PostAsJsonAsync("/v1/auth/google", new GoogleLoginRequest(email, "BOB"));
+        login.StatusCode.Should().Be(HttpStatusCode.OK);
+        var auth = (await login.Content.ReadFromJsonAsync<AuthResponseDto>())!;
+        var otherLogin = await _client.PostAsJsonAsync("/v1/auth/google",
+            new GoogleLoginRequest($"other_settings_{Guid.NewGuid()}@billefy.app", "BOB"));
+        var otherAuth = (await otherLogin.Content.ReadFromJsonAsync<AuthResponseDto>())!;
+
+        using var invalidRequest = new HttpRequestMessage(HttpMethod.Put, "/v1/auth/preferred-currency")
+        {
+            Content = JsonContent.Create(new { preferredCurrency = "EUR" })
+        };
+        invalidRequest.Headers.Add("X-User-Id", auth.User.Id.ToString());
+        (await _client.SendAsync(invalidRequest)).StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        using var updateRequest = new HttpRequestMessage(HttpMethod.Put, "/v1/auth/preferred-currency")
+        {
+            Content = JsonContent.Create(new { preferredCurrency = "USDT" })
+        };
+        updateRequest.Headers.Add("X-User-Id", auth.User.Id.ToString());
+        var updated = await _client.SendAsync(updateRequest);
+        updated.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await updated.Content.ReadFromJsonAsync<UserDto>())!.PreferredCurrency.Should().Be("USDT");
+
+        using var repeatedUpdate = new HttpRequestMessage(HttpMethod.Put, "/v1/auth/preferred-currency")
+        {
+            Content = JsonContent.Create(new { preferredCurrency = "USDT" })
+        };
+        repeatedUpdate.Headers.Add("X-User-Id", auth.User.Id.ToString());
+        (await _client.SendAsync(repeatedUpdate)).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        using var otherProfileRequest = new HttpRequestMessage(HttpMethod.Get, "/v1/auth/me");
+        otherProfileRequest.Headers.Add("X-User-Id", otherAuth.User.Id.ToString());
+        (await (await _client.SendAsync(otherProfileRequest)).Content.ReadFromJsonAsync<UserDto>())!
+            .PreferredCurrency.Should().Be("BOB");
+
+        using var profileRequest = new HttpRequestMessage(HttpMethod.Get, "/v1/auth/me");
+        profileRequest.Headers.Add("X-User-Id", auth.User.Id.ToString());
+        (await (await _client.SendAsync(profileRequest)).Content.ReadFromJsonAsync<UserDto>())!
+            .PreferredCurrency.Should().Be("USDT");
+    }
+
+    [Fact]
     public async Task Auth_LoginWithGoogle_ShouldReturnJwtTokenAndUser()
     {
         var email = $"test_{Guid.NewGuid()}@billefy.app";

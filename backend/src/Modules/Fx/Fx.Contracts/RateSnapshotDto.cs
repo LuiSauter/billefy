@@ -5,4 +5,5 @@ public sealed record RateSnapshotDto(
     string RateSource,
     DateTime FetchedAt,
     bool IsStale,
-    RateSide? Side = null);
+    RateSide? Side = null,
+    string? ValuationBasis = null);

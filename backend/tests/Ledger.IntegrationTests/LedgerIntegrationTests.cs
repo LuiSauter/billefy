@@ -3,6 +3,7 @@ using BuildingBlocks.Security;
 using BuildingBlocks.Time;
 using BuildingBlocks.ValueObjects;
 using FluentAssertions;
+using Fx.Contracts;
 using Ledger.Application.Accounts.CreateAccount;
 using Ledger.Application.Abstractions;
 using Ledger.Application.Transactions.RegisterTransaction;
@@ -28,6 +29,18 @@ public class LedgerIntegrationTests
         public Guid? UserId { get; set; } = Guid.NewGuid();
     }
 
+    private sealed class TestCurrencyCatalog : ICurrencyCatalog
+    {
+        private static readonly string[] ActiveCodes = ["BOB", "USD", "USDT"];
+
+        public Task<IReadOnlyList<CurrencyCatalogEntryDto>> GetActiveCurrenciesAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<CurrencyCatalogEntryDto>>(
+                ActiveCodes.Select(code => new CurrencyCatalogEntryDto(code, code, code, 2, true)).ToArray());
+
+        public Task<bool> IsActiveAsync(string code, CancellationToken cancellationToken = default) =>
+            Task.FromResult(ActiveCodes.Contains(code, StringComparer.OrdinalIgnoreCase));
+    }
+
     private class TestClock : IClock
     {
         public DateTime UtcNow { get; set; } = new(2026, 10, 26, 15, 0, 0, DateTimeKind.Utc);
@@ -47,6 +60,23 @@ public class LedgerIntegrationTests
         context.Database.EnsureCreated();
 
         return (context, connection);
+    }
+
+    [Fact]
+    public async Task CreateAccount_RequiresActiveCatalogCurrency()
+    {
+        var userContext = new TestUserContext();
+        var (context, connection) = CreateDbContext(userContext);
+        using var _ = connection;
+        using var __ = context;
+        var handler = new CreateAccountCommandHandler(
+            new AccountRepository(context), userContext, new TestClock(), new UnitOfWork(context), new TestCurrencyCatalog());
+
+        var unsupported = await handler.HandleAsync(new CreateAccountCommand("Unsupported", AccountType.Wallet, "EUR"));
+        unsupported.IsFailure.Should().BeTrue();
+
+        var supported = await handler.HandleAsync(new CreateAccountCommand("Supported", AccountType.Wallet, "USDT"));
+        supported.IsSuccess.Should().BeTrue();
     }
 
     [Fact]
@@ -320,7 +350,7 @@ public class LedgerIntegrationTests
         var unitOfWork = new UnitOfWork(context);
 
         // 1. Create Account use case
-        var createAccountHandler = new CreateAccountCommandHandler(accountRepo, userContext, clock, unitOfWork);
+        var createAccountHandler = new CreateAccountCommandHandler(accountRepo, userContext, clock, unitOfWork, new TestCurrencyCatalog());
         var createResult = await createAccountHandler.HandleAsync(new CreateAccountCommand("Billetera", AccountType.Wallet, "BOB", 100m));
 
         createResult.IsSuccess.Should().BeTrue();
@@ -374,7 +404,7 @@ public class LedgerIntegrationTests
         // Mock IRateSnapshotProvider
         var snapshotProvider = new MockSnapshotProvider(new Fx.Contracts.RateSnapshotDto(12.00m, "DolarApi:BinanceP2P", clock.UtcNow, false));
 
-        var createAccountHandler = new CreateAccountCommandHandler(accountRepo, userContext, clock, unitOfWork);
+        var createAccountHandler = new CreateAccountCommandHandler(accountRepo, userContext, clock, unitOfWork, new TestCurrencyCatalog());
         var createResult = await createAccountHandler.HandleAsync(new CreateAccountCommand("Banco", AccountType.Bank, "BOB", 100m));
         var accountId = createResult.Value;
 

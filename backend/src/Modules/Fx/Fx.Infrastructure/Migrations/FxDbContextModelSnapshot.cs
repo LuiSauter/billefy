@@ -22,6 +22,64 @@ namespace Fx.Infrastructure.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Fx.Domain.Currencies.CurrencyCatalogEntry", b =>
+                {
+                    b.Property<string>("Code")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("code");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("name");
+
+                    b.Property<int>("Precision")
+                        .HasColumnType("integer")
+                        .HasColumnName("precision");
+
+                    b.Property<string>("Symbol")
+                        .IsRequired()
+                        .HasMaxLength(12)
+                        .HasColumnType("character varying(12)")
+                        .HasColumnName("symbol");
+
+                    b.HasKey("Code");
+
+                    b.ToTable("currency_catalog", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Code = "BOB",
+                            IsActive = true,
+                            Name = "Boliviano",
+                            Precision = 2,
+                            Symbol = "Bs"
+                        },
+                        new
+                        {
+                            Code = "USD",
+                            IsActive = true,
+                            Name = "US Dollar",
+                            Precision = 2,
+                            Symbol = "$"
+                        },
+                        new
+                        {
+                            Code = "USDT",
+                            IsActive = true,
+                            Name = "Tether USD",
+                            Precision = 2,
+                            Symbol = "₮"
+                        });
+                });
+
             modelBuilder.Entity("Fx.Domain.Rates.ExchangeRate", b =>
                 {
                     b.Property<Guid>("Id")

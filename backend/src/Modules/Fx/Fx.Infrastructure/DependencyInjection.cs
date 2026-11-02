@@ -22,6 +22,7 @@ public static class DependencyInjection
         }
 
         services.AddScoped<IExchangeRateRepository, ExchangeRateRepository>();
+        services.AddScoped<ICurrencyCatalogRepository, CurrencyCatalogRepository>();
 
         // Register DolarApi Options from configuration/env
         var rateSourceUrl = configuration["Fx:RateSourceUrl"]
@@ -37,6 +38,7 @@ public static class DependencyInjection
 
         // Register Contract service
         services.AddScoped<IRateSnapshotProvider, RateSnapshotService>();
+        services.AddScoped<ICurrencyCatalog, CurrencyCatalogService>();
 
         return services;
     }

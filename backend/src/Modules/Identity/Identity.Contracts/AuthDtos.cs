@@ -13,11 +13,17 @@ public sealed record UserDto(
     string FullName,
     string? PictureUrl,
     string PreferredCurrency,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    string NumberGroupingConvention,
+    int MaximumDecimalPlaces);
 
 public sealed record GoogleLoginRequest(
     string IdToken,
     string? PreferredCurrency = "BOB");
+
+public sealed record UpdatePreferredCurrencyRequest(string PreferredCurrency);
+
+public sealed record UpdateNumberFormatRequest(string NumberGroupingConvention, int MaximumDecimalPlaces);
 
 public sealed record AppleLoginRequest(
     string IdentityToken,

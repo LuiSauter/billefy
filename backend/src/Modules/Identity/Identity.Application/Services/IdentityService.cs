@@ -5,6 +5,7 @@ using BuildingBlocks.Time;
 using Identity.Application.Abstractions;
 using Identity.Contracts;
 using Identity.Domain.Entities;
+using Fx.Contracts;
 
 namespace Identity.Application.Services;
 
@@ -16,6 +17,7 @@ public sealed class IdentityService : IIdentityModule
     private readonly IIdentityUnitOfWork _unitOfWork;
     private readonly IClock _clock;
     private readonly GoogleAuthValidationOptions _googleOptions;
+    private readonly ICurrencyCatalog _currencyCatalog;
 
     public IdentityService(
         IUserRepository userRepository,
@@ -23,6 +25,7 @@ public sealed class IdentityService : IIdentityModule
         ITokenService tokenService,
         IIdentityUnitOfWork unitOfWork,
         IClock clock,
+        ICurrencyCatalog currencyCatalog,
         GoogleAuthValidationOptions? googleOptions = null)
     {
         _userRepository = userRepository;
@@ -30,6 +33,7 @@ public sealed class IdentityService : IIdentityModule
         _tokenService = tokenService;
         _unitOfWork = unitOfWork;
         _clock = clock;
+        _currencyCatalog = currencyCatalog;
         _googleOptions = googleOptions ?? new GoogleAuthValidationOptions(string.Empty, AllowDevPlainEmailTokens: false);
     }
 
@@ -148,11 +152,18 @@ public sealed class IdentityService : IIdentityModule
 
         if (user is null)
         {
+            var preferredCurrency = (request.PreferredCurrency ?? "BOB").Trim().ToUpperInvariant();
+            if (!await _currencyCatalog.IsActiveAsync(preferredCurrency, ct))
+            {
+                return Result.Failure<AuthResponseDto>(Error.Validation(
+                    "Identity.UnsupportedCurrency", "La moneda preferida no está disponible."));
+            }
+
             var createResult = User.Create(
                 normalizedEmail,
                 string.IsNullOrWhiteSpace(fullName) ? normalizedEmail.Split('@')[0] : fullName,
                 pictureUrl,
-                request.PreferredCurrency ?? "BOB",
+                preferredCurrency,
                 _clock.UtcNow);
 
             if (createResult.IsFailure)
@@ -222,7 +233,8 @@ public sealed class IdentityService : IIdentityModule
         await _unitOfWork.CommitAsync(ct);
 
         var accessToken = _tokenService.GenerateAccessToken(user);
-        var userDto = new UserDto(user.Id, user.Email, user.FullName, user.PictureUrl, user.PreferredCurrency, user.CreatedAt);
+        var userDto = new UserDto(user.Id, user.Email, user.FullName, user.PictureUrl, user.PreferredCurrency, user.CreatedAt,
+            user.NumberGroupingConvention, user.MaximumDecimalPlaces);
 
         return Result.Success(new AuthResponseDto(
             accessToken,
@@ -246,7 +258,61 @@ public sealed class IdentityService : IIdentityModule
             user.FullName,
             user.PictureUrl,
             user.PreferredCurrency,
-            user.CreatedAt));
+            user.CreatedAt,
+            user.NumberGroupingConvention,
+            user.MaximumDecimalPlaces));
+    }
+
+    public async Task<Result<UserDto>> UpdatePreferredCurrencyAsync(
+        Guid userId, string preferredCurrency, CancellationToken ct = default)
+    {
+        var normalizedCurrency = preferredCurrency?.Trim().ToUpperInvariant();
+        if (string.IsNullOrEmpty(normalizedCurrency) ||
+            !await _currencyCatalog.IsActiveAsync(normalizedCurrency, ct))
+        {
+            return Result.Failure<UserDto>(Error.Validation(
+                "Identity.UnsupportedCurrency", "La moneda preferida no está disponible."));
+        }
+
+        var user = await _userRepository.GetByIdAsync(userId, ct);
+        if (user is null || user.IsDeleted)
+        {
+            return Result.Failure<UserDto>(Error.NotFound("Identity.UserNotFound", "Usuario no encontrado."));
+        }
+
+        if (!string.Equals(user.PreferredCurrency, normalizedCurrency, StringComparison.Ordinal))
+        {
+            user.UpdatePreferredCurrency(normalizedCurrency);
+            _userRepository.Update(user);
+            await _unitOfWork.CommitAsync(ct);
+        }
+
+        return Result.Success(new UserDto(
+            user.Id, user.Email, user.FullName, user.PictureUrl, user.PreferredCurrency, user.CreatedAt,
+            user.NumberGroupingConvention, user.MaximumDecimalPlaces));
+    }
+
+    public async Task<Result<UserDto>> UpdateNumberFormatPreferencesAsync(
+        Guid userId, string groupingConvention, int maximumDecimalPlaces, CancellationToken ct = default)
+    {
+        if (groupingConvention is not ("es-BO" or "en-US") || maximumDecimalPlaces is < 0 or > 6)
+        {
+            return Result.Failure<UserDto>(Error.Validation(
+                "Identity.InvalidNumberFormat", "La convención debe ser es-BO o en-US y los decimales deben estar entre 0 y 6."));
+        }
+
+        var user = await _userRepository.GetByIdAsync(userId, ct);
+        if (user is null || user.IsDeleted)
+        {
+            return Result.Failure<UserDto>(Error.NotFound("Identity.UserNotFound", "Usuario no encontrado."));
+        }
+
+        user.UpdateNumberFormatPreferences(groupingConvention, maximumDecimalPlaces);
+        _userRepository.Update(user);
+        await _unitOfWork.CommitAsync(ct);
+
+        return Result.Success(new UserDto(user.Id, user.Email, user.FullName, user.PictureUrl,
+            user.PreferredCurrency, user.CreatedAt, user.NumberGroupingConvention, user.MaximumDecimalPlaces));
     }
 
     public async Task<Result> LogoutAsync(string refreshTokenStr, Guid? userId = null, CancellationToken ct = default)
@@ -298,7 +364,8 @@ public sealed class IdentityService : IIdentityModule
             return Result.Failure<UserDataExportDto>(Error.NotFound("Identity.UserNotFound", "Usuario no encontrado."));
         }
 
-        var userDto = new UserDto(user.Id, user.Email, user.FullName, user.PictureUrl, user.PreferredCurrency, user.CreatedAt);
+        var userDto = new UserDto(user.Id, user.Email, user.FullName, user.PictureUrl, user.PreferredCurrency,
+            user.CreatedAt, user.NumberGroupingConvention, user.MaximumDecimalPlaces);
         var export = new UserDataExportDto(userDto, _clock.UtcNow, "Billefy v1.0.0");
         return Result.Success(export);
     }
@@ -320,7 +387,9 @@ public sealed class IdentityService : IIdentityModule
             user.FullName,
             user.PictureUrl,
             user.PreferredCurrency,
-            user.CreatedAt);
+            user.CreatedAt,
+            user.NumberGroupingConvention,
+            user.MaximumDecimalPlaces);
 
         return Result.Success(new AuthResponseDto(
             accessToken,

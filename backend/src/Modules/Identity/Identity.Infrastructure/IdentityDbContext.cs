@@ -36,6 +36,8 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(u => u.FullName).HasColumnName("full_name").HasMaxLength(255).IsRequired();
         builder.Property(u => u.PictureUrl).HasColumnName("picture_url").HasMaxLength(1000);
         builder.Property(u => u.PreferredCurrency).HasColumnName("preferred_currency").HasMaxLength(10).IsRequired();
+        builder.Property(u => u.NumberGroupingConvention).HasColumnName("number_grouping_convention").HasMaxLength(10).HasDefaultValue("es-BO").IsRequired();
+        builder.Property(u => u.MaximumDecimalPlaces).HasColumnName("maximum_decimal_places").HasDefaultValue(2).IsRequired();
         builder.Property(u => u.CreatedAt).HasColumnName("created_at").IsRequired();
         builder.Property(u => u.LastLoginAt).HasColumnName("last_login_at").IsRequired();
         builder.Property(u => u.IsDeleted).HasColumnName("is_deleted").IsRequired();

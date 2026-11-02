@@ -45,7 +45,49 @@ public static class AuthEndpoints
 
         if (includeNames) refreshRoute.WithName("RefreshToken");
 
-        // 3. Logout / Revoke Token
+        // 3. Update the user's base/reporting currency preference.
+        var currencyRoute = group.MapPut("/preferred-currency", async (
+            [FromBody] UpdatePreferredCurrencyRequest request,
+            [FromServices] ICurrentUserContext currentUser,
+            [FromServices] IIdentityModule identityModule,
+            CancellationToken ct) =>
+        {
+            if (!currentUser.IsAuthenticated)
+            {
+                return Results.Unauthorized();
+            }
+
+            var result = await identityModule.UpdatePreferredCurrencyAsync(
+                currentUser.UserId!.Value, request.PreferredCurrency, ct);
+            return result.ToHttpResult();
+        })
+        .WithSummary("Actualiza la moneda base y de visualización del usuario")
+        .RequireAuthorization();
+
+        if (includeNames) currencyRoute.WithName("UpdatePreferredCurrency");
+
+        // 4. Update number display preferences.
+        var numberFormatRoute = group.MapPut("/number-format", async (
+            [FromBody] UpdateNumberFormatRequest request,
+            [FromServices] ICurrentUserContext currentUser,
+            [FromServices] IIdentityModule identityModule,
+            CancellationToken ct) =>
+        {
+            if (!currentUser.IsAuthenticated)
+            {
+                return Results.Unauthorized();
+            }
+
+            var result = await identityModule.UpdateNumberFormatPreferencesAsync(
+                currentUser.UserId!.Value, request.NumberGroupingConvention, request.MaximumDecimalPlaces, ct);
+            return result.ToHttpResult();
+        })
+        .WithSummary("Actualiza la convención de agrupación y los decimales máximos del usuario")
+        .RequireAuthorization();
+
+        if (includeNames) numberFormatRoute.WithName("UpdateNumberFormatPreferences");
+
+        // 5. Logout / Revoke Token
         var logoutRoute = group.MapPost("/logout", async (
             [FromBody] RefreshTokenRequest request,
             [FromServices] ICurrentUserContext currentUser,

@@ -291,6 +291,7 @@ app.UseHttpsRedirection();
 
 // Map REST API Endpoints
 app.MapAuthEndpoints();
+app.MapCurrencyEndpoints();
 app.MapAccountEndpoints();
 app.MapCategoryEndpoints();
 app.MapTransactionEndpoints();
