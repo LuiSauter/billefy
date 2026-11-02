@@ -226,6 +226,22 @@ public static class PlanningEndpoints
         .Produces<List<GoalDto>>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status401Unauthorized);
 
+        group.MapPut("/goals/{id:guid}", async (
+            [FromRoute] Guid id,
+            [FromBody] UpdateGoalRequest request,
+            IGoalService service,
+            CancellationToken ct) =>
+        {
+            var result = await service.UpdateGoalAsync(id, request, ct);
+            return result.ToHttpResult(() => Results.Ok(new { message = "Goal updated" }));
+        })
+        .WithName("UpdateGoal")
+        .WithSummary("Update a savings goal.")
+        .Produces(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status404NotFound);
+
         group.MapDelete("/goals/{id:guid}", async (
             [FromRoute] Guid id,
             IGoalService service,

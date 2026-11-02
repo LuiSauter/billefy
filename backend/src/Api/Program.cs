@@ -143,6 +143,7 @@ builder.Services.AddLendingModule(builder.Configuration);
 builder.Services.AddScoped<Lending.Application.Abstractions.ILoanTransaction, RelationalLoanTransaction>();
 builder.Services.AddScoped<RelationalInvestmentCashTransaction>();
 builder.Services.AddPlanningModule(builder.Configuration);
+builder.Services.AddScoped<RelationalFinancialDataReset>();
 builder.Services.AddNotificationsModule(builder.Configuration);
 builder.Services.AddWhatsAppIntegration(builder.Configuration);
 builder.Services.AddMessagingModule(builder.Configuration);

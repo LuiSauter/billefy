@@ -131,12 +131,11 @@ public sealed class AccountService(
             ? $"Reconciliation adjustment: {request.Notes.Trim()}"
             : "Reconciliation balance adjustment";
 
-        var transaction = Transaction.Create(
+        var transaction = Transaction.CreateReconciliationAdjustment(
             userContext.UserId!.Value,
             accountId,
             money,
             direction,
-            categoryId: null,
             clock.UtcNow,
             description);
 

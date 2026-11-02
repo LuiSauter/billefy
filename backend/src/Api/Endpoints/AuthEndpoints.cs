@@ -1,6 +1,10 @@
 using Api.Common;
 using BuildingBlocks.Security;
 using Identity.Contracts;
+using Ingestion.Contracts;
+using Ledger.Contracts;
+using Lending.Contracts;
+using Planning.Contracts;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Api.Endpoints;
@@ -144,6 +148,10 @@ public static class AuthEndpoints
         var exportRoute = group.MapGet("/export", async (
             [FromServices] ICurrentUserContext currentUser,
             [FromServices] IIdentityModule identityModule,
+            [FromServices] ILedgerFinancialDataExport ledgerExport,
+            [FromServices] IIngestionFinancialDataExport ingestionExport,
+            [FromServices] ILendingFinancialDataExport lendingExport,
+            [FromServices] IPlanningFinancialDataExport planningExport,
             CancellationToken ct) =>
         {
             if (!currentUser.IsAuthenticated)
@@ -151,12 +159,65 @@ public static class AuthEndpoints
                 return Results.Unauthorized();
             }
 
-            var result = await identityModule.ExportUserDataAsync(currentUser.UserId!.Value, ct);
-            return result.ToHttpResult();
+            var userId = currentUser.UserId!.Value;
+            var result = await identityModule.ExportUserDataAsync(userId, ct);
+            if (result.IsFailure)
+            {
+                return result.ToHttpResult();
+            }
+
+            var financialData = new
+            {
+                ledger = await ledgerExport.ExportForUserAsync(userId, ct),
+                ingestion = await ingestionExport.ExportForUserAsync(userId, ct),
+                lending = await lendingExport.ExportForUserAsync(userId, ct),
+                planning = await planningExport.ExportForUserAsync(userId, ct)
+            };
+
+            return Results.Ok(new
+            {
+                result.Value.User,
+                result.Value.ExportedAt,
+                result.Value.SystemVersion,
+                FinancialData = financialData
+            });
         })
         .WithSummary("Exporta los datos completos del usuario (Regla AUTH-07)")
         .RequireAuthorization();
 
         if (includeNames) exportRoute.WithName("ExportUserData");
+
+        var resetFinancialDataRoute = group.MapDelete("/financial-data", async (
+            [FromServices] ICurrentUserContext currentUser,
+            [FromServices] ILedgerFinancialDataReset ledgerReset,
+            [FromServices] IIngestionFinancialDataReset ingestionReset,
+            [FromServices] ILendingFinancialDataReset lendingReset,
+            [FromServices] IPlanningFinancialDataReset planningReset,
+            [FromServices] Api.Infrastructure.Transactions.RelationalFinancialDataReset transaction,
+            CancellationToken ct) =>
+        {
+            if (!currentUser.IsAuthenticated || currentUser.UserId is null)
+            {
+                return Results.Unauthorized();
+            }
+
+            var userId = currentUser.UserId.Value;
+            await transaction.ExecuteAsync(async transactionToken =>
+            {
+                // Planning links restrict investment deletion, so Planning is reset before Ledger.
+                await planningReset.ResetForUserAsync(userId, transactionToken);
+                await lendingReset.ResetForUserAsync(userId, transactionToken);
+                await ingestionReset.ResetForUserAsync(userId, transactionToken);
+                await ledgerReset.ResetForUserAsync(userId, transactionToken);
+            }, ct);
+
+            return Results.NoContent();
+        })
+        .WithSummary("Borra todos los datos financieros del usuario y conserva su cuenta, perfil y preferencias.")
+        .Produces(StatusCodes.Status204NoContent)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .RequireAuthorization();
+
+        if (includeNames) resetFinancialDataRoute.WithName("ResetFinancialData");
     }
 }

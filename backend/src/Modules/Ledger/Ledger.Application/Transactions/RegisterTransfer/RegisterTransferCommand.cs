@@ -78,6 +78,13 @@ public sealed class RegisterTransferCommandHandler
             command.DestinationAmount, command.AppliedRate, command.RateSource, _currentUserContext.UserId!.Value, cancellationToken);
         if (quoteResult.IsFailure) return Result.Failure<(Guid, Guid)>(quoteResult.Error);
         var quote = quoteResult.Value;
+        await using var transaction = await _unitOfWork.BeginSerializableTransactionAsync(cancellationToken);
+        var sourceBalance = await _transactionRepository.CalculateBalanceAsync(sourceAccount.Id, cancellationToken);
+        if (command.SourceAmount > sourceBalance)
+        {
+            return Result.Failure<(Guid, Guid)>(Error.Validation("Transfer.InsufficientFunds", "The source account does not have enough funds for this transfer."));
+        }
+
         var sourceMoney = Money.Of(command.SourceAmount, sourceAccount.Currency);
         var destMoney = Money.Of(command.DestinationAmount, destAccount.Currency);
 
@@ -95,6 +102,7 @@ public sealed class RegisterTransferCommandHandler
 
         await _transactionRepository.AddRangeAsync([outflow, inflow], cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
 
         return Result.Success((outflow.Id, inflow.Id));
     }

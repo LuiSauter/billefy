@@ -426,6 +426,45 @@ public class LedgerIntegrationTests
     }
 
     [Fact]
+    public async Task TransferRegistration_RejectsUnfundedDebitsAndAllowsExactBalance()
+    {
+        var userContext = new TestUserContext();
+        var clock = new TestClock();
+        var (context, connection) = CreateDbContext(userContext);
+        using var _ = connection;
+        using var __ = context;
+        var accounts = new AccountRepository(context);
+        var transactions = new TransactionRepository(context);
+        var unitOfWork = new UnitOfWork(context);
+        var zero = Account.Create(userContext.UserId!.Value, "Zero", AccountType.Cash, Currency.BOB, Money.Zero(Currency.BOB), clock.UtcNow);
+        var negative = Account.Create(userContext.UserId.Value, "Negative", AccountType.Cash, Currency.BOB, Money.Zero(Currency.BOB), clock.UtcNow);
+        var funded = Account.Create(userContext.UserId.Value, "Funded", AccountType.Cash, Currency.BOB, Money.Of(10m, Currency.BOB), clock.UtcNow);
+        var destination = Account.Create(userContext.UserId.Value, "Destination", AccountType.Bank, Currency.BOB, Money.Zero(Currency.BOB), clock.UtcNow);
+        await context.Accounts.AddRangeAsync(zero, negative, funded, destination);
+        await context.SaveChangesAsync();
+        await transactions.AddAsync(Transaction.Create(userContext.UserId.Value, negative.Id, Money.Of(1m, Currency.BOB),
+            TransactionDirection.Expense, null, clock.UtcNow, "Existing overdraft"));
+        await unitOfWork.SaveChangesAsync();
+        var handler = new RegisterTransferCommandHandler(accounts, transactions, userContext, clock, unitOfWork);
+
+        var zeroAttempt = await handler.HandleAsync(new(zero.Id, 0.01m, destination.Id, 0.01m, clock.UtcNow, null, null, "Zero balance"));
+        var negativeAttempt = await handler.HandleAsync(new(negative.Id, 0.01m, destination.Id, 0.01m, clock.UtcNow, null, null, "Negative balance"));
+        var excessAttempt = await handler.HandleAsync(new(funded.Id, 10.01m, destination.Id, 10.01m, clock.UtcNow, null, null, "Smallest unit excess"));
+
+        zeroAttempt.IsFailure.Should().BeTrue();
+        negativeAttempt.IsFailure.Should().BeTrue();
+        excessAttempt.IsFailure.Should().BeTrue();
+        (await transactions.GetByAccountIdAsync(zero.Id)).Should().BeEmpty();
+        (await transactions.GetByAccountIdAsync(destination.Id)).Should().BeEmpty();
+        (await transactions.GetByAccountIdAsync(funded.Id)).Should().BeEmpty();
+
+        var exactAttempt = await handler.HandleAsync(new(funded.Id, 10m, destination.Id, 10m, clock.UtcNow, null, null, "Exact balance"));
+        exactAttempt.IsSuccess.Should().BeTrue();
+        (await transactions.GetByAccountIdAsync(funded.Id)).Should().ContainSingle();
+        (await transactions.GetByAccountIdAsync(destination.Id)).Should().ContainSingle();
+    }
+
+    [Fact]
     public async Task TransferRegistration_RequiresManualUsdSellRateWhenProviderCannotExposeIt()
     {
         var userContext = new TestUserContext();
@@ -436,7 +475,7 @@ public class LedgerIntegrationTests
         var accounts = new AccountRepository(context);
         var transactions = new TransactionRepository(context);
         var unitOfWork = new UnitOfWork(context);
-        var usd = Account.Create(userContext.UserId!.Value, "USD", AccountType.Bank, Currency.USD, Money.Zero(Currency.USD), clock.UtcNow);
+        var usd = Account.Create(userContext.UserId!.Value, "USD", AccountType.Bank, Currency.USD, Money.Of(30m, Currency.USD), clock.UtcNow);
         var bob = Account.Create(userContext.UserId.Value, "BOB", AccountType.Cash, Currency.BOB, Money.Zero(Currency.BOB), clock.UtcNow);
         await context.Accounts.AddRangeAsync(usd, bob);
         await context.SaveChangesAsync();
@@ -530,7 +569,7 @@ public class LedgerIntegrationTests
         var accounts = new AccountRepository(context);
         var transactions = new TransactionRepository(context);
         var unitOfWork = new UnitOfWork(context);
-        var bob = Account.Create(userContext.UserId!.Value, "BOB", AccountType.Cash, Currency.BOB, Money.Zero(Currency.BOB), clock.UtcNow);
+        var bob = Account.Create(userContext.UserId!.Value, "BOB", AccountType.Cash, Currency.BOB, Money.Of(120m, Currency.BOB), clock.UtcNow);
         var usd = Account.Create(userContext.UserId.Value, "USD", AccountType.Bank, Currency.USD, Money.Zero(Currency.USD), clock.UtcNow);
         await context.Accounts.AddRangeAsync(bob, usd);
         await context.SaveChangesAsync();
@@ -602,6 +641,38 @@ public class LedgerIntegrationTests
         (await transactions.GetReversalByOriginalIdAsync(corrected.Value.InflowId)).Should().BeNull();
         (await context.CalculateAccountBalanceAsync(source.Id)).Amount.Should().Be(80m);
         (await context.CalculateAccountBalanceAsync(destination.Id)).Amount.Should().Be(20m);
+    }
+
+    [Fact]
+    public async Task TransferCorrection_CannotUseTheOriginalReversalToReplaceWithAnUnfundedDebit()
+    {
+        var userContext = new TestUserContext();
+        var clock = new TestClock();
+        var (context, connection) = CreateDbContext(userContext);
+        using var _ = connection;
+        using var __ = context;
+        var accounts = new AccountRepository(context);
+        var transactions = new TransactionRepository(context);
+        var unitOfWork = new UnitOfWork(context);
+        var source = Account.Create(userContext.UserId!.Value, "Source", AccountType.Cash, Currency.BOB, Money.Of(10m, Currency.BOB), clock.UtcNow);
+        var destination = Account.Create(userContext.UserId.Value, "Destination", AccountType.Bank, Currency.BOB, Money.Zero(Currency.BOB), clock.UtcNow);
+        await context.Accounts.AddRangeAsync(source, destination);
+        await context.SaveChangesAsync();
+        var transferHandler = new RegisterTransferCommandHandler(accounts, transactions, userContext, clock, unitOfWork);
+        var initial = await transferHandler.HandleAsync(new(source.Id, 10m, destination.Id, 10m, clock.UtcNow, null, null, "Original"));
+        var transferId = (await transactions.GetByIdAsync(initial.Value.OutflowId))!.TransferId!.Value;
+        var service = new TransactionService(transactions, null!, transferHandler, null!, userContext, clock, accounts, unitOfWork);
+
+        var result = await service.CorrectTransferAsync(transferId,
+            new CorrectTransferRequest(source.Id, 10.01m, destination.Id, 10.01m, Description: "Unfunded replacement"));
+
+        result.IsFailure.Should().BeTrue();
+        result.Error.Code.Should().Be("Transfer.InsufficientFunds");
+        (await transactions.GetReversalByOriginalIdAsync(initial.Value.OutflowId)).Should().BeNull();
+        (await transactions.GetReversalByOriginalIdAsync(initial.Value.InflowId)).Should().BeNull();
+        (await transactions.GetTransferLegsAsync(userContext.UserId.Value, transferId)).Should().HaveCount(2);
+        (await context.CalculateAccountBalanceAsync(source.Id)).Amount.Should().Be(0m);
+        (await context.CalculateAccountBalanceAsync(destination.Id)).Amount.Should().Be(10m);
     }
 
     [Fact]
@@ -686,7 +757,7 @@ public class LedgerIntegrationTests
         var accounts = new AccountRepository(context);
         var transactions = new TransactionRepository(context);
         var unitOfWork = new UnitOfWork(context);
-        var source = Account.Create(userContext.UserId!.Value, "Source", AccountType.Cash, Currency.BOB, Money.Zero(Currency.BOB), clock.UtcNow);
+        var source = Account.Create(userContext.UserId!.Value, "Source", AccountType.Cash, Currency.BOB, Money.Of(25m, Currency.BOB), clock.UtcNow);
         var destination = Account.Create(userContext.UserId.Value, "Destination", AccountType.Bank, Currency.BOB, Money.Zero(Currency.BOB), clock.UtcNow);
         await context.Accounts.AddRangeAsync(source, destination);
         await context.SaveChangesAsync();
@@ -742,7 +813,7 @@ public class LedgerIntegrationTests
         var accounts = new AccountRepository(context);
         var transactions = new TransactionRepository(context);
         var unitOfWork = new UnitOfWork(context);
-        var source = Account.Create(userContext.UserId!.Value, "Source", AccountType.Cash, Currency.BOB, Money.Zero(Currency.BOB), clock.UtcNow);
+        var source = Account.Create(userContext.UserId!.Value, "Source", AccountType.Cash, Currency.BOB, Money.Of(15m, Currency.BOB), clock.UtcNow);
         var destination = Account.Create(userContext.UserId.Value, "Destination", AccountType.Bank, Currency.BOB, Money.Zero(Currency.BOB), clock.UtcNow);
         await context.Accounts.AddRangeAsync(source, destination);
         await context.SaveChangesAsync();
@@ -773,7 +844,7 @@ public class LedgerIntegrationTests
         var accounts = new AccountRepository(context);
         var transactions = new TransactionRepository(context);
         var unitOfWork = new UnitOfWork(context);
-        var source = Account.Create(userContext.UserId!.Value, "Source", AccountType.Cash, Currency.BOB, Money.Zero(Currency.BOB), clock.UtcNow);
+        var source = Account.Create(userContext.UserId!.Value, "Source", AccountType.Cash, Currency.BOB, Money.Of(120m, Currency.BOB), clock.UtcNow);
         var destination = Account.Create(userContext.UserId.Value, "Destination", AccountType.Bank, Currency.USD, Money.Zero(Currency.USD), clock.UtcNow);
         await context.Accounts.AddRangeAsync(source, destination);
         await context.SaveChangesAsync();

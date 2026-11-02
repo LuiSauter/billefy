@@ -33,6 +33,7 @@ internal sealed class TransactionConfiguration : IEntityTypeConfiguration<Transa
         builder.Property(t => t.RateSource).HasColumnName("rate_source").HasMaxLength(50);
         builder.Property(t => t.InvestmentId).HasColumnName("investment_id");
         builder.Property(t => t.InvestmentCashKind).HasColumnName("investment_cash_kind").HasConversion<string>().HasMaxLength(20);
+        builder.Property(t => t.IsReconciliationAdjustment).HasColumnName("is_reconciliation_adjustment").IsRequired();
         builder.Property(t => t.CreatedAt).HasColumnName("created_at").IsRequired();
 
         // Map Amount Money

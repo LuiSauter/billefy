@@ -65,6 +65,20 @@ public sealed class Goal : Entity
             createdAt ?? DateTime.UtcNow);
     }
 
+    public void Update(string name, Money targetAmount, DateOnly? targetDate, Guid? accountId)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            throw new ArgumentException("Goal name cannot be empty.", nameof(name));
+
+        if (targetAmount.Amount <= decimal.Zero)
+            throw new ArgumentOutOfRangeException(nameof(targetAmount), "Goal target amount must be positive.");
+
+        AccountId = accountId;
+        Name = name.Trim();
+        TargetAmount = targetAmount;
+        TargetDate = targetDate;
+    }
+
     public GoalProgress EvaluateProgress(decimal currentBalance, DateOnly currentDate)
     {
         var current = currentBalance;

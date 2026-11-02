@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Planning.Application.Abstractions;
 using Planning.Application.Services;
+using Planning.Contracts;
 using Planning.Infrastructure.Repositories;
 
 namespace Planning.Infrastructure;
@@ -32,6 +33,8 @@ public static class DependencyInjection
         services.AddScoped<IDistributionPlanService, DistributionPlanService>();
         services.AddScoped<IFinancialHealthService, FinancialHealthService>();
         services.AddScoped<IIncomeDistributionService, IncomeDistributionService>();
+        services.AddScoped<IPlanningFinancialDataExport, PlanningFinancialDataExport>();
+        services.AddScoped<IPlanningFinancialDataReset, PlanningFinancialDataReset>();
 
         return services;
     }

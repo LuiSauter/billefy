@@ -28,6 +28,8 @@ public static class DependencyInjection
         services.AddScoped<ILoanSimulationService, LoanSimulationService>();
         services.AddScoped<ILoanService, LoanService>();
         services.AddScoped<ILendingModule, LendingModule>();
+        services.AddScoped<ILendingFinancialDataExport, LendingFinancialDataExport>();
+        services.AddScoped<ILendingFinancialDataReset, LendingFinancialDataReset>();
 
         return services;
     }

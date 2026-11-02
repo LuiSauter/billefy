@@ -48,8 +48,10 @@ public static class DependencyInjection
         services.AddScoped<IStatementImportService, StatementImportService>();
         services.AddScoped<IBinanceSyncService, BinanceSyncService>();
 
-        // Module interop contract
+        // Module interop contracts
         services.AddScoped<IIngestionModule, IngestionModule>();
+        services.AddScoped<IIngestionFinancialDataExport, IngestionFinancialDataExport>();
+        services.AddScoped<IIngestionFinancialDataReset, IngestionFinancialDataReset>();
 
         return services;
     }

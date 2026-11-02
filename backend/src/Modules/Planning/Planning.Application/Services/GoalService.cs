@@ -14,6 +14,7 @@ public interface IGoalService
 {
     Task<Result<Guid>> CreateGoalAsync(CreateGoalRequest request, CancellationToken cancellationToken = default);
     Task<Result<List<GoalDto>>> GetGoalsAsync(CancellationToken cancellationToken = default);
+    Task<Result> UpdateGoalAsync(Guid id, UpdateGoalRequest request, CancellationToken cancellationToken = default);
     Task<Result> DeleteGoalAsync(Guid id, CancellationToken cancellationToken = default);
 }
 
@@ -146,6 +147,53 @@ public sealed class GoalService(
         }
 
         await goalRepository.DeleteAsync(goal, cancellationToken);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return Result.Success();
+    }
+
+    public async Task<Result> UpdateGoalAsync(Guid id, UpdateGoalRequest request, CancellationToken cancellationToken = default)
+    {
+        if (!userContext.IsAuthenticated)
+        {
+            return Result.Failure(Error.Unauthorized("Auth.Unauthorized", "User is not authenticated."));
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Name))
+        {
+            return Result.Failure(Error.Validation("Goal.InvalidName", "Goal name is required."));
+        }
+
+        if (request.TargetAmount <= decimal.Zero)
+        {
+            return Result.Failure(Error.Validation("Goal.InvalidTargetAmount", "Target amount must be strictly positive."));
+        }
+
+        var goal = await goalRepository.GetByIdAsync(id, cancellationToken);
+        if (goal is null || goal.UserId != userContext.UserId!.Value)
+        {
+            return Result.Failure(Error.NotFound("Goal.NotFound", "Goal not found."));
+        }
+
+        var userId = userContext.UserId!.Value;
+        if (request.AccountId.HasValue)
+        {
+            var userAccounts = await ledgerModule.GetAccountsByUserIdAsync(userId, cancellationToken);
+            var account = userAccounts.FirstOrDefault(a => a.Id == request.AccountId.Value);
+            if (account is null)
+            {
+                return Result.Failure(Error.NotFound("Goal.AccountNotFound", "Linked active account was not found or does not belong to the user."));
+            }
+
+            if (!string.Equals(account.Currency, goal.TargetAmount.Currency.Code, StringComparison.Ordinal))
+            {
+                return Result.Failure(Error.Validation("Goal.CurrencyMismatch", "Goal currency must match the linked account currency."));
+            }
+        }
+
+        var targetMoney = Money.Of(request.TargetAmount, goal.TargetAmount.Currency);
+        goal.Update(request.Name, targetMoney, request.TargetDate, request.AccountId);
+        await goalRepository.UpdateAsync(goal, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Result.Success();

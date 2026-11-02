@@ -43,8 +43,10 @@ public static class DependencyInjection
         services.AddScoped<ICategoryService, CategoryService>();
         services.AddScoped<ITransactionService, TransactionService>();
 
-        // Module interop contract
+        // Module interop contracts
         services.AddScoped<ILedgerModule, LedgerModule>();
+        services.AddScoped<ILedgerFinancialDataExport, LedgerFinancialDataExport>();
+        services.AddScoped<ILedgerFinancialDataReset, LedgerFinancialDataReset>();
 
         return services;
     }

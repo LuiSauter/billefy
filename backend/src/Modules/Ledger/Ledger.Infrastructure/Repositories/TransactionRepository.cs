@@ -12,6 +12,7 @@ public sealed class TransactionRepository : ITransactionRepository
             SELECT id, user_id, amount, currency, direction, category_id, transfer_id
             FROM transactions t
             WHERE t.user_id = {0}
+              AND t.is_reconciliation_adjustment = FALSE
               AND t.investment_id IS NULL
               AND t.occurred_at >= {1}
               AND t.occurred_at < {2}
@@ -71,11 +72,12 @@ public sealed class TransactionRepository : ITransactionRepository
             ordinary = ordinary.Where(t => t.ReversesId == null && !ownerTransactions.Any(reversal => reversal.ReversesId == t.Id));
         }
         if (query.Type == "Transfer") ordinary = ordinary.Where(_ => false);
+        else if (query.Type == "Adjustment") ordinary = ordinary.Where(t => t.IsReconciliationAdjustment);
         else if (query.Type == "Investment") ordinary = ordinary.Where(t => t.InvestmentId != null);
         else if (query.Type is "Income" or "Expense")
         {
             var direction = query.Type == "Income" ? TransactionDirection.Income : TransactionDirection.Expense;
-            ordinary = ordinary.Where(t => t.InvestmentId == null && t.Direction == direction);
+            ordinary = ordinary.Where(t => t.InvestmentId == null && !t.IsReconciliationAdjustment && t.Direction == direction);
         }
 
         var transferRows = ownerTransactions.Where(t => t.TransferId != null);
@@ -92,16 +94,17 @@ public sealed class TransactionRepository : ITransactionRepository
         var totalCount = await ordinary.CountAsync(cancellationToken) + await transferRows.CountAsync(cancellationToken);
         var summaries = await _context.Database.SqlQuery<MovementQueryCurrencySummary>($"""
             SELECT currency AS "Currency",
-                   COALESCE(SUM(CASE WHEN investment_id IS NULL AND transfer_id IS NULL AND direction = 'Income' THEN amount ELSE 0 END), 0) AS "Income",
-                   COALESCE(SUM(CASE WHEN investment_id IS NULL AND transfer_id IS NULL AND direction = 'Expense' THEN amount ELSE 0 END), 0) AS "Expenses",
+                   COALESCE(SUM(CASE WHEN investment_id IS NULL AND is_reconciliation_adjustment = FALSE AND transfer_id IS NULL AND direction = 'Income' THEN amount ELSE 0 END), 0) AS "Income",
+                   COALESCE(SUM(CASE WHEN investment_id IS NULL AND is_reconciliation_adjustment = FALSE AND transfer_id IS NULL AND direction = 'Expense' THEN amount ELSE 0 END), 0) AS "Expenses",
                    COALESCE(SUM(CASE WHEN transfer_id IS NOT NULL AND direction = 'Expense' THEN amount ELSE 0 END), 0) AS "TransferOut",
                    COALESCE(SUM(CASE WHEN transfer_id IS NOT NULL AND direction = 'Income' THEN amount ELSE 0 END), 0) AS "TransferIn",
                    COALESCE(SUM(CASE WHEN investment_cash_kind = 'Contribution' THEN amount ELSE 0 END), 0) AS "Contributions",
                    COALESCE(SUM(CASE WHEN investment_cash_kind = 'Disposal' THEN amount ELSE 0 END), 0) AS "Disposals"
             FROM transactions
             WHERE user_id = {userId}
-              AND ({query.Type == null} OR ({query.Type == "Income"} AND transfer_id IS NULL AND investment_id IS NULL AND direction = 'Income') OR
-                   ({query.Type == "Expense"} AND transfer_id IS NULL AND investment_id IS NULL AND direction = 'Expense') OR
+              AND ({query.Type == null} OR ({query.Type == "Income"} AND transfer_id IS NULL AND investment_id IS NULL AND is_reconciliation_adjustment = FALSE AND direction = 'Income') OR
+                   ({query.Type == "Expense"} AND transfer_id IS NULL AND investment_id IS NULL AND is_reconciliation_adjustment = FALSE AND direction = 'Expense') OR
+                   ({query.Type == "Adjustment"} AND transfer_id IS NULL AND is_reconciliation_adjustment = TRUE) OR
                    ({query.Type == "Investment"} AND investment_id IS NOT NULL) OR
                    ({query.Type == "Transfer"} AND transfer_id IS NOT NULL))
               AND (NOT {hasStartUtc} OR occurred_at >= {startUtc})
@@ -137,7 +140,7 @@ public sealed class TransactionRepository : ITransactionRepository
             _context.Categories.IgnoreQueryFilters().Where(c => c.UserId == userId && c.Id == transaction.CategoryId).Select(c => c.Name).FirstOrDefault(),
             transaction.OccurredAt, transaction.Description, transaction.ReversesId, transaction.TransferId,
             transaction.AppliedRate, transaction.RateSource, transaction.CreatedAt, transaction.InvestmentId,
-            transaction.InvestmentCashKind == null ? null : transaction.InvestmentCashKind.ToString());
+            transaction.InvestmentCashKind == null ? null : transaction.InvestmentCashKind.ToString(), transaction.IsReconciliationAdjustment);
         var fetchedRepresentatives = await ownerTransactions.Where(row => pageIds.Contains(row.Id))
             .Select(projection).ToListAsync(cancellationToken);
         var allocationsByTransaction = pageIds.Length == 0

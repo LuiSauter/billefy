@@ -176,6 +176,10 @@ namespace Ledger.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("investment_id");
 
+                    b.Property<bool>("IsReconciliationAdjustment")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_reconciliation_adjustment");
+
                     b.Property<DateTime>("OccurredAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("occurred_at");

@@ -19,6 +19,7 @@ public sealed class Transaction : Entity
     public string? RateSource { get; private set; }
     public Guid? InvestmentId { get; private set; }
     public InvestmentCashKind? InvestmentCashKind { get; private set; }
+    public bool IsReconciliationAdjustment { get; private set; }
 
     // Required by EF Core
     private Transaction() : base()
@@ -41,7 +42,8 @@ public sealed class Transaction : Entity
         DateTime createdAt,
         IReadOnlyList<TransactionCategoryAllocationInput>? allocations = null,
         Guid? investmentId = null,
-        InvestmentCashKind? investmentCashKind = null)
+        InvestmentCashKind? investmentCashKind = null,
+        bool isReconciliationAdjustment = false)
         : base(id, userId, createdAt)
     {
         if (accountId == Guid.Empty)
@@ -68,8 +70,11 @@ public sealed class Transaction : Entity
             throw new ArgumentException("Investment cash markers require both a valid investment ID and cash kind.");
         if (investmentId.HasValue && (transferId.HasValue || categoryId.HasValue || allocations is { Count: > 0 }))
             throw new ArgumentException("Investment cash transactions cannot be transfers or categorized.");
+        if (isReconciliationAdjustment && (categoryId.HasValue || transferId.HasValue || investmentId.HasValue || allocations is { Count: > 0 }))
+            throw new ArgumentException("Reconciliation adjustments cannot be transfers, investments, or categorized.");
         InvestmentId = investmentId;
         InvestmentCashKind = investmentCashKind;
+        IsReconciliationAdjustment = isReconciliationAdjustment;
         AddAllocations(allocations);
     }
 
@@ -121,6 +126,12 @@ public sealed class Transaction : Entity
             allocations: allocations);
     }
 
+    public static Transaction CreateReconciliationAdjustment(
+        Guid userId, Guid accountId, Money amount, TransactionDirection direction, DateTime occurredAt,
+        string? description, DateTime? createdAt = null) =>
+        new(Guid.NewGuid(), userId, accountId, amount, direction, null, occurredAt, description,
+            null, null, null, null, createdAt ?? DateTime.UtcNow, isReconciliationAdjustment: true);
+
     public static Transaction CreateInvestmentCash(
         Guid userId, Guid accountId, Money amount, InvestmentCashKind kind, Guid investmentId,
         DateTime occurredAt, string? description, decimal? appliedRate, string? rateSource, DateTime? createdAt = null) =>
@@ -161,7 +172,8 @@ public sealed class Transaction : Entity
             createdAt: createdAt ?? DateTime.UtcNow,
             allocations: original.CategoryAllocations.Select(allocation => new TransactionCategoryAllocationInput(allocation.CategoryId, allocation.Amount)).ToArray(),
             investmentId: original.InvestmentId,
-            investmentCashKind: original.InvestmentCashKind);
+            investmentCashKind: original.InvestmentCashKind,
+            isReconciliationAdjustment: original.IsReconciliationAdjustment);
     }
 
     public static (Transaction Outflow, Transaction Inflow) CreateTransferReversal(

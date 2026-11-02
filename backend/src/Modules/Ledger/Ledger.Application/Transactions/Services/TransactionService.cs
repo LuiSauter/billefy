@@ -39,14 +39,14 @@ public sealed class TransactionService(
         var items = result.Items.Select(entry =>
         {
             var row = entry.Representative;
-            var kind = entry.IsTransfer ? "Transfer" : row.InvestmentId.HasValue ? "Investment" : row.Direction.ToString();
+            var kind = entry.IsTransfer ? "Transfer" : row.IsReconciliationAdjustment ? "Adjustment" : row.InvestmentId.HasValue ? "Investment" : row.Direction.ToString();
             return new MovementDto(entry.IsTransfer ? row.TransferId!.Value : row.Id, kind, row.Amount, row.Currency,
                 row.Direction.ToString(), row.OccurredAt, row.AccountId, row.AccountName, row.CategoryId, row.CategoryName,
                 row.Description, row.AppliedRate, row.RateSource, row.ReversesId.HasValue, row.ReversesId,
                 entry.Legs.Select(leg => new MovementLegDto(leg.Id, leg.AccountId, leg.AccountName, leg.Amount, leg.Currency,
                     leg.Direction.ToString(), leg.AppliedRate, leg.RateSource)).ToList(),
                 entry.Allocations.Select(item => new TransactionAllocationDto(item.CategoryId, item.CategoryName, item.Amount)).ToList(),
-                row.InvestmentId, row.InvestmentCashKind);
+                row.InvestmentId, row.InvestmentCashKind, row.IsReconciliationAdjustment);
         }).ToList();
         var summary = result.Summary.Select(row => new MovementCurrencySummary(row.Currency, row.Income, row.Expenses,
             row.TransferOut, row.TransferIn, row.Contributions, row.Disposals)).ToList();
@@ -87,7 +87,7 @@ public sealed class TransactionService(
             t.Direction.ToString(), t.CategoryId, t.OccurredAt, t.Description, t.ReversesId, t.TransferId,
             t.AppliedRate, t.RateSource, t.CreatedAt,
             t.CategoryAllocations.Select(allocation => new TransactionAllocationDto(allocation.CategoryId,
-                labels.GetValueOrDefault(allocation.CategoryId), allocation.Amount)).ToList())).ToList();
+                labels.GetValueOrDefault(allocation.CategoryId), allocation.Amount)).ToList(), t.IsReconciliationAdjustment)).ToList();
 
         return Result.Success(dtos);
     }
@@ -165,6 +165,7 @@ public sealed class TransactionService(
         if (request.SourceAmount <= 0 || request.DestinationAmount <= 0 || request.SourceAccountId == request.DestinationAccountId)
             return Result.Failure<TransferResult>(Error.Validation("Transfer.InvalidReplacement", "Replacement accounts must differ and amounts must be positive."));
 
+        await using var transaction = await unitOfWork!.BeginSerializableTransactionAsync(cancellationToken);
         var originals = await transactionRepository.GetTransferLegsAsync(userContext.UserId.Value, transferId, cancellationToken);
         if (originals.Count != 2 || originals.Any(leg => leg.ReversesId.HasValue) ||
             originals.Count(leg => leg.Direction == TransactionDirection.Expense) != 1 ||
@@ -184,6 +185,12 @@ public sealed class TransactionService(
         if (quote.IsFailure) return Result.Failure<TransferResult>(quote.Error);
 
         var outflow = originals.Single(leg => leg.Direction == TransactionDirection.Expense);
+        var sourceBalance = await transactionRepository.CalculateBalanceAsync(source.Id, cancellationToken);
+        var projectedBalance = source.Id == outflow.AccountId
+            ? sourceBalance + outflow.Amount.Amount
+            : sourceBalance;
+        if (request.SourceAmount > projectedBalance)
+            return Result.Failure<TransferResult>(Error.Validation("Transfer.InsufficientFunds", "The source account does not have enough funds for this transfer."));
         var inflow = originals.Single(leg => leg.Direction == TransactionDirection.Income);
         var now = clock.UtcNow;
         var (reversalOutflow, reversalInflow) = Transaction.CreateTransferReversal(outflow, inflow, now, "Superseded by corrected transfer", now);
@@ -192,17 +199,8 @@ public sealed class TransactionService(
             Money.Of(request.DestinationAmount, destination.Currency), request.OccurredAt ?? now,
             quote.Value.AppliedRate, quote.Value.RateSource, request.Description, now);
         await transactionRepository.AddRangeAsync([reversalOutflow, reversalInflow, replacementOutflow, replacementInflow], cancellationToken);
-        try
-        {
-            await unitOfWork!.SaveChangesAsync(cancellationToken);
-        }
-        catch
-        {
-            if (await transactionRepository.GetReversalByOriginalIdAsync(outflow.Id, cancellationToken) is not null ||
-                await transactionRepository.GetReversalByOriginalIdAsync(inflow.Id, cancellationToken) is not null)
-                return Result.Failure<TransferResult>(Error.Conflict("Transaction.AlreadyReversed", "Transfer was concurrently reversed."));
-            throw;
-        }
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
         return Result.Success(new TransferResult(replacementOutflow.Id, replacementInflow.Id));
     }
 
@@ -236,6 +234,8 @@ public sealed class TransactionService(
             return Result.Failure<Guid>(Error.NotFound("Transaction.NotFound", "Transaction not found."));
         if (original.InvestmentId.HasValue)
             return Result.Failure<Guid>(Error.Conflict("InvestmentCash.Immutable", "Investment cash movements cannot be edited as ordinary transactions."));
+        if (original.IsReconciliationAdjustment)
+            return Result.Failure<Guid>(Error.Conflict("ReconciliationAdjustment.Immutable", "Reconciliation adjustments cannot be edited as ordinary transactions."));
         if (original.TransferId.HasValue || original.ReversesId.HasValue)
             return Result.Failure<Guid>(Error.Conflict("Transaction.TransferRequiresAtomicEdit", "Transfers and reversals cannot be edited as ordinary transactions."));
 

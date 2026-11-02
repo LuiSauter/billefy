@@ -40,6 +40,12 @@ public sealed record CreateGoalRequest(
     DateOnly? TargetDate = null,
     Guid? AccountId = null);
 
+public sealed record UpdateGoalRequest(
+    string Name,
+    decimal TargetAmount,
+    DateOnly? TargetDate = null,
+    Guid? AccountId = null);
+
 public sealed record GoalDto(
     Guid Id,
     Guid? AccountId,

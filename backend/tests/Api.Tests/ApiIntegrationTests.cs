@@ -45,24 +45,37 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 {
     private readonly SqliteConnection _ledgerConnection = new("DataSource=:memory:");
     private readonly SqliteConnection _fxConnection = new("DataSource=:memory:");
-    private readonly SqliteConnection _ingestionConnection = new("DataSource=:memory:");
+    private readonly SqliteConnection _ingestionConnection;
     private readonly SqliteConnection _planningConnection;
     private readonly bool _shareLedgerPlanning;
+    private readonly bool _shareAllFinancialModules;
+    private readonly Action<IServiceCollection>? _configureServices;
     private readonly SqliteConnection _messagingConnection = new("DataSource=:memory:");
     private readonly SqliteConnection _identityConnection = new("DataSource=:memory:");
     private readonly SqliteConnection _notificationsConnection = new("DataSource=:memory:");
 
-    public CustomWebApplicationFactory(bool shareLedgerPlanning = false)
+    public CustomWebApplicationFactory(
+        bool shareLedgerPlanning = false,
+        bool shareAllFinancialModules = false,
+        Action<IServiceCollection>? configureServices = null)
     {
+        if (shareLedgerPlanning && shareAllFinancialModules)
+            throw new ArgumentException("Choose either Ledger/Planning sharing or all financial module sharing.");
+
         _shareLedgerPlanning = shareLedgerPlanning;
-        _planningConnection = shareLedgerPlanning ? _ledgerConnection : new SqliteConnection("DataSource=:memory:");
+        _shareAllFinancialModules = shareAllFinancialModules;
+        _configureServices = configureServices;
+        _ingestionConnection = shareAllFinancialModules ? _ledgerConnection : new SqliteConnection("DataSource=:memory:");
+        _planningConnection = shareLedgerPlanning || shareAllFinancialModules
+            ? _ledgerConnection
+            : new SqliteConnection("DataSource=:memory:");
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         _ledgerConnection.Open();
         _fxConnection.Open();
-        _ingestionConnection.Open();
+        if (!ReferenceEquals(_ingestionConnection, _ledgerConnection)) _ingestionConnection.Open();
         if (!ReferenceEquals(_planningConnection, _ledgerConnection)) _planningConnection.Open();
         _messagingConnection.Open();
         _identityConnection.Open();
@@ -82,6 +95,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             services.AddDbContext<MessagingDbContext>(options => options.UseSqlite(_messagingConnection));
             services.AddDbContext<IdentityDbContext>(options => options.UseSqlite(_identityConnection));
             services.AddDbContext<NotificationsDbContext>(options => options.UseSqlite(_notificationsConnection));
+            _configureServices?.Invoke(services);
 
             // Ensure databases created and seed Fx market rate
             var sp = services.BuildServiceProvider();
@@ -102,13 +116,14 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             fxDb.SaveChanges();
 
             var ingestionDb = scope.ServiceProvider.GetRequiredService<IngestionDbContext>();
-            ingestionDb.Database.EnsureCreated();
+            if (_shareAllFinancialModules) ingestionDb.Database.GetService<IRelationalDatabaseCreator>().CreateTables();
+            else ingestionDb.Database.EnsureCreated();
 
             var lendingDb = scope.ServiceProvider.GetRequiredService<LendingDbContext>();
             lendingDb.Database.GetService<IRelationalDatabaseCreator>().CreateTables();
 
             var planningDb = scope.ServiceProvider.GetRequiredService<PlanningDbContext>();
-            if (_shareLedgerPlanning) planningDb.Database.GetService<IRelationalDatabaseCreator>().CreateTables();
+            if (_shareLedgerPlanning || _shareAllFinancialModules) planningDb.Database.GetService<IRelationalDatabaseCreator>().CreateTables();
             else planningDb.Database.EnsureCreated();
 
             var messagingDb = scope.ServiceProvider.GetRequiredService<MessagingDbContext>();
@@ -127,7 +142,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
         base.Dispose(disposing);
         _ledgerConnection.Dispose();
         _fxConnection.Dispose();
-        _ingestionConnection.Dispose();
+        if (!ReferenceEquals(_ingestionConnection, _ledgerConnection)) _ingestionConnection.Dispose();
         if (!ReferenceEquals(_planningConnection, _ledgerConnection)) _planningConnection.Dispose();
         _messagingConnection.Dispose();
         _identityConnection.Dispose();
@@ -480,6 +495,12 @@ public class ApiIntegrationTests : IDisposable
         content.Should().Contain("/v1/transactions");
         content.Should().Contain("/v1/rates/latest");
         using var specification = JsonDocument.Parse(content);
+        var financialReset = specification.RootElement.GetProperty("paths")
+            .GetProperty("/v1/auth/financial-data").GetProperty("delete");
+        financialReset.GetProperty("summary").GetString().Should().Contain("perfil y preferencias");
+        financialReset.GetProperty("responses").EnumerateObject().Select(response => response.Name)
+            .Should().Contain("204").And.Contain("401");
+
         var bucketSchema = specification.RootElement.GetProperty("components").GetProperty("schemas").GetProperty("PlanBucketDto");
         bucketSchema.GetProperty("required").EnumerateArray().Select(p => p.GetString()).Should().NotContain("trackingMode");
         var trackingSchema = bucketSchema.GetProperty("properties").GetProperty("trackingMode");
@@ -715,6 +736,13 @@ public class ApiIntegrationTests : IDisposable
         var accounts = await getAccRes.Content.ReadFromJsonAsync<List<AccountDto>>();
         var updatedAcc = accounts!.First(a => a.Id == accountId);
         updatedAcc.Balance.Should().Be(80m, "Reconciliation must adjust derived account balance to match real balance (ACC-06).");
+
+        var movements = await (await SendAsUser(HttpMethod.Get, "/v1/transactions/movements?type=Adjustment"))
+            .Content.ReadFromJsonAsync<JsonElement>();
+        movements.GetProperty("totalCount").GetInt32().Should().Be(1);
+        movements.GetProperty("items")[0].GetProperty("kind").GetString().Should().Be("Adjustment");
+        movements.GetProperty("items")[0].GetProperty("isReconciliationAdjustment").GetBoolean().Should().BeTrue();
+        movements.GetProperty("summary")[0].GetProperty("expenses").GetDecimal().Should().Be(0m);
     }
 
     [Fact]
@@ -1637,9 +1665,27 @@ public class ApiIntegrationTests : IDisposable
         exportMsg.Headers.Add("X-User-Id", authRes.User.Id.ToString());
         var exportRes = await _client.SendAsync(exportMsg);
         exportRes.StatusCode.Should().Be(HttpStatusCode.OK);
-        var exportData = await exportRes.Content.ReadFromJsonAsync<UserDataExportDto>();
-        exportData.Should().NotBeNull();
-        exportData!.User.Id.Should().Be(authRes.User.Id);
+        var exportJson = await exportRes.Content.ReadAsStringAsync();
+        var exportData = JsonDocument.Parse(exportJson);
+        exportData.RootElement.GetProperty("user").GetProperty("id").GetGuid().Should().Be(authRes.User.Id);
+        var financialData = exportData.RootElement.GetProperty("financialData");
+        financialData.GetProperty("ledger").GetProperty("accounts")
+            .EnumerateArray()
+            .Should().ContainSingle(account => account.GetProperty("name").GetString() == "Banco ganadero");
+
+        foreach (var (module, collections) in new[]
+        {
+            ("ingestion", new[] { "rawEvents", "drafts", "draftEvents", "financialSources", "imports" }),
+            ("lending", new[] { "loans", "installments", "payments", "paymentAllocations", "counterparties" }),
+            ("planning", new[] { "budgets", "goals", "investments", "investmentCashLinks", "distributionPlans" })
+        })
+        {
+            var moduleData = financialData.GetProperty(module);
+            foreach (var collection in collections)
+            {
+                moduleData.GetProperty(collection).ValueKind.Should().Be(JsonValueKind.Array);
+            }
+        }
     }
 
     [Fact]

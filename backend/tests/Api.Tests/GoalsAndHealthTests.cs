@@ -173,4 +173,58 @@ public sealed class GoalsAndHealthTests
         tracked.GetProperty("monthlyContributionNeeded").GetDecimal().Should().BeGreaterThan(0m);
         tracked.GetProperty("sharedGoalCount").GetInt32().Should().Be(1);
     }
+
+    [Fact]
+    public async Task Goals_CanBeUpdatedAndDeletedSuccessfully()
+    {
+        using var factory = new CustomWebApplicationFactory();
+        using var client = factory.CreateClient();
+        var userId = Guid.NewGuid();
+
+        // 1. Create a goal
+        var futureDate = DateOnly.FromDateTime(DateTime.UtcNow).AddMonths(6);
+        using var createMsg = new HttpRequestMessage(HttpMethod.Post, "/v1/planning/goals")
+        {
+            Content = JsonContent.Create(new CreateGoalRequest("Auto viejo", 10000m, "USD", futureDate))
+        };
+        createMsg.Headers.Add("X-User-Id", userId.ToString());
+        using var createRes = await client.SendAsync(createMsg);
+        createRes.StatusCode.Should().Be(HttpStatusCode.Created);
+        using var createBody = JsonDocument.Parse(await createRes.Content.ReadAsStringAsync());
+        var goalId = createBody.RootElement.GetProperty("id").GetGuid();
+
+        // 2. Update the goal via PUT
+        var updatedDate = futureDate.AddMonths(2);
+        using var updateMsg = new HttpRequestMessage(HttpMethod.Put, $"/v1/planning/goals/{goalId}")
+        {
+            Content = JsonContent.Create(new UpdateGoalRequest("Auto nuevo", 15000m, updatedDate))
+        };
+        updateMsg.Headers.Add("X-User-Id", userId.ToString());
+        using var updateRes = await client.SendAsync(updateMsg);
+        updateRes.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // 3. Verify changes via GET
+        using var getMsg = new HttpRequestMessage(HttpMethod.Get, "/v1/planning/goals");
+        getMsg.Headers.Add("X-User-Id", userId.ToString());
+        using var getRes = await client.SendAsync(getMsg);
+        getRes.StatusCode.Should().Be(HttpStatusCode.OK);
+        using var getBody = JsonDocument.Parse(await getRes.Content.ReadAsStringAsync());
+        var updatedGoal = getBody.RootElement.EnumerateArray().Single(g => g.GetProperty("id").GetGuid() == goalId);
+        updatedGoal.GetProperty("name").GetString().Should().Be("Auto nuevo");
+        updatedGoal.GetProperty("targetAmount").GetDecimal().Should().Be(15000m);
+
+        // 4. Delete the goal via DELETE
+        using var deleteMsg = new HttpRequestMessage(HttpMethod.Delete, $"/v1/planning/goals/{goalId}");
+        deleteMsg.Headers.Add("X-User-Id", userId.ToString());
+        using var deleteRes = await client.SendAsync(deleteMsg);
+        deleteRes.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // 5. Verify it's gone
+        using var checkMsg = new HttpRequestMessage(HttpMethod.Get, "/v1/planning/goals");
+        checkMsg.Headers.Add("X-User-Id", userId.ToString());
+        using var checkRes = await client.SendAsync(checkMsg);
+        checkRes.StatusCode.Should().Be(HttpStatusCode.OK);
+        using var checkBody = JsonDocument.Parse(await checkRes.Content.ReadAsStringAsync());
+        checkBody.RootElement.EnumerateArray().Any(g => g.GetProperty("id").GetGuid() == goalId).Should().BeFalse();
+    }
 }

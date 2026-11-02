@@ -19,7 +19,8 @@ public sealed record MovementRepositoryQuery(
 public sealed record MovementQueryRow(
     Guid Id, Guid AccountId, string AccountName, decimal Amount, string Currency, TransactionDirection Direction,
     Guid? CategoryId, string? CategoryName, DateTime OccurredAt, string? Description, Guid? ReversesId,
-    Guid? TransferId, decimal? AppliedRate, string? RateSource, DateTime CreatedAt, Guid? InvestmentId, string? InvestmentCashKind);
+    Guid? TransferId, decimal? AppliedRate, string? RateSource, DateTime CreatedAt, Guid? InvestmentId, string? InvestmentCashKind,
+    bool IsReconciliationAdjustment);
 
 public sealed record AllocationQueryRow(Guid CategoryId, string? CategoryName, decimal Amount);
 public sealed record MovementQueryEntry(MovementQueryRow Representative, IReadOnlyList<MovementQueryRow> Legs, bool IsTransfer,
