@@ -11,7 +11,7 @@ const health: FinancialHealthDto = { monthStartUtc: "2026-05-01T00:00:00Z", mont
 describe("financial health summary", () => {
   it("renders the returned UTC month and separate real currency amounts without fixed thresholds", () => {
     const html = renderToStaticMarkup(<HealthIndicatorsCard health={health} />);
-    for (const text of ["mayo de 2026", "BOB", "BTC", "Ingresos del mes", "Gastos del mes", "Déficit del mes", "Tasa de ahorro", "No disponible", "500.00 BOB", "0.12345678 BTC", "Capital de deuda pendiente", "Gastaste más de lo que ingresó."]) expect(html).toContain(text);
+    for (const text of ["mayo de 2026", "BOB", "BTC", "Ingresos del mes", "Gastos del mes", "Déficit del mes", "Tasa de ahorro", "No disponible", "500,00 BOB", "0,12 BTC", "Capital de deuda pendiente", "Gastaste más de lo que ingresó."]) expect(html).toContain(text);
     expect(html).not.toMatch(/50\s*\/\s*30\s*\/\s*20|emergencia|12 meses|54321|32109|21098/);
     expect(html).toContain("text-rose-600");
   });

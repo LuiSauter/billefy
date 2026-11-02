@@ -12,6 +12,7 @@ import {
   ArrowUpRight,
   ArrowDownRight,
 } from "lucide-react";
+import { useNumberFormat } from "@/shared/hooks/use-number-format";
 import {
   AccountCategoryGroup,
   AccountsOverviewMetrics,
@@ -30,15 +31,13 @@ export function AccountsHeaderStats({
   onOpenCreateAccountModal,
   onOpenCsvModal,
 }: AccountsHeaderStatsProps) {
+  const formatNumber = useNumberFormat();
   const isUsd = currency === "USD";
   const displayTotal = isUsd ? metrics.totalUsd : metrics.totalBob;
   const currencySymbol = isUsd ? "$" : "Bs.";
 
   const formatAmount = (val: number) => {
-    return `${currencySymbol} ${val.toLocaleString("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`;
+    return `${currencySymbol} ${formatNumber(val)}`;
   };
 
   const categoryIcons: Record<

@@ -1,5 +1,5 @@
 import { IHttpClient } from "@/shared/application/http-client.contract";
-import { IFxRepository, RateSnapshotDto } from "../domain/fx.types";
+import { CurrencyCatalogEntryDto, IFxRepository, RateSnapshotDto } from "../domain/fx.types";
 
 export class FxApiRepository implements IFxRepository {
   constructor(private readonly http: IHttpClient) {}
@@ -11,5 +11,9 @@ export class FxApiRepository implements IFxRepository {
     return this.http.get<RateSnapshotDto>(
       `/v1/rates/latest?currency=${encodeURIComponent(currency)}&baseCurrency=${encodeURIComponent(baseCurrency)}`
     );
+  }
+
+  async getCurrencies(): Promise<CurrencyCatalogEntryDto[]> {
+    return this.http.get<CurrencyCatalogEntryDto[]>("/v1/currencies");
   }
 }

@@ -13,6 +13,7 @@ interface AuthContextType {
   token: string | null;
   error: string | null;
   loginWithGoogle: (idToken: string) => Promise<AuthResponseDto>;
+  updatePreferredCurrency: (preferredCurrency: string) => Promise<UserDto>;
   logout: () => Promise<void>;
   clearError: () => void;
 }
@@ -136,6 +137,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const clearError = useCallback(() => setError(null), []);
 
+  const updatePreferredCurrency = useCallback(async (preferredCurrency: string): Promise<UserDto> => {
+    const storedToken = defaultTokenStorage.getAccessToken() || token;
+    const storedUser = user || defaultTokenStorage.getUser<UserDto>();
+    const repo = new IdentityApiRepository(
+      new FetchHttpClient({
+        authToken: storedToken ?? undefined,
+        userId: storedUser?.id,
+      })
+    );
+    const updated = await repo.updatePreferredCurrency(preferredCurrency);
+    setUser(updated);
+    defaultTokenStorage.setUser(updated);
+    return updated;
+  }, [token, user]);
+
   return (
     <AuthContext.Provider
       value={{
@@ -145,6 +161,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         token,
         error,
         loginWithGoogle,
+        updatePreferredCurrency,
         logout,
         clearError,
       }}

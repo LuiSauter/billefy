@@ -14,6 +14,7 @@ import { CATEGORY_COLOR_THEMES } from "@/modules/ledger/domain/category.types";
 import { useUserCategories } from "@/modules/ledger/application/CategoriesContext";
 import { CategoryIconBadge } from "@/modules/ledger/presentation/CategoryIcon";
 import { Button } from "@/shared/ui/button";
+import { useNumberFormat } from "@/shared/hooks/use-number-format";
 import { Input } from "@/shared/ui/input";
 import {
   PLAN_PRESETS,
@@ -39,6 +40,7 @@ export function DistributionPlanView({
 }: DistributionPlanViewProps) {
   const { plan, setBuckets, setEnabled, validationErrors } = controller;
   const { buckets } = plan;
+  const format = useNumberFormat();
   const { getCategoriesByDirection } = useUserCategories();
   const expenseCategories = getCategoriesByDirection("Expense");
   const [editOverride, setEditOverride] = useState<boolean | null>(null);
@@ -101,7 +103,7 @@ export function DistributionPlanView({
           <p className="text-xs font-medium text-muted-foreground mt-0.5">
             {monthLabel(month)} • Ingresos del mes:{" "}
             <span className="font-mono font-bold text-foreground">
-              Bs {Math.round(income.toNumber()).toLocaleString("en-US")}
+              Bs {format(income)}
             </span>
           </p>
         </div>
@@ -292,7 +294,7 @@ export function DistributionPlanView({
                 </div>
                 {bucketTrackingMode(b) === "TargetOnly" ? (
                   <>
-                    <p className="text-sm font-bold font-mono">Objetivo asignado: Bs {Math.round(target.toNumber()).toLocaleString("en-US")}</p>
+                    <p className="text-sm font-bold font-mono">Objetivo asignado: Bs {format(target)}</p>
                     <p className="text-xs text-muted-foreground">No registra aportes ni mide avance de ahorro/inversión.</p>
                   </>
                 ) : <>
@@ -307,10 +309,10 @@ export function DistributionPlanView({
                 </div>
                 <div className="flex items-center justify-between text-xs font-mono">
                   <span className={over ? "text-rose-500 font-bold" : "text-foreground font-bold"}>
-                    Bs {Math.round(spent.toNumber()).toLocaleString("en-US")}
+                    Bs {format(spent)}
                   </span>
                   <span className="text-muted-foreground">
-                    de Bs {Math.round(target.toNumber()).toLocaleString("en-US")}
+                    de Bs {format(target)}
                   </span>
                 </div>
                 </>}

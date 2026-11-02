@@ -31,19 +31,19 @@ describe("MovimientosView interactions", () => {
     expect(htmlBob).toContain("Gastos del mes");
     expect(htmlBob).toContain("Transferencias");
     expect(htmlBob).toContain("Inversiones");
-    expect(htmlBob).toContain("Bs. 70.00"); // 20 BOB + (5 USD * 10)
-    expect(htmlBob).toContain("Bs. 28.25"); // 8.25 BOB + (2 USD * 10)
-    expect(htmlBob).toContain("Bs. 62.00"); // 2 BOB + (6 USD * 10)
-    expect(htmlBob).toContain("Bs. 84.00"); // 4 BOB + (8 USD * 10)
+    expect(htmlBob).toContain("Bs. 70,00"); // 20 BOB + (5 USD * 10)
+    expect(htmlBob).toContain("Bs. 28,25"); // 8.25 BOB + (2 USD * 10)
+    expect(htmlBob).toContain("Bs. 62,00"); // 2 BOB + (6 USD * 10)
+    expect(htmlBob).toContain("Bs. 84,00"); // 4 BOB + (8 USD * 10)
     expect(nodes(treeBob).filter(n => n.props["data-kpi-card"] === "true")).toHaveLength(4);
 
     // 2. Render in USD mode
     const treeUsd = render(vi.fn(), undefined, {}, "USD", 10);
     const htmlUsd = text(treeUsd);
-    expect(htmlUsd).toContain("$ 7.00"); // (20 BOB / 10) + 5 USD
-    expect(htmlUsd).toContain("$ 2.83"); // (8.25 BOB / 10) + 2 USD
-    expect(htmlUsd).toContain("$ 6.20"); // (2 BOB / 10) + 6 USD
-    expect(htmlUsd).toContain("$ 8.40"); // (4 BOB / 10) + 8 USD
+    expect(htmlUsd).toContain("$ 7,00"); // (20 BOB / 10) + 5 USD
+    expect(htmlUsd).toContain("$ 2,83"); // (8.25 BOB / 10) + 2 USD
+    expect(htmlUsd).toContain("$ 6,20"); // (2 BOB / 10) + 6 USD
+    expect(htmlUsd).toContain("$ 8,40"); // (4 BOB / 10) + 8 USD
 
     expect(htmlBob).toContain("Comida BOB 5.25");
     expect(htmlBob).toContain("Casa BOB 3.00");
@@ -75,8 +75,8 @@ describe("MovimientosView interactions", () => {
   it("shows loading, empty, and recoverable error states and calls the real register callback", () => {
     screenState.loading = true; screenState.data = { items: [], totalCount: 0, summary: [], page: 1, pageSize: 10 };
     const onRegister = vi.fn(); let tree = render(onRegister); expect(text(tree)).toContain("Cargando…");
-    (find(tree, n => typeof n.props.onClick === "function" && text(n.props.children).includes("Registrar movimiento")).props.onClick as () => void)(); expect(onRegister).toHaveBeenCalledOnce();
-    screenState.loading = false; tree = render(); expect(text(tree)).toContain("No hay movimientos para estos filtros.");
+    (find(tree, n => typeof n.props.onClick === "function" && text(n.props.children).includes("Registrar")).props.onClick as () => void)(); expect(onRegister).toHaveBeenCalledOnce();
+    screenState.loading = false; tree = render(); expect(text(tree)).toContain("No hay transacciones para estos filtros.");
     screenState.error = "offline"; tree = render(); expect(find(tree, n => n.props.role === "alert")).toBeDefined();
     expect(text(tree)).toContain("Reintentar");
   });
@@ -105,7 +105,7 @@ describe("MovimientosView interactions", () => {
 
   it("serializes month, filters, audit, search and pagination; filter changes reset page and selection", () => {
     let tree = render();
-    expect(text(tree)).toContain("Mostrando 1–3 de 11 movimientos");
+    expect(text(tree)).toContain("Mostrando 1–3 de 11 transacciones");
     expect(nodes(tree).filter(n => n.props["aria-label"]?.toString().startsWith("Ir a página "))).toHaveLength(2);
     expect(find(tree,n=>n.type === "summary")).toBeDefined();
     (find(tree,n=>n.props["aria-label"]==="Página siguiente").props.onClick as () => void)();
@@ -117,7 +117,7 @@ describe("MovimientosView interactions", () => {
     expect(find(tree, n => n.type === "h3").props.children).toBe("Compra");
     (find(tree,n=>n.props["aria-label"]==="Categoría").props.onChange as (e: unknown)=>void)({ target: { value: "cat-1" } });
     tree=render(); (find(tree,n=>n.props["aria-label"]==="Tipo").props.onChange as (e: unknown)=>void)({ target: { value: "Expense" } });
-    tree=render(); (find(tree,n=>n.props["aria-label"]==="Buscar movimiento").props.onChange as (e: unknown)=>void)({ target: { value: "café" } });
+    tree=render(); (find(tree,n=>n.props["aria-label"]?.toString().includes("Buscar")).props.onChange as (e: unknown)=>void)({ target: { value: "café" } });
     tree=render(); (find(tree,n=>n.props["aria-pressed"]!==undefined).props.onClick as () => void)();
     tree=render(); expect(getMovements.mock.lastCall?.[0]).toMatchObject({ page: 1, accountId: "a1", categoryId: "cat-1", type: "Expense", search: "café", mode: "Audit" });
     expect(getMovements.mock.lastCall?.[0].startUtc).toMatch(/^\d{4}-\d\d-01T/);

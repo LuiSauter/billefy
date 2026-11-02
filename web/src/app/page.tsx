@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { useAuth } from "@/modules/identity/application/AuthContext";
 import { useDashboardData } from "@/modules/dashboard/application/useDashboardData";
@@ -49,6 +49,11 @@ const DistributionPlanView = dynamic(() =>
     (m) => m.DistributionPlanView
   )
 );
+const SettingsView = dynamic(() =>
+  import("@/modules/identity/presentation/SettingsView").then(
+    (m) => m.SettingsView
+  )
+);
 
 export default function DashboardPage() {
   const { isAuthenticated, isLoading: authLoading, token, user, logout } = useAuth();
@@ -68,6 +73,12 @@ export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState<NavigationTab>("inicio");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCurrency, setSelectedCurrency] = useState<"BOB" | "USD">("BOB");
+
+  useEffect(() => {
+    if (user?.preferredCurrency === "USD" || user?.preferredCurrency === "BOB") {
+      setSelectedCurrency(user.preferredCurrency);
+    }
+  }, [user?.preferredCurrency]);
 
   const p2pRate = dashboard.rate?.appliedRate || 9.85;
 
@@ -161,7 +172,7 @@ export default function DashboardPage() {
           onOpenDrafts={() => modals.setIsDraftsDrawerOpen(true)}
           onOpenFx={() => modals.setIsFxTransferOpen(true)}
           onOpenProfile={() => modals.setIsProfileModalOpen(true)}
-          onOpenSettings={() => modals.setIsSettingsModalOpen(true)}
+          onOpenSettings={() => setActiveTab("configuracion")}
           onLogout={logout}
         />
 
@@ -178,7 +189,7 @@ export default function DashboardPage() {
           onOpenNewTransaction={() => modals.setIsTxnModalOpen(true)}
           onOpenCreateAccount={() => modals.setIsAccountModalOpen(true)}
           onOpenProfile={() => modals.setIsProfileModalOpen(true)}
-          onOpenSettings={() => modals.setIsSettingsModalOpen(true)}
+          onOpenSettings={() => setActiveTab("configuracion")}
           onLogout={logout}
         />
 
@@ -247,6 +258,7 @@ export default function DashboardPage() {
               investmentsController={investmentsCtl}
               selectedCurrency={selectedCurrency}
               p2pRate={p2pRate}
+              onEditTxn={modals.openEditTransaction}
             />
           )}
 
@@ -306,6 +318,20 @@ export default function DashboardPage() {
               }
             />
           )}
+
+          {activeTab === "configuracion" && (
+            <SettingsView
+              user={user}
+              selectedCurrency={selectedCurrency}
+              onSelectCurrency={setSelectedCurrency}
+              p2pRate={p2pRate}
+              onOpenBinance={() => modals.setIsBinanceModalOpen(true)}
+              onOpenCsv={() => modals.setIsCsvModalOpen(true)}
+              onOpenWhatsApp={() => modals.setIsWhatsAppModalOpen(true)}
+              onOpenFxTransfer={() => modals.setIsFxTransferOpen(true)}
+              onLogout={logout}
+            />
+          )}
         </main>
       </div>
 
@@ -323,6 +349,7 @@ export default function DashboardPage() {
         modals={modals}
         user={user}
         onOpenAccounts={() => setActiveTab("cuentas")}
+        onOpenSettings={() => setActiveTab("configuracion")}
         accounts={dashboard.accounts}
         pendingDrafts={dashboard.pendingDrafts}
         p2pRate={p2pRate}

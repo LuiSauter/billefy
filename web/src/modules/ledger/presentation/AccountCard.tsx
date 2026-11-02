@@ -21,6 +21,7 @@ import {
 } from "../domain/accounts-overview";
 import { resolveAccountVisualMeta } from "../domain/account-meta";
 import { CategoryIconBadge } from "./CategoryIcon";
+import { useNumberFormat } from "@/shared/hooks/use-number-format";
 
 interface AccountCardProps {
   account: AccountDto;
@@ -33,6 +34,7 @@ export function AccountCard({
   onEdit,
   onReconcile,
 }: AccountCardProps) {
+  const format = useNumberFormat();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -56,11 +58,7 @@ export function AccountCard({
   const profile = getAccountVisualProfile(account);
 
   const formatBalance = (acc: AccountDto) => {
-    const num = Number(acc.balance) || 0;
-    return `$ ${num.toLocaleString("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`;
+    return `${acc.currency === "BOB" ? "Bs. " : "$ "}${format(acc.balance)}`;
   };
 
   const renderBrandIcon = () => {

@@ -14,6 +14,7 @@ import {
   Repeat,
   TrendingUp,
   SlidersHorizontal,
+  Settings,
 } from "lucide-react";
 
 export type NavigationTab =
@@ -25,7 +26,8 @@ export type NavigationTab =
   | "borradores"
   | "prestamos"
   | "presupuestos"
-  | "recurrentes";
+  | "recurrentes"
+  | "configuracion";
 
 interface SidebarProps {
   planEnabled?: boolean;
@@ -65,6 +67,7 @@ export function Sidebar({
     { id: "prestamos" as NavigationTab, label: "Préstamos", icon: HandCoins },
     { id: "presupuestos" as NavigationTab, label: "Presupuestos", icon: PieChart },
     { id: "recurrentes" as NavigationTab, label: "Arbitraje P2P", icon: ArrowLeftRight },
+    { id: "configuracion" as NavigationTab, label: "Configuración", icon: Settings },
   ];
 
   return (

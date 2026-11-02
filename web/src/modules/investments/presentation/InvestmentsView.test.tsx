@@ -1,0 +1,25 @@
+import React from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { describe, expect, it, vi } from "vitest";
+import { InvestmentsView } from "./InvestmentsView";
+import { InvestmentsController } from "../application/useInvestments";
+import { Investment } from "../domain/investment.types";
+
+const investment: Investment = {
+  id: "inv-1", name: "Fondo", kind: "funds", iconKey: "coins", colorKey: "blue",
+  currency: "USD", quantity: 1, initialValue: 1200, currentValue: 1234.56,
+  history: [], createdAt: "2026-01-01T00:00:00Z",
+};
+
+describe("InvestmentsView number formatting", () => {
+  it("formats displayed investment values with the default Spanish grouping", () => {
+    const controller = {
+      investments: [investment], createInvestment: vi.fn(), updateInvestmentValue: vi.fn(),
+      deleteInvestment: vi.fn(), refreshAfterCash: vi.fn(), recordCash: vi.fn(), reverseCash: vi.fn(),
+    } as unknown as InvestmentsController;
+    const html = renderToStaticMarkup(
+      <InvestmentsView controller={controller} p2pRate={9.85} accounts={[]} onCashComplete={vi.fn()} />
+    );
+    expect(html).toContain("1.234,56 USD");
+  });
+});

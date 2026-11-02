@@ -25,6 +25,7 @@ export interface IIdentityRepository {
   loginWithGoogle(idToken: string, preferredCurrency?: string): Promise<AuthResponseDto>;
   refreshToken(refreshToken: string): Promise<AuthResponseDto>;
   getCurrentUser(): Promise<UserDto>;
+  updatePreferredCurrency(preferredCurrency: string): Promise<UserDto>;
   logout(refreshToken: string): Promise<void>;
   requestAccountDeletion(): Promise<void>;
   exportUserData(): Promise<UserDataExportDto>;

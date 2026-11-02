@@ -10,6 +10,7 @@ import {
   BarChart3,
   CalendarDays,
   CheckSquare,
+  ChevronDown,
   Clock,
   FileText,
   Landmark,
@@ -20,7 +21,7 @@ import {
   Tag,
   TrendingUp,
 } from "lucide-react";
-import { AccountDto, RegisterTransferRequest } from "../domain/ledger.types";
+import { AccountDto, RegisterTransferRequest, TransactionDto } from "../domain/ledger.types";
 import { MovementKind } from "../domain/movement";
 import { useMovements } from "../application/useMovements";
 import { MovementActions } from "./MovementActions";
@@ -42,6 +43,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/shared/ui/table";
+import { NativeSelect, NativeSelectOption } from "@/shared/ui/native-select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/shared/ui/popover";
+import { MonthPicker } from "@/shared/ui/month-picker";
+import { formatUserNumber } from "@/shared/lib/number-format";
 
 export interface MovimientosViewProps {
   http: IHttpClient | null;
@@ -51,6 +56,7 @@ export interface MovimientosViewProps {
   investmentsController: InvestmentsController;
   selectedCurrency?: "BOB" | "USD";
   p2pRate?: number;
+  onEditTxn?: (transaction: TransactionDto) => void;
 }
 
 function toTargetCurrency(
@@ -78,10 +84,10 @@ function toTargetCurrency(
 
 function formatCurrencyAmount(
   amount: Decimal | string | number,
-  currency: "BOB" | "USD"
+  currency: "BOB" | "USD",
+  format: (value: Decimal | string | number) => string
 ): string {
-  const dec = new Decimal(amount || 0);
-  const formatted = dec.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  const formatted = format(amount);
   return currency === "USD" ? `$ ${formatted}` : `Bs. ${formatted}`;
 }
 
@@ -133,8 +139,10 @@ export function MovimientosView({
   investmentsController,
   selectedCurrency = "BOB",
   p2pRate = 9.85,
+  onEditTxn,
 }: MovimientosViewProps) {
   const { categories } = useUserCategories();
+  const formatNumber = formatUserNumber;
   const now = new Date();
   const [month, setMonth] = useState(
     `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
@@ -146,6 +154,7 @@ export function MovimientosView({
   const [mode, setMode] = useState<"Active" | "Audit">("Active");
   const [page, setPage] = useState(1);
   const [selectedId, setSelectedId] = useState("");
+  const [calendarOpen, setCalendarOpen] = useState(false);
   const [transferOpen, setTransferOpen] = useState(false);
   const [cashOpen, setCashOpen] = useState(false);
   const [refreshError, setRefreshError] = useState("");
@@ -216,6 +225,13 @@ export function MovimientosView({
   };
 
   const summaries = useMemo(() => data?.summary || [], [data?.summary]);
+
+  const monthDisplayLabel = useMemo(() => {
+    const [y, m] = month.split("-").map(Number);
+    const d = new Date(y, (m || 1) - 1, 1);
+    const label = d.toLocaleDateString("es-BO", { month: "long", year: "numeric" });
+    return label.charAt(0).toUpperCase() + label.slice(1);
+  }, [month]);
 
   // Aggregated totals converted to the single selected currency (BOB or USD)
   const kpiTotals = useMemo(() => {
@@ -290,14 +306,14 @@ export function MovimientosView({
 
   return (
     <div className="space-y-6 text-foreground">
-      {/* 1. Header with Title, Description, and "+ Registrar movimiento" Action */}
+      {/* 1. Header with Title, Description, and Action */}
       <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-white lg:text-3xl">
-            Movimientos
+            Transacciones
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Gestiona y analiza todos tus ingresos, gastos, transferencias e inversiones.
+            Gestiona y analiza todas tus transacciones de ingresos, gastos, transferencias e inversiones.
           </p>
         </div>
 
@@ -307,7 +323,7 @@ export function MovimientosView({
             className="h-10 rounded-xl bg-[#7c3aed] px-5 font-semibold text-white shadow-lg shadow-purple-950/40 hover:bg-[#6d28d9] active:scale-[0.98]"
           >
             <Plus className="size-4" aria-hidden="true" />
-            <span>Registrar movimiento</span>
+            <span>Registrar transacción</span>
           </Button>
 
           <details className="relative">
@@ -362,7 +378,7 @@ export function MovimientosView({
                   <div className="mt-1 flex items-baseline gap-2">
                     <span className="text-xl font-bold tracking-tight text-white lg:text-2xl tabular-nums">
                       {summaries.length > 0
-                        ? formatCurrencyAmount(amount, selectedCurrency)
+                        ? formatCurrencyAmount(amount, selectedCurrency, formatNumber)
                         : "—"}
                     </span>
                     {badge && summaries.length > 0 && (
@@ -382,65 +398,76 @@ export function MovimientosView({
       </div>
 
       {/* 3. Filters Row */}
-      <div className="grid grid-cols-1 gap-2.5 rounded-2xl border border-border/80 bg-card/80 p-3 sm:grid-cols-2 lg:grid-cols-[minmax(150px,0.8fr)_minmax(160px,1fr)_minmax(160px,1fr)_minmax(150px,0.9fr)_minmax(200px,1.5fr)_auto]">
-        {/* Month picker */}
-        <div className="relative">
-          <CalendarDays
-            className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-            aria-hidden="true"
-          />
-          <input
+      <div className="grid grid-cols-1 gap-2.5 rounded-2xl border border-border/80 bg-card/80 p-3 sm:grid-cols-2 lg:grid-cols-[minmax(160px,1fr)_minmax(160px,1fr)_minmax(160px,1fr)_minmax(150px,0.9fr)_minmax(200px,1.5fr)_auto]">
+        {/* Month calendar popover using shadcn Popover & Calendar */}
+        <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+          <PopoverTrigger
             aria-label="Mes"
-            type="month"
-            value={month}
-            onChange={(e) => change(() => setMonth(e.target.value))}
-            className="h-10 w-full rounded-xl border border-border/80 bg-background/80 pl-9 pr-3 text-sm font-medium shadow-2xs outline-none focus:border-primary/70 focus:ring-2 focus:ring-primary/20"
-          />
-        </div>
+            className="flex h-10 w-full items-center justify-between rounded-xl border border-border/80 bg-background/80 px-3 text-sm font-medium shadow-2xs outline-none transition hover:bg-muted focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20"
+          >
+            <span className="flex items-center gap-2 truncate">
+              <CalendarDays
+                className="size-4 shrink-0 text-muted-foreground"
+                aria-hidden="true"
+              />
+              <span>{monthDisplayLabel}</span>
+            </span>
+            <ChevronDown
+              className="size-4 shrink-0 opacity-50"
+              aria-hidden="true"
+            />
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-auto p-0 bg-card border-border">
+            <MonthPicker
+              value={month}
+              onChange={(val) => {
+                change(() => setMonth(val));
+                setCalendarOpen(false);
+              }}
+            />
+          </PopoverContent>
+        </Popover>
 
         {/* Account select */}
-        <select
+        <NativeSelect
           aria-label="Cuenta"
           value={accountId}
           onChange={(e) => change(() => setAccountId(e.target.value))}
-          className="h-10 w-full rounded-xl border border-border/80 bg-background/80 px-3 text-sm font-medium shadow-2xs outline-none focus:border-primary/70 focus:ring-2 focus:ring-primary/20"
         >
-          <option value="">Todas las cuentas</option>
+          <NativeSelectOption value="">Todas las cuentas</NativeSelectOption>
           {accounts.map((a) => (
-            <option key={a.id} value={a.id}>
+            <NativeSelectOption key={a.id} value={a.id}>
               {a.name} ({a.currency})
-            </option>
+            </NativeSelectOption>
           ))}
-        </select>
+        </NativeSelect>
 
         {/* Category select */}
-        <select
+        <NativeSelect
           aria-label="Categoría"
           value={categoryId}
           onChange={(e) => change(() => setCategoryId(e.target.value))}
-          className="h-10 w-full rounded-xl border border-border/80 bg-background/80 px-3 text-sm font-medium shadow-2xs outline-none focus:border-primary/70 focus:ring-2 focus:ring-primary/20"
         >
-          <option value="">Todas las categorías</option>
+          <NativeSelectOption value="">Todas las categorías</NativeSelectOption>
           {categories.map((c) => (
-            <option key={c.id} value={c.id}>
+            <NativeSelectOption key={c.id} value={c.id}>
               {c.name}
-            </option>
+            </NativeSelectOption>
           ))}
-        </select>
+        </NativeSelect>
 
         {/* Type select */}
-        <select
+        <NativeSelect
           aria-label="Tipo"
           value={type}
           onChange={(e) => change(() => setType(e.target.value as MovementKind | ""))}
-          className="h-10 w-full rounded-xl border border-border/80 bg-background/80 px-3 text-sm font-medium shadow-2xs outline-none focus:border-primary/70 focus:ring-2 focus:ring-primary/20"
         >
-          <option value="">Todos los tipos</option>
-          <option value="Income">Ingreso</option>
-          <option value="Expense">Gasto</option>
-          <option value="Transfer">Transferencia</option>
-          <option value="Investment">Inversión</option>
-        </select>
+          <NativeSelectOption value="">Todos los tipos</NativeSelectOption>
+          <NativeSelectOption value="Income">Ingreso</NativeSelectOption>
+          <NativeSelectOption value="Expense">Gasto</NativeSelectOption>
+          <NativeSelectOption value="Transfer">Transferencia</NativeSelectOption>
+          <NativeSelectOption value="Investment">Inversión</NativeSelectOption>
+        </NativeSelect>
 
         {/* Search Input */}
         <div className="relative sm:col-span-2 lg:col-span-1">
@@ -449,8 +476,8 @@ export function MovimientosView({
             aria-hidden="true"
           />
           <Input
-            aria-label="Buscar movimiento"
-            placeholder="Buscar movimiento..."
+            aria-label="Buscar transacción"
+            placeholder="Buscar transacción..."
             value={search}
             onChange={(e) => change(() => setSearch(e.target.value))}
             className="h-10 pl-9 pr-3 text-sm font-medium"
@@ -636,7 +663,7 @@ export function MovimientosView({
                       }`}
                     >
                       {isIncome ? "+ " : "− "}
-                      {formatCurrencyAmount(convertedAmount, selectedCurrency)}
+                      {formatCurrencyAmount(convertedAmount, selectedCurrency, formatNumber)}
                     </TableCell>
 
                     {/* Kebab menu button */}
@@ -668,8 +695,8 @@ export function MovimientosView({
                 ? `Mostrando ${((page - 1) * 10) + 1}–${Math.min(
                     ((page - 1) * 10) + movements.length,
                     totalCount
-                  )} de ${totalCount} movimientos`
-                : "Mostrando 0 de 0 movimientos"}
+                  )} de ${totalCount} transacciones`
+                : "Mostrando 0 de 0 transacciones"}
             </span>
 
             <nav
@@ -734,13 +761,13 @@ export function MovimientosView({
           </div>
         </div>
 
-        {/* Right Column: Detalle del movimiento */}
+        {/* Right Column: Detalle de la transacción */}
         <aside
-          aria-label="Detalle del movimiento"
+          aria-label="Detalle de la transacción"
           className="rounded-2xl border border-border/80 bg-card/90 p-5 shadow-sm"
         >
           <h2 className="text-base font-semibold text-foreground">
-            Detalle del movimiento
+            Detalle de la transacción
           </h2>
 
           {selected ? (
@@ -787,7 +814,8 @@ export function MovimientosView({
                       selectedCurrency,
                       p2pRate
                     ),
-                    selectedCurrency
+                    selectedCurrency,
+                    formatNumber
                   )}
                 </p>
                 {selected.currency !== selectedCurrency && (
@@ -941,6 +969,31 @@ export function MovimientosView({
                 movement={selected}
                 accounts={accounts}
                 auditMode={mode === "Audit"}
+                onEdit={
+                  onEditTxn && selected.kind !== "Transfer" && selected.kind !== "Investment"
+                    ? () =>
+                        onEditTxn({
+                          id: selected.id,
+                          accountId: selected.accountId,
+                          amount: selected.amount,
+                          currency: selected.currency,
+                          direction: selected.direction as "Income" | "Expense",
+                          categoryId: selected.categoryId,
+                          occurredAt: selected.occurredAt,
+                          description: selected.description,
+                          appliedRate: selected.appliedRate,
+                          rateSource: selected.rateSource,
+                          createdAt: selected.occurredAt,
+                          reversesId: selected.reversesId,
+                          transferId: selected.kind === "Transfer" ? selected.id : undefined,
+                          allocations: selected.allocations.map((a) => ({
+                            categoryId: a.categoryId,
+                            categoryName: a.categoryName,
+                            amount: a.amount,
+                          })),
+                        })
+                    : undefined
+                }
                 onComplete={
                   selected.kind === "Investment"
                     ? refreshAfterInvestmentWrite
@@ -953,7 +1006,7 @@ export function MovimientosView({
             </>
           ) : (
             <p className="mt-4 text-sm text-muted-foreground">
-              Selecciona un movimiento para ver sus detalles.
+              Selecciona una transacción para ver sus detalles.
             </p>
           )}
         </aside>
@@ -962,7 +1015,7 @@ export function MovimientosView({
       {!loading && movements.length === 0 && !error && (
         <div className="rounded-2xl border border-dashed border-border py-12 text-center text-muted-foreground">
           <ArrowLeftRight className="mx-auto mb-2 size-8 text-muted-foreground/60" />
-          <p className="font-medium">No hay movimientos para estos filtros.</p>
+          <p className="font-medium">No hay transacciones para estos filtros.</p>
         </div>
       )}
 

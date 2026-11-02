@@ -9,6 +9,7 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/shared/ui/chart";
+import { useNumberFormat } from "@/shared/hooks/use-number-format";
 
 interface CashFlowAreaChartProps {
   transactions: TransactionDto[];
@@ -30,6 +31,7 @@ export function CashFlowAreaChart({
   transactions,
   currencySymbol = "Bs.",
 }: CashFlowAreaChartProps) {
+  const format = useNumberFormat();
   const data = useMemo(() => {
     // Group transactions by day (or synthetic 7-day flow if empty)
     if (!transactions || transactions.length === 0) {
@@ -114,14 +116,14 @@ export function CashFlowAreaChart({
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
             <span className="text-muted-foreground">Ingresos:</span>
             <span className="text-emerald-400 font-mono font-bold">
-              +{currencySymbol} {totalIncome.toLocaleString()}
+              +{currencySymbol} {format(totalIncome)}
             </span>
           </div>
           <div className="flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
             <span className="text-muted-foreground">Gastos:</span>
             <span className="text-rose-400 font-mono font-bold">
-              -{currencySymbol} {totalExpense.toLocaleString()}
+              -{currencySymbol} {format(totalExpense)}
             </span>
           </div>
         </div>

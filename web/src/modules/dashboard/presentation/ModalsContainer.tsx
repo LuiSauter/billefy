@@ -116,6 +116,7 @@ interface ModalsContainerProps {
   onSelectCurrency: (currency: "BOB" | "USD") => void;
   onLogout?: () => void;
   onOpenAccounts?: () => void;
+  onOpenSettings?: () => void;
   planEnabled?: boolean;
   onTogglePlan?: (enabled: boolean) => void;
   actions: {
@@ -167,6 +168,7 @@ export function ModalsContainer({
   onSelectCurrency,
   onLogout,
   onOpenAccounts,
+  onOpenSettings,
   planEnabled,
   onTogglePlan,
   actions,
@@ -238,6 +240,7 @@ export function ModalsContainer({
           isOpen={modals.isAccountModalOpen}
           onClose={() => modals.setIsAccountModalOpen(false)}
           onSubmit={actions.createAccount}
+          defaultCurrency={user?.preferredCurrency || selectedCurrency || "BOB"}
         />
       )}
 
@@ -389,7 +392,11 @@ export function ModalsContainer({
           user={user}
           accountsCount={accounts.length}
           p2pRate={p2pRate}
-          onOpenSettings={() => modals.setIsSettingsModalOpen(true)}
+          onOpenSettings={() => {
+            modals.setIsProfileModalOpen(false);
+            if (onOpenSettings) onOpenSettings();
+            else modals.setIsSettingsModalOpen(true);
+          }}
           onLogout={onLogout}
         />
       )}

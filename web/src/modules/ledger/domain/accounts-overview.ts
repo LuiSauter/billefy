@@ -29,7 +29,6 @@ export interface AccountsOverviewMetrics {
 export interface EvolutionPoint {
   month: string;
   balance: number;
-  formattedBalance: string;
 }
 
 export interface AccountVisualProfile {
@@ -412,7 +411,6 @@ export function calculateBalanceEvolution(
       points.push({
         month: monthName,
         balance: Math.round(currentTotalUsd),
-        formattedBalance: `$ ${Math.round(currentTotalUsd).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
       });
     } else {
       // Approximate or calculate by rolling back transactions after end of that target month
@@ -438,7 +436,6 @@ export function calculateBalanceEvolution(
       points.push({
         month: monthName,
         balance: Math.round(balanceAtMonth),
-        formattedBalance: `$ ${Math.round(balanceAtMonth).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
       });
     }
   }

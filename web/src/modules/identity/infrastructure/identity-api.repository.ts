@@ -34,6 +34,10 @@ export class IdentityApiRepository implements IIdentityRepository {
     return this.http.get<UserDto>("/api/v1/auth/me");
   }
 
+  async updatePreferredCurrency(preferredCurrency: string): Promise<UserDto> {
+    return this.http.put<UserDto>("/api/v1/auth/preferred-currency", { preferredCurrency });
+  }
+
   async logout(refreshToken: string): Promise<void> {
     await this.http.post<void>("/api/v1/auth/logout", { refreshToken });
     this.http.setAuthSession(undefined);

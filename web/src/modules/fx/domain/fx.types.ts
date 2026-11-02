@@ -8,8 +8,17 @@ export interface RateSnapshotDto {
   isStale: boolean;
 }
 
+export interface CurrencyCatalogEntryDto {
+  code: string;
+  name: string;
+  symbol: string;
+  precision: number;
+  isActive: boolean;
+}
+
 export interface IFxRepository {
   getLatestRate(currency: string, baseCurrency?: string): Promise<RateSnapshotDto>;
+  getCurrencies(): Promise<CurrencyCatalogEntryDto[]>;
 }
 
 export function convertCurrencyAmount(

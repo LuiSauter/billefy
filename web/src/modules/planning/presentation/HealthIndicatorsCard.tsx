@@ -1,16 +1,17 @@
 import React from "react";
 import { FinancialHealthDto } from "@/modules/planning/domain/planning.types";
 import { netCashFlowHint } from "@/modules/planning/domain/goals-overview";
-import { createMoney, formatMoney } from "@/shared/domain/money";
+import { useNumberFormat } from "@/shared/hooks/use-number-format";
 
 interface HealthIndicatorsCardProps { health: FinancialHealthDto | null; loading?: boolean; error?: Error | null; onRetry?: () => void; }
-function money(value: number, currency: string) { return formatMoney(createMoney(value, currency), ["BTC", "ETH"].includes(currency.toUpperCase()) ? 8 : 2); }
 function monthLabel(date: string) {
   const parsed = new Date(date);
   if (Number.isNaN(parsed.getTime())) return "Mes actual";
   return new Intl.DateTimeFormat("es", { month: "long", year: "numeric", timeZone: "UTC" }).format(parsed);
 }
 export function HealthIndicatorsCard({ health, loading = false, error = null, onRetry = () => {} }: HealthIndicatorsCardProps) {
+  const format = useNumberFormat();
+  const money = (value: number, currency: string) => `${format(value)} ${currency}`;
   const retry = <button type="button" onClick={onRetry} className="min-h-11 rounded-lg border border-border px-4 font-semibold hover:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">Reintentar</button>;
   return <section aria-labelledby="health-heading" className="min-w-0 rounded-2xl border border-border bg-card p-4 sm:p-6">
     <h2 id="health-heading" className="text-lg font-extrabold">Tu mes</h2>

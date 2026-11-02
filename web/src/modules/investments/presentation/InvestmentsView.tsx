@@ -29,6 +29,7 @@ import {
 import { InvestmentsController } from "../application/useInvestments";
 import { AccountDto } from "@/modules/ledger/domain/ledger.types";
 import { InvestmentCashModal } from "./InvestmentCashModal";
+import { useNumberFormat } from "@/shared/hooks/use-number-format";
 
 interface InvestmentsViewProps {
   controller: InvestmentsController;
@@ -342,6 +343,7 @@ function UpdateValueDrawer({
 
 export function InvestmentsView({ controller, p2pRate, accounts, onCashComplete }: InvestmentsViewProps) {
   const { investments, createInvestment, updateInvestmentValue, deleteInvestment } = controller;
+  const format = useNumberFormat();
   const [createOpen, setCreateOpen] = useState(false);
   const [cashOpen, setCashOpen] = useState(false);
   const [editing, setEditing] = useState<Investment | null>(null);
@@ -366,7 +368,7 @@ export function InvestmentsView({ controller, p2pRate, accounts, onCashComplete 
           <p className="text-xs font-medium text-muted-foreground mt-0.5">
             Patrimonio total:{" "}
             <span className="font-mono font-bold text-foreground">
-              Bs {Math.round(totalValue).toLocaleString("en-US")}
+              Bs {format(totalValue)}
             </span>{" "}
             <ChangeBadge pct={totalPct} />
           </p>
@@ -418,7 +420,7 @@ export function InvestmentsView({ controller, p2pRate, accounts, onCashComplete 
                   <div className="flex flex-col">
                     <span className="text-[11px] text-muted-foreground">Valor actual</span>
                     <span className="text-lg font-black font-mono text-foreground">
-                      {inv.currentValue.toLocaleString("en-US", { maximumFractionDigits: 2 })}{" "}
+                      {format(inv.currentValue)}{" "}
                       {inv.currency}
                     </span>
                   </div>

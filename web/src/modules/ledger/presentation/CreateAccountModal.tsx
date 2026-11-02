@@ -25,6 +25,7 @@ interface CreateAccountModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (req: CreateAccountRequest) => Promise<void>;
+  defaultCurrency?: string;
 }
 
 const FORM_ID = "create-account-form";
@@ -41,26 +42,28 @@ const CURRENCY_NAMES: Record<string, string> = {
   USDT: "Tether",
 };
 
-export function CreateAccountModal({ isOpen, onClose, onSubmit }: CreateAccountModalProps) {
+export function CreateAccountModal({ isOpen, onClose, onSubmit, defaultCurrency = "BOB" }: CreateAccountModalProps) {
   const [name, setName] = useState("");
   const [type, setType] = useState<AccountType>("Savings");
-  const [currency, setCurrency] = useState("BOB");
+  const [currency, setCurrency] = useState(defaultCurrency);
   const [initialBalance, setInitialBalance] = useState("");
   const [iconKey, setIconKey] = useState<CategoryIconKey>("piggy-bank");
   const [colorKey, setColorKey] = useState<CategoryColorKey>("emerald");
   const [submitting, setSubmitting] = useState(false);
 
-  // Reset the form whenever the drawer closes.
+  // Reset the form whenever the drawer closes or opens.
   useEffect(() => {
     if (!isOpen) {
       setName("");
       setType("Savings");
-      setCurrency("BOB");
+      setCurrency(defaultCurrency);
       setInitialBalance("");
       setIconKey("piggy-bank");
       setColorKey("emerald");
+    } else {
+      setCurrency(defaultCurrency);
     }
-  }, [isOpen]);
+  }, [isOpen, defaultCurrency]);
 
   const handleSelectType = (nextType: AccountType) => {
     setType(nextType);

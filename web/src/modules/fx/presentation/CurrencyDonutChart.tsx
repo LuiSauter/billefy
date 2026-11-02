@@ -9,6 +9,7 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/shared/ui/chart";
+import { useNumberFormat } from "@/shared/hooks/use-number-format";
 
 interface CurrencyDonutChartProps {
   accounts: AccountDto[];
@@ -30,6 +31,7 @@ const chartConfig = {
 } satisfies ChartConfig;
 
 export function CurrencyDonutChart({ accounts, p2pRate = 9.85 }: CurrencyDonutChartProps) {
+  const format = useNumberFormat();
   const { data, totalBob } = useMemo(() => {
     let bob = 0;
     let usd = 0;
@@ -71,7 +73,7 @@ export function CurrencyDonutChart({ accounts, p2pRate = 9.85 }: CurrencyDonutCh
           </p>
         </div>
         <span className="text-xs font-mono font-bold text-primary">
-          Bs. {totalBob.toLocaleString()} total
+          Bs. {format(totalBob)} total
         </span>
       </div>
 
@@ -111,7 +113,7 @@ export function CurrencyDonutChart({ accounts, p2pRate = 9.85 }: CurrencyDonutCh
                 </div>
                 <div className="flex items-center gap-2 font-mono">
                   <span className="text-muted-foreground">
-                    {item.rawValue.toLocaleString()} {item.currency}
+                    {format(item.rawValue)} {item.currency}
                   </span>
                   <strong className="text-foreground w-10 text-right">{pct}%</strong>
                 </div>

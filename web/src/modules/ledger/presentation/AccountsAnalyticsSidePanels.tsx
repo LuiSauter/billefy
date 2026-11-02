@@ -19,6 +19,7 @@ import {
   EvolutionPoint,
 } from "../domain/accounts-overview";
 import { AccountDto, TransactionDto } from "../domain/ledger.types";
+import { useNumberFormat } from "@/shared/hooks/use-number-format";
 
 interface AccountsAnalyticsSidePanelsProps {
   metrics: AccountsOverviewMetrics;
@@ -43,6 +44,7 @@ export function AccountsAnalyticsSidePanels({
   p2pRate = 9.85,
   currency = "USD",
 }: AccountsAnalyticsSidePanelsProps) {
+  const format = useNumberFormat();
   const [timeframeMonths, setTimeframeMonths] = useState<number>(6);
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
@@ -115,7 +117,7 @@ export function AccountsAnalyticsSidePanels({
             {/* Centered Total inside Donut */}
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center px-2">
               <span className="text-sm font-black text-foreground font-mono tracking-tight leading-tight">
-                {currencySymbol} {displayTotal.toLocaleString("en-US", { maximumFractionDigits: 0 })}
+                {currencySymbol} {format(displayTotal)}
               </span>
               <span className="text-[10px] font-semibold text-muted-foreground mt-0.5">
                 Total en cuentas
@@ -197,7 +199,7 @@ export function AccountsAnalyticsSidePanels({
         {latestPoint && (
           <div className="flex justify-end">
             <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-bold bg-purple-600/20 text-purple-300 border border-purple-500/40 shadow-xs font-mono">
-              {latestPoint.formattedBalance}
+              $ {format(latestPoint.balance)}
             </span>
           </div>
         )}
@@ -234,7 +236,7 @@ export function AccountsAnalyticsSidePanels({
                       <div className="rounded-xl bg-popover border border-border p-2.5 shadow-xl text-xs">
                         <p className="text-muted-foreground font-medium">{data.month}</p>
                         <p className="text-foreground font-black font-mono mt-0.5">
-                          {data.formattedBalance}
+                          $ {format(data.balance)}
                         </p>
                       </div>
                     );

@@ -49,6 +49,7 @@ describe("AccountsAnalyticsSidePanels", () => {
 
     expect(html).toContain("Distribución del saldo");
     expect(html).toContain("Evolución del saldo en cuentas");
+    expect(html).toContain("$ 24.860,00");
     expect(html).toContain("Bancos");
     expect(html).toContain("58.3%");
     expect(html).toContain("Wallets digitales");

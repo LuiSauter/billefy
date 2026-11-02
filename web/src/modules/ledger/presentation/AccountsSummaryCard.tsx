@@ -9,6 +9,8 @@ import {
 } from "@/modules/ledger/domain/account-meta";
 import { computeAccountMonthlyChanges } from "@/modules/ledger/domain/monthly-analytics";
 import { CategoryIconBadge } from "./CategoryIcon";
+import { useNumberFormat } from "@/shared/hooks/use-number-format";
+import { formatNumber } from "@/shared/lib/number-format";
 
 interface AccountsSummaryCardProps {
   accounts: AccountDto[];
@@ -16,11 +18,8 @@ interface AccountsSummaryCardProps {
   onOpenAccounts?: () => void;
 }
 
-export function formatAccountAmount(currency: string, value: number): string {
-  const n = value.toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+export function formatAccountAmount(currency: string, value: number | import("decimal.js").default, formatter: (value: number | import("decimal.js").default) => string = (amount) => formatNumber(amount)): string {
+  const n = formatter(value);
   if (currency === "BOB") return `Bs ${n}`;
   if (currency === "USD") return `$${n}`;
   return `${n} ${currency}`;
@@ -54,6 +53,7 @@ export function AccountsSummaryCard({
   transactions,
   onOpenAccounts,
 }: AccountsSummaryCardProps) {
+  const format = useNumberFormat();
   const changes = useMemo(
     () => computeAccountMonthlyChanges(accounts, transactions),
     [accounts, transactions]
@@ -103,7 +103,7 @@ export function AccountsSummaryCard({
                 </div>
                 <div className="flex flex-col items-end shrink-0">
                   <span className="text-sm font-extrabold font-mono tabular-nums text-foreground">
-                    {formatAccountAmount(acc.currency, acc.balance.toNumber())}
+                    {formatAccountAmount(acc.currency, acc.balance, format)}
                   </span>
                   <ChangeBadge pct={change ? change.changePct : null} />
                 </div>

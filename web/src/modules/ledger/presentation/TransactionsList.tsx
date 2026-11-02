@@ -15,6 +15,7 @@ import {
 } from "@/modules/ledger/domain/ledger.types";
 import { useUserCategories } from "@/modules/ledger/application/CategoriesContext";
 import { CategoryIconBadge } from "./CategoryIcon";
+import { useNumberFormat } from "@/shared/hooks/use-number-format";
 
 interface TransactionsListProps {
   transactions: TransactionDto[];
@@ -35,6 +36,7 @@ export function TransactionsList({
   p2pRate,
 }: TransactionsListProps) {
   const { findCategory } = useUserCategories();
+  const formatNumber = useNumberFormat();
   const [filterDirection, setFilterDirection] = useState<
     "ALL" | "Income" | "Expense"
   >("ALL");
@@ -245,11 +247,11 @@ export function TransactionsList({
                     >
                       {isIncome ? "+" : "-"}
                       {txn.currency === "BOB" ? "Bs. " : ""}
-                      {txn.amount.toFixed(2)}
+                      {formatNumber(txn.amount)}
                       {txn.currency !== "BOB" ? ` ${txn.currency}` : ""}
                     </span>
                     <span className="text-[11px] font-medium text-muted-foreground font-mono tabular-nums">
-                      ≈ ${eqUsd.toFixed(2)} USD
+                      ≈ ${formatNumber(eqUsd)} USD
                     </span>
                   </div>
 

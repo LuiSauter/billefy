@@ -11,6 +11,7 @@ import {
   TrendingUp,
   HandCoins,
   SlidersHorizontal,
+  Settings,
 } from "lucide-react";
 import { NavigationTab } from "./Sidebar";
 
@@ -35,6 +36,7 @@ export function MobileBottomNav({
       ? [{ id: "plan" as NavigationTab, label: "Plan de distribución", icon: SlidersHorizontal }]
       : []),
     { id: "recurrentes", label: "Fijos & FX", icon: ArrowLeftRight },
+    { id: "configuracion", label: "Configuración", icon: Settings },
   ];
   const moreActive = moreItems.some((i) => i.id === activeTab);
 
