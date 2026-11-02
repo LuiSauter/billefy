@@ -30,7 +30,7 @@ export function formatNumber(
   convention: NumberGroupingConvention = "es-BO",
   decimalPlaces = 2
 ): string {
-  const places = Number.isInteger(decimalPlaces) ? Math.min(6, Math.max(0, decimalPlaces)) : 2;
+  const places = Number.isInteger(decimalPlaces) ? Math.min(8, Math.max(0, decimalPlaces)) : 2;
   const decimal = new Decimal(value).toDecimalPlaces(places, Decimal.ROUND_HALF_UP);
   const fixed = decimal.abs().toFixed(places);
   const [integer, fraction] = fixed.split(".");

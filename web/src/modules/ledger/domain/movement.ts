@@ -1,11 +1,11 @@
 import Decimal from "decimal.js";
 import { toDecimal } from "@/shared/domain/money";
 
-export type MovementKind = "Income" | "Expense" | "Transfer" | "Investment";
+export type MovementKind = "Income" | "Expense" | "Transfer" | "Investment" | "Adjustment";
 export type InvestmentCashKind = "Contribution" | "Disposal";
 export interface MovementAllocation { categoryId: string; categoryName?: string; amount: Decimal }
 export interface MovementLeg { id: string; accountId: string; accountName: string; amount: Decimal; currency: string; direction: string; appliedRate?: number; rateSource?: string }
-export interface Movement { id: string; kind: MovementKind; amount: Decimal; currency: string; direction: string; occurredAt: string; accountId: string; accountName: string; categoryId?: string; categoryName?: string; description?: string; appliedRate?: number; rateSource?: string; isReversal: boolean; reversesId?: string; investmentId?: string; investmentCashKind?: "Contribution" | "Disposal"; legs: MovementLeg[]; allocations: MovementAllocation[] }
+export interface Movement { id: string; kind: MovementKind; amount: Decimal; currency: string; direction: string; occurredAt: string; accountId: string; accountName: string; categoryId?: string; categoryName?: string; description?: string; appliedRate?: number; rateSource?: string; isReversal: boolean; reversesId?: string; investmentId?: string; investmentCashKind?: "Contribution" | "Disposal"; isReconciliationAdjustment?: boolean; legs: MovementLeg[]; allocations: MovementAllocation[] }
 export interface MovementSummary { currency: string; income: Decimal; expenses: Decimal; transferOut: Decimal; transferIn: Decimal; contributions: Decimal; disposals: Decimal }
 export interface MovementPage { items: Movement[]; page: number; pageSize: number; totalCount: number; summary: MovementSummary[] }
 export interface MovementQuery { startUtc?: string; endUtcExclusive?: string; accountId?: string; categoryId?: string; type?: MovementKind; search?: string; mode: "Active" | "Audit"; page: number; pageSize: number }

@@ -3,6 +3,7 @@ import {
   BudgetDto,
   CreateBudgetRequest,
   CreateGoalRequest,
+  UpdateGoalRequest,
   FinancialHealthDto,
   GoalDto,
   IPlanningRepository,
@@ -33,6 +34,10 @@ export class PlanningApiRepository implements IPlanningRepository {
 
   async createGoal(req: CreateGoalRequest): Promise<{ id: string }> {
     return this.http.post<{ id: string }>("/v1/planning/goals", req);
+  }
+
+  async updateGoal(id: string, req: UpdateGoalRequest): Promise<{ message: string }> {
+    return this.http.put<{ message: string }>(`/v1/planning/goals/${id}`, req);
   }
 
   async getGoals(): Promise<GoalDto[]> {

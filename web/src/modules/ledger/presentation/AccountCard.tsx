@@ -5,6 +5,7 @@ import {
   MoreVertical,
   Pencil,
   Scale,
+  ArrowRight,
   Landmark,
   Wallet,
   Coins,
@@ -27,12 +28,14 @@ interface AccountCardProps {
   account: AccountDto;
   onEdit: (account: AccountDto) => void;
   onReconcile: (account: AccountDto) => void;
+  onSelect?: (account: AccountDto) => void;
 }
 
 export function AccountCard({
   account,
   onEdit,
   onReconcile,
+  onSelect,
 }: AccountCardProps) {
   const format = useNumberFormat();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -138,7 +141,7 @@ export function AccountCard({
 
   return (
     <div
-      onClick={() => onReconcile(account)}
+      onClick={() => (onSelect ? onSelect(account) : onReconcile(account))}
       className="rounded-2xl bg-card border border-border/70 p-4 relative overflow-hidden flex flex-col justify-between hover:border-purple-500/40 hover:shadow-md transition group cursor-pointer min-h-[160px]"
     >
       {/* Left accent color bar */}
@@ -174,6 +177,18 @@ export function AccountCard({
 
           {menuOpen && (
             <div className="absolute right-0 top-8 w-44 rounded-xl bg-popover border border-border shadow-xl py-1 z-30 flex flex-col text-xs font-semibold">
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuOpen(false);
+                  if (onSelect) onSelect(account);
+                  else onReconcile(account);
+                }}
+                className="px-3.5 py-2 text-left text-foreground hover:bg-muted flex items-center gap-2 transition"
+              >
+                <ArrowRight className="w-3.5 h-3.5 text-purple-400" />
+                <span>Ver detalle</span>
+              </button>
               <button
                 type="button"
                 onClick={() => {

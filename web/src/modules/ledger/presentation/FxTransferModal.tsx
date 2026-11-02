@@ -21,7 +21,7 @@ interface FxTransferModalProps {
   onConfirmTransfer: (data: {
     fromAccountId: string;
     toAccountId: string;
-    amount: number;
+    amount: string;
     description: string;
   }) => Promise<void>;
   onOpenCreateAccount?: () => void;
@@ -91,20 +91,34 @@ export function FxTransferModal({
     targetAmountDecimal = amountDecimal;
   }
 
-  const isValid = amountDecimal.gt(0);
+  const sameAccountError =
+    fromAccountId && toAccountId && fromAccountId === toAccountId
+      ? "La cuenta de origen y destino deben ser distintas."
+      : undefined;
+  const accountsResolve =
+    accounts.some((account) => account.id === fromAccountId) &&
+    accounts.some((account) => account.id === toAccountId);
+  const isInsufficientFunds = Boolean(
+    amountDecimal.gt(0) && fromAccount && amountDecimal.gt(new Decimal(fromAccount.balance.toString()))
+  );
+  const isValid = amountDecimal.gt(0) && accountsResolve && !sameAccountError && !isInsufficientFunds;
   const amountError =
-    amountStr !== "" && !isValid ? "Ingresá un monto mayor a 0." : undefined;
+    amountStr !== "" && !amountDecimal.gt(0)
+      ? "Ingresá un monto mayor a 0."
+      : isInsufficientFunds
+      ? "El saldo de la cuenta de origen es insuficiente."
+      : undefined;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!fromAccountId || !toAccountId || amountDecimal.lte(0)) return;
+    if (!isValid || isInsufficientFunds) return;
 
     try {
       setLoading(true);
       await onConfirmTransfer({
         fromAccountId,
         toAccountId,
-        amount: amountDecimal.toNumber(), // API contract requires a number
+        amount: amountStr,
         description: `Conversión FX ${fromAccount?.currency} ➔ ${toAccount?.currency} (Tasa P2P ${p2pRate.toFixed(2)})`,
       });
       setAmountStr("");
@@ -186,7 +200,7 @@ export function FxTransferModal({
                 />
               )}
             </FormField>
-            <FormField label="Cuenta destino">
+            <FormField label="Cuenta destino" error={sameAccountError}>
               {(control) => (
                 <SelectField
                   {...control}

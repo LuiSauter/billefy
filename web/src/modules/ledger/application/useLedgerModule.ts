@@ -128,7 +128,14 @@ export function useLedgerModule(http: IHttpClient | null) {
         destinationAmount: converted.toFixed(2),
         description: cmd.description,
       });
-      await refreshLedger();
+      try {
+        await refreshLedger();
+      } catch {
+        notify.error(
+          "Transferencia registrada",
+          "No se pudo actualizar el resumen de cuentas. No vuelvas a enviar la transferencia; actualiza los datos."
+        );
+      }
     },
     [repo, accountsMap, refreshLedger]
   );

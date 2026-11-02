@@ -6,11 +6,11 @@ import {
   Landmark,
   Plus,
   PieChart,
+  Target,
   ArrowLeftRight,
   Ellipsis,
   TrendingUp,
   HandCoins,
-  SlidersHorizontal,
   Settings,
 } from "lucide-react";
 import { NavigationTab } from "./Sidebar";
@@ -26,15 +26,14 @@ export function MobileBottomNav({
   activeTab,
   onTabChange,
   onOpenQuickTxn,
-  planEnabled = false,
+  planEnabled,
 }: MobileBottomNavProps) {
+  void planEnabled;
   const [moreOpen, setMoreOpen] = useState(false);
   const moreItems: { id: NavigationTab; label: string; icon: typeof TrendingUp }[] = [
     { id: "inversiones", label: "Inversiones", icon: TrendingUp },
     { id: "prestamos", label: "Préstamos", icon: HandCoins },
-    ...(planEnabled
-      ? [{ id: "plan" as NavigationTab, label: "Plan de distribución", icon: SlidersHorizontal }]
-      : []),
+    { id: "metas", label: "Metas", icon: Target },
     { id: "recurrentes", label: "Fijos & FX", icon: ArrowLeftRight },
     { id: "configuracion", label: "Configuración", icon: Settings },
   ];
@@ -73,15 +72,17 @@ export function MobileBottomNav({
         <Plus className="w-6 h-6 stroke-[2.5]" />
       </button>
 
-      {/* 4. Presupuestos & Metas */}
+      {/* 4. Presupuesto */}
       <button
         onClick={() => onTabChange("presupuestos")}
         className={`flex flex-col items-center gap-1 py-1 px-2.5 rounded-xl transition ${
-          activeTab === "presupuestos" ? "text-primary" : "text-muted-foreground hover:text-foreground"
+          activeTab === "presupuestos" || activeTab === "plan"
+            ? "text-primary"
+            : "text-muted-foreground hover:text-foreground"
         }`}
       >
         <PieChart className="w-5 h-5 stroke-[2.2]" />
-        <span className="text-xs font-bold">Metas</span>
+        <span className="text-xs font-bold">Presupuesto</span>
       </button>
 
       {/* 5. More */}

@@ -2,6 +2,7 @@ export interface CreateBudgetRequest { limitAmount: number; currency: string; ca
 export interface UpdateBudgetRequest { limitAmount: number; /** Fraction in (0, 1], e.g. 0.8 for 80%. */ alertThreshold: number; }
 export interface BudgetDto { id: string; categoryId?: string; period: string; limitAmount: number; currency: string; alertThreshold: number; spentAmount: number; remainingAmount: number; percentageUsed: number; isAlertTriggered: boolean; isExceeded: boolean; isActive: boolean; createdAt: string; }
 export interface CreateGoalRequest { name: string; targetAmount: number; currency: string; targetDate?: string; accountId?: string; }
+export interface UpdateGoalRequest { name: string; targetAmount: number; targetDate?: string; accountId?: string; }
 export type GoalTrackingStatus = "tracked" | "unlinked" | "unavailable" | "currency_mismatch";
 export interface GoalDto {
   id: string; accountId?: string | null; accountName?: string | null; trackingStatus: GoalTrackingStatus; sharedGoalCount: number;
@@ -23,6 +24,7 @@ export interface IPlanningRepository {
   updateBudget(id: string, req: UpdateBudgetRequest): Promise<void>;
   deleteBudget(id: string): Promise<{ message: string }>;
   createGoal(req: CreateGoalRequest): Promise<{ id: string }>;
+  updateGoal(id: string, req: UpdateGoalRequest): Promise<{ message: string }>;
   getGoals(): Promise<GoalDto[]>;
   deleteGoal(id: string): Promise<{ message: string }>;
   getFinancialHealth(): Promise<FinancialHealthDto>;

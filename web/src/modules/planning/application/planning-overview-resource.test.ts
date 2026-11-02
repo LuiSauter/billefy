@@ -5,7 +5,7 @@ import { IPlanningRepository } from "../domain/planning.types";
 const goal = { id: "g", accountId: "a", accountName: "Caja", trackingStatus: "tracked", sharedGoalCount: 1, name: "Viaje", targetAmount: 100, currency: "BOB", currentAmount: 25, remainingAmount: 75, percentageAchieved: 25, monthsRemaining: null, monthlyContributionNeeded: null, createdAt: "2026-01-01" };
 const health = { monthStartUtc: "2026-05-01T00:00:00Z", monthEndUtcExclusive: "2026-06-01T00:00:00Z", currencies: [{ currency: "BOB", monthlyIncome: 100, monthlyExpenses: 120, netCashFlow: -20, savingsRatePercentage: -20, currentBalance: 10, outstandingDebtPrincipal: 5 }] };
 function repo(overrides: Partial<IPlanningRepository> = {}): IPlanningRepository {
-  return { getGoals: vi.fn().mockResolvedValue([goal]), getFinancialHealth: vi.fn().mockResolvedValue(health), createGoal: vi.fn(), getBudgets: vi.fn(), createBudget: vi.fn(), updateBudget: vi.fn(), deleteBudget: vi.fn(), deleteGoal: vi.fn(), proposeIncomeDistribution: vi.fn(), ...overrides } as unknown as IPlanningRepository;
+  return { getGoals: vi.fn().mockResolvedValue([goal]), getFinancialHealth: vi.fn().mockResolvedValue(health), createGoal: vi.fn(), updateGoal: vi.fn(), getBudgets: vi.fn(), createBudget: vi.fn(), updateBudget: vi.fn(), deleteBudget: vi.fn(), deleteGoal: vi.fn(), proposeIncomeDistribution: vi.fn(), ...overrides } as unknown as IPlanningRepository;
 }
 
 describe("planning overview resource", () => {

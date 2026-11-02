@@ -42,8 +42,17 @@ export function BudgetsComparisonChart({ budgets }: BudgetsComparisonChartProps)
       <ChartContainer config={chartConfig} className="h-52 w-full">
         <BarChart data={data} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" vertical={false} />
-          <XAxis dataKey="name" tickLine={false} axisLine={false} className="text-xs" />
-          <YAxis tickLine={false} axisLine={false} className="text-xs font-mono" />
+          <XAxis
+            dataKey="name"
+            tickLine={false}
+            axisLine={false}
+            tick={{ fill: "var(--muted-foreground)", fontSize: 11 }}
+          />
+          <YAxis
+            tickLine={false}
+            axisLine={false}
+            tick={{ fill: "var(--muted-foreground)", fontSize: 11 }}
+          />
           <ChartTooltip content={<ChartTooltipContent />} />
           <Bar dataKey="limitAmount" fill="var(--color-limitAmount)" radius={[6, 6, 0, 0]} opacity={0.3} />
           <Bar dataKey="spentAmount" fill="var(--color-spentAmount)" radius={[6, 6, 0, 0]} />

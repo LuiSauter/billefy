@@ -17,6 +17,19 @@ import { useUserCategories } from "@/modules/ledger/application/CategoriesContex
 import { CategoryIconBadge } from "./CategoryIcon";
 import { useNumberFormat } from "@/shared/hooks/use-number-format";
 
+type TransactionListFilter = "ALL" | "Income" | "Expense";
+
+export function getDisplayedTransactions(
+  transactions: TransactionDto[],
+  filterDirection: TransactionListFilter
+): TransactionDto[] {
+  return transactions.filter((txn) =>
+    filterDirection === "ALL"
+      ? true
+      : !txn.isReconciliationAdjustment && txn.direction === filterDirection
+  );
+}
+
 interface TransactionsListProps {
   transactions: TransactionDto[];
   accountsMap: Map<string, AccountDto>;
@@ -83,8 +96,9 @@ export function TransactionsList({
     );
   }, [transactions]);
 
-  const displayedTransactions = activeTransactions.filter((txn) =>
-    filterDirection === "ALL" ? true : txn.direction === filterDirection
+  const displayedTransactions = getDisplayedTransactions(
+    activeTransactions,
+    filterDirection
   );
 
   return (
@@ -148,7 +162,9 @@ export function TransactionsList({
         <div className="flex flex-col divide-y divide-border/60">
           {displayedTransactions.slice(0, 15).map((txn) => {
             const account = accountsMap.get(txn.accountId);
+            const isAdjustment = txn.isReconciliationAdjustment === true;
             const isIncome = txn.direction === "Income";
+            const canEdit = Boolean(onEditTxn) && !isAdjustment;
             const eqUsd = calculateEquivalentUsd(txn);
 
             const parsedText = parseTransactionText(txn.description);
@@ -156,10 +172,11 @@ export function TransactionsList({
               txn.categoryId || parsedText.title
             );
 
-            const displayTitle =
-              parsedText.title ||
-              matchedCategory?.name ||
-              (isIncome ? "Ingreso" : "Gasto");
+            const displayTitle = isAdjustment
+              ? "Ajuste"
+              : parsedText.title ||
+                matchedCategory?.name ||
+                (isIncome ? "Ingreso" : "Gasto");
 
             const rateBadgeText = txn.rateSource
               ? `${txn.rateSource} Bs ${txn.appliedRate?.toFixed(2) || p2pRate.toFixed(2)}`
@@ -170,13 +187,13 @@ export function TransactionsList({
             return (
               <div
                 key={txn.id}
-                onClick={() => onEditTxn?.(txn)}
-                role={onEditTxn ? "button" : undefined}
-                tabIndex={onEditTxn ? 0 : undefined}
+                onClick={() => canEdit && onEditTxn?.(txn)}
+                role={canEdit ? "button" : undefined}
+                tabIndex={canEdit ? 0 : undefined}
                 onKeyDown={(e) => {
-                  if (onEditTxn && (e.key === "Enter" || e.key === " ")) {
+                  if (canEdit && (e.key === "Enter" || e.key === " ")) {
                     e.preventDefault();
-                    onEditTxn(txn);
+                    onEditTxn?.(txn);
                   }
                 }}
                 className="py-3 px-2.5 rounded-xl flex items-center justify-between gap-3 hover:bg-muted/50 transition-colors group cursor-pointer"
@@ -255,7 +272,7 @@ export function TransactionsList({
                     </span>
                   </div>
 
-                  {onEditTxn && (
+                  {canEdit && onEditTxn && (
                     <button
                       type="button"
                       onClick={(e) => {

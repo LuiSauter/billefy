@@ -8,12 +8,12 @@ import {
   Sparkles,
   HandCoins,
   PieChart,
+  Target,
   ArrowLeftRight,
   MessageCircle,
   ArrowDownUp,
   Repeat,
   TrendingUp,
-  SlidersHorizontal,
   Settings,
 } from "lucide-react";
 
@@ -26,6 +26,7 @@ export type NavigationTab =
   | "borradores"
   | "prestamos"
   | "presupuestos"
+  | "metas"
   | "recurrentes"
   | "configuracion";
 
@@ -41,7 +42,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({
-  planEnabled = false,
+  planEnabled,
   activeTab,
   onTabChange,
   draftsCount,
@@ -50,14 +51,12 @@ export function Sidebar({
   onOpenWhatsApp,
   onOpenBinance,
 }: SidebarProps) {
+  void planEnabled;
   const navItems = [
     { id: "inicio" as NavigationTab, label: "Inicio", icon: LayoutDashboard },
     { id: "cuentas" as NavigationTab, label: "Mis Cuentas", icon: Landmark },
     { id: "movimientos" as NavigationTab, label: "Movimientos", icon: ArrowLeftRight },
     { id: "inversiones" as NavigationTab, label: "Inversiones", icon: TrendingUp },
-    ...(planEnabled
-      ? [{ id: "plan" as NavigationTab, label: "Plan de distribución", icon: SlidersHorizontal }]
-      : []),
     {
       id: "borradores" as NavigationTab,
       label: "Borradores",
@@ -65,7 +64,8 @@ export function Sidebar({
       badge: draftsCount > 0 ? draftsCount : undefined,
     },
     { id: "prestamos" as NavigationTab, label: "Préstamos", icon: HandCoins },
-    { id: "presupuestos" as NavigationTab, label: "Presupuestos", icon: PieChart },
+    { id: "presupuestos" as NavigationTab, label: "Presupuesto", icon: PieChart },
+    { id: "metas" as NavigationTab, label: "Metas", icon: Target },
     { id: "recurrentes" as NavigationTab, label: "Arbitraje P2P", icon: ArrowLeftRight },
     { id: "configuracion" as NavigationTab, label: "Configuración", icon: Settings },
   ];
@@ -90,7 +90,9 @@ export function Sidebar({
           <nav className="flex flex-col gap-1">
             {navItems.map((item) => {
               const Icon = item.icon;
-              const isActive = activeTab === item.id;
+              const isActive =
+                activeTab === item.id ||
+                (item.id === "presupuestos" && activeTab === "plan");
               return (
                 <button
                   key={item.id}

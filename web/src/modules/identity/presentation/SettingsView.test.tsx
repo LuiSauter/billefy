@@ -128,6 +128,7 @@ describe("SettingsView presentation", () => {
     expect(html).toContain("Importar CSV");
     expect(html).toContain("Respaldo automático");
     expect(html).toContain("Descargar reporte completo");
+    expect(html).toContain("Borrar datos financieros");
     expect(html).toContain("Eliminar cuenta");
   });
 });

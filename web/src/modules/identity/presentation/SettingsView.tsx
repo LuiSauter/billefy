@@ -66,6 +66,7 @@ export interface SettingsViewProps {
   onOpenWhatsApp: () => void;
   onOpenFxTransfer: () => void;
   onLogout?: () => void;
+  onFinancialDataReset?: () => Promise<void>;
 }
 
 type SettingsTab =
@@ -118,6 +119,7 @@ export function SettingsView({
   onOpenWhatsApp,
   onOpenFxTransfer,
   onLogout,
+  onFinancialDataReset,
 }: SettingsViewProps) {
   const { theme, setTheme } = useTheme();
   const { updatePreferredCurrency } = useAuth();
@@ -132,6 +134,8 @@ export function SettingsView({
   const [sessionsOpen, setSessionsOpen] = useState(false);
   const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
+  const [resetFinancialDataOpen, setResetFinancialDataOpen] = useState(false);
+  const [resettingFinancialData, setResettingFinancialData] = useState(false);
 
   // Form / Settings state
   const numberPreferences = user as (UserDto & { numberGroupingConvention?: "es-BO" | "en-US"; maximumDecimalPlaces?: 0 | 2 | 4 | 6 }) | null | undefined;
@@ -274,25 +278,12 @@ export function SettingsView({
       link.download = `billefy-data-export-${new Date().toISOString().slice(0, 10)}.json`;
       link.click();
       URL.revokeObjectURL(url);
-      notify.success("Exportación lista", "Se descargaron tus datos personales y cuentas.");
+      notify.success("Respaldo descargado", "Se descargaron tus datos personales y financieros.");
     } catch {
-      // Fallback client export
-      const clientExport = {
-        user,
-        settings,
-        exportedAt: new Date().toISOString(),
-        system: "Billefy Web 1.0",
-      };
-      const blob = new Blob([JSON.stringify(clientExport, null, 2)], {
-        type: "application/json",
-      });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `billefy-settings-export-${new Date().toISOString().slice(0, 10)}.json`;
-      link.click();
-      URL.revokeObjectURL(url);
-      notify.success("Exportación descargada", "Se descargaron tus preferencias locales.");
+      notify.error(
+        "No se pudo crear el respaldo",
+        "No descargamos un archivo incompleto. Intenta nuevamente."
+      );
     }
   };
 
@@ -356,6 +347,26 @@ Respaldo automático: ${settings.autoBackup ? "Activado" : "Desactivado"}
       notify.error("Error", "No se pudo procesar la solicitud de baja.");
     } finally {
       setDeletingAccount(false);
+    }
+  };
+
+  const handleResetFinancialData = async () => {
+    setResettingFinancialData(true);
+    try {
+      const token = defaultTokenStorage.getAccessToken();
+      const repo = new IdentityApiRepository(new FetchHttpClient({ authToken: token || undefined }));
+      await repo.resetFinancialData();
+      setResetFinancialDataOpen(false);
+      try {
+        await onFinancialDataReset?.();
+      } catch {
+        // The reset succeeded; data will refresh when the user revisits the dashboard.
+      }
+      notify.success("Datos financieros borrados", "Tu cuenta, perfil y preferencias se conservaron.");
+    } catch {
+      notify.error("No se pudieron borrar los datos", "No se realizó el reinicio. Intenta nuevamente.");
+    } finally {
+      setResettingFinancialData(false);
     }
   };
 
@@ -1405,7 +1416,7 @@ Respaldo automático: ${settings.autoBackup ? "Activado" : "Desactivado"}
               </div>
 
               {/* Row: Descargar reporte completo & Eliminar cuenta */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mt-2.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2.5 mt-2.5">
                 {/* Descargar reporte completo */}
                 <button
                   type="button"
@@ -1424,6 +1435,32 @@ Respaldo automático: ${settings.autoBackup ? "Activado" : "Desactivado"}
                     </span>
                   </div>
                 </button>
+
+                {/* Danger zone: financial-data reset; separate from account deletion. */}
+                <div className="p-3 rounded-xl border border-rose-500/30 bg-rose-500/5 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-8 h-8 rounded-lg bg-rose-500/15 text-rose-500 flex items-center justify-center shrink-0">
+                      <Trash2 className="w-4 h-4" />
+                    </div>
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-xs font-bold text-rose-400 truncate">
+                        Borrar datos financieros
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">
+                        Conserva tu cuenta, perfil y preferencias.
+                      </span>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => setResetFinancialDataOpen(true)}
+                    className="h-7 text-xs font-bold shrink-0 rounded-lg"
+                  >
+                    Borrar
+                  </Button>
+                </div>
 
                 {/* Danger zone: Eliminar cuenta */}
                 <div className="p-3 rounded-xl border border-rose-500/30 bg-rose-500/5 flex items-center justify-between gap-3">
@@ -1620,6 +1657,47 @@ Respaldo automático: ${settings.autoBackup ? "Activado" : "Desactivado"}
               </strong>
               Tus datos financieros serán programados para eliminación permanente. Si inicias sesión
               nuevamente dentro de los próximos 30 días, podrás cancelar la solicitud de baja.
+            </div>
+          </div>
+        </div>
+      </ResponsiveDrawer>
+
+      {/* Separate confirmation: financial records only; never account/profile/preferences. */}
+      <ResponsiveDrawer
+        open={resetFinancialDataOpen}
+        onOpenChange={(open) => !resettingFinancialData && setResetFinancialDataOpen(open)}
+        title="¿Borrar tus datos financieros?"
+        description="Se eliminarán tus registros financieros para que puedas empezar de nuevo."
+        size="sm"
+        footer={
+          <div className="flex justify-end gap-2 w-full">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={resettingFinancialData}
+              onClick={() => setResetFinancialDataOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={resettingFinancialData}
+              onClick={handleResetFinancialData}
+            >
+              {resettingFinancialData ? "Borrando..." : "Confirmar borrado"}
+            </Button>
+          </div>
+        }
+      >
+        <div className="flex flex-col gap-3 py-2 text-xs text-muted-foreground">
+          <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 flex items-start gap-2.5">
+            <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+            <div>
+              <strong className="block text-foreground font-bold mb-1">Esta acción no se puede deshacer.</strong>
+              Se borrarán cuentas, movimientos, datos de importación, préstamos, presupuestos, metas e inversiones.
+              <strong className="block text-foreground font-bold mt-2">Tu cuenta, perfil y preferencias no se borrarán.</strong>
+              Para eliminar tu cuenta completa, usa por separado la opción “Eliminar cuenta”.
             </div>
           </div>
         </div>

@@ -19,6 +19,12 @@ export interface UserDataExportDto {
   user: UserDto;
   exportedAt: string;
   systemVersion: string;
+  financialData: {
+    ledger: Record<string, unknown>;
+    ingestion: Record<string, unknown>;
+    lending: Record<string, unknown>;
+    planning: Record<string, unknown>;
+  };
 }
 
 export interface IIdentityRepository {
@@ -28,6 +34,7 @@ export interface IIdentityRepository {
   updatePreferredCurrency(preferredCurrency: string): Promise<UserDto>;
   logout(refreshToken: string): Promise<void>;
   requestAccountDeletion(): Promise<void>;
+  resetFinancialData(): Promise<void>;
   exportUserData(): Promise<UserDataExportDto>;
 }
 

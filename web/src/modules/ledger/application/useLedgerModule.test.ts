@@ -45,6 +45,15 @@ describe("FX transfer module flow", () => {
     expect(http.post.mock.invocationCallOrder[0]).toBeLessThan(http.get.mock.invocationCallOrder[0]);
   });
 
+  it("does not treat a post-write refresh failure as a failed transfer", async () => {
+    const http = createHttp();
+    vi.mocked(http.get).mockRejectedValueOnce(new Error("refresh unavailable"));
+    const ledger = useLedgerForTest(http);
+
+    await expect(ledger.executeFxTransfer({ fromAccountId: "bob", toAccountId: "usd", amount: "10.00", description: "FX", p2pRate: 12 })).resolves.toBeUndefined();
+    expect(http.post).toHaveBeenCalledTimes(1);
+  });
+
   it("does not refresh after the atomic transfer request fails", async () => {
     const http = createHttp();
     vi.mocked(http.post).mockRejectedValueOnce(new Error("conflict"));

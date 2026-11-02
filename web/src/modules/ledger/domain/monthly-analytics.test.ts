@@ -45,6 +45,19 @@ describe("monthly non-transfer flows", () => {
     expect(getActiveTransactions(legs)).toEqual(legs);
   });
 
+  it("excludes reconciliation adjustments from income, spending, and category analytics while retaining balance changes", () => {
+    const adjustment = Object.assign(txn("reconcile-expense", { amount: new Decimal("2.125") }), { isReconciliationAdjustment: true });
+    const regular = txn("regular-expense", { amount: new Decimal("3.25") });
+    const transactions = [adjustment, regular];
+    expect(sumByMonth(transactions, month, "Expense", rate)).toBe(3.25);
+    expect(categoryTotal(transactions)).toBe("3.25");
+
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-20T12:00:00"));
+    const account: AccountDto = { id: "source", name: "Source", type: "Bank", currency: "BOB", balance: new Decimal("97.875"), createdAt: "2026-01-01" };
+    expect(computeAccountMonthlyChanges([account], [adjustment]).get("source")?.previousBalance).toBe(100);
+  });
+
   it("excludes investment cash entries and their reversals from legacy income and spending analytics", () => {
     const investment = txn("investment", { investmentId: "inv-1", investmentCashKind: "Contribution", amount: new Decimal("90") });
     const disposal = txn("disposal", { direction: "Income", investmentId: "inv-1", investmentCashKind: "Disposal", amount: new Decimal("30") });

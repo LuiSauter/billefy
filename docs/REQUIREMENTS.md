@@ -85,7 +85,7 @@ Each requirement lists the phase that delivers it. "The system shall" means mand
 |---|---|---|
 | TXN-01 | The user shall register an income or expense with account, amount, date, category, and description, in as few taps as possible. | 1 |
 | TXN-02 | The user shall save transaction templates (for example, a usual taxi fare) and create a transaction from a template. | 1 |
-| TXN-03 | The user shall register transfers between their own accounts, including between currencies, as two linked transactions. | 1 |
+| TXN-03 | The user shall register transfers between their own accounts, including between currencies, as two linked transactions. For new transfers and transfer corrections, the source amount shall not exceed the source account's current derived balance; an exact-balance transfer is allowed. This restriction applies only to transfers and does not prohibit ordinary expenses, reconciliations, or existing negative balances. | 1 |
 | TXN-04 | The system shall provide default categories and let users create, rename, and nest their own. | 1 |
 | TXN-05 | Transactions shall be immutable. The user corrects or removes a transaction through a reversal transaction. The interface presents this as editing or deleting. | 1 |
 | TXN-06 | Each transaction shall store the exchange-rate snapshot used when it was created. | 1 |

@@ -21,6 +21,7 @@ interface AccountsMainViewProps {
     accountId: string,
     data: { name: string; iconKey: string; colorKey: string }
   ) => Promise<void>;
+  onSelectAccount?: (account: AccountDto) => void;
 }
 
 export function AccountsMainView({
@@ -30,6 +31,7 @@ export function AccountsMainView({
   onOpenCreateAccountModal,
   onOpenReconcileModal,
   onUpdateAccount,
+  onSelectAccount,
 }: AccountsMainViewProps) {
   const [editingAccount, setEditingAccount] = useState<AccountDto | null>(null);
 
@@ -73,6 +75,7 @@ export function AccountsMainView({
               account={acc}
               onEdit={handleEdit}
               onReconcile={onOpenReconcileModal}
+              onSelect={onSelectAccount}
             />
           ))}
 
@@ -106,7 +109,7 @@ export function AccountsMainView({
             return (
               <div
                 key={acc.id}
-                onClick={() => onOpenReconcileModal(acc)}
+                onClick={() => (onSelectAccount ? onSelectAccount(acc) : onOpenReconcileModal(acc))}
                 className="p-4 flex items-center justify-between gap-4 hover:bg-muted/40 transition cursor-pointer group"
               >
                 <div className="flex items-center gap-3.5 min-w-0">

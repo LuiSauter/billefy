@@ -47,6 +47,7 @@ export interface TransactionDto {
   transferId?: string;
   investmentId?: string;
   investmentCashKind?: "Contribution" | "Disposal";
+  isReconciliationAdjustment?: boolean;
   appliedRate?: number;
   rateSource?: string;
   createdAt: string;

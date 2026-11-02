@@ -3,6 +3,7 @@
 import React, { useMemo } from "react";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { TransactionDto } from "@/modules/ledger/domain/ledger.types";
+import { getActiveFlowTransactions } from "@/modules/ledger/domain/monthly-analytics";
 import {
   ChartConfig,
   ChartContainer,
@@ -46,15 +47,7 @@ export function CashFlowAreaChart({
       ];
     }
 
-    const reversedOriginalIds = new Set<string>();
-    for (const t of transactions) {
-      if (t.reversesId) {
-        reversedOriginalIds.add(t.reversesId);
-      }
-    }
-    const activeTxns = transactions.filter(
-      (t) => !t.reversesId && !reversedOriginalIds.has(t.id)
-    );
+    const activeTxns = getActiveFlowTransactions(transactions);
 
     if (activeTxns.length === 0) {
       return [
@@ -147,9 +140,14 @@ export function CashFlowAreaChart({
             tickLine={false}
             axisLine={false}
             tickMargin={8}
-            className="text-xs"
+            tick={{ fill: "var(--muted-foreground)", fontSize: 11 }}
           />
-          <YAxis tickLine={false} axisLine={false} tickMargin={8} className="text-xs font-mono" />
+          <YAxis
+            tickLine={false}
+            axisLine={false}
+            tickMargin={8}
+            tick={{ fill: "var(--muted-foreground)", fontSize: 11 }}
+          />
           <ChartTooltip content={<ChartTooltipContent />} />
           <Area
             type="monotone"

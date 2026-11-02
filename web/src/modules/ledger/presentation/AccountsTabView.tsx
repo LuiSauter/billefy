@@ -10,6 +10,8 @@ import { AccountsHeaderStats } from "./AccountsHeaderStats";
 import { AccountsFilterToolbar, FilterCategory, ViewMode } from "./AccountsFilterToolbar";
 import { AccountsMainView } from "./AccountsMainView";
 import { AccountsAnalyticsSidePanels } from "./AccountsAnalyticsSidePanels";
+import { AccountDetailView } from "./account-detail/AccountDetailView";
+import { EditAccountModal } from "./EditAccountModal";
 
 interface AccountsTabViewProps {
   accounts: AccountDto[];
@@ -24,6 +26,9 @@ interface AccountsTabViewProps {
     accountId: string,
     data: { name: string; iconKey: string; colorKey: string }
   ) => Promise<void>;
+  onOpenRegisterTxnModal?: (account: AccountDto) => void;
+  onEditTxn?: (txn: TransactionDto) => void;
+  onReverseTxn?: (txnId: string) => void;
 }
 
 export function AccountsTabView({
@@ -36,7 +41,12 @@ export function AccountsTabView({
   onOpenCsvModal,
   onOpenReconcileModal,
   onUpdateAccount,
+  onOpenRegisterTxnModal,
+  onEditTxn,
+  onReverseTxn,
 }: AccountsTabViewProps) {
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
+  const [editingAccount, setEditingAccount] = useState<AccountDto | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<FilterCategory>("all");
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
 
@@ -48,6 +58,38 @@ export function AccountsTabView({
     if (selectedCategory === "all") return accounts;
     return accounts.filter((a) => classifyAccountCategory(a) === selectedCategory);
   }, [accounts, selectedCategory]);
+
+  const selectedAccount = useMemo(() => {
+    if (!selectedAccountId) return null;
+    return accounts.find((a) => a.id === selectedAccountId) || null;
+  }, [accounts, selectedAccountId]);
+
+  // If an account is selected, render the detailed account view
+  if (selectedAccount) {
+    return (
+      <>
+        <AccountDetailView
+          account={selectedAccount}
+          transactions={transactions}
+          onBack={() => setSelectedAccountId(null)}
+          onOpenReconcileModal={onOpenReconcileModal}
+          onOpenEditAccountModal={(acc) => setEditingAccount(acc)}
+          onOpenRegisterTxnModal={onOpenRegisterTxnModal}
+          onEditTxn={onEditTxn}
+          onReverseTxn={onReverseTxn}
+          p2pRate={p2pRate}
+        />
+
+        {editingAccount && (
+          <EditAccountModal
+            account={editingAccount}
+            onClose={() => setEditingAccount(null)}
+            onSubmit={onUpdateAccount || (async () => {})}
+          />
+        )}
+      </>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -80,6 +122,7 @@ export function AccountsTabView({
             onOpenCreateAccountModal={onOpenCreateAccountModal}
             onOpenReconcileModal={onOpenReconcileModal}
             onUpdateAccount={onUpdateAccount}
+            onSelectAccount={(acc) => setSelectedAccountId(acc.id)}
           />
         </div>
 
@@ -94,6 +137,14 @@ export function AccountsTabView({
           />
         </div>
       </div>
+
+      {editingAccount && (
+        <EditAccountModal
+          account={editingAccount}
+          onClose={() => setEditingAccount(null)}
+          onSubmit={onUpdateAccount || (async () => {})}
+        />
+      )}
     </div>
   );
 }

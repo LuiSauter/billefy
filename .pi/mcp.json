@@ -2,13 +2,17 @@
   "mcpServers": {
     "shadcn": {
       "command": "npx",
-      "args": ["shadcn@latest", "mcp"],
+      "args": [
+        "shadcn@latest",
+        "mcp"
+      ],
       "cwd": "web",
       "description": "shadcn registry MCP server to browse, search, and install components"
     },
     "openpencil": {
       "type": "http",
-      "url": "http://127.0.0.1:3100/mcp"
+      "url": "http://127.0.0.1:3100/mcp",
+      "enabled": false
     }
   }
 }

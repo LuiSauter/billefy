@@ -48,8 +48,17 @@ export function LendingOverviewChart({ loans }: LendingOverviewChartProps) {
       <ChartContainer config={chartConfig} className="h-48 w-full">
         <BarChart data={data} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" vertical={false} />
-          <XAxis dataKey="name" tickLine={false} axisLine={false} className="text-xs" />
-          <YAxis tickLine={false} axisLine={false} className="text-xs font-mono" />
+          <XAxis
+            dataKey="name"
+            tickLine={false}
+            axisLine={false}
+            tick={{ fill: "var(--muted-foreground)", fontSize: 11 }}
+          />
+          <YAxis
+            tickLine={false}
+            axisLine={false}
+            tick={{ fill: "var(--muted-foreground)", fontSize: 11 }}
+          />
           <ChartTooltip content={<ChartTooltipContent />} />
           <Bar dataKey="principal" fill="var(--color-principal)" radius={[6, 6, 0, 0]} opacity={0.35} />
           <Bar dataKey="remainingPrincipal" fill="var(--color-remainingPrincipal)" radius={[6, 6, 0, 0]} />

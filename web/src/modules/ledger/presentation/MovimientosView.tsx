@@ -21,12 +21,11 @@ import {
   Tag,
   TrendingUp,
 } from "lucide-react";
-import { AccountDto, RegisterTransferRequest, TransactionDto } from "../domain/ledger.types";
+import { AccountDto, TransactionDto } from "../domain/ledger.types";
 import { MovementKind } from "../domain/movement";
 import { useMovements } from "../application/useMovements";
 import { MovementActions } from "./MovementActions";
-import { MovementTransferModal } from "./MovementTransferModal";
-import { LedgerApiRepository } from "../infrastructure/ledger-api.repository";
+import { FxTransferModal } from "./FxTransferModal";
 import { useUserCategories } from "../application/CategoriesContext";
 import { IHttpClient } from "@/shared/application/http-client.contract";
 import { InvestmentsController } from "@/modules/investments/application/useInvestments";
@@ -56,6 +55,13 @@ export interface MovimientosViewProps {
   investmentsController: InvestmentsController;
   selectedCurrency?: "BOB" | "USD";
   p2pRate?: number;
+  onExecuteFxTransfer: (command: {
+    fromAccountId: string;
+    toAccountId: string;
+    amount: string;
+    description: string;
+    p2pRate: number;
+  }) => Promise<void>;
   onEditTxn?: (transaction: TransactionDto) => void;
 }
 
@@ -98,6 +104,8 @@ const kindLabel = (kind: MovementKind, investmentCashKind?: string) =>
     ? "Gasto"
     : kind === "Transfer"
     ? "Transferencia"
+    : kind === "Adjustment"
+    ? "Ajuste de conciliación"
     : investmentCashKind === "Contribution"
     ? "Aporte de inversión"
     : "Retiro de inversión";
@@ -129,6 +137,8 @@ const movementIcon = (kind: MovementKind) =>
     ? ArrowUp
     : kind === "Transfer"
     ? ArrowLeftRight
+    : kind === "Adjustment"
+    ? Landmark
     : TrendingUp;
 
 export function MovimientosView({
@@ -139,6 +149,7 @@ export function MovimientosView({
   investmentsController,
   selectedCurrency = "BOB",
   p2pRate = 9.85,
+  onExecuteFxTransfer,
   onEditTxn,
 }: MovimientosViewProps) {
   const { categories } = useUserCategories();
@@ -216,12 +227,6 @@ export function MovimientosView({
         "El efectivo de inversión se guardó o revirtió, pero no se pudo actualizar la lista de inversiones. No lo vuelvas a enviar; recarga la página."
       );
     }
-  };
-
-  const registerTransfer = async (request: RegisterTransferRequest) => {
-    if (!http) throw new Error("No hay conexión disponible.");
-    await new LedgerApiRepository(http).registerTransfer(request);
-    await refreshAfterWrite();
   };
 
   const summaries = useMemo(() => data?.summary || [], [data?.summary]);
@@ -319,6 +324,14 @@ export function MovimientosView({
 
         <div className="flex items-center gap-2">
           <Button
+            onClick={() => setTransferOpen(true)}
+            variant="outline"
+            className="h-10 rounded-xl border-violet-500/40 px-4 font-semibold text-violet-200 hover:bg-violet-500/10"
+          >
+            <ArrowLeftRight className="size-4" aria-hidden="true" />
+            <span>Transferencia</span>
+          </Button>
+          <Button
             onClick={onRegister}
             className="h-10 rounded-xl bg-[#7c3aed] px-5 font-semibold text-white shadow-lg shadow-purple-950/40 hover:bg-[#6d28d9] active:scale-[0.98]"
           >
@@ -337,13 +350,6 @@ export function MovimientosView({
               </span>
             </summary>
             <div className="absolute right-0 z-30 mt-2 grid min-w-56 gap-1 rounded-xl border border-border bg-card p-2 shadow-2xl">
-              <button
-                type="button"
-                onClick={() => setTransferOpen(true)}
-                className="rounded-lg px-3 py-2 text-left text-sm font-medium hover:bg-muted"
-              >
-                Registrar transferencia
-              </button>
               <button
                 type="button"
                 onClick={() => setCashOpen(true)}
@@ -376,7 +382,7 @@ export function MovimientosView({
                     {title}
                   </span>
                   <div className="mt-1 flex items-baseline gap-2">
-                    <span className="text-xl font-bold tracking-tight text-white lg:text-2xl tabular-nums">
+                    <span className="text-md font-bold tracking-tight text-white lg:text-lg tabular-nums">
                       {summaries.length > 0
                         ? formatCurrencyAmount(amount, selectedCurrency, formatNumber)
                         : "—"}
@@ -467,6 +473,7 @@ export function MovimientosView({
           <NativeSelectOption value="Expense">Gasto</NativeSelectOption>
           <NativeSelectOption value="Transfer">Transferencia</NativeSelectOption>
           <NativeSelectOption value="Investment">Inversión</NativeSelectOption>
+          <NativeSelectOption value="Adjustment">Ajuste de conciliación</NativeSelectOption>
         </NativeSelect>
 
         {/* Search Input */}
@@ -648,6 +655,8 @@ export function MovimientosView({
                             ? "expense"
                             : m.kind === "Transfer"
                             ? "transfer"
+                            : m.kind === "Adjustment"
+                            ? "default"
                             : "investment"
                         }
                         className="rounded-full px-2.5 py-0.5 text-xs font-semibold"
@@ -867,6 +876,8 @@ export function MovimientosView({
                           ? "expense"
                           : selected.kind === "Transfer"
                           ? "transfer"
+                          : selected.kind === "Adjustment"
+                          ? "default"
                           : "investment"
                       }
                       className="rounded-full px-2.5 py-0.5 text-xs font-semibold"
@@ -1020,11 +1031,15 @@ export function MovimientosView({
       )}
 
       {/* Modals for secondary actions */}
-      <MovementTransferModal
+      <FxTransferModal
         isOpen={transferOpen}
         accounts={accounts}
+        p2pRate={p2pRate}
         onClose={() => setTransferOpen(false)}
-        onSubmit={registerTransfer}
+        onConfirmTransfer={async (data) => {
+          await onExecuteFxTransfer({ ...data, p2pRate });
+          reload();
+        }}
       />
       <InvestmentCashModal
         open={cashOpen}

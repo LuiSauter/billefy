@@ -44,14 +44,14 @@ const ModalsContainer = dynamic(() =>
 const InvestmentsView = dynamic(() =>
   import("@/modules/investments/presentation/InvestmentsView").then((m) => m.InvestmentsView)
 );
-const DistributionPlanView = dynamic(() =>
-  import("@/modules/planning/presentation/DistributionPlanView").then(
-    (m) => m.DistributionPlanView
-  )
-);
 const SettingsView = dynamic(() =>
   import("@/modules/identity/presentation/SettingsView").then(
     (m) => m.SettingsView
+  )
+);
+const GoalsTabView = dynamic(() =>
+  import("@/modules/planning/presentation/GoalsTabView").then(
+    (m) => m.GoalsTabView
   )
 );
 
@@ -241,14 +241,6 @@ export default function DashboardPage() {
             <InvestmentsView controller={investmentsCtl} p2pRate={p2pRate} accounts={dashboard.accounts} onCashComplete={dashboard.refreshLedger} />
           )}
 
-          {activeTab === "plan" && (
-            <DistributionPlanView
-              controller={planCtl}
-              transactions={dashboard.transactions}
-              p2pRate={p2pRate}
-            />
-          )}
-
           {activeTab === "movimientos" && (
             <MovimientosView
               http={planningHttp}
@@ -258,6 +250,7 @@ export default function DashboardPage() {
               investmentsController={investmentsCtl}
               selectedCurrency={selectedCurrency}
               p2pRate={p2pRate}
+              onExecuteFxTransfer={dashboard.executeFxTransfer}
               onEditTxn={modals.openEditTransaction}
             />
           )}
@@ -273,6 +266,9 @@ export default function DashboardPage() {
               onOpenCsvModal={() => modals.setIsCsvModalOpen(true)}
               onOpenReconcileModal={modals.openReconcile}
               onUpdateAccount={dashboard.updateAccount}
+              onOpenRegisterTxnModal={() => modals.setIsTxnModalOpen(true)}
+              onEditTxn={modals.openEditTransaction}
+              onReverseTxn={dashboard.reverseTransaction}
             />
           )}
 
@@ -286,9 +282,10 @@ export default function DashboardPage() {
             />
           )}
 
-          {activeTab === "presupuestos" && (
+          {activeTab === "plan" && (
             <BudgetsTabView
               plan={planCtl.plan}
+              planController={planCtl}
               planStatus={planCtl.loadStatus}
               onRetryPlan={planCtl.reloadPlan}
               budgets={dashboard.budgets}
@@ -303,9 +300,56 @@ export default function DashboardPage() {
               goals={dashboard.goals}
               health={dashboard.health}
               budgetMetrics={budgetMetrics}
+              transactions={dashboard.transactions}
+              p2pRate={p2pRate}
+              selectedCurrency={selectedCurrency}
               onOpenCreateBudgetModal={() => modals.setIsBudgetModalOpen(true)}
               onOpenCreateGoalModal={() => modals.setIsGoalModalOpen(true)}
               onOpenAccounts={() => setActiveTab("cuentas")}
+            />
+          )}
+
+          {activeTab === "presupuestos" && (
+            <BudgetsTabView
+              plan={planCtl.plan}
+              planController={planCtl}
+              planStatus={planCtl.loadStatus}
+              onRetryPlan={planCtl.reloadPlan}
+              budgets={dashboard.budgets}
+              budgetsLoading={dashboard.budgetsLoading}
+              budgetsError={dashboard.budgetsError}
+              onRetryBudgets={() => void dashboard.refreshBudgets()}
+              goalsLoading={dashboard.planningOverviewStatus === "loading"}
+              overviewError={dashboard.planningOverviewError}
+              overviewLoading={dashboard.planningOverviewStatus === "loading" || dashboard.planningOverviewStatus === "refreshing"}
+              onRetryOverview={() => void dashboard.retryPlanningOverview()}
+              onUpdateBudget={dashboard.updateBudget}
+              goals={dashboard.goals}
+              health={dashboard.health}
+              budgetMetrics={budgetMetrics}
+              transactions={dashboard.transactions}
+              p2pRate={p2pRate}
+              selectedCurrency={selectedCurrency}
+              onOpenCreateBudgetModal={() => modals.setIsBudgetModalOpen(true)}
+              onOpenCreateGoalModal={() => modals.setIsGoalModalOpen(true)}
+              onOpenAccounts={() => setActiveTab("cuentas")}
+            />
+          )}
+
+          {activeTab === "metas" && (
+            <GoalsTabView
+              goals={dashboard.goals}
+              accounts={dashboard.accounts}
+              loading={dashboard.planningOverviewStatus === "loading"}
+              error={dashboard.planningOverviewError}
+              onRetry={() => void dashboard.retryPlanningOverview()}
+              onOpenCreateGoalModal={() => modals.setIsGoalModalOpen(true)}
+              onOpenAccounts={() => setActiveTab("cuentas")}
+              onOpenPlan={() => setActiveTab("presupuestos")}
+              onUpdateGoal={dashboard.updateGoal}
+              onDeleteGoal={dashboard.deleteGoal}
+              selectedCurrency={selectedCurrency}
+              p2pRate={p2pRate}
             />
           )}
 
@@ -330,6 +374,7 @@ export default function DashboardPage() {
               onOpenWhatsApp={() => modals.setIsWhatsAppModalOpen(true)}
               onOpenFxTransfer={() => modals.setIsFxTransferOpen(true)}
               onLogout={logout}
+              onFinancialDataReset={dashboard.refreshFinancialData}
             />
           )}
         </main>

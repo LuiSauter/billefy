@@ -8,6 +8,7 @@ vi.mock("react", async (importOriginal) => { const actual = await importOriginal
 vi.mock("../application/useMovements", () => ({ useMovements: (_http: unknown, query: unknown) => { getMovements(query); return { data: screenState.data ?? pageData, loading: screenState.loading, error: screenState.error, reload: reloadMovements }; } }));
 vi.mock("../application/CategoriesContext", () => ({ useUserCategories: () => ({ categories: [{ id: "cat-1", name: "Comida" }, { id: "cat-2", name: "Casa" }] }) }));
 import { MovimientosView } from "./MovimientosView";
+import { FxTransferModal } from "./FxTransferModal";
 
 const pageData: MovementPage = parseMovementPage({ page: 1, pageSize: 10, totalCount: 11, summary: [{ currency: "BOB", income: "20", expenses: "8.25", transferOut: "2", transferIn: "3", contributions: "4", disposals: "5" }, { currency: "USD", income: "5", expenses: "2", transferOut: "6", transferIn: "7", contributions: "8", disposals: "9" }], items: [
   { id: "m1", kind: "Expense", amount: "8.25", currency: "BOB", direction: "Expense", occurredAt: "2026-03-04T10:00:00Z", accountId: "a1", accountName: "Banco", categoryId: "cat-1", categoryName: "Comida", description: "Compra", isReversal: false, legs: [], allocations: [{ categoryId: "cat-1", categoryName: "Comida", amount: "5.25" }, { categoryId: "cat-2", categoryName: "Casa", amount: "3.00" }] },
@@ -16,13 +17,25 @@ const pageData: MovementPage = parseMovementPage({ page: 1, pageSize: 10, totalC
 ] });
 const accounts = [{ id: "a1", name: "Banco", type: "Bank", currency: "BOB", balance: 0, createdAt: "2026-01-01" }] as unknown as AccountDto[];
 const investmentsController = { investments: [{ id: "inv-1", name: "Bitcoin" }], recordCash: vi.fn(), reverseCash: vi.fn().mockResolvedValue({}), refreshAfterCash: vi.fn().mockResolvedValue(undefined) } as never;
-function render(onRegister = vi.fn(), onRefresh?: () => Promise<void>, http: unknown = {}, selectedCurrency: "BOB" | "USD" = "BOB", p2pRate = 10) { cursor = 0; return MovimientosView({ http: http as never, accounts, onRegister, onRefresh, investmentsController, selectedCurrency, p2pRate }); }
+function render(onRegister = vi.fn(), onRefresh?: () => Promise<void>, http: unknown = {}, selectedCurrency: "BOB" | "USD" = "BOB", p2pRate = 10, onExecuteFxTransfer = vi.fn().mockResolvedValue(undefined)) { cursor = 0; return MovimientosView({ http: http as never, accounts, onRegister, onRefresh, investmentsController, selectedCurrency, p2pRate, onExecuteFxTransfer }); }
 function nodes(tree: unknown): Array<{ type?: unknown; props: Record<string, unknown> }> { if (Array.isArray(tree)) return tree.flatMap(nodes); if (!tree || typeof tree !== "object") return []; const element = tree as { type?: unknown; props?: Record<string, unknown> }; const props = element.props || {}; return [{ type: element.type, props }, ...nodes(props.children)]; }
 function text(tree: unknown): string { if (Array.isArray(tree)) return tree.map(text).join(" "); if (tree === null || tree === undefined || typeof tree === "boolean") return ""; if (typeof tree !== "object") return String(tree); return text((tree as { props?: { children?: unknown } }).props?.children); }
 function find(tree: unknown, predicate: (node: { type?: unknown; props: Record<string, unknown> }) => boolean) { const match = nodes(tree).find(predicate); if (!match) throw new Error(`Expected element not found in: ${text(tree)}`); return match; }
 beforeEach(() => { slots.splice(0); getMovements.mockClear(); reloadMovements.mockClear(); screenState.loading = false; screenState.error = null; screenState.data = null; });
 
 describe("MovimientosView interactions", () => {
+  it("renders reconciliation as a distinct adjustment without changing income or expense totals", () => {
+    screenState.data = parseMovementPage({ page: 1, pageSize: 10, totalCount: 1, summary: [{ currency: "BOB", income: "20", expenses: "8.25" }], items: [
+      { id: "reconcile-tx", kind: "Adjustment", isReconciliationAdjustment: true, amount: "2.125", currency: "BOB", direction: "Expense", occurredAt: "2026-03-02T10:00:00Z", accountId: "a1", accountName: "Banco", description: "Balance correction", isReversal: false, legs: [], allocations: [] },
+    ] });
+    const tree = render();
+    expect(text(tree)).toContain("Ajuste de conciliación");
+    expect(text(tree)).toContain("Bs. 20,00");
+    expect(text(tree)).toContain("Bs. 8,25");
+    const adjustmentRow = nodes(tree).find(n => n.props.tabIndex === 0 && text(n.props.children).includes("Balance correction"));
+    expect(adjustmentRow).toBeDefined();
+  });
+
   it("renders single selected currency totals (BOB or USD), full allocation and transfer-leg detail", () => {
     // 1. Render in BOB mode
     const treeBob = render(vi.fn(), undefined, {}, "BOB", 10);
@@ -92,15 +105,16 @@ describe("MovimientosView interactions", () => {
     expect(reloadMovements).toHaveBeenCalledTimes(2);
   });
 
-  it("registers transfers through the real repository then refreshes dashboard and movement page", async () => {
-    const post = vi.fn().mockResolvedValue({ outflowId: "out", inflowId: "in" }); const http = { post };
-    const refresh = vi.fn(async()=>{}); let tree = render(vi.fn(), refresh, http);
-    (find(tree,n=>n.type === "button" && text(n.props.children).includes("Registrar transferencia")).props.onClick as () => void)();
-    tree = render(vi.fn(), refresh, http);
-    const modal = nodes(tree).find(n=>typeof n.type === "function" && n.props.isOpen === true && typeof n.props.onSubmit === "function"); if (!modal) throw new Error("Transfer modal child not found");
-    await (modal.props.onSubmit as (request: unknown) => Promise<void>)({ sourceAccountId: "a", sourceAmount: "1.00", destinationAccountId: "b", destinationAmount: "1.00" });
-    expect(post).toHaveBeenCalledWith("/v1/transactions/transfers", expect.objectContaining({ sourceAmount: "1.00", destinationAmount: "1.00" }));
-    expect(refresh).toHaveBeenCalledOnce(); expect(reloadMovements).toHaveBeenCalledOnce();
+  it("opens the shared FX transfer modal and delegates confirmation with the current P2P rate", async () => {
+    const executeFxTransfer = vi.fn().mockResolvedValue(undefined);
+    let tree = render(vi.fn(), undefined, {}, "BOB", 12.5, executeFxTransfer);
+    (find(tree,n=>typeof n.type === "function" && text(n.props.children).includes("Transferencia")).props.onClick as () => void)();
+    tree = render(vi.fn(), undefined, {}, "BOB", 12.5, executeFxTransfer);
+    const modal = nodes(tree).find(n=>n.type === FxTransferModal && n.props.isOpen === true);
+    if (!modal) throw new Error("FxTransferModal child not found");
+    await (modal.props.onConfirmTransfer as (data: { fromAccountId: string; toAccountId: string; amount: string; description: string }) => Promise<void>)({ fromAccountId: "a", toAccountId: "b", amount: "10.00", description: "FX transfer" });
+    expect(executeFxTransfer).toHaveBeenCalledWith({ fromAccountId: "a", toAccountId: "b", amount: "10.00", description: "FX transfer", p2pRate: 12.5 });
+    expect(reloadMovements).toHaveBeenCalledOnce();
   });
 
   it("serializes month, filters, audit, search and pagination; filter changes reset page and selection", () => {

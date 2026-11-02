@@ -47,6 +47,10 @@ export class IdentityApiRepository implements IIdentityRepository {
     await this.http.delete<void>("/api/v1/auth/account");
   }
 
+  async resetFinancialData(): Promise<void> {
+    await this.http.delete<void>("/api/v1/auth/financial-data");
+  }
+
   async exportUserData(): Promise<UserDataExportDto> {
     return this.http.get<UserDataExportDto>("/api/v1/auth/export");
   }

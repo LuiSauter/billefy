@@ -91,6 +91,7 @@ export function useDashboardData(authToken?: string | null, authUserId?: string 
 
   return {
     userId: authUserId || "",
+    refreshFinancialData: loadData,
     accounts: ledger.accounts,
     accountsMap: ledger.accountsMap,
     transactions: ledger.transactions,
@@ -132,6 +133,8 @@ export function useDashboardData(authToken?: string | null, authUserId?: string 
     createBudget: planning.createBudget,
     updateBudget: planning.updateBudget,
     createGoal: planning.createGoal,
+    updateGoal: planning.updateGoal,
+    deleteGoal: planning.deleteGoal,
     proposeIncomeDistribution: planning.proposeIncomeDistribution,
     linkWhatsApp: messaging.linkWhatsApp,
     sendWhatsAppWebhook: messaging.sendWhatsAppWebhook,

@@ -198,7 +198,7 @@ export function AccountsAnalyticsSidePanels({
         {/* Highlight pill of current total */}
         {latestPoint && (
           <div className="flex justify-end">
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-bold bg-purple-600/20 text-purple-300 border border-purple-500/40 shadow-xs font-mono">
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-bold bg-purple-500/10 text-purple-600 dark:text-purple-300 border border-purple-500/30 shadow-xs font-mono">
               $ {format(latestPoint.balance)}
             </span>
           </div>
@@ -216,14 +216,12 @@ export function AccountsAnalyticsSidePanels({
               </defs>
               <XAxis
                 dataKey="month"
-                stroke="#64748b"
-                fontSize={11}
+                tick={{ fill: "var(--muted-foreground)", fontSize: 11 }}
                 tickLine={false}
                 axisLine={false}
               />
               <YAxis
-                stroke="#64748b"
-                fontSize={11}
+                tick={{ fill: "var(--muted-foreground)", fontSize: 11 }}
                 tickLine={false}
                 axisLine={false}
                 tickFormatter={formatK}

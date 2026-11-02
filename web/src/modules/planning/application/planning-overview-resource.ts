@@ -43,6 +43,16 @@ export function createPlanningOverviewResource(initialRepository: IPlanningRepos
       await repository.createGoal(request);
       return refresh();
     },
+    async updateGoal(id: string, request: Parameters<IPlanningRepository["updateGoal"]>[1]) {
+      if (!repository) throw new Error("Cliente no inicializado");
+      await repository.updateGoal(id, request);
+      return refresh();
+    },
+    async deleteGoal(id: string) {
+      if (!repository) throw new Error("Cliente no inicializado");
+      await repository.deleteGoal(id);
+      return refresh();
+    },
     replaceRepository(next: IPlanningRepository | null) {
       if (repository === next) return;
       repository = next;
