@@ -11,6 +11,19 @@
     }
   ],
   "paths": {
+    "/v1/currencies": {
+      "get": {
+        "tags": [
+          "Currencies"
+        ],
+        "summary": "Returns globally supported currencies",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/health": {
       "get": {
         "tags": [
@@ -71,6 +84,30 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/RefreshTokenRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/preferred-currency": {
+      "put": {
+        "tags": [
+          "Identity & Authentication (Google OAuth Only)"
+        ],
+        "summary": "Actualiza la moneda base y de visualización del usuario",
+        "operationId": "UpdatePreferredCurrency",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePreferredCurrencyRequest"
               }
             }
           },
@@ -183,6 +220,29 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/RefreshTokenRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/v1/auth/preferred-currency": {
+      "put": {
+        "tags": [
+          "Identity & Authentication (Google OAuth Only)"
+        ],
+        "summary": "Actualiza la moneda base y de visualización del usuario",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePreferredCurrencyRequest"
               }
             }
           },
@@ -1033,6 +1093,16 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         }
       }
@@ -1142,6 +1212,16 @@
           },
           "404": {
             "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2223,13 +2303,145 @@
         }
       }
     },
+    "/v1/planning/investments/{id}/cash/{kind}": {
+      "post": {
+        "tags": [
+          "Planning"
+        ],
+        "summary": "Register an account-affecting investment contribution or disposal without changing valuation.",
+        "operationId": "RegisterInvestmentCash",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InvestmentCashRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvestmentCashResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/planning/investment-cash/{transactionId}/reverse": {
+      "post": {
+        "tags": [
+          "Planning"
+        ],
+        "summary": "Reverse a linked investment cash movement atomically while retaining its audit link.",
+        "operationId": "ReverseInvestmentCash",
+        "parameters": [
+          {
+            "name": "transactionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvestmentCashResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/planning/investments/{id}": {
       "delete": {
         "tags": [
           "Planning"
         ],
-        "summary": "Delete an investment.",
-        "operationId": "DeleteInvestment",
+        "summary": "Archive an investment without deleting linked cash history.",
+        "operationId": "ArchiveInvestment",
         "parameters": [
           {
             "name": "id",
@@ -4125,6 +4337,61 @@
           }
         }
       },
+      "InvestmentCashRequest": {
+        "required": [
+          "accountId",
+          "amount"
+        ],
+        "type": "object",
+        "properties": {
+          "accountId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "amount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "occurredAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "InvestmentCashResult": {
+        "required": [
+          "ledgerTransactionId",
+          "investmentId",
+          "kind"
+        ],
+        "type": "object",
+        "properties": {
+          "ledgerTransactionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "investmentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string"
+          }
+        }
+      },
       "InvestmentDto": {
         "required": [
           "id",
@@ -4202,6 +4469,13 @@
           },
           "createdAt": {
             "type": "string",
+            "format": "date-time"
+          },
+          "archivedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
             "format": "date-time"
           }
         }
@@ -4683,6 +4957,42 @@
               "string"
             ],
             "format": "double"
+          },
+          "transferOut": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double",
+            "default": 0
+          },
+          "transferIn": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double",
+            "default": 0
+          },
+          "contributions": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double",
+            "default": 0
+          },
+          "disposals": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double",
+            "default": 0
           }
         }
       },
@@ -4703,7 +5013,8 @@
           "rateSource",
           "isReversal",
           "reversesId",
-          "legs"
+          "legs",
+          "allocations"
         ],
         "type": "object",
         "properties": {
@@ -4788,6 +5099,25 @@
             "items": {
               "$ref": "#/components/schemas/MovementLegDto"
             }
+          },
+          "allocations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TransactionAllocationDto"
+            }
+          },
+          "investmentId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "investmentCashKind": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -4803,6 +5133,7 @@
           "Income",
           "Expense",
           "Transfer",
+          "Investment",
           null
         ]
       },
@@ -5088,6 +5419,13 @@
           }
         }
       },
+      "RateSide": {
+        "enum": [
+          "Buy",
+          "Sell",
+          null
+        ]
+      },
       "RateSnapshotDto": {
         "required": [
           "appliedRate",
@@ -5114,6 +5452,22 @@
           },
           "isStale": {
             "type": "boolean"
+          },
+          "side": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RateSide"
+              }
+            ]
+          },
+          "valuationBasis": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -5337,6 +5691,15 @@
               "null",
               "string"
             ]
+          },
+          "allocations": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/TransactionAllocationRequest"
+            }
           }
         }
       },
@@ -5631,6 +5994,55 @@
           }
         }
       },
+      "TransactionAllocationDto": {
+        "required": [
+          "categoryId",
+          "categoryName",
+          "amount"
+        ],
+        "type": "object",
+        "properties": {
+          "categoryId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "categoryName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "amount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          }
+        }
+      },
+      "TransactionAllocationRequest": {
+        "required": [
+          "categoryId",
+          "amount"
+        ],
+        "type": "object",
+        "properties": {
+          "categoryId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "amount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          }
+        }
+      },
       "TransactionDirection": {
         "enum": [
           "Income",
@@ -5727,6 +6139,15 @@
           "createdAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "allocations": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/TransactionAllocationDto"
+            }
           }
         }
       },
@@ -5807,6 +6228,17 @@
           }
         }
       },
+      "UpdatePreferredCurrencyRequest": {
+        "required": [
+          "preferredCurrency"
+        ],
+        "type": "object",
+        "properties": {
+          "preferredCurrency": {
+            "type": "string"
+          }
+        }
+      },
       "UpdateTransactionRequest": {
         "required": [
           "accountId",
@@ -5849,6 +6281,15 @@
               "null",
               "string"
             ]
+          },
+          "allocations": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/TransactionAllocationRequest"
+            }
           }
         }
       },
@@ -5912,6 +6353,9 @@
     }
   ],
   "tags": [
+    {
+      "name": "Currencies"
+    },
     {
       "name": "Api"
     },

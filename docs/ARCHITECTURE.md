@@ -89,7 +89,7 @@ Cross-cutting: `audit_log`.
 ### 5.3 Rules between modules
 
 - A module calls another only through its `Contracts` project.
-- No module reads or writes another module's tables directly. Foreign keys across modules may exist in the database, but access goes through contracts.
+- No module reads or writes another module's tables directly. Modules must not add foreign keys across module-owned tables; all cross-module access goes through contracts.
 - Dependencies point inward: `Api` → `Application` → `Domain`. `Domain` depends on nothing but `BuildingBlocks`.
 - Architecture tests fail the build if these rules are broken (see [TESTING.md](TESTING.md)).
 
@@ -104,7 +104,7 @@ Analytics ─► Ledger, Planning, Lending, Fx
 Messaging ─► Ingestion (drafts), Lending (debts)
 Ledger ────► Fx (rate snapshot)
 Notifications ► none of the business modules
-Identity ──► Notifications (deletion confirmation email)
+Identity ──► Notifications (deletion confirmation email), Fx.Contracts (currency catalog only)
 ```
 
 ## 6. Data architecture
