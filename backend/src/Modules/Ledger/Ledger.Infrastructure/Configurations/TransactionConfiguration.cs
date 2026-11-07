@@ -53,6 +53,9 @@ internal sealed class TransactionConfiguration : IEntityTypeConfiguration<Transa
 
         // Composite index for ultra-fast balance calculation (Index-Only Scan)
         builder.HasIndex(t => new { t.UserId, t.AccountId, t.OccurredAt });
+        builder.HasIndex(t => new { t.UserId, t.OccurredAt });
+        builder.HasIndex(t => new { t.UserId, t.CategoryId });
+        builder.HasIndex(t => new { t.UserId, t.TransferId });
         builder.HasIndex(t => t.TransferId);
         builder.HasIndex(t => t.ReversesId)
             .IsUnique()

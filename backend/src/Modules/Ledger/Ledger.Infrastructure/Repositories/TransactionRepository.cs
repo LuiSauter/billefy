@@ -46,6 +46,7 @@ public sealed class TransactionRepository : ITransactionRepository
 
     public async Task<IReadOnlyList<Transaction>> GetByAccountIdAsync(Guid accountId, CancellationToken cancellationToken = default) =>
         await _context.Transactions
+            .AsNoTracking()
             .Where(t => t.AccountId == accountId)
             .OrderByDescending(t => t.OccurredAt)
             .ToListAsync(cancellationToken);

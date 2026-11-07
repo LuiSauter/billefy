@@ -225,6 +225,12 @@ namespace Ledger.Infrastructure.Migrations
 
                     b.HasIndex("TransferId");
 
+                    b.HasIndex("UserId", "CategoryId");
+
+                    b.HasIndex("UserId", "OccurredAt");
+
+                    b.HasIndex("UserId", "TransferId");
+
                     b.HasIndex("UserId", "AccountId", "OccurredAt");
 
                     b.ToTable("transactions", (string)null);

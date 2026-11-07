@@ -23,7 +23,7 @@ public sealed class AccountRepository : IAccountRepository
 
     public async Task<IReadOnlyList<Account>> GetAllAsync(bool includeArchived = false, CancellationToken cancellationToken = default)
     {
-        var query = _context.Accounts.AsQueryable();
+        var query = _context.Accounts.AsNoTracking().AsQueryable();
         if (!includeArchived)
         {
             query = query.Where(a => !a.IsArchived);
@@ -36,6 +36,7 @@ public sealed class AccountRepository : IAccountRepository
     {
         var query = _context.Accounts
             .IgnoreQueryFilters()
+            .AsNoTracking()
             .Where(a => a.UserId == userId);
 
         if (!includeArchived)

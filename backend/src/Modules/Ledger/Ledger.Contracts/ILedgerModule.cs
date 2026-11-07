@@ -20,6 +20,16 @@ public sealed record CreateTransactionFromDraftDto(
     Guid DraftId,
     string? Reference);
 
+public sealed record RegisterRecurringTransactionDto(
+    Guid UserId,
+    Guid AccountId,
+    decimal Amount,
+    string Currency,
+    string Direction,
+    Guid? CategoryId,
+    DateTime OccurredAt,
+    string? Description);
+
 public sealed record MonthlyLedgerMetricsDto(
     decimal TotalIncome,
     decimal TotalExpense,
@@ -61,6 +71,10 @@ public interface ILedgerModule
 
     Task<Guid> CreateTransactionFromDraftAsync(
         CreateTransactionFromDraftDto dto,
+        CancellationToken cancellationToken = default);
+
+    Task<Guid> RegisterRecurringTransactionAsync(
+        RegisterRecurringTransactionDto dto,
         CancellationToken cancellationToken = default);
 
     Task<LoanDisbursementReversalResultDto> ValidateLoanDisbursementReversalAsync(

@@ -96,6 +96,62 @@ public sealed class LedgerModule : ILedgerModule
         return transaction.Id;
     }
 
+    public async Task<Guid> RegisterRecurringTransactionAsync(
+        RegisterRecurringTransactionDto dto,
+        CancellationToken cancellationToken = default)
+    {
+        var account = await _accountRepository.GetByIdForUserAsync(dto.UserId, dto.AccountId, cancellationToken)
+            ?? throw new InvalidOperationException($"Account {dto.AccountId} does not exist or does not belong to the user.");
+
+        if (account.IsArchived)
+            throw new InvalidOperationException($"Account {dto.AccountId} is archived and cannot receive transactions.");
+
+        var direction = Enum.TryParse<TransactionDirection>(dto.Direction, ignoreCase: true, out var parsedDir)
+            ? parsedDir
+            : TransactionDirection.Expense;
+
+        decimal? appliedRate = null;
+        string? rateSource = null;
+
+        if (_rateSnapshotProvider is not null)
+        {
+            var targetBase = account.Currency.Code == "USD" ? "BOB" : "USD";
+            var snapshot = await _rateSnapshotProvider.GetSnapshotAsync(
+                account.Currency.Code,
+                targetBase,
+                dto.UserId,
+                cancellationToken);
+
+            if (snapshot is not null)
+            {
+                appliedRate = snapshot.AppliedRate;
+                rateSource = snapshot.RateSource;
+            }
+        }
+
+        var money = Money.Of(dto.Amount, account.Currency);
+        var description = string.IsNullOrWhiteSpace(dto.Description)
+            ? "Recurring payment"
+            : dto.Description.Trim();
+
+        var transaction = Transaction.Create(
+            dto.UserId,
+            dto.AccountId,
+            money,
+            direction,
+            dto.CategoryId,
+            dto.OccurredAt,
+            description,
+            appliedRate,
+            rateSource,
+            _clock.UtcNow);
+
+        await _transactionRepository.AddAsync(transaction, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return transaction.Id;
+    }
+
     public async Task<InvestmentCashTransactionResultDto> RegisterInvestmentCashAsync(
         InvestmentCashTransactionRequestDto request, CancellationToken cancellationToken = default)
     {
