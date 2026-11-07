@@ -8,6 +8,21 @@ import { CreateInvestmentInput, Investment } from "../domain/investment.types";
 export interface InvestmentCashInput { accountId: string; amount: string; description?: string; occurredAt?: string }
 export interface InvestmentCashResult { ledgerTransactionId: string; investmentId: string; kind: "Contribution" | "Disposal" }
 
+export interface SyncedCryptoAssetDto {
+  asset: string;
+  quantity: number;
+  priceUsdt: number;
+  valueUsdt: number;
+  action: string;
+}
+
+export interface SyncBinancePortfolioResponse {
+  assetsSynced: number;
+  totalValuationUsdt: number;
+  assets: SyncedCryptoAssetDto[];
+  message: string;
+}
+
 export function useInvestments(http: IHttpClient | null) {
   const [investments, setInvestments] = useState<Investment[]>([]);
 
@@ -87,9 +102,42 @@ export function useInvestments(http: IHttpClient | null) {
     [http, refresh]
   );
 
+  const syncBinancePortfolio = useCallback(
+    async (): Promise<SyncBinancePortfolioResponse> => {
+      if (!http) throw new Error("No hay conexión disponible.");
+
+      const res = await http.post<SyncBinancePortfolioResponse>(
+        "/v1/integrations/binance/sync-portfolio",
+        {}
+      );
+
+      await refresh();
+      return res;
+    },
+    [http, refresh]
+  );
+
   return useMemo(
-    () => ({ investments, createInvestment, updateInvestmentValue, deleteInvestment, refreshAfterCash, recordCash, reverseCash }),
-    [investments, createInvestment, updateInvestmentValue, deleteInvestment, refreshAfterCash, recordCash, reverseCash]
+    () => ({
+      investments,
+      createInvestment,
+      updateInvestmentValue,
+      deleteInvestment,
+      refreshAfterCash,
+      recordCash,
+      reverseCash,
+      syncBinancePortfolio,
+    }),
+    [
+      investments,
+      createInvestment,
+      updateInvestmentValue,
+      deleteInvestment,
+      refreshAfterCash,
+      recordCash,
+      reverseCash,
+      syncBinancePortfolio,
+    ]
   );
 }
 

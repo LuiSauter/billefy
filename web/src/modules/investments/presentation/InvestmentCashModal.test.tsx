@@ -6,10 +6,11 @@ import { InvestmentCashModal } from "./InvestmentCashModal";
 import { AccountDto } from "@/modules/ledger/domain/ledger.types";
 
 const accounts = [{ id: "acc", name: "Efectivo", currency: "BOB" }] as AccountDto[];
-const controller = { investments: [{ id: "inv", name: "Bitcoin" }], recordCash: vi.fn(), refreshAfterCash: vi.fn() } as never;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const controller: any = { investments: [{ id: "inv", name: "Bitcoin" }], recordCash: vi.fn(), refreshAfterCash: vi.fn() };
 const onClose = vi.fn(); const onComplete = vi.fn().mockResolvedValue(undefined);
 function render() { cursor = 0; return InvestmentCashModal({ open: true, onClose, controller, accounts, onComplete }); }
-function nodes(tree: unknown): Array<{ type?: unknown; props: Record<string, unknown> }> { if (Array.isArray(tree)) return tree.flatMap(nodes); if (!tree || typeof tree !== "object") return []; const e = tree as { type?: unknown; props?: Record<string, unknown> }; const props = e.props || {}; return [{ type: e.type, props }, ...nodes(props.children)]; }
+function nodes(tree: unknown): Array<{ type?: unknown; props: Record<string, unknown> }> { if (Array.isArray(tree)) return tree.flatMap(nodes); if (!tree || typeof tree !== "object") return []; const e = tree as { type?: unknown; props?: Record<string, unknown> }; const props = e.props || {}; return [{ type: e.type, props }, ...nodes(props.children), ...nodes(props.footer)]; }
 function find(tree: unknown, label: string) { const node = nodes(tree).find(n => n.props["aria-label"] === label); if (!node) throw new Error(`Missing ${label}`); return node; }
 beforeEach(() => { slots.splice(0); controller.recordCash.mockReset(); controller.recordCash.mockResolvedValue({}); controller.refreshAfterCash.mockReset().mockResolvedValue(undefined); onClose.mockReset(); onComplete.mockReset().mockResolvedValue(undefined); });
 
@@ -28,6 +29,19 @@ describe("InvestmentCashModal", () => {
     expect(controller.refreshAfterCash).toHaveBeenCalledOnce(); expect(onComplete).toHaveBeenCalledOnce(); expect(onClose).toHaveBeenCalledOnce();
   });
 
+  it("submits a disposal (retiro) when kind is changed via segmented control", async () => {
+    let tree = render();
+    (find(tree, "Tipo de movimiento de inversión").props.onChange as (v: string) => void)("Disposal");
+    (find(tree, "Activo").props.onChange as (e: unknown) => void)({ target: { value: "inv" } });
+    (find(tree, "Cuenta de efectivo").props.onChange as (e: unknown) => void)({ target: { value: "acc" } });
+    (find(tree, "Monto de inversión").props.onChange as (e: unknown) => void)({ target: { value: "500.00" } });
+    (find(tree, "Descripción del movimiento de inversión").props.onChange as (e: unknown) => void)({ target: { value: "Retiro de ganancias" } });
+    tree = render();
+    const form = nodes(tree).find(n => n.type === "form")!;
+    await (form.props.onSubmit as (e: unknown) => Promise<void>)({ preventDefault: vi.fn() });
+    expect(controller.recordCash).toHaveBeenCalledWith("inv", "Disposal", expect.objectContaining({ accountId: "acc", amount: "500.00", description: "Retiro de ganancias" }));
+  });
+
   it("does not offer a financial retry when the write succeeded but a refresh failed", async () => {
     controller.refreshAfterCash.mockRejectedValueOnce(new Error("refresh offline"));
     let tree = render();
@@ -38,7 +52,7 @@ describe("InvestmentCashModal", () => {
     await submit({ preventDefault: vi.fn() }); await submit({ preventDefault: vi.fn() });
     expect(controller.recordCash).toHaveBeenCalledOnce(); expect(onComplete).not.toHaveBeenCalled();
     tree = render(); expect(nodes(tree).some(n => n.props.role === "alert" && String(n.props.children).includes("No lo vuelvas a enviar"))).toBe(true);
-    expect(nodes(tree).some(n => n.type === "button" && n.props.type === "submit" && n.props.disabled)).toBe(true);
+    expect(nodes(tree).some(n => n.props.type === "submit" && n.props.disabled)).toBe(true);
   });
 
   it("locks double submit and retains entered values when the financial write fails", async () => {

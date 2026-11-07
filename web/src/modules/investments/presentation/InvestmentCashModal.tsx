@@ -1,45 +1,246 @@
 "use client";
+
 import React, { useRef, useState } from "react";
 import Decimal from "decimal.js";
 import { AccountDto } from "@/modules/ledger/domain/ledger.types";
 import { InvestmentsController } from "../application/useInvestments";
+import { ResponsiveDrawer } from "@/shared/ui/responsive-drawer";
+import { Button } from "@/shared/ui/button";
+import { FormField } from "@/shared/ui/form-field";
+import { Input } from "@/shared/ui/input";
+import { SelectField } from "@/shared/ui/select-field";
+import { SegmentedControl, SegmentedOption } from "@/shared/ui/segmented-control";
 
-interface Props { open: boolean; onClose: () => void; controller: InvestmentsController; accounts: AccountDto[]; onComplete: () => Promise<void> }
-const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
-export function InvestmentCashModal({ open, onClose, controller, accounts, onComplete }: Props) {
-  const [investmentId, setInvestmentId] = useState(""); const [accountId, setAccountId] = useState(""); const [kind, setKind] = useState<"Contribution" | "Disposal">("Contribution");
-  const [amount, setAmount] = useState(""); const [occurredAt, setOccurredAt] = useState(today); const [description, setDescription] = useState("");
-  const [pending, setPending] = useState(false); const [error, setError] = useState(""); const [saved, setSaved] = useState(false); const lock = useRef(false);
-  const close = () => { setInvestmentId(""); setAccountId(""); setKind("Contribution"); setAmount(""); setOccurredAt(today()); setDescription(""); setError(""); setSaved(false); lock.current = false; onClose(); };
+interface Props {
+  open: boolean;
+  onClose: () => void;
+  controller: InvestmentsController;
+  accounts: AccountDto[];
+  onComplete: () => Promise<void>;
+}
+
+const FORM_ID = "investment-cash-form";
+
+const today = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+
+const KIND_OPTIONS: SegmentedOption<"Contribution" | "Disposal">[] = [
+  { value: "Contribution", label: "Aporte", tone: "expense" },
+  { value: "Disposal", label: "Retiro", tone: "income" },
+];
+
+export function InvestmentCashModal({
+  open,
+  onClose,
+  controller,
+  accounts,
+  onComplete,
+}: Props) {
+  const [investmentId, setInvestmentId] = useState("");
+  const [accountId, setAccountId] = useState("");
+  const [kind, setKind] = useState<"Contribution" | "Disposal">("Contribution");
+  const [amount, setAmount] = useState("");
+  const [occurredAt, setOccurredAt] = useState(today);
+  const [description, setDescription] = useState("");
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState("");
+  const [saved, setSaved] = useState(false);
+  const lock = useRef(false);
+
+  const close = () => {
+    setInvestmentId("");
+    setAccountId("");
+    setKind("Contribution");
+    setAmount("");
+    setOccurredAt(today());
+    setDescription("");
+    setError("");
+    setSaved(false);
+    lock.current = false;
+    onClose();
+  };
+
   if (!open) return null;
-  const investments = controller.investments.filter((i) => !(i as typeof i & { archivedAt?: string | null }).archivedAt);
+
+  const investments = controller.investments.filter(
+    (i) => !(i as typeof i & { archivedAt?: string | null }).archivedAt
+  );
+
   let validAmount = false;
-  try { validAmount = /^\d+(?:\.\d+)?$/.test(amount.trim()) && new Decimal(amount.trim()).isFinite() && new Decimal(amount.trim()).gt(0); } catch { validAmount = false; }
+  try {
+    validAmount =
+      /^\d+(?:\.\d+)?$/.test(amount.trim()) &&
+      new Decimal(amount.trim()).isFinite() &&
+      new Decimal(amount.trim()).gt(0);
+  } catch {
+    validAmount = false;
+  }
+
   const valid = !!investmentId && !!accountId && !!occurredAt && validAmount;
+  const selectedAccount = accounts.find((a) => a.id === accountId);
+
   const submit = async (event: React.FormEvent) => {
-    event.preventDefault(); if (!valid || lock.current || saved) return;
-    lock.current = true; setPending(true); setError("");
+    event.preventDefault();
+    if (!valid || lock.current || saved) return;
+    lock.current = true;
+    setPending(true);
+    setError("");
+
     try {
-      await controller.recordCash(investmentId, kind, { accountId, amount: amount.trim(), occurredAt: new Date(`${occurredAt}T12:00:00`).toISOString(), ...(description.trim() ? { description: description.trim() } : {}) });
+      await controller.recordCash(investmentId, kind, {
+        accountId,
+        amount: amount.trim(),
+        occurredAt: new Date(`${occurredAt}T12:00:00`).toISOString(),
+        ...(description.trim() ? { description: description.trim() } : {}),
+      });
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "No se pudo guardar el movimiento."); lock.current = false; setPending(false); return;
+      setError(
+        reason instanceof Error ? reason.message : "No se pudo guardar el movimiento."
+      );
+      lock.current = false;
+      setPending(false);
+      return;
     }
+
     setSaved(true);
     try {
       await controller.refreshAfterCash();
       await onComplete();
       close();
     } catch {
-      setError("El movimiento se guardó, pero no se pudieron actualizar los datos. No lo vuelvas a enviar; recarga la página para ver el resultado.");
-    } finally { setPending(false); }
+      setError(
+        "El movimiento se guardó, pero no se pudieron actualizar los datos. No lo vuelvas a enviar; recarga la página para ver el resultado."
+      );
+    } finally {
+      setPending(false);
+    }
   };
-  return <div role="dialog" aria-modal="true" aria-label="Registrar movimiento de inversión" className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4"><form onSubmit={submit} className="w-full max-w-lg space-y-4 rounded-xl border border-border bg-card p-5 text-foreground"><h2 className="text-lg font-semibold">Movimiento de inversión</h2><p className="text-sm text-muted-foreground">El aporte o retiro afecta la cuenta elegida. No cambia el valor ni la cantidad de la inversión.</p>
-    <label className="block text-sm">Activo<select aria-label="Activo" required value={investmentId} onChange={e=>setInvestmentId(e.target.value)} className="mt-1 w-full rounded border border-border bg-background p-2"><option value="">Selecciona una inversión</option>{investments.map(i=><option key={i.id} value={i.id}>{i.name}</option>)}</select></label>
-    <label className="block text-sm">Cuenta de efectivo<select aria-label="Cuenta de efectivo" required value={accountId} onChange={e=>setAccountId(e.target.value)} className="mt-1 w-full rounded border border-border bg-background p-2"><option value="">Selecciona una cuenta</option>{accounts.map(a=><option key={a.id} value={a.id}>{a.name} · {a.currency}</option>)}</select></label>
-    <label className="block text-sm">Tipo<select aria-label="Tipo de movimiento de inversión" value={kind} onChange={e=>setKind(e.target.value as typeof kind)} className="mt-1 w-full rounded border border-border bg-background p-2"><option value="Contribution">Aporte</option><option value="Disposal">Retiro</option></select></label>
-    <label className="block text-sm">Monto (moneda de la cuenta)<input aria-label="Monto de inversión" required inputMode="decimal" value={amount} onChange={e=>setAmount(e.target.value)} className="mt-1 w-full rounded border border-border bg-background p-2" placeholder="0.00" /></label>
-    <label className="block text-sm">Fecha<input aria-label="Fecha del movimiento" type="date" required value={occurredAt} onChange={e=>setOccurredAt(e.target.value)} className="mt-1 w-full rounded border border-border bg-background p-2" /></label>
-    <label className="block text-sm">Descripción (opcional)<input aria-label="Descripción del movimiento de inversión" value={description} onChange={e=>setDescription(e.target.value)} className="mt-1 w-full rounded border border-border bg-background p-2" /></label>
-    {error&&<p role="alert" className="text-sm text-rose-400">{error}</p>}<div className="flex justify-end gap-2"><button type="button" disabled={pending} onClick={close} className="rounded border border-border px-3 py-2">Cancelar</button><button type="submit" disabled={!valid||pending||saved} className="rounded bg-primary px-3 py-2 text-primary-foreground disabled:opacity-50">{pending?"Guardando…":saved?"Guardado":"Guardar movimiento"}</button></div>
-  </form></div>;
+
+  return (
+    <ResponsiveDrawer
+      open={open}
+      onOpenChange={(isOpen) => !isOpen && close()}
+      title="Movimiento de inversión"
+      description="El aporte o retiro afecta la cuenta elegida. No cambia el valor ni la cantidad de la inversión."
+      size="md"
+      footer={
+        <div className="flex w-full flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={pending}
+            onClick={close}
+            className="w-full sm:w-auto"
+          >
+            Cancelar
+          </Button>
+          <Button
+            type="submit"
+            form={FORM_ID}
+            disabled={!valid || pending || saved}
+            loading={pending}
+            className="w-full sm:w-auto"
+          >
+            {pending ? "Guardando…" : saved ? "Guardado" : "Guardar movimiento"}
+          </Button>
+        </div>
+      }
+    >
+      <form id={FORM_ID} onSubmit={submit} className="flex flex-col gap-4 py-2">
+        <FormField label="Tipo de movimiento">
+          <SegmentedControl
+            aria-label="Tipo de movimiento de inversión"
+            fullWidth
+            options={KIND_OPTIONS}
+            value={kind}
+            onChange={(val) => setKind(val)}
+          />
+        </FormField>
+
+        <FormField label="Activo" required>
+          <SelectField
+            aria-label="Activo"
+            required
+            value={investmentId}
+            onChange={(e) => setInvestmentId(e.target.value)}
+          >
+            <option value="">Selecciona una inversión</option>
+            {investments.map((i) => (
+              <option key={i.id} value={i.id}>
+                {i.name}
+              </option>
+            ))}
+          </SelectField>
+        </FormField>
+
+        <FormField label="Cuenta de efectivo" required>
+          <SelectField
+            aria-label="Cuenta de efectivo"
+            required
+            value={accountId}
+            onChange={(e) => setAccountId(e.target.value)}
+          >
+            <option value="">Selecciona una cuenta</option>
+            {accounts.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name} · {a.currency}
+              </option>
+            ))}
+          </SelectField>
+        </FormField>
+
+        <FormField
+          label={`Monto ${selectedAccount ? `(${selectedAccount.currency})` : "(moneda de la cuenta)"}`}
+          required
+        >
+          <div className="relative">
+            <Input
+              aria-label="Monto de inversión"
+              required
+              inputMode="decimal"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="0.00"
+              className={selectedAccount ? "pr-16" : ""}
+            />
+            {selectedAccount && (
+              <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rounded-md bg-muted px-2 py-0.5 text-xs font-semibold text-muted-foreground">
+                {selectedAccount.currency}
+              </span>
+            )}
+          </div>
+        </FormField>
+
+        <FormField label="Fecha" required>
+          <Input
+            aria-label="Fecha del movimiento"
+            type="date"
+            required
+            value={occurredAt}
+            onChange={(e) => setOccurredAt(e.target.value)}
+          />
+        </FormField>
+
+        <FormField label="Descripción" hint="Opcional">
+          <Input
+            aria-label="Descripción del movimiento de inversión"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Ej: Aporte inicial, cobro de dividendos..."
+          />
+        </FormField>
+
+        {error && (
+          <div
+            role="alert"
+            className="rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive"
+          >
+            {error}
+          </div>
+        )}
+      </form>
+    </ResponsiveDrawer>
+  );
 }

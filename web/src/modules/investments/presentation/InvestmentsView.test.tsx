@@ -16,10 +16,59 @@ describe("InvestmentsView number formatting", () => {
     const controller = {
       investments: [investment], createInvestment: vi.fn(), updateInvestmentValue: vi.fn(),
       deleteInvestment: vi.fn(), refreshAfterCash: vi.fn(), recordCash: vi.fn(), reverseCash: vi.fn(),
+      syncBinancePortfolio: vi.fn(),
     } as unknown as InvestmentsController;
     const html = renderToStaticMarkup(
       <InvestmentsView controller={controller} p2pRate={9.85} accounts={[]} onCashComplete={vi.fn()} />
     );
     expect(html).toContain("1.234,56 USD");
+  });
+
+  it("renders full investments dashboard with header, KPIs, charts, table and side cards", () => {
+    const controller = {
+      investments: [investment],
+      createInvestment: vi.fn(),
+      updateInvestmentValue: vi.fn(),
+      deleteInvestment: vi.fn(),
+      refreshAfterCash: vi.fn(),
+      recordCash: vi.fn(),
+      reverseCash: vi.fn(),
+      syncBinancePortfolio: vi.fn(),
+    } as unknown as InvestmentsController;
+
+    const html = renderToStaticMarkup(
+      <InvestmentsView
+        controller={controller}
+        p2pRate={9.85}
+        accounts={[]}
+        onCashComplete={vi.fn()}
+      />
+    );
+
+    // Header
+    expect(html).toContain("Inversiones");
+    expect(html).toContain("Registrar inversión");
+    expect(html).toContain("Aporte o retiro");
+    expect(html).toContain("Sincronizar Binance");
+
+    // Top KPIs
+    expect(html).toContain("Valor de inversiones");
+    expect(html).toContain("Ganancia / Pérdida");
+    expect(html).toContain("Aporte total");
+    expect(html).toContain("Rendimiento anual (YTD)");
+
+    // Middle panels
+    expect(html).toContain("Evolución del portafolio");
+    expect(html).toContain("Distribución por tipo de inversión");
+    expect(html).toContain("Rendimiento por inversión");
+
+    // Table
+    expect(html).toContain("Mis inversiones");
+    expect(html).toContain("Todas");
+    expect(html).toContain("Fondos / ETFs");
+
+    // Side cards
+    expect(html).toContain("Metas de inversión");
+    expect(html).toContain("Próximos eventos");
   });
 });

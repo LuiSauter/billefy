@@ -1,0 +1,92 @@
+"use client";
+
+import React from "react";
+import { TrendingUp, Layers, ArrowUpRight, Percent } from "lucide-react";
+import { InvestmentDetailMetrics } from "../../domain/investment-detail";
+
+interface InvestmentDetailKpisProps {
+  metrics: InvestmentDetailMetrics;
+  currency?: string;
+}
+
+export function InvestmentDetailKpis({
+  metrics,
+  currency = "$",
+}: InvestmentDetailKpisProps) {
+  const isPositiveGain = metrics.gainLoss >= 0;
+
+  return (
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+      {/* 1. Inversión total */}
+      <div className="rounded-2xl bg-card border border-border/80 p-4 flex items-center gap-3.5 shadow-2xs">
+        <div className="w-10 h-10 rounded-xl bg-purple-500/15 text-purple-400 border border-purple-500/20 flex items-center justify-center shrink-0">
+          <TrendingUp className="w-4 h-4" />
+        </div>
+        <div className="flex flex-col min-w-0">
+          <span className="text-[11px] font-semibold text-muted-foreground truncate">
+            Inversión total
+          </span>
+          <span className="text-base sm:text-lg font-black font-mono text-foreground truncate">
+            {currency} {metrics.initialValue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </span>
+        </div>
+      </div>
+
+      {/* 2. Valor actual */}
+      <div className="rounded-2xl bg-card border border-border/80 p-4 flex items-center gap-3.5 shadow-2xs">
+        <div className="w-10 h-10 rounded-xl bg-teal-500/15 text-teal-400 border border-teal-500/20 flex items-center justify-center shrink-0">
+          <Layers className="w-4 h-4" />
+        </div>
+        <div className="flex flex-col min-w-0">
+          <span className="text-[11px] font-semibold text-muted-foreground truncate">
+            Valor actual
+          </span>
+          <span className="text-base sm:text-lg font-black font-mono text-foreground truncate">
+            {currency} {metrics.currentValue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </span>
+        </div>
+      </div>
+
+      {/* 3. Ganancia / Pérdida */}
+      <div className="rounded-2xl bg-card border border-border/80 p-4 flex items-center gap-3.5 shadow-2xs">
+        <div
+          className={`w-10 h-10 rounded-xl border flex items-center justify-center shrink-0 ${
+            isPositiveGain
+              ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/20"
+              : "bg-rose-500/15 text-rose-400 border-rose-500/20"
+          }`}
+        >
+          <ArrowUpRight className="w-4 h-4" />
+        </div>
+        <div className="flex flex-col min-w-0">
+          <span className="text-[11px] font-semibold text-muted-foreground truncate">
+            Ganancia / Pérdida
+          </span>
+          <span
+            className={`text-base sm:text-lg font-black font-mono truncate ${
+              isPositiveGain ? "text-emerald-400" : "text-rose-400"
+            }`}
+          >
+            {isPositiveGain ? "+ " : "- "}
+            {currency} {Math.abs(metrics.gainLoss).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </span>
+        </div>
+      </div>
+
+      {/* 4. ROI */}
+      <div className="rounded-2xl bg-card border border-border/80 p-4 flex items-center gap-3.5 shadow-2xs">
+        <div className="w-10 h-10 rounded-xl bg-purple-500/15 text-purple-400 border border-purple-500/20 flex items-center justify-center shrink-0">
+          <Percent className="w-4 h-4" />
+        </div>
+        <div className="flex flex-col min-w-0">
+          <span className="text-[11px] font-semibold text-muted-foreground truncate">
+            ROI
+          </span>
+          <span className="text-base sm:text-lg font-black font-mono text-emerald-400 truncate">
+            +{metrics.roiPct.toFixed(2)}%
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
