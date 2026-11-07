@@ -72,6 +72,12 @@ pnpm --dir web install && pnpm --dir web lint && pnpm --dir web test && pnpm --d
 ### Database & Migrations (MANDATORY)
 17. **Strictly migration-driven changes (never manual or via ad-hoc scripts).** Never alter, drop, or manipulate the database schema manually, through interactive database clients, or via raw SQL scripts. Any database manipulation MUST be done strictly through official Entity Framework Core migrations (`dotnet ef migrations add <Name>`). Furthermore, **never edit or delete existing migration files** to fix or undo past mistakes; every adjustment, rollback, or new column/table MUST be handled via a **brand-new forward migration** to ensure schema history integrity and prevent migration mismatch across environments.
 
+### UI Design System & Component Library (MANDATORY)
+18. **Strict adherence to the project design system and shadcn components.**
+    - All web UI components, modals, dialogs, drawers, form fields, inputs, and buttons MUST strictly follow the project's established design system and use the `shadcn/ui` components (`@/shared/ui/*`) and domain presentation patterns (`ResponsiveDrawer`, `FormField`, `MoneyInput`, `Input`, `Button`, `SegmentedControl`, `SelectField`, `CategoryPickerField`, `CategoryCreatorView`, etc.).
+    - Never invent ad-hoc HTML input styles, custom non-conforming modal wrappers, or unstyled native form elements when standard design system components exist.
+    - Modals and forms must reuse existing domain components (e.g., category selection must use `CategoryPickerField` with support for inline creation via `CategoryCreatorView`, account selection must follow established chip or select patterns).
+
 ## 4. Code & Git conventions
 - **Language:** English for code, database, API, logs, and commit messages. Spanish/English for UI strings.
 - **Backend:** C# modular monolith. Modules talk **only** through `<Module>.Contracts`. Dependencies point inward.
