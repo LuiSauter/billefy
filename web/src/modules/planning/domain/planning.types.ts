@@ -18,6 +18,104 @@ export interface FinancialHealthCurrencyDto {
 export interface FinancialHealthDto { monthStartUtc: string; monthEndUtcExclusive: string; currencies: FinancialHealthCurrencyDto[]; }
 export interface ProposeIncomeDistributionRequest { incomeAmount: number; currency?: string; }
 export interface IncomeDistributionProposal { totalIncome: number; currency: string; needsAmount: number; wantsAmount: number; debtPaymentAmount: number; savingsAmount: number; needsPercentage: number; wantsPercentage: number; debtPercentage: number; savingsPercentage: number; rationale: string; }
+
+export type RecurringFlowType = "Expense" | "Income";
+export type RecurringFrequency = "Weekly" | "BiWeekly" | "Monthly" | "Quarterly" | "SemiAnnual" | "Yearly";
+export type RecurringStatus = "Active" | "Paused" | "Completed";
+export type RecurringEndType = "Never" | "OnDate" | "AfterOccurrences";
+
+export interface RecurringPaymentDto {
+  id: string;
+  name: string;
+  description?: string | null;
+  flowType: RecurringFlowType;
+  amount: number;
+  currency: string;
+  frequency: RecurringFrequency;
+  startDate: string;
+  nextDueDate: string;
+  status: RecurringStatus;
+  endType: RecurringEndType;
+  endDate?: string | null;
+  totalOccurrences?: number | null;
+  completedOccurrences: number;
+  autoCreateDraft: boolean;
+  categoryId?: string | null;
+  defaultAccountId?: string | null;
+  daysUntilDue: number;
+  isOverdue: boolean;
+  isDueSoon: boolean;
+  createdAt: string;
+}
+
+export interface RecurringCalendarOccurrenceDto {
+  recurringId: string;
+  name: string;
+  flowType: RecurringFlowType;
+  amount: number;
+  currency: string;
+  frequency: RecurringFrequency;
+  date: string;
+  isDueSoon: boolean;
+  isOverdue: boolean;
+  categoryId?: string | null;
+  defaultAccountId?: string | null;
+}
+
+export interface RecurringSummaryDto {
+  activeCount: number;
+  monthlyExpenses: number;
+  monthlyIncome: number;
+  currency: string;
+  upcoming7DaysCount: number;
+  upcoming7DaysTotal: number;
+  overdueCount: number;
+  overdueTotal: number;
+}
+
+export interface CreateRecurringPaymentRequest {
+  name: string;
+  description?: string;
+  flowType: RecurringFlowType;
+  amount: number;
+  currency: string;
+  frequency: RecurringFrequency;
+  startDate: string;
+  nextDueDate?: string;
+  endType?: RecurringEndType;
+  endDate?: string;
+  totalOccurrences?: number;
+  categoryId?: string;
+  defaultAccountId?: string;
+  autoCreateDraft?: boolean;
+}
+
+export interface UpdateRecurringPaymentRequest {
+  name: string;
+  description?: string;
+  flowType: RecurringFlowType;
+  amount: number;
+  frequency: RecurringFrequency;
+  nextDueDate: string;
+  endType?: RecurringEndType;
+  endDate?: string;
+  totalOccurrences?: number;
+  categoryId?: string;
+  defaultAccountId?: string;
+  autoCreateDraft?: boolean;
+}
+
+export interface RescheduleRecurringPaymentRequest {
+  newDueDate: string;
+}
+
+export interface ConfirmRecurringPaymentRequest {
+  accountId?: string;
+  amount?: number;
+  occurredAt?: string;
+  description?: string;
+}
+
 export interface IPlanningRepository {
   createBudget(req: CreateBudgetRequest): Promise<{ id: string }>;
   getBudgets(): Promise<BudgetDto[]>;
@@ -29,6 +127,17 @@ export interface IPlanningRepository {
   deleteGoal(id: string): Promise<{ message: string }>;
   getFinancialHealth(): Promise<FinancialHealthDto>;
   proposeIncomeDistribution(req: ProposeIncomeDistributionRequest): Promise<IncomeDistributionProposal>;
+  getRecurringPayments(params?: { flowType?: string; status?: string; search?: string }): Promise<RecurringPaymentDto[]>;
+  getRecurringSummary(currency?: string): Promise<RecurringSummaryDto>;
+  getRecurringCalendarOccurrences(start?: string, end?: string): Promise<RecurringCalendarOccurrenceDto[]>;
+  getRecurringPaymentById(id: string): Promise<RecurringPaymentDto>;
+  createRecurringPayment(req: CreateRecurringPaymentRequest): Promise<{ id: string }>;
+  updateRecurringPayment(id: string, req: UpdateRecurringPaymentRequest): Promise<{ message: string }>;
+  deleteRecurringPayment(id: string): Promise<{ message: string }>;
+  rescheduleRecurringPayment(id: string, req: RescheduleRecurringPaymentRequest): Promise<{ message: string }>;
+  pauseRecurringPayment(id: string): Promise<{ message: string }>;
+  resumeRecurringPayment(id: string): Promise<{ message: string }>;
+  confirmRecurringPayment(id: string, req: ConfirmRecurringPaymentRequest): Promise<{ transactionId: string }>;
 }
 export function getBudgetCategoryEmoji(category: string): string {
   const c = category.toLowerCase();

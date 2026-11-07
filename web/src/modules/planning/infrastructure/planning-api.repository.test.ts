@@ -30,3 +30,62 @@ describe("budget update transport", () => {
     expect(JSON.parse(options?.body as string)).toEqual({ limitAmount: 275.55, alertThreshold: 0.8 });
   });
 });
+
+describe("recurring payments transport", () => {
+  it("queries payments with serialized filters and summary", async () => {
+    const payments = [
+      { id: "r-1", name: "Netflix", amount: 69, currency: "BOB", frequency: "Monthly", nextDueDate: "2026-10-15", status: "Active" }
+    ];
+    const summary = {
+      activeCount: 1,
+      monthlyExpenses: 69,
+      monthlyIncome: 0,
+      currency: "BOB",
+      upcoming7DaysCount: 1,
+      upcoming7DaysTotal: 69,
+      overdueCount: 0,
+      overdueTotal: 0
+    };
+    const http = {
+      get: vi.fn().mockResolvedValueOnce(payments).mockResolvedValueOnce(summary),
+      post: vi.fn().mockResolvedValueOnce({ transactionId: "txn-123" })
+    } as unknown as IHttpClient;
+    const repo = new PlanningApiRepository(http);
+
+    const listResult = await repo.getRecurringPayments({ flowType: "Expense", status: "Active", search: "Net" });
+    expect(listResult).toEqual(payments);
+    expect(http.get).toHaveBeenNthCalledWith(1, "/v1/planning/recurring?flowType=Expense&status=Active&search=Net");
+
+    const summaryResult = await repo.getRecurringSummary("BOB");
+    expect(summaryResult).toEqual(summary);
+    expect(http.get).toHaveBeenNthCalledWith(2, "/v1/planning/recurring/summary?currency=BOB");
+
+    const confirmResult = await repo.confirmRecurringPayment("r-1", { accountId: "acc-1", amount: 69 });
+    expect(confirmResult).toEqual({ transactionId: "txn-123" });
+    expect(http.post).toHaveBeenCalledWith("/v1/planning/recurring/r-1/confirm", { accountId: "acc-1", amount: 69 });
+  });
+
+  it("fetches calendar occurrences between dates", async () => {
+    const occurrences = [
+      { recurringId: "r-1", name: "Netflix", flowType: "Expense", amount: 69, currency: "BOB", frequency: "Monthly", date: "2026-10-15", isDueSoon: true, isOverdue: false }
+    ];
+    const http = {
+      get: vi.fn().mockResolvedValueOnce(occurrences),
+    } as unknown as IHttpClient;
+    const repo = new PlanningApiRepository(http);
+
+    const result = await repo.getRecurringCalendarOccurrences("2026-10-01", "2026-10-31");
+    expect(result).toEqual(occurrences);
+    expect(http.get).toHaveBeenCalledWith("/v1/planning/recurring/calendar?start=2026-10-01&end=2026-10-31");
+  });
+
+  it("returns empty array gracefully if calendar endpoint is unavailable", async () => {
+    const http = {
+      get: vi.fn().mockRejectedValueOnce(new Error("404 Not Found")),
+    } as unknown as IHttpClient;
+    const repo = new PlanningApiRepository(http);
+
+    const result = await repo.getRecurringCalendarOccurrences("2026-10-01", "2026-10-31");
+    expect(result).toEqual([]);
+  });
+});

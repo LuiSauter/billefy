@@ -38,6 +38,7 @@ export function usePlanningModule(http: IHttpClient | null) {
     return repo.proposeIncomeDistribution(request);
   }, [repo]);
   return {
+    planningRepo: repo,
     budgets: budgetState.budgets, budgetsLoading: budgetState.budgetsLoading, budgetsError: budgetState.budgetsError,
     refreshBudgets: budgetResource.refreshBudgets, setBudgets: budgetResource.setBudgets,
     goals: overviewState.goals, setGoals: overview.setGoals,
