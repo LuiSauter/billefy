@@ -108,6 +108,7 @@ export function useDashboardData(authToken?: string | null, authUserId?: string 
     planningOverviewStatus: planning.planningOverviewStatus,
     planningOverviewError: planning.planningOverviewError,
     retryPlanningOverview: planning.retryPlanningOverview,
+    planningRepo: planning.planningRepo,
     rate: fx.rate,
     totals,
     loading,

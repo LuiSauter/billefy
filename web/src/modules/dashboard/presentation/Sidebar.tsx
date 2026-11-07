@@ -14,7 +14,11 @@ import {
   ArrowDownUp,
   Repeat,
   TrendingUp,
+  Layers,
+  CreditCard,
+  BarChart3,
   Settings,
+  Calendar,
 } from "lucide-react";
 
 export type NavigationTab =
@@ -22,11 +26,16 @@ export type NavigationTab =
   | "cuentas"
   | "movimientos"
   | "inversiones"
+  | "patrimonio"
+  | "reportes"
   | "plan"
   | "borradores"
   | "prestamos"
+  | "deudas"
+  | "prestado"
   | "presupuestos"
   | "metas"
+  | "calendario"
   | "recurrentes"
   | "configuracion";
 
@@ -57,16 +66,20 @@ export function Sidebar({
     { id: "cuentas" as NavigationTab, label: "Mis Cuentas", icon: Landmark },
     { id: "movimientos" as NavigationTab, label: "Movimientos", icon: ArrowLeftRight },
     { id: "inversiones" as NavigationTab, label: "Inversiones", icon: TrendingUp },
+    { id: "patrimonio" as NavigationTab, label: "Patrimonio", icon: Layers },
+    { id: "reportes" as NavigationTab, label: "Reportes", icon: BarChart3 },
     {
       id: "borradores" as NavigationTab,
       label: "Borradores",
       icon: Sparkles,
       badge: draftsCount > 0 ? draftsCount : undefined,
     },
-    { id: "prestamos" as NavigationTab, label: "Préstamos", icon: HandCoins },
+    { id: "deudas" as NavigationTab, label: "Deudas y préstamos", icon: CreditCard },
+    { id: "prestado" as NavigationTab, label: "Dinero prestado", icon: HandCoins },
     { id: "presupuestos" as NavigationTab, label: "Presupuesto", icon: PieChart },
     { id: "metas" as NavigationTab, label: "Metas", icon: Target },
-    { id: "recurrentes" as NavigationTab, label: "Arbitraje P2P", icon: ArrowLeftRight },
+    { id: "calendario" as NavigationTab, label: "Calendario", icon: Calendar },
+    { id: "recurrentes" as NavigationTab, label: "Pagos recurrentes", icon: Repeat },
     { id: "configuracion" as NavigationTab, label: "Configuración", icon: Settings },
   ];
 

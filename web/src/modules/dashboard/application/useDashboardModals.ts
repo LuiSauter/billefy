@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { AccountDto, TransactionDto } from "@/modules/ledger/domain/ledger.types";
-import { LoanDetailDto } from "@/modules/lending/domain/lending.types";
+import { LoanDetailDto, LoanSummaryDto } from "@/modules/lending/domain/lending.types";
 import { notify } from "@/shared/lib/notify";
 import { RecurringItem } from "@/modules/planning/presentation/RecurringPaymentsView";
 
@@ -19,6 +19,8 @@ export function useDashboardModals(getLoanById: (loanId: string) => Promise<Loan
   const [isReconcileModalOpen, setIsReconcileModalOpen] = useState(false);
   const [isCsvModalOpen, setIsCsvModalOpen] = useState(false);
   const [isLoanModalOpen, setIsLoanModalOpen] = useState(false);
+  const [isCreateDebtModalOpen, setIsCreateDebtModalOpen] = useState(false);
+  const [isCreateLentModalOpen, setIsCreateLentModalOpen] = useState(false);
   const [isLoanPaymentModalOpen, setIsLoanPaymentModalOpen] = useState(false);
   const [isLoanDetailModalOpen, setIsLoanDetailModalOpen] = useState(false);
   const [isBudgetModalOpen, setIsBudgetModalOpen] = useState(false);
@@ -33,6 +35,7 @@ export function useDashboardModals(getLoanById: (loanId: string) => Promise<Loan
   const [reconcileAccountTarget, setReconcileAccountTarget] = useState<AccountDto | null>(null);
   const [editingTransaction, setEditingTransaction] = useState<TransactionDto | null>(null);
   const [selectedLoanId, setSelectedLoanId] = useState("");
+  const [selectedLoanForPayment, setSelectedLoanForPayment] = useState<LoanSummaryDto | null>(null);
   const [selectedLoanDetail, setSelectedLoanDetail] = useState<LoanDetailDto | null>(null);
   const [selectedRecurringItem, setSelectedRecurringItem] = useState<RecurringItem | null>(null);
 
@@ -51,8 +54,15 @@ export function useDashboardModals(getLoanById: (loanId: string) => Promise<Loan
     }
   };
 
-  const openLoanPayment = (loanId: string) => {
-    setSelectedLoanId(loanId);
+  const openLoanPayment = (loanOrId: string | LoanSummaryDto, allLoans?: LoanSummaryDto[]) => {
+    if (typeof loanOrId === "string") {
+      setSelectedLoanId(loanOrId);
+      const found = allLoans?.find((l) => l.id === loanOrId) || null;
+      setSelectedLoanForPayment(found);
+    } else {
+      setSelectedLoanId(loanOrId.id);
+      setSelectedLoanForPayment(loanOrId);
+    }
     setIsLoanPaymentModalOpen(true);
   };
 
@@ -90,6 +100,10 @@ export function useDashboardModals(getLoanById: (loanId: string) => Promise<Loan
     setIsCsvModalOpen,
     isLoanModalOpen,
     setIsLoanModalOpen,
+    isCreateDebtModalOpen,
+    setIsCreateDebtModalOpen,
+    isCreateLentModalOpen,
+    setIsCreateLentModalOpen,
     isLoanPaymentModalOpen,
     setIsLoanPaymentModalOpen,
     isLoanDetailModalOpen,
@@ -113,6 +127,8 @@ export function useDashboardModals(getLoanById: (loanId: string) => Promise<Loan
     reconcileAccountTarget,
     editingTransaction,
     selectedLoanId,
+    selectedLoanForPayment,
+    setSelectedLoanForPayment,
     selectedLoanDetail,
     selectedRecurringItem,
 

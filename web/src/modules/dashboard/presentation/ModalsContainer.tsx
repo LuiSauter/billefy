@@ -63,6 +63,15 @@ const ReconcileModal = dynamic(() =>
 const CreateLoanModal = dynamic(() =>
   import("@/modules/lending/presentation/CreateLoanModal").then((m) => m.CreateLoanModal)
 );
+const CreateDebtModal = dynamic(() =>
+  import("@/modules/lending/presentation/deudas/CreateDebtModal").then((m) => m.CreateDebtModal)
+);
+const CreateLentLoanModal = dynamic(() =>
+  import("@/modules/lending/presentation/prestado/CreateLentLoanModal").then((m) => m.CreateLentLoanModal)
+);
+const RegisterLoanPaymentModal = dynamic(() =>
+  import("@/modules/lending/presentation/modals/RegisterLoanPaymentModal").then((m) => m.RegisterLoanPaymentModal)
+);
 const LoanDetailModal = dynamic(() =>
   import("@/modules/lending/presentation/LoanDetailModal").then((m) => m.LoanDetailModal)
 );
@@ -287,6 +296,29 @@ export function ModalsContainer({
         />
       )}
 
+      {modals.isCreateDebtModalOpen && (
+        <CreateDebtModal
+          isOpen={modals.isCreateDebtModalOpen}
+          accounts={accounts}
+          selectedCurrency={selectedCurrency}
+          p2pRate={p2pRate}
+          onClose={() => modals.setIsCreateDebtModalOpen(false)}
+          onSimulate={actions.simulateLoan}
+          onSubmit={actions.createLoan}
+        />
+      )}
+
+      {modals.isCreateLentModalOpen && (
+        <CreateLentLoanModal
+          isOpen={modals.isCreateLentModalOpen}
+          accounts={accounts}
+          selectedCurrency={selectedCurrency}
+          onClose={() => modals.setIsCreateLentModalOpen(false)}
+          onSimulate={actions.simulateLoan}
+          onSubmit={actions.createLoan}
+        />
+      )}
+
       {modals.isLoanDetailModalOpen && (
         <LoanDetailModal
           isOpen={modals.isLoanDetailModalOpen}
@@ -300,7 +332,20 @@ export function ModalsContainer({
         />
       )}
 
-      {modals.isLoanPaymentModalOpen && (
+      {modals.isLoanPaymentModalOpen && modals.selectedLoanForPayment ? (
+        <RegisterLoanPaymentModal
+          isOpen={modals.isLoanPaymentModalOpen}
+          loan={modals.selectedLoanForPayment}
+          accounts={accounts}
+          onClose={() => {
+            modals.setIsLoanPaymentModalOpen(false);
+            modals.setSelectedLoanForPayment(null);
+          }}
+          onSubmit={async (loanId, req) => {
+            await actions.registerLoanPayment(loanId, req);
+          }}
+        />
+      ) : modals.isLoanPaymentModalOpen ? (
         <LoanPaymentModal
           isOpen={modals.isLoanPaymentModalOpen}
           accounts={accounts}
@@ -309,7 +354,7 @@ export function ModalsContainer({
             await actions.registerLoanPayment(modals.selectedLoanId, req);
           }}
         />
-      )}
+      ) : null}
 
       {modals.isBudgetModalOpen && (
         <CreateBudgetModal

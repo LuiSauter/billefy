@@ -10,8 +10,11 @@ import {
   ArrowLeftRight,
   Ellipsis,
   TrendingUp,
+  Layers,
   HandCoins,
+  BarChart3,
   Settings,
+  Calendar,
 } from "lucide-react";
 import { NavigationTab } from "./Sidebar";
 
@@ -32,7 +35,11 @@ export function MobileBottomNav({
   const [moreOpen, setMoreOpen] = useState(false);
   const moreItems: { id: NavigationTab; label: string; icon: typeof TrendingUp }[] = [
     { id: "inversiones", label: "Inversiones", icon: TrendingUp },
-    { id: "prestamos", label: "Préstamos", icon: HandCoins },
+    { id: "patrimonio", label: "Patrimonio", icon: Layers },
+    { id: "reportes", label: "Reportes", icon: BarChart3 },
+    { id: "deudas", label: "Deudas", icon: Layers },
+    { id: "prestado", label: "Dinero Prestado", icon: HandCoins },
+    { id: "calendario", label: "Calendario", icon: Calendar },
     { id: "metas", label: "Metas", icon: Target },
     { id: "recurrentes", label: "Fijos & FX", icon: ArrowLeftRight },
     { id: "configuracion", label: "Configuración", icon: Settings },

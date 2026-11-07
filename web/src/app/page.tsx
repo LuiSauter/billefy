@@ -15,7 +15,6 @@ import { useInvestments } from "@/modules/investments/application/useInvestments
 import { useDistributionPlan } from "@/modules/planning/application/useDistributionPlan";
 import { FetchHttpClient } from "@/shared/infrastructure/fetch-http.client";
 import { defaultTokenStorage } from "@/shared/infrastructure/local-storage-token.adapter";
-import { notify } from "@/shared/lib/notify";
 import { Loader2, Wallet } from "lucide-react";
 
 const AuthScreen = dynamic(() =>
@@ -30,8 +29,11 @@ const AccountsTabView = dynamic(() =>
 const BudgetsTabView = dynamic(() =>
   import("@/modules/planning/presentation/BudgetsTabView").then((m) => m.BudgetsTabView)
 );
-const LoansList = dynamic(() =>
-  import("@/modules/lending/presentation/LoansList").then((m) => m.LoansList)
+const DeudasView = dynamic(() =>
+  import("@/modules/lending/presentation/deudas/DeudasView").then((m) => m.DeudasView)
+);
+const DineroPrestadoView = dynamic(() =>
+  import("@/modules/lending/presentation/prestado/DineroPrestadoView").then((m) => m.DineroPrestadoView)
 );
 const RecurringPaymentsView = dynamic(() =>
   import("@/modules/planning/presentation/RecurringPaymentsView").then(
@@ -44,6 +46,12 @@ const ModalsContainer = dynamic(() =>
 const InvestmentsView = dynamic(() =>
   import("@/modules/investments/presentation/InvestmentsView").then((m) => m.InvestmentsView)
 );
+const PatrimonioView = dynamic(() =>
+  import("@/modules/patrimonio/presentation/PatrimonioView").then((m) => m.PatrimonioView)
+);
+const ReportsView = dynamic(() =>
+  import("@/modules/reports/presentation/ReportsView").then((m) => m.ReportsView)
+);
 const SettingsView = dynamic(() =>
   import("@/modules/identity/presentation/SettingsView").then(
     (m) => m.SettingsView
@@ -52,6 +60,11 @@ const SettingsView = dynamic(() =>
 const GoalsTabView = dynamic(() =>
   import("@/modules/planning/presentation/GoalsTabView").then(
     (m) => m.GoalsTabView
+  )
+);
+const CalendarioView = dynamic(() =>
+  import("@/modules/planning/presentation/calendar/CalendarioView").then(
+    (m) => m.CalendarioView
   )
 );
 
@@ -202,6 +215,7 @@ export default function DashboardPage() {
         <main className="flex-1 px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6 pb-24 md:pb-10 flex flex-col gap-6 w-full mx-auto">
           {activeTab === "inicio" && (
             <DashboardHomeView
+              user={user}
               metrics={balanceMetrics}
               accounts={dashboard.accounts}
               accountsMap={dashboard.accountsMap}
@@ -234,11 +248,52 @@ export default function DashboardPage() {
               onUpdateAccount={dashboard.updateAccount}
               onOpenAccountsTab={() => setActiveTab("cuentas")}
               onOpenInvestmentsTab={() => setActiveTab("inversiones")}
+              onOpenPlanTab={() => setActiveTab("presupuestos")}
+              onOpenPatrimonioTab={() => setActiveTab("patrimonio")}
+              onOpenSettings={() => setActiveTab("configuracion")}
             />
           )}
 
           {activeTab === "inversiones" && (
-            <InvestmentsView controller={investmentsCtl} p2pRate={p2pRate} accounts={dashboard.accounts} onCashComplete={dashboard.refreshLedger} />
+            <InvestmentsView
+              controller={investmentsCtl}
+              p2pRate={p2pRate}
+              accounts={dashboard.accounts}
+              goals={dashboard.goals}
+              currencySymbol={selectedCurrency === "BOB" ? "Bs." : "$"}
+              onCashComplete={dashboard.refreshLedger}
+              onOpenCreateGoalModal={() => modals.setIsGoalModalOpen(true)}
+              onOpenBinanceModal={() => modals.setIsBinanceModalOpen(true)}
+            />
+          )}
+
+          {activeTab === "patrimonio" && (
+            <PatrimonioView
+              investments={investmentsCtl.investments}
+              accounts={dashboard.accounts}
+              loans={dashboard.loans}
+              transactions={dashboard.transactions}
+              onNavigateToInvestments={() => setActiveTab("inversiones")}
+              selectedCurrency={selectedCurrency}
+              currencySymbol={selectedCurrency === "BOB" ? "Bs." : "$"}
+              onToggleCurrency={() =>
+                setSelectedCurrency((prev) => (prev === "BOB" ? "USD" : "BOB"))
+              }
+              p2pRate={p2pRate}
+            />
+          )}
+
+          {activeTab === "reportes" && (
+            <ReportsView
+              transactions={dashboard.transactions}
+              accounts={dashboard.accounts}
+              loans={dashboard.loans}
+              budgets={dashboard.budgets}
+              selectedCurrency={selectedCurrency}
+              p2pRate={p2pRate}
+              loading={dashboard.loading}
+              onNavigateToTab={(tab) => setActiveTab(tab as NavigationTab)}
+            />
           )}
 
           {activeTab === "movimientos" && (
@@ -272,13 +327,27 @@ export default function DashboardPage() {
             />
           )}
 
-          {activeTab === "prestamos" && (
-            <LoansList
+          {(activeTab === "deudas" || activeTab === "prestamos") && (
+            <DeudasView
               loans={dashboard.loans}
               loading={dashboard.loading}
-              onOpenCreateLoanModal={() => modals.setIsLoanModalOpen(true)}
+              selectedCurrency={selectedCurrency}
+              p2pRate={p2pRate}
+              onOpenCreateDebt={() => modals.setIsCreateDebtModalOpen(true)}
+              onOpenPayment={(loanId) => modals.openLoanPayment(loanId, dashboard.loans)}
               onOpenLoanDetails={modals.openLoanDetail}
-              onOpenPaymentModal={modals.openLoanPayment}
+            />
+          )}
+
+          {activeTab === "prestado" && (
+            <DineroPrestadoView
+              loans={dashboard.loans}
+              loading={dashboard.loading}
+              selectedCurrency={selectedCurrency}
+              p2pRate={p2pRate}
+              onOpenCreateLent={() => modals.setIsCreateLentModalOpen(true)}
+              onOpenPayment={(loanId) => modals.openLoanPayment(loanId, dashboard.loans)}
+              onOpenLoanDetails={modals.openLoanDetail}
             />
           )}
 
@@ -353,13 +422,25 @@ export default function DashboardPage() {
             />
           )}
 
+          {activeTab === "calendario" && (
+            <CalendarioView
+              repository={dashboard.planningRepo}
+              accounts={dashboard.accounts}
+              loans={dashboard.loans}
+              transactions={dashboard.transactions}
+              selectedCurrency={selectedCurrency}
+              p2pRate={p2pRate}
+              onFinancialDataChange={dashboard.refreshFinancialData}
+            />
+          )}
+
           {activeTab === "recurrentes" && (
             <RecurringPaymentsView
+              repository={dashboard.planningRepo}
+              accounts={dashboard.accounts}
+              selectedCurrency={selectedCurrency}
               p2pRate={p2pRate}
-              onOpenRescheduleModal={modals.openReschedule}
-              onPay1Click={(item) =>
-                notify.success(`Pago de ${item.name} confirmado`, `Monto: Bs. ${item.amount} procesado en 1-Clic`)
-              }
+              onFinancialDataChange={dashboard.refreshFinancialData}
             />
           )}
 
