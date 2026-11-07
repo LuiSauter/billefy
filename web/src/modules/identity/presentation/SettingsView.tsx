@@ -136,6 +136,26 @@ export function SettingsView({
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [resetFinancialDataOpen, setResetFinancialDataOpen] = useState(false);
   const [resettingFinancialData, setResettingFinancialData] = useState(false);
+  const [binanceStatus, setBinanceStatus] = useState<{ connected: boolean; maskedApiKey: string | null } | null>(null);
+
+  useEffect(() => {
+    async function checkBinanceStatus() {
+      try {
+        const token = defaultTokenStorage.getAccessToken();
+        if (!token) return;
+        const res = await fetch("/v1/integrations/binance/status", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setBinanceStatus(data);
+        }
+      } catch {
+        // Ignore
+      }
+    }
+    void checkBinanceStatus();
+  }, []);
 
   // Form / Settings state
   const numberPreferences = user as (UserDto & { numberGroupingConvention?: "es-BO" | "en-US"; maximumDecimalPlaces?: 0 | 2 | 4 | 6 }) | null | undefined;
@@ -1261,7 +1281,7 @@ Respaldo automático: ${settings.autoBackup ? "Activado" : "Desactivado"}
                   </div>
                 </div>
 
-                {/* Binance (manual) */}
+                {/* Binance (API de solo lectura) */}
                 <button
                   type="button"
                   onClick={onOpenBinance}
@@ -1271,13 +1291,21 @@ Respaldo automático: ${settings.autoBackup ? "Activado" : "Desactivado"}
                     <div className="w-7 h-7 rounded-lg bg-amber-500/15 text-amber-500 flex items-center justify-center">
                       <Coins className="w-3.5 h-3.5" />
                     </div>
-                    <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                    {binanceStatus?.connected ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                    ) : (
+                      <span className="text-[10px] text-amber-400 font-semibold">Configurar</span>
+                    )}
                   </div>
                   <div>
                     <span className="text-xs font-bold text-foreground group-hover:text-primary transition block">
                       Binance (manual)
                     </span>
-                    <span className="text-[10px] text-muted-foreground">Importación opcional</span>
+                    <span className="text-[10px] text-muted-foreground">
+                      {binanceStatus?.connected && binanceStatus.maskedApiKey
+                        ? `Conectado (${binanceStatus.maskedApiKey})`
+                        : "Sincronización API (solo lectura)"}
+                    </span>
                   </div>
                 </button>
 
