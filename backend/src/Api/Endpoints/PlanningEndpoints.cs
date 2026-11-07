@@ -282,6 +282,168 @@ public static class PlanningEndpoints
         .Produces<IncomeDistributionProposal>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest);
 
+        // Recurring Payments & Scheduled Flows
+        group.MapGet("/recurring", async (
+            [FromQuery] string? flowType,
+            [FromQuery] string? status,
+            [FromQuery] string? search,
+            IRecurringPaymentService service,
+            CancellationToken ct) =>
+        {
+            var result = await service.GetAllAsync(flowType, status, search, ct);
+            return result.ToHttpResult();
+        })
+        .WithName("GetRecurringPayments")
+        .WithSummary("List recurring payments and flows with optional status, flow type, and search filters.")
+        .Produces<List<RecurringPaymentDto>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized);
+
+        group.MapGet("/recurring/summary", async (
+            [FromQuery] string? currency,
+            IRecurringPaymentService service,
+            CancellationToken ct) =>
+        {
+            var result = await service.GetSummaryAsync(currency, ct);
+            return result.ToHttpResult();
+        })
+        .WithName("GetRecurringSummary")
+        .WithSummary("Get summary KPIs for recurring flows (active count, monthly expenses, monthly income, next 7 days, overdue).")
+        .Produces<RecurringSummaryDto>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized);
+
+        group.MapGet("/recurring/calendar", async (
+            [FromQuery] DateOnly? start,
+            [FromQuery] DateOnly? end,
+            IRecurringPaymentService service,
+            CancellationToken ct) =>
+        {
+            var from = start ?? DateOnly.FromDateTime(DateTime.UtcNow.AddMonths(-1));
+            var to = end ?? DateOnly.FromDateTime(DateTime.UtcNow.AddMonths(2));
+            var result = await service.GetCalendarOccurrencesAsync(from, to, ct);
+            return result.ToHttpResult();
+        })
+        .WithName("GetRecurringCalendarOccurrences")
+        .WithSummary("Get projected scheduled payment occurrences between two dates for calendar visualization.")
+        .Produces<List<RecurringCalendarOccurrenceDto>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized);
+
+        group.MapGet("/recurring/{id:guid}", async (
+            [FromRoute] Guid id,
+            IRecurringPaymentService service,
+            CancellationToken ct) =>
+        {
+            var result = await service.GetByIdAsync(id, ct);
+            return result.ToHttpResult();
+        })
+        .WithName("GetRecurringPaymentById")
+        .WithSummary("Get a single recurring payment by its ID.")
+        .Produces<RecurringPaymentDto>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status404NotFound);
+
+        group.MapPost("/recurring", async (
+            [FromBody] CreateRecurringPaymentRequest request,
+            IRecurringPaymentService service,
+            CancellationToken ct) =>
+        {
+            var result = await service.CreateAsync(request, ct);
+            return result.ToHttpResult(id => Results.Created($"/v1/planning/recurring/{id}", new { id }));
+        })
+        .WithName("CreateRecurringPayment")
+        .WithSummary("Register a new recurring payment or income flow.")
+        .Produces(StatusCodes.Status201Created)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized);
+
+        group.MapPut("/recurring/{id:guid}", async (
+            [FromRoute] Guid id,
+            [FromBody] UpdateRecurringPaymentRequest request,
+            IRecurringPaymentService service,
+            CancellationToken ct) =>
+        {
+            var result = await service.UpdateAsync(id, request, ct);
+            return result.ToHttpResult(() => Results.Ok(new { message = "Recurring payment updated" }));
+        })
+        .WithName("UpdateRecurringPayment")
+        .WithSummary("Update details of an existing recurring payment.")
+        .Produces(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status404NotFound);
+
+        group.MapDelete("/recurring/{id:guid}", async (
+            [FromRoute] Guid id,
+            IRecurringPaymentService service,
+            CancellationToken ct) =>
+        {
+            var result = await service.DeleteAsync(id, ct);
+            return result.ToHttpResult(() => Results.Ok(new { message = "Recurring payment deleted" }));
+        })
+        .WithName("DeleteRecurringPayment")
+        .WithSummary("Delete a recurring payment.")
+        .Produces(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status404NotFound);
+
+        group.MapPost("/recurring/{id:guid}/reschedule", async (
+            [FromRoute] Guid id,
+            [FromBody] RescheduleRecurringPaymentRequest request,
+            IRecurringPaymentService service,
+            CancellationToken ct) =>
+        {
+            var result = await service.RescheduleAsync(id, request, ct);
+            return result.ToHttpResult(() => Results.Ok(new { message = "Recurring payment rescheduled" }));
+        })
+        .WithName("RescheduleRecurringPayment")
+        .WithSummary("Reschedule the next due date of a recurring payment.")
+        .Produces(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status404NotFound);
+
+        group.MapPost("/recurring/{id:guid}/pause", async (
+            [FromRoute] Guid id,
+            IRecurringPaymentService service,
+            CancellationToken ct) =>
+        {
+            var result = await service.PauseAsync(id, ct);
+            return result.ToHttpResult(() => Results.Ok(new { message = "Recurring payment paused" }));
+        })
+        .WithName("PauseRecurringPayment")
+        .WithSummary("Pause an active recurring payment.")
+        .Produces(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status404NotFound);
+
+        group.MapPost("/recurring/{id:guid}/resume", async (
+            [FromRoute] Guid id,
+            IRecurringPaymentService service,
+            CancellationToken ct) =>
+        {
+            var result = await service.ResumeAsync(id, ct);
+            return result.ToHttpResult(() => Results.Ok(new { message = "Recurring payment resumed" }));
+        })
+        .WithName("ResumeRecurringPayment")
+        .WithSummary("Resume a paused recurring payment.")
+        .Produces(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status404NotFound);
+
+        group.MapPost("/recurring/{id:guid}/confirm", async (
+            [FromRoute] Guid id,
+            [FromBody] ConfirmRecurringPaymentRequest request,
+            IRecurringPaymentService service,
+            CancellationToken ct) =>
+        {
+            var result = await service.ConfirmPaymentAsync(id, request, ct);
+            return result.ToHttpResult(transactionId => Results.Ok(new { transactionId }));
+        })
+        .WithName("ConfirmRecurringPayment")
+        .WithSummary("Accept and execute a scheduled payment, creating an immutable Ledger transaction and advancing to the next cycle.")
+        .Produces(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status404NotFound);
+
         return group;
     }
 }

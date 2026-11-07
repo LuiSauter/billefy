@@ -29,8 +29,15 @@ if (!string.IsNullOrWhiteSpace(customPort) && string.IsNullOrWhiteSpace(Environm
 
 // Security & Base Abstractions
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddHttpClient();
 builder.Services.AddScoped<ICurrentUserContext, HttpContextCurrentUserContext>();
 builder.Services.AddSingleton<IClock>(SystemClock.Instance);
+
+var encryptionKey = builder.Configuration["Security:EncryptionKey"]
+    ?? builder.Configuration["Jwt:Secret"]
+    ?? builder.Configuration["Jwt:Key"]
+    ?? "Billefy_Production_Master_Key_Secret_AES_256_GCM_2026!";
+builder.Services.AddSingleton<IEncryptionService>(new AesGcmEncryptionService(encryptionKey));
 
 // Problem Details (RFC 9457)
 builder.Services.AddProblemDetails();
