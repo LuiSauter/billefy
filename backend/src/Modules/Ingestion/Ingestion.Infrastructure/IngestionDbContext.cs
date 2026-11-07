@@ -15,6 +15,7 @@ public class IngestionDbContext : DbContext
     public DbSet<Draft> Drafts => Set<Draft>();
     public DbSet<DraftEvent> DraftEvents => Set<DraftEvent>();
     public DbSet<FinancialSource> FinancialSources => Set<FinancialSource>();
+    public DbSet<BinanceCredential> BinanceCredentials => Set<BinanceCredential>();
     public DbSet<StatementImport> Imports => Set<StatementImport>();
 
     public IngestionDbContext(
@@ -34,6 +35,7 @@ public class IngestionDbContext : DbContext
         modelBuilder.Entity<RawEvent>().HasQueryFilter(e => _currentUserContext.IsAuthenticated && e.UserId == _currentUserContext.UserId.GetValueOrDefault());
         modelBuilder.Entity<Draft>().HasQueryFilter(d => _currentUserContext.IsAuthenticated && d.UserId == _currentUserContext.UserId.GetValueOrDefault());
         modelBuilder.Entity<FinancialSource>().HasQueryFilter(f => _currentUserContext.IsAuthenticated && f.UserId == _currentUserContext.UserId.GetValueOrDefault());
+        modelBuilder.Entity<BinanceCredential>().HasQueryFilter(c => _currentUserContext.IsAuthenticated && c.UserId == _currentUserContext.UserId.GetValueOrDefault());
         modelBuilder.Entity<StatementImport>().HasQueryFilter(i => _currentUserContext.IsAuthenticated && i.UserId == _currentUserContext.UserId.GetValueOrDefault());
     }
 }

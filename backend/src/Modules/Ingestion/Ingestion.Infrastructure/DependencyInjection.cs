@@ -29,6 +29,7 @@ public static class DependencyInjection
         services.AddScoped<IDraftRepository, DraftRepository>();
         services.AddScoped<IRawEventRepository, RawEventRepository>();
         services.AddScoped<IFinancialSourceRepository, FinancialSourceRepository>();
+        services.AddScoped<IBinanceCredentialRepository, BinanceCredentialRepository>();
         services.AddScoped<IStatementImportRepository, StatementImportRepository>();
         services.AddScoped<IIngestionUnitOfWork, IngestionUnitOfWork>();
 
