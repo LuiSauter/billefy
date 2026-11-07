@@ -4,6 +4,7 @@ using Planning.Domain.Budgets;
 using Planning.Domain.Distribution;
 using Planning.Domain.Goals;
 using Planning.Domain.Investments;
+using Planning.Domain.Recurring;
 
 namespace Planning.Infrastructure;
 
@@ -16,6 +17,7 @@ public class PlanningDbContext : DbContext
     public DbSet<Investment> Investments => Set<Investment>();
     public DbSet<InvestmentCashLink> InvestmentCashLinks => Set<InvestmentCashLink>();
     public DbSet<DistributionPlan> DistributionPlans => Set<DistributionPlan>();
+    public DbSet<RecurringPayment> RecurringPayments => Set<RecurringPayment>();
 
     public PlanningDbContext(
         DbContextOptions<PlanningDbContext> options,
@@ -36,5 +38,6 @@ public class PlanningDbContext : DbContext
         modelBuilder.Entity<Investment>().HasQueryFilter(i => _currentUserContext.IsAuthenticated && i.UserId == _currentUserContext.UserId.GetValueOrDefault());
         modelBuilder.Entity<InvestmentCashLink>().HasQueryFilter(link => _currentUserContext.IsAuthenticated && link.UserId == _currentUserContext.UserId.GetValueOrDefault());
         modelBuilder.Entity<DistributionPlan>().HasQueryFilter(p => _currentUserContext.IsAuthenticated && p.UserId == _currentUserContext.UserId.GetValueOrDefault());
+        modelBuilder.Entity<RecurringPayment>().HasQueryFilter(r => _currentUserContext.IsAuthenticated && r.UserId == _currentUserContext.UserId.GetValueOrDefault());
     }
 }

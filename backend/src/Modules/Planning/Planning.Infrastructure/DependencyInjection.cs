@@ -24,6 +24,7 @@ public static class DependencyInjection
         services.AddScoped<IGoalRepository, GoalRepository>();
         services.AddScoped<IInvestmentRepository, InvestmentRepository>();
         services.AddScoped<IDistributionPlanRepository, DistributionPlanRepository>();
+        services.AddScoped<IRecurringPaymentRepository, RecurringPaymentRepository>();
         services.AddScoped<IPlanningUnitOfWork, PlanningUnitOfWork>();
 
         // Application Services (Cohesive Facade for Driving Adapters)
@@ -33,6 +34,7 @@ public static class DependencyInjection
         services.AddScoped<IDistributionPlanService, DistributionPlanService>();
         services.AddScoped<IFinancialHealthService, FinancialHealthService>();
         services.AddScoped<IIncomeDistributionService, IncomeDistributionService>();
+        services.AddScoped<IRecurringPaymentService, RecurringPaymentService>();
         services.AddScoped<IPlanningFinancialDataExport, PlanningFinancialDataExport>();
         services.AddScoped<IPlanningFinancialDataReset, PlanningFinancialDataReset>();
 

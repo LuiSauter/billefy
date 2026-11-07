@@ -1,5 +1,6 @@
 using Planning.Domain.Budgets;
 using Planning.Domain.Goals;
+using Planning.Domain.Recurring;
 
 namespace Planning.Application.Abstractions;
 
@@ -39,4 +40,13 @@ public interface IDistributionPlanRepository
 {
     Task<Planning.Domain.Distribution.DistributionPlan?> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken = default);
     Task AddAsync(Planning.Domain.Distribution.DistributionPlan plan, CancellationToken cancellationToken = default);
+}
+
+public interface IRecurringPaymentRepository
+{
+    Task<RecurringPayment?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
+    Task<List<RecurringPayment>> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken = default);
+    Task AddAsync(RecurringPayment recurringPayment, CancellationToken cancellationToken = default);
+    Task UpdateAsync(RecurringPayment recurringPayment, CancellationToken cancellationToken = default);
+    Task DeleteAsync(RecurringPayment recurringPayment, CancellationToken cancellationToken = default);
 }

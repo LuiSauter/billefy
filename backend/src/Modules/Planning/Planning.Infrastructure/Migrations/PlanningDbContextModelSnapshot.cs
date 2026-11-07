@@ -291,6 +291,113 @@ namespace Planning.Infrastructure.Migrations
                     b.ToTable("investment_cash_links", (string)null);
                 });
 
+            modelBuilder.Entity("Planning.Domain.Recurring.RecurringPayment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("AutoCreateDraft")
+                        .HasColumnType("boolean")
+                        .HasColumnName("auto_create_draft");
+
+                    b.Property<Guid?>("CategoryId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("category_id");
+
+                    b.Property<int>("CompletedOccurrences")
+                        .HasColumnType("integer")
+                        .HasColumnName("completed_occurrences");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid?>("DefaultAccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("default_account_id");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("description");
+
+                    b.Property<DateOnly?>("EndDate")
+                        .HasColumnType("date")
+                        .HasColumnName("end_date");
+
+                    b.Property<string>("EndType")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("end_type");
+
+                    b.Property<string>("FlowType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("flow_type");
+
+                    b.Property<string>("Frequency")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("frequency");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("name");
+
+                    b.Property<DateOnly>("NextDueDate")
+                        .HasColumnType("date")
+                        .HasColumnName("next_due_date");
+
+                    b.Property<DateOnly>("StartDate")
+                        .HasColumnType("date")
+                        .HasColumnName("start_date");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("status");
+
+                    b.Property<int?>("TotalOccurrences")
+                        .HasColumnType("integer")
+                        .HasColumnName("total_occurrences");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.ComplexProperty(typeof(Dictionary<string, object>), "Amount", "Planning.Domain.Recurring.RecurringPayment.Amount#Money", b1 =>
+                        {
+                            b1.IsRequired();
+
+                            b1.Property<decimal>("Amount")
+                                .HasPrecision(20, 6)
+                                .HasColumnType("numeric(20,6)")
+                                .HasColumnName("amount");
+
+                            b1.Property<string>("Currency")
+                                .IsRequired()
+                                .HasMaxLength(10)
+                                .HasColumnType("character varying(10)")
+                                .HasColumnName("currency");
+                        });
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "NextDueDate");
+
+                    b.HasIndex("UserId", "Status");
+
+                    b.ToTable("recurring_payments", (string)null);
+                });
+
             modelBuilder.Entity("Planning.Domain.Investments.InvestmentCashLink", b =>
                 {
                     b.HasOne("Planning.Domain.Investments.Investment", null)
