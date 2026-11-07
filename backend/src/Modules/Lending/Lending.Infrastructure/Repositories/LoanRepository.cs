@@ -51,6 +51,7 @@ internal sealed class LoanRepository(LendingDbContext context) : ILoanRepository
     {
         var query = context.Loans
             .IgnoreQueryFilters()
+            .AsNoTracking()
             .Include(l => l.Installments)
             .Include(l => l.Payments)
             .Where(l => l.UserId == userId);
