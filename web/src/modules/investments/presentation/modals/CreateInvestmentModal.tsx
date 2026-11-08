@@ -19,6 +19,7 @@ import {
   POPULAR_CRYPTOS,
   fetchCryptoTicker,
   calculateCryptoUsdtValue,
+  calculateCryptoQuantityFromUsdt,
   CryptoTickerPrice,
   CryptoAssetMeta,
 } from "../../domain/binance-market.service";
@@ -94,6 +95,26 @@ export function CreateInvestmentModal({
       if (qty > 0) {
         const computed = calculateCryptoUsdtValue(qty, liveTicker.price);
         setValue(String(computed));
+      } else if (rawQty.trim() === "") {
+        setValue("");
+      }
+    }
+  };
+
+  // Recalculate estimated crypto quantity when value in USDT changes
+  const handleValueChange = (rawVal: string) => {
+    setValue(rawVal);
+    if (kind === "crypto" && liveTicker && liveTicker.price > 0) {
+      const val = toNumber(rawVal);
+      if (val > 0) {
+        const computedQty = calculateCryptoQuantityFromUsdt(
+          val,
+          liveTicker.price,
+          selectedCrypto.decimals ?? 6
+        );
+        setQuantity(String(computedQty));
+      } else if (rawVal.trim() === "") {
+        setQuantity("");
       }
     }
   };
@@ -108,8 +129,11 @@ export function CreateInvestmentModal({
     const ticker = await loadTicker(crypto.symbol);
     if (ticker && ticker.price > 0) {
       const qty = toNumber(quantity);
+      const val = toNumber(value);
       if (qty > 0) {
         setValue(String(calculateCryptoUsdtValue(qty, ticker.price)));
+      } else if (val > 0) {
+        setQuantity(String(calculateCryptoQuantityFromUsdt(val, ticker.price, crypto.decimals ?? 6)));
       }
     }
   };
@@ -384,7 +408,7 @@ export function CreateInvestmentModal({
                 type="text"
                 inputMode="decimal"
                 value={value}
-                onChange={(e) => setValue(e.target.value)}
+                onChange={(e) => handleValueChange(e.target.value)}
                 placeholder="6,200.00"
                 className="w-full h-10 px-3 rounded-xl bg-muted/40 border border-border text-foreground font-mono font-bold text-sm outline-none focus:border-purple-500 transition"
               />
