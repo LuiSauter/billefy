@@ -19,6 +19,7 @@ internal sealed class CurrencyCatalogEntryConfiguration : IEntityTypeConfigurati
         builder.HasData(
             new CurrencyCatalogEntry("BOB", "Boliviano", "Bs", 2, true),
             new CurrencyCatalogEntry("USD", "US Dollar", "$", 2, true),
-            new CurrencyCatalogEntry("USDT", "Tether USD", "₮", 2, true));
+            new CurrencyCatalogEntry("USDT", "Tether USD", "₮", 2, true),
+            new CurrencyCatalogEntry("USDC", "USD Coin", "USDC", 2, true));
     }
 }

@@ -5,6 +5,7 @@ public sealed record Currency
     public static readonly Currency BOB = new("BOB", 2);
     public static readonly Currency USD = new("USD", 2);
     public static readonly Currency USDT = new("USDT", 2);
+    public static readonly Currency USDC = new("USDC", 2);
     public static readonly Currency EUR = new("EUR", 2);
     public static readonly Currency BTC = new("BTC", 8);
 
@@ -28,6 +29,7 @@ public sealed record Currency
             "BOB" => BOB,
             "USD" => USD,
             "USDT" => USDT,
+            "USDC" => USDC,
             "EUR" => EUR,
             "BTC" => BTC,
             _ => new Currency(normalized, decimalPlaces)

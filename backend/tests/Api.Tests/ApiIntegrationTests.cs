@@ -1534,7 +1534,7 @@ public class ApiIntegrationTests : IDisposable
         var currencies = await response.Content.ReadFromJsonAsync<JsonElement[]>();
         currencies.Should().NotBeNull();
         currencies!.Select(currency => currency.GetProperty("code").GetString())
-            .Should().BeEquivalentTo("BOB", "USD", "USDT");
+            .Should().BeEquivalentTo("BOB", "USD", "USDT", "USDC");
         currencies.Should().OnlyContain(currency => currency.GetProperty("isActive").GetBoolean());
     }
 
@@ -2533,6 +2533,23 @@ public sealed class InvestmentCashApiTests : IDisposable
         getTxns.StatusCode.Should().Be(HttpStatusCode.OK);
         var txns = await getTxns.Content.ReadFromJsonAsync<List<TransactionDto>>();
         txns.Should().NotBeEmpty();
+    }
+
+    [Fact]
+    public async Task CreateAccount_SupportsUsdcCurrency_AndPersistsSuccessfully()
+    {
+        var testUser = Guid.NewGuid();
+        var response = await SendAsync(HttpMethod.Post, "/v1/accounts", testUser,
+            new CreateAccountRequest("Wallet USDC", AccountType.Wallet, "USDC", 124m, "wallet", "cyan"));
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var getRes = await SendAsync(HttpMethod.Get, "/v1/accounts", testUser);
+        getRes.StatusCode.Should().Be(HttpStatusCode.OK);
+        var accounts = await getRes.Content.ReadFromJsonAsync<List<AccountDto>>();
+        accounts.Should().ContainSingle();
+        accounts![0].Currency.Should().Be("USDC");
+        accounts[0].Balance.Should().Be(124m);
+        accounts[0].Name.Should().Be("Wallet USDC");
     }
 
     private async Task<Guid> CreateAccountAsync(Guid userId, string name, decimal balance)

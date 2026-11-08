@@ -77,6 +77,14 @@ namespace Fx.Infrastructure.Migrations
                             Name = "Tether USD",
                             Precision = 2,
                             Symbol = "₮"
+                        },
+                        new
+                        {
+                            Code = "USDC",
+                            IsActive = true,
+                            Name = "USD Coin",
+                            Precision = 2,
+                            Symbol = "USDC"
                         });
                 });
 

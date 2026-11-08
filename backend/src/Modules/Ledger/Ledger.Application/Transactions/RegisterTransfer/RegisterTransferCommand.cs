@@ -125,15 +125,17 @@ public sealed class RegisterTransferCommandHandler
             return Result.Success(new TransferFxQuote(null, null));
         }
 
-        if ((sourceCurrency is "USD" or "USDT") && (destinationCurrency is "USD" or "USDT"))
+        static bool IsDollarProxy(string c) => c is "USD" or "USDT" or "USDC";
+
+        if (IsDollarProxy(sourceCurrency) && IsDollarProxy(destinationCurrency))
         {
             if (sourceAmount != destinationAmount || requestedRate.HasValue || !string.IsNullOrWhiteSpace(requestedRateSource))
-                return Result.Failure<TransferFxQuote>(Error.Validation("Transfer.DollarProxyMismatch", "USD and USDT transfers use the 1:1 proxy and require equal amounts."));
-            return Result.Success(new TransferFxQuote(1m, "USD/USDT parity"));
+                return Result.Failure<TransferFxQuote>(Error.Validation("Transfer.DollarProxyMismatch", "USD, USDT, and USDC transfers use the 1:1 proxy and require equal amounts."));
+            return Result.Success(new TransferFxQuote(1m, "USD/USDT/USDC parity"));
         }
 
-        var isBobToDollar = sourceCurrency == "BOB" && (destinationCurrency is "USD" or "USDT");
-        var isDollarToBob = (sourceCurrency is "USD" or "USDT") && destinationCurrency == "BOB";
+        var isBobToDollar = sourceCurrency == "BOB" && IsDollarProxy(destinationCurrency);
+        var isDollarToBob = IsDollarProxy(sourceCurrency) && destinationCurrency == "BOB";
         if (!isBobToDollar && !isDollarToBob)
             return Result.Failure<TransferFxQuote>(Error.Validation("Transfer.UnsupportedCurrencyPair", "No supported BOB/USD exchange-rate convention exists for this currency pair."));
 

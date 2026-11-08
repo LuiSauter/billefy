@@ -31,7 +31,7 @@ public class LedgerIntegrationTests
 
     private sealed class TestCurrencyCatalog : ICurrencyCatalog
     {
-        private static readonly string[] ActiveCodes = ["BOB", "USD", "USDT"];
+        private static readonly string[] ActiveCodes = ["BOB", "USD", "USDT", "USDC"];
 
         public Task<IReadOnlyList<CurrencyCatalogEntryDto>> GetActiveCurrenciesAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<CurrencyCatalogEntryDto>>(
