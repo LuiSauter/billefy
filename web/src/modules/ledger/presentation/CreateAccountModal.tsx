@@ -74,6 +74,8 @@ export function CreateAccountModal({ isOpen, onClose, onSubmit, defaultCurrency 
       setCurrency("USDT");
     } else if (nextType === "International") {
       setCurrency("USD");
+    } else if (nextType === "Cash") {
+      setCurrency(defaultCurrency);
     }
   };
 
@@ -200,7 +202,7 @@ export function CreateAccountModal({ isOpen, onClose, onSubmit, defaultCurrency 
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Ej. Caja de Ahorros BNB, Binance USDT, Wise USD"
+              placeholder="Ej. Billetera física, Caja de Ahorros BNB, Binance USDT, Wise USD"
               autoComplete="off"
             />
           )}

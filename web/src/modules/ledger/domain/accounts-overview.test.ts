@@ -55,7 +55,7 @@ describe("accounts-overview domain", () => {
       expect(getAccountSubtitle(makeAccount({ type: "Savings" }))).toBe("Cuenta de ahorros");
       expect(getAccountSubtitle(makeAccount({ type: "Checking" }))).toBe("Cuenta corriente");
       expect(getAccountSubtitle(makeAccount({ type: "CryptoWallet" }))).toBe("Wallet (Crypto)");
-      expect(getAccountSubtitle(makeAccount({ type: "Cash" }))).toBe("En billetera");
+      expect(getAccountSubtitle(makeAccount({ type: "Cash" }))).toBe("Efectivo");
       expect(getAccountSubtitle(makeAccount({ type: "Wallet" }))).toBe("Wallet digital");
       expect(getAccountSubtitle(makeAccount({ type: "International" }))).toBe("Cuenta internacional");
     });

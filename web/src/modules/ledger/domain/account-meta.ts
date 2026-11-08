@@ -30,7 +30,7 @@ export const ACCOUNT_TYPE_OPTIONS: {
   {
     value: "CryptoWallet",
     label: "Wallet Crypto",
-    description: "USDT, BTC, Binance o billetera Web3",
+    description: "USDT o billetera Web3",
     defaultIcon: "coins",
     defaultColor: "amber",
   },
@@ -42,9 +42,16 @@ export const ACCOUNT_TYPE_OPTIONS: {
     defaultColor: "violet",
   },
   {
+    value: "Cash",
+    label: "Efectivo",
+    description: "Billetes, monedas en mano o caja chica",
+    defaultIcon: "banknote",
+    defaultColor: "emerald",
+  },
+  {
     value: "Wallet",
-    label: "Billetera",
-    description: "Efectivo, billetera móvil o uso rápido",
+    label: "Billetera digital",
+    description: "Billetera móvil, apps de pago o saldo virtual",
     defaultIcon: "wallet",
     defaultColor: "cyan",
   },
@@ -79,9 +86,10 @@ export function getAccountTypeLabel(type?: string): string {
       return "Wallet Crypto";
     case "International":
       return "Cuenta internacional";
-    case "Wallet":
     case "Cash":
-      return "Billetera";
+      return "Efectivo";
+    case "Wallet":
+      return "Billetera digital";
     case "Bank":
       return "Cuenta bancaria";
     default:
@@ -101,8 +109,9 @@ export function getDefaultAccountVisualMeta(type?: string): AccountVisualMeta {
       return { iconKey: "coins", colorKey: "amber" };
     case "International":
       return { iconKey: "plane", colorKey: "violet" };
-    case "Wallet":
     case "Cash":
+      return { iconKey: "banknote", colorKey: "emerald" };
+    case "Wallet":
     default:
       return { iconKey: "wallet", colorKey: "cyan" };
   }

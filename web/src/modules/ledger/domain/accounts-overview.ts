@@ -176,7 +176,7 @@ export function getAccountSubtitle(account: AccountDto): string {
     return "Exchange Crypto";
   }
   if (type === "Cash") {
-    return "En billetera";
+    return "Efectivo";
   }
   if (type === "International") {
     return "Cuenta internacional";
@@ -195,7 +195,7 @@ export function getAccountSubtitle(account: AccountDto): string {
     return "Cuenta de ahorros";
   }
   if (name.includes("efectivo")) {
-    return "En billetera";
+    return "Efectivo";
   }
   if (name.includes("broker") || name.includes("inversiones") || name.includes("s&p")) {
     return "Fondo S&P 500 / ETFs";
