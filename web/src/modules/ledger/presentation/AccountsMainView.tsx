@@ -1,26 +1,34 @@
 "use client";
 
 import React, { useState } from "react";
-import { Plus, Pencil, Scale } from "lucide-react";
+import { Plus, Pencil, Scale, Trash2 } from "lucide-react";
 import { AccountDto } from "../domain/ledger.types";
 import { AccountCard } from "./AccountCard";
 import {
   classifyAccountCategory,
+  formatNativeBalance,
   getAccountSubtitle,
   getCategoryBadge,
+  getCurrencyConversionLabel,
 } from "../domain/accounts-overview";
 import { EditAccountModal } from "./EditAccountModal";
+import { useNumberFormat } from "@/shared/hooks/use-number-format";
+import { ResponsiveDrawer } from "@/shared/ui/responsive-drawer";
+import { Button } from "@/shared/ui/button";
 
 interface AccountsMainViewProps {
   accounts: AccountDto[];
   loading: boolean;
   viewMode: "grid" | "list";
+  selectedCurrency?: "BOB" | "USD";
+  p2pRate?: number;
   onOpenCreateAccountModal: () => void;
   onOpenReconcileModal: (account: AccountDto) => void;
   onUpdateAccount?: (
     accountId: string,
     data: { name: string; iconKey: string; colorKey: string }
   ) => Promise<void>;
+  onDeleteAccount?: (accountId: string) => Promise<void>;
   onSelectAccount?: (account: AccountDto) => void;
 }
 
@@ -28,15 +36,32 @@ export function AccountsMainView({
   accounts,
   loading,
   viewMode,
+  selectedCurrency = "BOB",
+  p2pRate = 9.85,
   onOpenCreateAccountModal,
   onOpenReconcileModal,
   onUpdateAccount,
+  onDeleteAccount,
   onSelectAccount,
 }: AccountsMainViewProps) {
+  const format = useNumberFormat();
   const [editingAccount, setEditingAccount] = useState<AccountDto | null>(null);
+  const [accountToDelete, setAccountToDelete] = useState<AccountDto | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const handleEdit = (acc: AccountDto) => {
     setEditingAccount(acc);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!accountToDelete || !onDeleteAccount) return;
+    setDeleting(true);
+    try {
+      await onDeleteAccount(accountToDelete.id);
+      setAccountToDelete(null);
+    } finally {
+      setDeleting(false);
+    }
   };
 
   return (
@@ -73,8 +98,11 @@ export function AccountsMainView({
             <AccountCard
               key={acc.id}
               account={acc}
+              selectedCurrency={selectedCurrency}
+              p2pRate={p2pRate}
               onEdit={handleEdit}
               onReconcile={onOpenReconcileModal}
+              onDelete={onDeleteAccount ? (account) => setAccountToDelete(account) : undefined}
               onSelect={onSelectAccount}
             />
           ))}
@@ -104,7 +132,13 @@ export function AccountsMainView({
             const category = classifyAccountCategory(acc);
             const badge = getCategoryBadge(category);
             const subtitle = getAccountSubtitle(acc);
-            const num = Number(acc.balance) || 0;
+            const conversionLabel = getCurrencyConversionLabel(
+              acc.balance,
+              acc.currency,
+              selectedCurrency,
+              p2pRate,
+              format
+            );
 
             return (
               <div
@@ -132,10 +166,16 @@ export function AccountsMainView({
                 <div className="flex items-center gap-3">
                   <div className="text-right">
                     <div className="text-sm sm:text-base font-black text-foreground font-mono">
-                      $ {num.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      {formatNativeBalance(acc.balance, acc.currency, format)}
                     </div>
-                    <div className="text-[11px] font-bold text-muted-foreground">
-                      {acc.currency}
+                    <div className="text-[11px] font-bold text-muted-foreground flex items-center justify-end gap-1.5">
+                      <span>{acc.currency}</span>
+                      {conversionLabel && (
+                        <>
+                          <span>•</span>
+                          <span>{conversionLabel}</span>
+                        </>
+                      )}
                     </div>
                   </div>
 
@@ -156,6 +196,16 @@ export function AccountsMainView({
                     >
                       <Scale className="w-3.5 h-3.5" />
                     </button>
+                    {onDeleteAccount && (
+                      <button
+                        type="button"
+                        onClick={() => setAccountToDelete(acc)}
+                        title="Eliminar cuenta"
+                        className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-500/10 transition cursor-pointer"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -178,8 +228,56 @@ export function AccountsMainView({
           account={editingAccount}
           onClose={() => setEditingAccount(null)}
           onSubmit={onUpdateAccount}
+          onDelete={onDeleteAccount}
         />
       )}
+
+      {/* Delete Confirmation Drawer */}
+      <ResponsiveDrawer
+        open={!!accountToDelete}
+        onOpenChange={(open) => !open && setAccountToDelete(null)}
+        title="Eliminar cuenta"
+        description="Confirmación de baja de cuenta"
+        size="sm"
+        footer={
+          <div className="flex w-full flex-col-reverse sm:flex-row sm:justify-end gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setAccountToDelete(null)}
+              disabled={deleting}
+              className="w-full sm:w-auto"
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              loading={deleting}
+              onClick={handleConfirmDelete}
+              className="w-full sm:w-auto"
+            >
+              Sí, eliminar cuenta
+            </Button>
+          </div>
+        }
+      >
+        <div className="flex flex-col gap-3 py-2">
+          <p className="text-sm text-foreground">
+            ¿Estás seguro de que querés eliminar la cuenta{" "}
+            <span className="font-bold text-foreground">
+              «{accountToDelete?.name}»
+            </span>
+            ?
+          </p>
+          <div className="rounded-xl border border-border/80 bg-muted/40 p-3 text-xs text-muted-foreground">
+            <span className="font-semibold text-foreground">Aviso contable:</span> Si
+            la cuenta tiene transacciones registradas, será archivada para mantener
+            la integridad de tu balance e historial financiero. Si no tiene
+            movimientos, se eliminará permanentemente.
+          </div>
+        </div>
+      </ResponsiveDrawer>
     </div>
   );
 }

@@ -9,7 +9,10 @@ import {
   Settings,
   Scale,
   Pencil,
+  Trash2,
 } from "lucide-react";
+import { ResponsiveDrawer } from "@/shared/ui/responsive-drawer";
+import { Button } from "@/shared/ui/button";
 import { AccountDto, TransactionDto } from "../../domain/ledger.types";
 import {
   calculateAccountPeriodStats,
@@ -39,7 +42,10 @@ interface AccountDetailViewProps {
   onOpenRegisterTxnModal?: (account: AccountDto) => void;
   onEditTxn?: (txn: TransactionDto) => void;
   onReverseTxn?: (txnId: string) => void;
+  onDeleteAccount?: (accountId: string) => Promise<void>;
+  selectedCurrency?: "BOB" | "USD";
   p2pRate?: number;
+  initialTab?: AccountDetailTab;
 }
 
 export function AccountDetailView({
@@ -51,9 +57,27 @@ export function AccountDetailView({
   onOpenRegisterTxnModal,
   onEditTxn,
   onReverseTxn,
+  onDeleteAccount,
+  selectedCurrency = "BOB",
+  p2pRate = 9.85,
+  initialTab = "resumen",
 }: AccountDetailViewProps) {
   const format = useNumberFormat();
-  const [activeTab, setActiveTab] = useState<AccountDetailTab>("resumen");
+  const [activeTab, setActiveTab] = useState<AccountDetailTab>(initialTab);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    if (!onDeleteAccount) return;
+    setDeleting(true);
+    try {
+      await onDeleteAccount(account.id);
+      setShowDeleteConfirm(false);
+      onBack();
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const accountTxns = useMemo(() => {
     return getActiveAccountTransactions(account.id, transactions);
@@ -96,8 +120,11 @@ export function AccountDetailView({
         initialBalance={initialBalance}
         variationPercentage={stats.percentageVariation}
         variationNominal={stats.netVariation}
+        selectedCurrency={selectedCurrency}
+        p2pRate={p2pRate}
         onOpenEdit={() => onOpenEditAccountModal(account)}
         onOpenReconcile={() => onOpenReconcileModal(account)}
+        onDelete={onDeleteAccount ? () => setShowDeleteConfirm(true) : undefined}
       />
 
       {/* 3. Navigation Tabs Bar */}
@@ -352,9 +379,77 @@ export function AccountDetailView({
                 </span>
               </div>
             </div>
+
+            {onDeleteAccount && (
+              <div className="py-3 flex items-center justify-between gap-4">
+                <div>
+                  <span className="font-bold text-destructive block">
+                    Zona de peligro
+                  </span>
+                  <span className="text-muted-foreground">
+                    Eliminar o archivar esta cuenta según tenga movimientos registrados.
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="px-3.5 py-2 rounded-xl bg-destructive/10 hover:bg-destructive/20 border border-destructive/30 text-destructive font-bold text-xs flex items-center gap-1.5 transition cursor-pointer"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                  <span>Eliminar cuenta</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Drawer */}
+      <ResponsiveDrawer
+        open={showDeleteConfirm}
+        onOpenChange={(open) => !open && setShowDeleteConfirm(false)}
+        title="Eliminar cuenta"
+        description="Confirmación de baja de cuenta"
+        size="sm"
+        footer={
+          <div className="flex w-full flex-col-reverse sm:flex-row sm:justify-end gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setShowDeleteConfirm(false)}
+              disabled={deleting}
+              className="w-full sm:w-auto"
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              loading={deleting}
+              onClick={handleDelete}
+              className="w-full sm:w-auto"
+            >
+              Sí, eliminar cuenta
+            </Button>
+          </div>
+        }
+      >
+        <div className="flex flex-col gap-3 py-2">
+          <p className="text-sm text-foreground">
+            ¿Estás seguro de que querés eliminar la cuenta{" "}
+            <span className="font-bold text-foreground">
+              «{account.name}»
+            </span>
+            ?
+          </p>
+          <div className="rounded-xl border border-border/80 bg-muted/40 p-3 text-xs text-muted-foreground">
+            <span className="font-semibold text-foreground">Aviso contable:</span> Si
+            la cuenta tiene transacciones registradas, será archivada para mantener
+            la integridad de tu balance e historial financiero. Si no tiene
+            movimientos, se eliminará permanentemente.
+          </div>
+        </div>
+      </ResponsiveDrawer>
     </div>
   );
 }

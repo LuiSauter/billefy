@@ -99,12 +99,14 @@ export function classifyAccountCategory(account: AccountDto): AccountCategoryGro
     type === "CryptoWallet" ||
     type === "Exchange" ||
     account.currency === "USDT" ||
+    account.currency === "USDC" ||
     account.currency === "BTC" ||
     account.currency === "ETH" ||
     name.includes("binance") ||
     name.includes("crypto") ||
     name.includes("bitcoin") ||
     name.includes("usdt") ||
+    name.includes("usdc") ||
     name.includes("bybit") ||
     name.includes("kucoin")
   ) {
@@ -258,7 +260,7 @@ export function getCategoryBadge(group: AccountCategoryGroup): {
 }
 
 export function valueInUsd(amount: number, currency: string, p2pRate: number): number {
-  if (currency === "USD" || currency === "USDT") {
+  if (currency === "USD" || currency === "USDT" || currency === "USDC") {
     return amount;
   }
   if (currency === "BOB") {
@@ -266,6 +268,59 @@ export function valueInUsd(amount: number, currency: string, p2pRate: number): n
     return amount / rate;
   }
   return amount;
+}
+
+export function formatNativeBalance(
+  balance: number | Decimal,
+  currency: string,
+  formatNumber: (n: number | Decimal) => string
+): string {
+  const formatted = formatNumber(balance);
+  switch (currency) {
+    case "BOB":
+      return `Bs. ${formatted}`;
+    case "USD":
+      return `$ ${formatted}`;
+    case "USDT":
+      return `${formatted} USDT`;
+    case "USDC":
+      return `${formatted} USDC`;
+    default:
+      return `${formatted} ${currency}`;
+  }
+}
+
+export function getCurrencyConversionLabel(
+  balance: number | Decimal,
+  accountCurrency: string,
+  userCurrency: "BOB" | "USD" = "BOB",
+  p2pRate: number = 9.85,
+  formatNumber: (n: number | Decimal) => string
+): string | null {
+  const num = balance instanceof Decimal ? balance.toNumber() : Number(balance) || 0;
+  const rate = p2pRate > 0 ? p2pRate : 9.85;
+
+  if (userCurrency === "BOB") {
+    if (accountCurrency === "BOB") {
+      return null;
+    }
+    const usd = valueInUsd(num, accountCurrency, rate);
+    const convertedBob = usd * rate;
+    return `≈ Bs. ${formatNumber(convertedBob)}`;
+  } else {
+    if (accountCurrency === "USD") {
+      return null;
+    }
+    if (accountCurrency === "BOB") {
+      const convertedUsd = num / rate;
+      return `≈ $ ${formatNumber(convertedUsd)} USD`;
+    }
+    if (accountCurrency === "USDT" || accountCurrency === "USDC") {
+      return `≈ $ ${formatNumber(num)} USD`;
+    }
+    const convertedUsd = valueInUsd(num, accountCurrency, rate);
+    return `≈ $ ${formatNumber(convertedUsd)} USD`;
+  }
 }
 
 export function calculateAccountsOverview(

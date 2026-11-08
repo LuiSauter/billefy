@@ -26,6 +26,7 @@ interface AccountsTabViewProps {
     accountId: string,
     data: { name: string; iconKey: string; colorKey: string }
   ) => Promise<void>;
+  onDeleteAccount?: (accountId: string) => Promise<void>;
   onOpenRegisterTxnModal?: (account: AccountDto) => void;
   onEditTxn?: (txn: TransactionDto) => void;
   onReverseTxn?: (txnId: string) => void;
@@ -35,12 +36,13 @@ export function AccountsTabView({
   accounts,
   transactions = [],
   p2pRate = 9.85,
-  selectedCurrency = "USD",
+  selectedCurrency = "BOB",
   loading,
   onOpenCreateAccountModal,
   onOpenCsvModal,
   onOpenReconcileModal,
   onUpdateAccount,
+  onDeleteAccount,
   onOpenRegisterTxnModal,
   onEditTxn,
   onReverseTxn,
@@ -77,6 +79,8 @@ export function AccountsTabView({
           onOpenRegisterTxnModal={onOpenRegisterTxnModal}
           onEditTxn={onEditTxn}
           onReverseTxn={onReverseTxn}
+          onDeleteAccount={onDeleteAccount}
+          selectedCurrency={selectedCurrency}
           p2pRate={p2pRate}
         />
 
@@ -85,6 +89,7 @@ export function AccountsTabView({
             account={editingAccount}
             onClose={() => setEditingAccount(null)}
             onSubmit={onUpdateAccount || (async () => {})}
+            onDelete={onDeleteAccount}
           />
         )}
       </>
@@ -119,9 +124,12 @@ export function AccountsTabView({
             accounts={filteredAccounts}
             loading={loading}
             viewMode={viewMode}
+            selectedCurrency={selectedCurrency}
+            p2pRate={p2pRate}
             onOpenCreateAccountModal={onOpenCreateAccountModal}
             onOpenReconcileModal={onOpenReconcileModal}
             onUpdateAccount={onUpdateAccount}
+            onDeleteAccount={onDeleteAccount}
             onSelectAccount={(acc) => setSelectedAccountId(acc.id)}
           />
         </div>
@@ -143,6 +151,7 @@ export function AccountsTabView({
           account={editingAccount}
           onClose={() => setEditingAccount(null)}
           onSubmit={onUpdateAccount || (async () => {})}
+          onDelete={onDeleteAccount}
         />
       )}
     </div>

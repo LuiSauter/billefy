@@ -115,6 +115,7 @@ export function useDashboardData(authToken?: string | null, authUserId?: string 
     error,
     createAccount: ledger.createAccount,
     updateAccount: ledger.updateAccount,
+    deleteAccount: ledger.deleteAccount,
     registerTransaction: ledger.registerTransaction,
     updateTransaction: ledger.updateTransaction,
     reverseTransaction: ledger.reverseTransaction,

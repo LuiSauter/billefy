@@ -5,6 +5,7 @@ import {
   MoreVertical,
   Pencil,
   Scale,
+  Trash2,
   ArrowRight,
   Landmark,
   Wallet,
@@ -16,9 +17,11 @@ import {
 import { AccountDto } from "../domain/ledger.types";
 import {
   classifyAccountCategory,
+  formatNativeBalance,
   getAccountSubtitle,
   getAccountVisualProfile,
   getCategoryBadge,
+  getCurrencyConversionLabel,
 } from "../domain/accounts-overview";
 import { resolveAccountVisualMeta } from "../domain/account-meta";
 import { CategoryIconBadge } from "./CategoryIcon";
@@ -26,15 +29,21 @@ import { useNumberFormat } from "@/shared/hooks/use-number-format";
 
 interface AccountCardProps {
   account: AccountDto;
+  selectedCurrency?: "BOB" | "USD";
+  p2pRate?: number;
   onEdit: (account: AccountDto) => void;
   onReconcile: (account: AccountDto) => void;
+  onDelete?: (account: AccountDto) => void;
   onSelect?: (account: AccountDto) => void;
 }
 
 export function AccountCard({
   account,
+  selectedCurrency = "BOB",
+  p2pRate = 9.85,
   onEdit,
   onReconcile,
+  onDelete,
   onSelect,
 }: AccountCardProps) {
   const format = useNumberFormat();
@@ -60,9 +69,13 @@ export function AccountCard({
   const subtitle = getAccountSubtitle(account);
   const profile = getAccountVisualProfile(account);
 
-  const formatBalance = (acc: AccountDto) => {
-    return `${acc.currency === "BOB" ? "Bs. " : "$ "}${format(acc.balance)}`;
-  };
+  const conversionLabel = getCurrencyConversionLabel(
+    account.balance,
+    account.currency,
+    selectedCurrency,
+    p2pRate,
+    format
+  );
 
   const renderBrandIcon = () => {
     switch (profile.brandKey) {
@@ -211,19 +224,41 @@ export function AccountCard({
                 <Scale className="w-3.5 h-3.5 text-primary" />
                 <span>Conciliar saldo</span>
               </button>
+              {onDelete && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onDelete(account);
+                  }}
+                  className="px-3.5 py-2 text-left text-rose-500 hover:bg-rose-500/10 flex items-center gap-2 transition border-t border-border/60"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+                  <span>Eliminar cuenta</span>
+                </button>
+              )}
             </div>
           )}
         </div>
       </div>
 
-      {/* Middle row: Balance */}
-      <div className="my-3 pl-2 flex items-baseline gap-1.5">
-        <span className="text-xl font-black text-foreground font-mono tracking-tight">
-          {formatBalance(account)}
-        </span>
-        <span className="text-xs font-bold text-muted-foreground">
-          {account.currency}
-        </span>
+      {/* Middle row: Balance & Conversion */}
+      <div className="my-3 pl-2 flex flex-col gap-0.5">
+        <div className="flex items-baseline gap-1.5">
+          <span className="text-xl font-black text-foreground font-mono tracking-tight">
+            {formatNativeBalance(account.balance, account.currency, format)}
+          </span>
+          {account.currency !== "BOB" && account.currency !== "USD" && (
+            <span className="text-xs font-bold text-muted-foreground">
+              {account.currency}
+            </span>
+          )}
+        </div>
+        {conversionLabel && (
+          <span className="text-xs font-semibold text-muted-foreground/90 font-mono">
+            {conversionLabel}
+          </span>
+        )}
       </div>
 
       {/* Bottom row: Category badge */}

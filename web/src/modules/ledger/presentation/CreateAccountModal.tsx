@@ -34,12 +34,14 @@ const CURRENCY_OPTIONS = [
   { value: "BOB", label: "BOB" },
   { value: "USD", label: "USD" },
   { value: "USDT", label: "USDT" },
+  { value: "USDC", label: "USDC" },
 ];
 
 const CURRENCY_NAMES: Record<string, string> = {
   BOB: "Bolivianos",
   USD: "Dólares",
   USDT: "Tether",
+  USDC: "USD Coin",
 };
 
 export function CreateAccountModal({ isOpen, onClose, onSubmit, defaultCurrency = "BOB" }: CreateAccountModalProps) {
@@ -154,7 +156,7 @@ export function CreateAccountModal({ isOpen, onClose, onSubmit, defaultCurrency 
           <span className="text-sm font-mono font-extrabold text-primary shrink-0">
             {currency === "BOB" ? "Bs. " : currency === "USD" ? "$ " : ""}
             {initialBalance.trim() || "0.00"}
-            {currency === "USDT" ? " USDT" : ""}
+            {currency === "USDT" ? " USDT" : currency === "USDC" ? " USDC" : ""}
           </span>
         </div>
 

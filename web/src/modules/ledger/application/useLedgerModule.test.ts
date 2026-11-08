@@ -63,4 +63,13 @@ describe("FX transfer module flow", () => {
     expect(http.post).toHaveBeenCalledTimes(1);
     expect(http.get).not.toHaveBeenCalled();
   });
+
+  it("deletes account and refreshes ledger", async () => {
+    const http = createHttp();
+    const ledger = useLedgerForTest(http);
+
+    await ledger.deleteAccount("bob");
+    expect(http.delete).toHaveBeenCalledWith("/v1/accounts/bob");
+    expect(http.get).toHaveBeenCalledWith("/v1/accounts");
+  });
 });

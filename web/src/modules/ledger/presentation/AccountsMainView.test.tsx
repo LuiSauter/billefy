@@ -57,4 +57,35 @@ describe("AccountsMainView", () => {
     expect(html).toContain("Mercado Pago");
     expect(html).toContain("Agregar otra cuenta");
   });
+
+  it("renders conversion label and delete action in list mode", () => {
+    const multiCurrencyAccounts: AccountDto[] = [
+      {
+        id: "acc-usdt",
+        name: "Binance USDT",
+        type: "CryptoWallet",
+        currency: "USDT",
+        balance: new Decimal(100),
+        createdAt: new Date().toISOString(),
+      },
+    ];
+
+    const html = renderToStaticMarkup(
+      <AccountsMainView
+        accounts={multiCurrencyAccounts}
+        loading={false}
+        viewMode="list"
+        selectedCurrency="BOB"
+        p2pRate={10}
+        onOpenCreateAccountModal={vi.fn()}
+        onOpenReconcileModal={vi.fn()}
+        onDeleteAccount={vi.fn()}
+      />
+    );
+
+    expect(html).toContain("100");
+    expect(html).toContain("USDT");
+    expect(html).toContain("Bs.");
+    expect(html).toContain("Eliminar cuenta");
+  });
 });

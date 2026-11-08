@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { Trash2 } from "lucide-react";
 import { AccountDto } from "@/modules/ledger/domain/ledger.types";
 import {
   ACCOUNT_ICON_CHOICES,
@@ -24,14 +25,16 @@ interface EditAccountModalProps {
     accountId: string,
     data: { name: string; iconKey: string; colorKey: string }
   ) => Promise<void>;
+  onDelete?: (accountId: string) => Promise<void>;
 }
 
 const FORM_ID = "edit-account-form";
 
-export function EditAccountModal({ account, onClose, onSubmit }: EditAccountModalProps) {
+export function EditAccountModal({ account, onClose, onSubmit, onDelete }: EditAccountModalProps) {
   const [name, setName] = useState("");
   const [iconKey, setIconKey] = useState<CategoryIconKey>("wallet");
   const [colorKey, setColorKey] = useState<CategoryColorKey>("cyan");
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -135,6 +138,60 @@ export function EditAccountModal({ account, onClose, onSubmit }: EditAccountModa
             ))}
           </div>
         </div>
+
+        {onDelete && (
+          <div className="pt-4 border-t border-border/60">
+            {confirmDelete ? (
+              <div className="flex flex-col gap-2.5 p-3.5 rounded-xl bg-destructive/10 border border-destructive/30">
+                <span className="text-xs font-bold text-destructive">
+                  ¿Confirmás eliminar la cuenta «{account.name}»?
+                </span>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  Si tiene transacciones registradas, será archivada para conservar tu historial contable. Si no tiene movimientos, se eliminará permanentemente.
+                </p>
+                <div className="flex justify-end gap-2 mt-1">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled={submitting}
+                    onClick={() => setConfirmDelete(false)}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    loading={submitting}
+                    onClick={async () => {
+                      setSubmitting(true);
+                      try {
+                        await onDelete(account.id);
+                        onClose();
+                      } finally {
+                        setSubmitting(false);
+                      }
+                    }}
+                  >
+                    Sí, eliminar cuenta
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setConfirmDelete(true)}
+                className="text-destructive hover:text-destructive hover:bg-destructive/10 flex items-center gap-2 cursor-pointer"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Eliminar cuenta</span>
+              </Button>
+            )}
+          </div>
+        )}
       </form>
     </ResponsiveDrawer>
   );

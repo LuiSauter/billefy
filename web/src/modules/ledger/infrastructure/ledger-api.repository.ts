@@ -67,6 +67,10 @@ export class LedgerApiRepository implements ILedgerRepository {
     await this.http.put<void>(`/v1/accounts/${id}`, data);
   }
 
+  async deleteAccount(id: string): Promise<void> {
+    await this.http.delete<void>(`/v1/accounts/${id}`);
+  }
+
   async reconcileAccount(
     accountId: string,
     req: ReconcileAccountRequest

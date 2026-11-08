@@ -6,6 +6,9 @@ import {
   getAccountSubtitle,
   calculateAccountsOverview,
   calculateBalanceEvolution,
+  formatNativeBalance,
+  getCurrencyConversionLabel,
+  valueInUsd,
 } from "./accounts-overview";
 
 function makeAccount(overrides: Partial<AccountDto>): AccountDto {
@@ -32,6 +35,7 @@ describe("accounts-overview domain", () => {
       expect(classifyAccountCategory(makeAccount({ type: "CryptoWallet" }))).toBe("cripto");
       expect(classifyAccountCategory(makeAccount({ type: "Exchange" }))).toBe("cripto");
       expect(classifyAccountCategory(makeAccount({ name: "Binance USDT", type: "Wallet" }))).toBe("cripto");
+      expect(classifyAccountCategory(makeAccount({ name: "Caja USDC", type: "Wallet", currency: "USDC" }))).toBe("cripto");
     });
 
     it("classifies cash accounts correctly", () => {
@@ -88,6 +92,41 @@ describe("accounts-overview domain", () => {
       const points = calculateBalanceEvolution(accounts, [], 10, 6);
       expect(points.length).toBe(6);
       expect(points[points.length - 1].balance).toBe(24860);
+    });
+  });
+
+  describe("formatNativeBalance", () => {
+    const dummyFormat = (n: number | Decimal) => n.toString();
+
+    it("formats BOB with Bs.", () => {
+      expect(formatNativeBalance(150, "BOB", dummyFormat)).toBe("Bs. 150");
+    });
+
+    it("formats USD with $", () => {
+      expect(formatNativeBalance(150, "USD", dummyFormat)).toBe("$ 150");
+    });
+
+    it("formats USDT and USDC with their token symbol", () => {
+      expect(formatNativeBalance(150, "USDT", dummyFormat)).toBe("150 USDT");
+      expect(formatNativeBalance(150, "USDC", dummyFormat)).toBe("150 USDC");
+    });
+  });
+
+  describe("getCurrencyConversionLabel", () => {
+    const dummyFormat = (n: number | Decimal) => Number(n).toFixed(2);
+
+    it("converts USD, USDT, and USDC accounts to BOB when user preferred currency is BOB", () => {
+      expect(getCurrencyConversionLabel(100, "USD", "BOB", 10, dummyFormat)).toBe("≈ Bs. 1000.00");
+      expect(getCurrencyConversionLabel(100, "USDT", "BOB", 10, dummyFormat)).toBe("≈ Bs. 1000.00");
+      expect(getCurrencyConversionLabel(100, "USDC", "BOB", 10, dummyFormat)).toBe("≈ Bs. 1000.00");
+      expect(getCurrencyConversionLabel(100, "BOB", "BOB", 10, dummyFormat)).toBeNull();
+    });
+
+    it("converts BOB accounts to USD when user preferred currency is USD", () => {
+      expect(getCurrencyConversionLabel(1000, "BOB", "USD", 10, dummyFormat)).toBe("≈ $ 100.00 USD");
+      expect(getCurrencyConversionLabel(100, "USD", "USD", 10, dummyFormat)).toBeNull();
+      expect(getCurrencyConversionLabel(100, "USDT", "USD", 10, dummyFormat)).toBe("≈ $ 100.00 USD");
+      expect(getCurrencyConversionLabel(100, "USDC", "USD", 10, dummyFormat)).toBe("≈ $ 100.00 USD");
     });
   });
 });

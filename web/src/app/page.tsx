@@ -349,6 +349,7 @@ export default function DashboardPage() {
               onOpenCsvModal={() => modals.setIsCsvModalOpen(true)}
               onOpenReconcileModal={modals.openReconcile}
               onUpdateAccount={dashboard.updateAccount}
+              onDeleteAccount={dashboard.deleteAccount}
               onOpenRegisterTxnModal={() => modals.setIsTxnModalOpen(true)}
               onEditTxn={modals.openEditTransaction}
               onReverseTxn={dashboard.reverseTransaction}

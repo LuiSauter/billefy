@@ -136,6 +136,7 @@ export interface ILedgerRepository {
     id: string,
     data: { name: string; iconKey: string; colorKey: string }
   ): Promise<void>;
+  deleteAccount(id: string): Promise<void>;
   reconcileAccount(accountId: string, req: ReconcileAccountRequest): Promise<ReconciliationResult>;
   getTransactions(filter?: TransactionFilter): Promise<TransactionDto[]>;
   registerTransaction(req: RegisterTransactionRequest): Promise<{ id: string }>;

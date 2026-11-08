@@ -66,6 +66,15 @@ export function useLedgerModule(http: IHttpClient | null) {
     [repo, refreshLedger]
   );
 
+  const deleteAccount = useCallback(
+    async (id: string) => {
+      if (!repo) return;
+      await repo.deleteAccount(id);
+      await refreshLedger();
+    },
+    [repo, refreshLedger]
+  );
+
   const registerTransaction = useCallback(
     async (req: RegisterTransactionRequest) => {
       if (!repo) return;
@@ -149,6 +158,7 @@ export function useLedgerModule(http: IHttpClient | null) {
     refreshLedger,
     createAccount,
     updateAccount,
+    deleteAccount,
     registerTransaction,
     updateTransaction,
     reverseTransaction,

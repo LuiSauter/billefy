@@ -43,3 +43,14 @@ describe("ledger transfer repository", () => {
     expect(post).toHaveBeenCalledWith("/v1/transactions/transfers", request);
   });
 });
+
+describe("ledger account deletion", () => {
+  it("calls DELETE /v1/accounts/{id}", async () => {
+    const del = vi.fn().mockResolvedValue(undefined);
+    const http = { delete: del } as unknown as IHttpClient;
+    const repository = new LedgerApiRepository(http);
+
+    await repository.deleteAccount("acc-123");
+    expect(del).toHaveBeenCalledWith("/v1/accounts/acc-123");
+  });
+});

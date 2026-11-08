@@ -109,4 +109,34 @@ describe("AccountDetailView", () => {
     expect(html).toContain("No se encontraron movimientos registrados");
     expect(html).toContain("Total");
   });
+
+  it("renders conversion label and danger zone delete action", () => {
+    const cryptoAccount: AccountDto = {
+      id: "acc-crypto",
+      name: "Binance USDT",
+      type: "CryptoWallet",
+      currency: "USDT",
+      balance: new Decimal(250),
+      createdAt: "2026-02-01T00:00:00Z",
+    };
+
+    const html = renderToStaticMarkup(
+      <AccountDetailView
+        account={cryptoAccount}
+        transactions={[]}
+        selectedCurrency="BOB"
+        p2pRate={10}
+        initialTab="configuracion"
+        onBack={vi.fn()}
+        onOpenReconcileModal={vi.fn()}
+        onOpenEditAccountModal={vi.fn()}
+        onDeleteAccount={vi.fn()}
+      />
+    );
+
+    expect(html).toContain("250");
+    expect(html).toContain("USDT");
+    expect(html).toContain("Bs.");
+    expect(html).toContain("Eliminar cuenta");
+  });
 });
