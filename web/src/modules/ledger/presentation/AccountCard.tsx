@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React from "react";
 import {
   MoreVertical,
   Pencil,
@@ -26,6 +26,13 @@ import {
 import { resolveAccountVisualMeta } from "../domain/account-meta";
 import { CategoryIconBadge } from "./CategoryIcon";
 import { useNumberFormat } from "@/shared/hooks/use-number-format";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/shared/ui/dropdown-menu";
 
 interface AccountCardProps {
   account: AccountDto;
@@ -47,22 +54,6 @@ export function AccountCard({
   onSelect,
 }: AccountCardProps) {
   const format = useNumberFormat();
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setMenuOpen(false);
-      }
-    }
-    if (menuOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [menuOpen]);
 
   const category = classifyAccountCategory(account);
   const badge = getCategoryBadge(category);
@@ -155,7 +146,7 @@ export function AccountCard({
   return (
     <div
       onClick={() => (onSelect ? onSelect(account) : onReconcile(account))}
-      className="rounded-2xl bg-card border border-border/70 p-4 relative overflow-hidden flex flex-col justify-between hover:border-purple-500/40 hover:shadow-md transition group cursor-pointer min-h-[160px]"
+      className="rounded-2xl bg-card border border-border/70 p-4 relative flex flex-col justify-between hover:border-purple-500/40 hover:shadow-md transition group cursor-pointer min-h-[160px]"
     >
       {/* Left accent color bar */}
       <div
@@ -178,67 +169,52 @@ export function AccountCard({
         </div>
 
         {/* 3-dots action menu */}
-        <div className="relative" ref={menuRef} onClick={(e) => e.stopPropagation()}>
-          <button
-            type="button"
-            onClick={() => setMenuOpen(!menuOpen)}
-            className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/70 transition cursor-pointer"
-            title="Opciones de cuenta"
-          >
-            <MoreVertical className="w-4 h-4" />
-          </button>
-
-          {menuOpen && (
-            <div className="absolute right-0 top-8 w-44 rounded-xl bg-popover border border-border shadow-xl py-1 z-30 flex flex-col text-xs font-semibold">
-              <button
-                type="button"
+        <div onClick={(e) => e.stopPropagation()}>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <button
+                  type="button"
+                  className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/70 transition cursor-pointer"
+                  title="Opciones de cuenta"
+                  aria-label="Opciones de cuenta"
+                >
+                  <MoreVertical className="w-4 h-4" />
+                </button>
+              }
+            />
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem
                 onClick={() => {
-                  setMenuOpen(false);
                   if (onSelect) onSelect(account);
                   else onReconcile(account);
                 }}
-                className="px-3.5 py-2 text-left text-foreground hover:bg-muted flex items-center gap-2 transition"
               >
-                <ArrowRight className="w-3.5 h-3.5 text-purple-400" />
+                <ArrowRight className="w-4 h-4 text-purple-400" />
                 <span>Ver detalle</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setMenuOpen(false);
-                  onEdit(account);
-                }}
-                className="px-3.5 py-2 text-left text-foreground hover:bg-muted flex items-center gap-2 transition"
-              >
-                <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onEdit(account)}>
+                <Pencil className="w-4 h-4 text-muted-foreground" />
                 <span>Editar cuenta</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setMenuOpen(false);
-                  onReconcile(account);
-                }}
-                className="px-3.5 py-2 text-left text-primary hover:bg-primary/10 flex items-center gap-2 transition"
-              >
-                <Scale className="w-3.5 h-3.5 text-primary" />
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onReconcile(account)}>
+                <Scale className="w-4 h-4 text-primary" />
                 <span>Conciliar saldo</span>
-              </button>
+              </DropdownMenuItem>
               {onDelete && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    onDelete(account);
-                  }}
-                  className="px-3.5 py-2 text-left text-rose-500 hover:bg-rose-500/10 flex items-center gap-2 transition border-t border-border/60"
-                >
-                  <Trash2 className="w-3.5 h-3.5 text-rose-500" />
-                  <span>Eliminar cuenta</span>
-                </button>
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    variant="destructive"
+                    onClick={() => onDelete(account)}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span>Eliminar cuenta</span>
+                  </DropdownMenuItem>
+                </>
               )}
-            </div>
-          )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 

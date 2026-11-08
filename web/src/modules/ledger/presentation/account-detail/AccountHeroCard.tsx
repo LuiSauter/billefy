@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState } from "react";
 import Decimal from "decimal.js";
 import {
   MoreVertical,
@@ -27,6 +27,13 @@ import {
 import { resolveAccountVisualMeta } from "../../domain/account-meta";
 import { CategoryIconBadge } from "../CategoryIcon";
 import { useNumberFormat } from "@/shared/hooks/use-number-format";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/shared/ui/dropdown-menu";
 
 interface AccountHeroCardProps {
   account: AccountDto;
@@ -52,23 +59,7 @@ export function AccountHeroCard({
   onDelete,
 }: AccountHeroCardProps) {
   const format = useNumberFormat();
-  const [menuOpen, setMenuOpen] = useState(false);
   const [copied, setCopied] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setMenuOpen(false);
-      }
-    }
-    if (menuOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [menuOpen]);
 
   const profile = getAccountVisualProfile(account);
   const subtitle = getAccountSubtitle(account);
@@ -185,71 +176,47 @@ export function AccountHeroCard({
             </h2>
 
             {/* 3-dots menu */}
-            <div className="relative" ref={menuRef}>
-              <button
-                type="button"
-                onClick={() => setMenuOpen(!menuOpen)}
-                className="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/70 transition cursor-pointer"
-                title="Opciones de cuenta"
-              >
-                <MoreVertical className="w-4 h-4" />
-              </button>
-
-              {menuOpen && (
-                <div className="absolute left-0 top-8 w-44 rounded-xl bg-popover border border-border shadow-xl py-1 z-30 flex flex-col text-xs font-semibold">
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
                   <button
                     type="button"
-                    onClick={() => {
-                      setMenuOpen(false);
-                      onOpenEdit();
-                    }}
-                    className="px-3.5 py-2 text-left text-foreground hover:bg-muted flex items-center gap-2 transition"
+                    className="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/70 transition cursor-pointer"
+                    title="Opciones de cuenta"
+                    aria-label="Opciones de cuenta"
                   >
-                    <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
-                    <span>Editar cuenta</span>
+                    <MoreVertical className="w-4 h-4" />
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMenuOpen(false);
-                      onOpenReconcile();
-                    }}
-                    className="px-3.5 py-2 text-left text-primary hover:bg-primary/10 flex items-center gap-2 transition"
-                  >
-                    <Scale className="w-3.5 h-3.5 text-primary" />
-                    <span>Conciliar saldo</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      handleCopyId();
-                      setMenuOpen(false);
-                    }}
-                    className="px-3.5 py-2 text-left text-muted-foreground hover:bg-muted flex items-center gap-2 transition"
-                  >
-                    {copied ? (
-                      <Check className="w-3.5 h-3.5 text-emerald-400" />
-                    ) : (
-                      <Copy className="w-3.5 h-3.5" />
-                    )}
-                    <span>{copied ? "ID copiado" : "Copiar ID"}</span>
-                  </button>
-                  {onDelete && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMenuOpen(false);
-                        onDelete();
-                      }}
-                      className="px-3.5 py-2 text-left text-rose-500 hover:bg-rose-500/10 flex items-center gap-2 transition border-t border-border/60"
-                    >
-                      <Trash2 className="w-3.5 h-3.5 text-rose-500" />
-                      <span>Eliminar cuenta</span>
-                    </button>
+                }
+              />
+              <DropdownMenuContent align="start" className="w-48">
+                <DropdownMenuItem onClick={onOpenEdit}>
+                  <Pencil className="w-4 h-4 text-muted-foreground" />
+                  <span>Editar cuenta</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={onOpenReconcile}>
+                  <Scale className="w-4 h-4 text-primary" />
+                  <span>Conciliar saldo</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleCopyId}>
+                  {copied ? (
+                    <Check className="w-4 h-4 text-emerald-400" />
+                  ) : (
+                    <Copy className="w-4 h-4 text-muted-foreground" />
                   )}
-                </div>
-              )}
-            </div>
+                  <span>{copied ? "ID copiado" : "Copiar ID"}</span>
+                </DropdownMenuItem>
+                {onDelete && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem variant="destructive" onClick={onDelete}>
+                      <Trash2 className="w-4 h-4" />
+                      <span>Eliminar cuenta</span>
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
           <p className="text-xs text-muted-foreground truncate font-medium">
