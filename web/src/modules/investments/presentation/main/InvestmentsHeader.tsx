@@ -10,6 +10,8 @@ interface InvestmentsHeaderProps {
   onPeriodChange: (period: string) => void;
   onSyncBinance?: () => void;
   isSyncingBinance?: boolean;
+  onSyncLivePrices?: () => void;
+  isSyncingLivePrices?: boolean;
 }
 
 const PERIOD_OPTIONS = [
@@ -26,6 +28,8 @@ export function InvestmentsHeader({
   onPeriodChange,
   onSyncBinance,
   isSyncingBinance = false,
+  onSyncLivePrices,
+  isSyncingLivePrices = false,
 }: InvestmentsHeaderProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
@@ -90,6 +94,20 @@ export function InvestmentsHeader({
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isSyncingBinance ? "animate-spin" : ""}`} />
             <span>{isSyncingBinance ? "Sincronizando..." : "Sincronizar Binance"}</span>
+          </button>
+        )}
+
+        {/* Live Crypto Prices Refresh Button */}
+        {onSyncLivePrices && (
+          <button
+            type="button"
+            onClick={onSyncLivePrices}
+            disabled={isSyncingLivePrices}
+            className="h-10 px-3.5 rounded-xl border border-purple-500/30 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 text-xs font-bold flex items-center gap-2 transition cursor-pointer shadow-2xs disabled:opacity-50"
+            title="Actualizar cotizaciones en vivo desde Binance Spot"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isSyncingLivePrices ? "animate-spin" : ""}`} />
+            <span>{isSyncingLivePrices ? "Actualizando precios..." : "Actualizar cotizaciones"}</span>
           </button>
         )}
 

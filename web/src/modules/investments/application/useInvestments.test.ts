@@ -20,4 +20,36 @@ describe("investment cash controller", () => {
     await controller.reverseCash("selected-ledger-id");
     expect(post).toHaveBeenCalledWith("/v1/planning/investment-cash/selected-ledger-id/reverse");
   });
+
+  it("syncs live crypto prices when crypto investments have changed market value", async () => {
+    const put = vi.fn().mockResolvedValue({});
+    const get = vi.fn().mockResolvedValue([]);
+    const controller = useInvestments({ put, get } as never);
+
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ lastPrice: "80000.00" }),
+    });
+
+    const cryptoInvestment = {
+      id: "inv-btc",
+      name: "Bitcoin (BTC)",
+      kind: "crypto" as const,
+      iconKey: "coins" as const,
+      colorKey: "amber" as const,
+      currency: "USDT",
+      quantity: 0.5,
+      initialValue: 35000,
+      currentValue: 35000,
+      history: [],
+      createdAt: "2026-01-01",
+    };
+
+    const updated = await controller.syncLiveCryptoPrices([cryptoInvestment]);
+    expect(updated).toBe(1);
+    expect(put).toHaveBeenCalledWith("/v1/planning/investments/inv-btc/value", {
+      currentValue: 40000,
+      quantity: 0.5,
+    });
+  });
 });

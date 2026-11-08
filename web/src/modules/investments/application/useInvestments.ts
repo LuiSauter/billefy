@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { IHttpClient } from "@/shared/application/http-client.contract";
 import { notify } from "@/shared/lib/notify";
 import { CreateInvestmentInput, Investment } from "../domain/investment.types";
+import { extractCryptoSymbol, fetchCryptoTicker } from "../domain/binance-market.service";
 
 export interface InvestmentCashInput { accountId: string; amount: string; description?: string; occurredAt?: string }
 export interface InvestmentCashResult { ledgerTransactionId: string; investmentId: string; kind: "Contribution" | "Disposal" }
@@ -25,6 +26,7 @@ export interface SyncBinancePortfolioResponse {
 
 export function useInvestments(http: IHttpClient | null) {
   const [investments, setInvestments] = useState<Investment[]>([]);
+  const [isSyncingLivePrices, setIsSyncingLivePrices] = useState(false);
 
   const refresh = useCallback(async () => {
     if (!http) return;
@@ -35,6 +37,49 @@ export function useInvestments(http: IHttpClient | null) {
       notify.error("No se pudieron cargar las inversiones", err);
     }
   }, [http]);
+
+  const syncLiveCryptoPrices = useCallback(
+    async (itemsToSync?: Investment[]): Promise<number> => {
+      if (!http) return 0;
+      const list = itemsToSync ?? investments;
+      const cryptoItems = list.filter((i) => i.kind === "crypto" && i.quantity > 0);
+      if (cryptoItems.length === 0) return 0;
+
+      setIsSyncingLivePrices(true);
+      let updatedCount = 0;
+      try {
+        await Promise.allSettled(
+          cryptoItems.map(async (inv) => {
+            const symbol = extractCryptoSymbol(inv);
+            if (!symbol) return;
+            try {
+              const ticker = await fetchCryptoTicker(symbol);
+              if (ticker && ticker.price > 0) {
+                const freshValue = Number((inv.quantity * ticker.price).toFixed(2));
+                if (Math.abs(freshValue - inv.currentValue) >= 0.01) {
+                  await http.put(`/v1/planning/investments/${inv.id}/value`, {
+                    currentValue: freshValue,
+                    quantity: inv.quantity,
+                  });
+                  updatedCount++;
+                }
+              }
+            } catch {
+              // Ignore single asset fetch failure
+            }
+          })
+        );
+        if (updatedCount > 0) {
+          const freshData = await http.get<Investment[]>("/v1/planning/investments");
+          setInvestments(Array.isArray(freshData) ? freshData : []);
+        }
+      } finally {
+        setIsSyncingLivePrices(false);
+      }
+      return updatedCount;
+    },
+    [http, investments]
+  );
 
   useEffect(() => {
     void refresh();
@@ -64,12 +109,19 @@ export function useInvestments(http: IHttpClient | null) {
           ...input,
           name: input.name.trim(),
         });
-        await refresh();
+        const freshData = await http.get<Investment[]>("/v1/planning/investments");
+        const list = Array.isArray(freshData) ? freshData : [];
+        setInvestments(list);
+
+        // Automatically update live crypto prices right after creation!
+        if (input.kind === "crypto") {
+          await syncLiveCryptoPrices(list);
+        }
       } catch (err) {
         notify.error("No se pudo guardar el activo", err);
       }
     },
-    [http, refresh]
+    [http, syncLiveCryptoPrices]
   );
 
   /** Records a new valuation; the server derives the variation from history. */
@@ -127,6 +179,8 @@ export function useInvestments(http: IHttpClient | null) {
       recordCash,
       reverseCash,
       syncBinancePortfolio,
+      syncLiveCryptoPrices,
+      isSyncingLivePrices,
     }),
     [
       investments,
@@ -137,6 +191,8 @@ export function useInvestments(http: IHttpClient | null) {
       recordCash,
       reverseCash,
       syncBinancePortfolio,
+      syncLiveCryptoPrices,
+      isSyncingLivePrices,
     ]
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { InvestmentsController } from "../application/useInvestments";
 import { Investment } from "../domain/investment.types";
 import { calculatePortfolioOverview } from "../domain/portfolio-analytics";
@@ -71,6 +71,17 @@ export function InvestmentsView({
   const [updatePriceInvestment, setUpdatePriceInvestment] = useState<Investment | null>(null);
   const [editInvestment, setEditInvestment] = useState<Investment | null>(null);
   const [operationInvestment, setOperationInvestment] = useState<Investment | null>(null);
+
+  // Auto-sync crypto prices once on load if user has crypto positions
+  const hasAutoSynced = useRef(false);
+  useEffect(() => {
+    if (hasAutoSynced.current || investments.length === 0) return;
+    const hasCrypto = investments.some((i) => i.kind === "crypto" && i.quantity > 0);
+    if (hasCrypto) {
+      hasAutoSynced.current = true;
+      void controller.syncLiveCryptoPrices(investments);
+    }
+  }, [investments, controller]);
 
   const handleSyncBinance = async () => {
     setIsSyncingBinance(true);
@@ -213,6 +224,15 @@ export function InvestmentsView({
         onOpenCashModal={() => setGeneralCashOpen(true)}
         onSyncBinance={handleSyncBinance}
         isSyncingBinance={isSyncingBinance}
+        onSyncLivePrices={async () => {
+          const count = await controller.syncLiveCryptoPrices();
+          if (count > 0) {
+            notify.success(`Se actualizaron ${count} precios en vivo desde Binance Spot.`);
+          } else {
+            notify.info("Las cotizaciones de tus criptos ya están al día.");
+          }
+        }}
+        isSyncingLivePrices={controller.isSyncingLivePrices}
       />
 
       {/* 2. Top 4 KPI Cards */}
