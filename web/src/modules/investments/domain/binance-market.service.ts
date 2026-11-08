@@ -45,6 +45,33 @@ export function calculateCryptoUsdtValue(quantity: number, price: number): numbe
   return Number((quantity * price).toFixed(2));
 }
 
+export function calculateCryptoQuantityFromUsdt(
+  valueUsdt: number,
+  price: number,
+  decimals: number = 8
+): number {
+  if (!valueUsdt || valueUsdt <= 0 || !price || price <= 0) return 0;
+  const decPlaces = Math.min(8, Math.max(0, decimals));
+  const raw = valueUsdt / price;
+  return Number(raw.toFixed(decPlaces));
+}
+
+export function extractCryptoSymbol(inv: { name: string; kind?: string }): string | null {
+  if (inv.kind && inv.kind !== "crypto") return null;
+  const match = inv.name.match(/\(([A-Za-z0-9]+)\)/);
+  if (match) return match[1].toUpperCase();
+
+  const upper = inv.name.trim().toUpperCase();
+  const direct = POPULAR_CRYPTOS.find(
+    (c) =>
+      c.symbol === upper ||
+      upper.startsWith(c.symbol + " ") ||
+      upper.endsWith(" " + c.symbol) ||
+      upper.includes(c.name.toUpperCase())
+  );
+  return direct?.symbol ?? null;
+}
+
 export async function fetchCryptoTicker(symbol: string): Promise<CryptoTickerPrice | null> {
   const sym = symbol.trim().toUpperCase();
   const pair = sym === "USDT" ? "USDTUSDT" : `${sym}USDT`;
