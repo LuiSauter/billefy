@@ -17,6 +17,7 @@ public sealed class Transaction : Entity
     public Guid? TransferId { get; private set; }
     public decimal? AppliedRate { get; private set; }
     public string? RateSource { get; private set; }
+    public Guid? WorkspaceSettlementId { get; private set; }
     public Guid? InvestmentId { get; private set; }
     public InvestmentCashKind? InvestmentCashKind { get; private set; }
     public bool IsReconciliationAdjustment { get; private set; }
@@ -43,7 +44,8 @@ public sealed class Transaction : Entity
         IReadOnlyList<TransactionCategoryAllocationInput>? allocations = null,
         Guid? investmentId = null,
         InvestmentCashKind? investmentCashKind = null,
-        bool isReconciliationAdjustment = false)
+        bool isReconciliationAdjustment = false,
+        Guid? workspaceSettlementId = null)
         : base(id, userId, createdAt)
     {
         if (accountId == Guid.Empty)
@@ -72,6 +74,10 @@ public sealed class Transaction : Entity
             throw new ArgumentException("Investment cash transactions cannot be transfers or categorized.");
         if (isReconciliationAdjustment && (categoryId.HasValue || transferId.HasValue || investmentId.HasValue || allocations is { Count: > 0 }))
             throw new ArgumentException("Reconciliation adjustments cannot be transfers, investments, or categorized.");
+        if (workspaceSettlementId == Guid.Empty || (workspaceSettlementId.HasValue &&
+            (transferId.HasValue || investmentId.HasValue || isReconciliationAdjustment || categoryId.HasValue || allocations is { Count: > 0 })))
+            throw new ArgumentException("Settlement legs require a valid settlement ID and cannot be transfers, investments, adjustments, or categorized.");
+        WorkspaceSettlementId = workspaceSettlementId;
         InvestmentId = investmentId;
         InvestmentCashKind = investmentCashKind;
         IsReconciliationAdjustment = isReconciliationAdjustment;
@@ -140,6 +146,16 @@ public sealed class Transaction : Entity
             null, occurredAt, description, null, null, appliedRate, rateSource, createdAt ?? DateTime.UtcNow,
             investmentId: investmentId, investmentCashKind: kind);
 
+    public static Transaction CreateWorkspaceSettlementLeg(
+        Guid userId, Guid accountId, Money amount, TransactionDirection direction, Guid workspaceSettlementId,
+        DateTime occurredAt, string? description, decimal? appliedRate, string? rateSource, DateTime? createdAt = null)
+    {
+        if (workspaceSettlementId == Guid.Empty || !Enum.IsDefined(direction))
+            throw new ArgumentException("A settlement leg requires a valid settlement ID and direction.");
+        return new(Guid.NewGuid(), userId, accountId, amount, direction, null, occurredAt, description,
+            null, null, appliedRate, rateSource, createdAt ?? DateTime.UtcNow, workspaceSettlementId: workspaceSettlementId);
+    }
+
     public static Transaction CreateReversal(
         Transaction original,
         DateTime occurredAt,
@@ -173,7 +189,8 @@ public sealed class Transaction : Entity
             allocations: original.CategoryAllocations.Select(allocation => new TransactionCategoryAllocationInput(allocation.CategoryId, allocation.Amount)).ToArray(),
             investmentId: original.InvestmentId,
             investmentCashKind: original.InvestmentCashKind,
-            isReconciliationAdjustment: original.IsReconciliationAdjustment);
+            isReconciliationAdjustment: original.IsReconciliationAdjustment,
+            workspaceSettlementId: original.WorkspaceSettlementId);
     }
 
     public static (Transaction Outflow, Transaction Inflow) CreateTransferReversal(

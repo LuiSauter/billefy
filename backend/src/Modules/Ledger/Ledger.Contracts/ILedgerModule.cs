@@ -1,3 +1,5 @@
+using System.Data.Common;
+
 namespace Ledger.Contracts;
 
 public sealed record LedgerAccountSummaryDto(
@@ -42,6 +44,14 @@ public sealed record InvestmentCashTransactionRequestDto(Guid UserId, Guid Inves
     string Kind, DateTime OccurredAt, string? Description);
 public sealed record InvestmentCashTransactionResultDto(Guid? TransactionId, string? ErrorCode);
 
+public sealed record SharedExpenseLedgerRequestDto(Guid UserId, Guid AccountId, decimal Amount, string Currency,
+    Guid? CategoryId, DateTime OccurredAt, string? Description);
+public sealed record SharedIncomeLedgerRequestDto(Guid UserId, Guid AccountId, decimal Amount, string Currency,
+    Guid? CategoryId, DateTime OccurredAt, string? Description);
+public sealed record SettlementLegRequestDto(Guid UserId, Guid AccountId, decimal Amount, string Currency,
+    string Direction, Guid WorkspaceSettlementId, DateTime OccurredAt, string? Description);
+public sealed record WorkspaceLedgerTransactionResultDto(Guid? TransactionId, string? ErrorCode);
+
 public sealed record LoanDisbursementReversalRequestDto(
     Guid UserId,
     Guid TransactionId,
@@ -65,6 +75,11 @@ public sealed record LedgerCurrencySpendingDto(
 
 public interface ILedgerModule
 {
+    /// <summary>Runs workspace persistence and Ledger postings in one local relational transaction.</summary>
+    Task<T> ExecuteWorkspaceAtomicAsync<T>(
+        Func<DbConnection, DbTransaction, CancellationToken, Task<T>> operation,
+        CancellationToken cancellationToken = default);
+
     /// <summary>Returns expense category IDs owned by the authenticated current user.</summary>
     Task<IReadOnlyList<Guid>> GetExpenseCategoryIdsForCurrentUserAsync(
         CancellationToken cancellationToken = default);
@@ -87,6 +102,11 @@ public interface ILedgerModule
 
     Task<InvestmentCashTransactionResultDto> RegisterInvestmentCashAsync(InvestmentCashTransactionRequestDto request, CancellationToken cancellationToken = default);
     Task<InvestmentCashTransactionResultDto> ReverseInvestmentCashAsync(Guid userId, Guid transactionId, CancellationToken cancellationToken = default);
+
+    Task<WorkspaceLedgerTransactionResultDto> RegisterSharedExpenseAsync(SharedExpenseLedgerRequestDto request, CancellationToken cancellationToken = default);
+    Task<WorkspaceLedgerTransactionResultDto> RegisterSharedIncomeAsync(SharedIncomeLedgerRequestDto request, CancellationToken cancellationToken = default);
+    Task<WorkspaceLedgerTransactionResultDto> RegisterWorkspaceSettlementLegAsync(SettlementLegRequestDto request, CancellationToken cancellationToken = default);
+    Task<WorkspaceLedgerTransactionResultDto> ReverseWorkspaceLedgerTransactionAsync(Guid userId, Guid transactionId, CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<LedgerCurrencyHealthMetricsDto>> GetMonthlyHealthMetricsAsync(
         Guid userId,

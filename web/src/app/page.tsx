@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import dynamic from "next/dynamic";
 import { useAuth } from "@/modules/identity/application/AuthContext";
 import { useDashboardData } from "@/modules/dashboard/application/useDashboardData";
@@ -16,6 +16,8 @@ import { useDistributionPlan } from "@/modules/planning/application/useDistribut
 import { FetchHttpClient } from "@/shared/infrastructure/fetch-http.client";
 import { defaultTokenStorage } from "@/shared/infrastructure/local-storage-token.adapter";
 import { Loader2, Wallet } from "lucide-react";
+import type { WorkspaceSubtab } from "@/modules/workspaces/presentation/WorkspaceDashboardView";
+import { WorkspacesApiRepository } from "@/modules/workspaces/infrastructure/workspaces-api.repository";
 
 const AuthScreen = dynamic(() =>
   import("@/modules/identity/presentation/AuthScreen").then((m) => m.AuthScreen)
@@ -52,6 +54,14 @@ const PatrimonioView = dynamic(() =>
 const ReportsView = dynamic(() =>
   import("@/modules/reports/presentation/ReportsView").then((m) => m.ReportsView)
 );
+const SharedWorkspacesHubView = dynamic(() =>
+  import("@/modules/workspaces/presentation/SharedWorkspacesHubView").then(
+    (m) => m.SharedWorkspacesHubView
+  )
+);
+const WorkspaceShell = dynamic(() =>
+  import("@/modules/workspaces/presentation/WorkspaceShell").then((m) => m.WorkspaceShell)
+);
 const SettingsView = dynamic(() =>
   import("@/modules/identity/presentation/SettingsView").then(
     (m) => m.SettingsView
@@ -85,7 +95,25 @@ export default function DashboardPage() {
 
   const [activeTab, setActiveTab] = useState<NavigationTab>("inicio");
   const [searchQuery, setSearchQuery] = useState("");
+  const [workspaceSelection, setWorkspaceSelection] = useState<{ id: string; tab: WorkspaceSubtab } | null>(null);
   const [selectedCurrency, setSelectedCurrency] = useState<"BOB" | "USD">("BOB");
+  const workspaceQueryHandled = useRef(false);
+
+  useEffect(() => {
+    if (workspaceQueryHandled.current || !isAuthenticated || !planningHttp || typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    const workspaceId = url.searchParams.get("workspace");
+    if (workspaceId === null) return;
+    workspaceQueryHandled.current = true;
+    url.searchParams.delete("workspace");
+    window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(workspaceId) || !user?.id) return;
+    void new WorkspacesApiRepository(planningHttp).getWorkspaces().then((workspaces) => {
+      if (!workspaces.some((workspace) => workspace.id === workspaceId)) return;
+      setWorkspaceSelection({ id: workspaceId, tab: "dashboard" });
+      setActiveTab("compartido");
+    }).catch(() => undefined);
+  }, [isAuthenticated, planningHttp, user?.id]);
 
   useEffect(() => {
     if (user?.preferredCurrency === "USD" || user?.preferredCurrency === "BOB") {
@@ -441,6 +469,21 @@ export default function DashboardPage() {
               selectedCurrency={selectedCurrency}
               p2pRate={p2pRate}
               onFinancialDataChange={dashboard.refreshFinancialData}
+            />
+          )}
+
+          {activeTab === "compartido" && (
+            workspaceSelection ? <WorkspaceShell
+              key={`${user?.id}-${workspaceSelection.id}`}
+              http={planningHttp}
+              workspaceId={workspaceSelection.id}
+              initialTab={workspaceSelection.tab}
+              onBack={() => setWorkspaceSelection(null)}
+            /> : <SharedWorkspacesHubView
+              http={planningHttp}
+              userId={user?.id}
+              onOpenWorkspace={(id, tab) => setWorkspaceSelection({ id, tab })}
+              onOpenPersonal={() => { setWorkspaceSelection(null); setActiveTab("inicio"); }}
             />
           )}
 

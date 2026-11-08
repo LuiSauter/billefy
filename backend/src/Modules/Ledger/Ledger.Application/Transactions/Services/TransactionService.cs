@@ -232,6 +232,8 @@ public sealed class TransactionService(
         var original = await transactionRepository.GetByIdAsync(id, cancellationToken);
         if (original is null || original.UserId != userContext.UserId)
             return Result.Failure<Guid>(Error.NotFound("Transaction.NotFound", "Transaction not found."));
+        if (original.WorkspaceSettlementId.HasValue)
+            return Result.Failure<Guid>(Error.Conflict("WorkspaceSettlement.Immutable", "Settlement legs cannot be edited as ordinary transactions."));
         if (original.InvestmentId.HasValue)
             return Result.Failure<Guid>(Error.Conflict("InvestmentCash.Immutable", "Investment cash movements cannot be edited as ordinary transactions."));
         if (original.IsReconciliationAdjustment)

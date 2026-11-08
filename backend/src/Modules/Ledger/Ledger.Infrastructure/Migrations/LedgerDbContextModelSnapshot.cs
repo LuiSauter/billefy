@@ -201,6 +201,10 @@ namespace Ledger.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("user_id");
 
+                    b.Property<Guid?>("WorkspaceSettlementId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("workspace_settlement_id");
+
                     b.ComplexProperty(typeof(Dictionary<string, object>), "Amount", "Ledger.Domain.Transactions.Transaction.Amount#Money", b1 =>
                         {
                             b1.IsRequired();
@@ -224,6 +228,8 @@ namespace Ledger.Infrastructure.Migrations
                         .HasFilter("\"reverses_id\" IS NOT NULL");
 
                     b.HasIndex("TransferId");
+
+                    b.HasIndex("WorkspaceSettlementId");
 
                     b.HasIndex("UserId", "CategoryId");
 

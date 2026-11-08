@@ -1,4 +1,5 @@
 using Api.Endpoints;
+using Api.Extensions;
 using Api.Security;
 using Api.Infrastructure.Transactions;
 using BuildingBlocks.Security;
@@ -9,11 +10,14 @@ using Ledger.Infrastructure;
 using Lending.Infrastructure;
 using Messaging.Infrastructure;
 using Planning.Infrastructure;
+using Workspaces.Infrastructure;
+using Workspaces.Application;
 using Identity.Infrastructure;
 using Notifications.Infrastructure;
 using Billefy.Integrations.WhatsApp;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using System.Threading.RateLimiting;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Scalar.AspNetCore;
@@ -129,16 +133,31 @@ builder.Services.AddAuthorization();
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-    options.GlobalLimiter = System.Threading.RateLimiting.PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
-        System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
             partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "local",
-            factory: _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+            factory: _ => new FixedWindowRateLimiterOptions
             {
                 AutoReplenishment = true,
                 PermitLimit = 300,
                 QueueLimit = 0,
                 Window = TimeSpan.FromMinutes(1)
             }));
+    options.AddPolicy("WorkspaceInvitationLinks", httpContext =>
+    {
+        var userId = httpContext.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+            ?? httpContext.User.FindFirst("sub")?.Value;
+        var partition = httpContext.User.Identity?.IsAuthenticated == true && Guid.TryParse(userId, out var id)
+            ? $"user:{id:D}"
+            : $"ip:{httpContext.Connection.RemoteIpAddress?.ToString() ?? "local"}";
+        return RateLimitPartition.GetFixedWindowLimiter(partition, _ => new FixedWindowRateLimiterOptions
+        {
+            AutoReplenishment = true,
+            PermitLimit = 30,
+            QueueLimit = 0,
+            Window = TimeSpan.FromMinutes(1)
+        });
+    });
 });
 
 // Modular Monolith Modules
@@ -150,6 +169,8 @@ builder.Services.AddLendingModule(builder.Configuration);
 builder.Services.AddScoped<Lending.Application.Abstractions.ILoanTransaction, RelationalLoanTransaction>();
 builder.Services.AddScoped<RelationalInvestmentCashTransaction>();
 builder.Services.AddPlanningModule(builder.Configuration);
+builder.Services.AddWorkspacesInfrastructure(builder.Configuration);
+builder.Services.AddWorkspacesApplication();
 builder.Services.AddScoped<RelationalFinancialDataReset>();
 builder.Services.AddNotificationsModule(builder.Configuration);
 builder.Services.AddWhatsAppIntegration(builder.Configuration);
@@ -194,9 +215,17 @@ var app = builder.Build();
 
 app.UseExceptionHandler();
 
-// Enable CORS & Rate Limiting
+// Enable CORS and ensure invitation-link responses, including auth failures, are never cached.
 app.UseCors();
-app.UseRateLimiter();
+app.Use(async (context, next) =>
+{
+    var path = context.Request.Path.Value ?? string.Empty;
+    if (path.StartsWith("/v1/workspaces/", StringComparison.OrdinalIgnoreCase) &&
+        (path.EndsWith("/invitation-links", StringComparison.OrdinalIgnoreCase) ||
+         path.Equals("/v1/workspaces/invitation-links/preview", StringComparison.OrdinalIgnoreCase)))
+        context.Response.Headers.CacheControl = "no-store";
+    await next();
+});
 
 app.UseAuthentication();
 
@@ -222,6 +251,8 @@ if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Testing"))
     });
 }
 
+// Rate partitions depend on the authenticated principal, including the development/test fallback above.
+app.UseRateLimiter();
 app.UseAuthorization();
 
 // Automatically apply relational database migrations on startup when PostgreSQL connection string is configured
@@ -230,53 +261,7 @@ if (!string.IsNullOrWhiteSpace(builder.Configuration.GetConnectionString("Postgr
     using var scope = app.Services.CreateScope();
     try
     {
-        var ledgerDb = scope.ServiceProvider.GetRequiredService<LedgerDbContext>();
-        if (ledgerDb.Database.IsRelational())
-        {
-            ledgerDb.Database.Migrate();
-        }
-
-        var fxDb = scope.ServiceProvider.GetRequiredService<FxDbContext>();
-        if (fxDb.Database.IsRelational())
-        {
-            fxDb.Database.Migrate();
-        }
-
-        var ingestionDb = scope.ServiceProvider.GetRequiredService<IngestionDbContext>();
-        if (ingestionDb.Database.IsRelational())
-        {
-            ingestionDb.Database.Migrate();
-        }
-
-        var lendingDb = scope.ServiceProvider.GetRequiredService<LendingDbContext>();
-        if (lendingDb.Database.IsRelational())
-        {
-            lendingDb.Database.Migrate();
-        }
-
-        var planningDb = scope.ServiceProvider.GetRequiredService<PlanningDbContext>();
-        if (planningDb.Database.IsRelational())
-        {
-            planningDb.Database.Migrate();
-        }
-
-        var messagingDb = scope.ServiceProvider.GetRequiredService<MessagingDbContext>();
-        if (messagingDb.Database.IsRelational())
-        {
-            messagingDb.Database.Migrate();
-        }
-
-        var identityDb = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
-        if (identityDb.Database.IsRelational())
-        {
-            identityDb.Database.Migrate();
-        }
-
-        var notificationsDb = scope.ServiceProvider.GetRequiredService<NotificationsDbContext>();
-        if (notificationsDb.Database.IsRelational())
-        {
-            notificationsDb.Database.Migrate();
-        }
+        StartupDatabaseMigrations.MigrateRelationalDatabases(scope.ServiceProvider);
     }
     catch (Exception ex)
     {
@@ -308,6 +293,8 @@ app.MapIngestionEndpoints();
 app.MapDraftEndpoints();
 app.MapLoanEndpoints();
 app.MapPlanningEndpoints();
+app.MapWorkspacesEndpoints();
+app.MapWorkspaceInvitationLinkEndpoints();
 app.MapNotificationEndpoints();
 app.MapMessagingEndpoints();
 app.MapBinanceEndpoints();

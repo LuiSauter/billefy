@@ -43,7 +43,7 @@ namespace Api.Tests;
 
 public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 {
-    private readonly SqliteConnection _ledgerConnection = new("DataSource=:memory:");
+    private readonly SqliteConnection _ledgerConnection;
     private readonly SqliteConnection _fxConnection = new("DataSource=:memory:");
     private readonly SqliteConnection _ingestionConnection;
     private readonly SqliteConnection _planningConnection;
@@ -53,15 +53,19 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
     private readonly SqliteConnection _messagingConnection = new("DataSource=:memory:");
     private readonly SqliteConnection _identityConnection = new("DataSource=:memory:");
     private readonly SqliteConnection _notificationsConnection = new("DataSource=:memory:");
+    private readonly SqliteConnection _workspacesConnection;
 
     public CustomWebApplicationFactory(
         bool shareLedgerPlanning = false,
         bool shareAllFinancialModules = false,
-        Action<IServiceCollection>? configureServices = null)
+        Action<IServiceCollection>? configureServices = null,
+        SqliteConnection? ledgerWorkspacesConnection = null)
     {
         if (shareLedgerPlanning && shareAllFinancialModules)
             throw new ArgumentException("Choose either Ledger/Planning sharing or all financial module sharing.");
 
+        _ledgerConnection = ledgerWorkspacesConnection ?? new SqliteConnection("DataSource=:memory:");
+        _workspacesConnection = ledgerWorkspacesConnection ?? new SqliteConnection("DataSource=:memory:");
         _shareLedgerPlanning = shareLedgerPlanning;
         _shareAllFinancialModules = shareAllFinancialModules;
         _configureServices = configureServices;
@@ -80,6 +84,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
         _messagingConnection.Open();
         _identityConnection.Open();
         _notificationsConnection.Open();
+        _workspacesConnection.Open();
 
         // Clear connection string so Npgsql is not registered by default
         builder.UseSetting("ConnectionStrings:PostgreSQL", string.Empty);
@@ -95,6 +100,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             services.AddDbContext<MessagingDbContext>(options => options.UseSqlite(_messagingConnection));
             services.AddDbContext<IdentityDbContext>(options => options.UseSqlite(_identityConnection));
             services.AddDbContext<NotificationsDbContext>(options => options.UseSqlite(_notificationsConnection));
+            services.AddDbContext<Workspaces.Infrastructure.WorkspacesDbContext>(options => options.UseSqlite(_workspacesConnection));
             _configureServices?.Invoke(services);
 
             // Ensure databases created and seed Fx market rate
@@ -134,6 +140,12 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 
             var notificationsDb = scope.ServiceProvider.GetRequiredService<NotificationsDbContext>();
             notificationsDb.Database.EnsureCreated();
+
+            var workspacesDb = scope.ServiceProvider.GetRequiredService<Workspaces.Infrastructure.WorkspacesDbContext>();
+            if (ReferenceEquals(_workspacesConnection, _ledgerConnection))
+                workspacesDb.Database.GetService<IRelationalDatabaseCreator>().CreateTables();
+            else
+                workspacesDb.Database.EnsureCreated();
         });
     }
 
@@ -147,6 +159,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
         _messagingConnection.Dispose();
         _identityConnection.Dispose();
         _notificationsConnection.Dispose();
+        if (!ReferenceEquals(_workspacesConnection, _ledgerConnection)) _workspacesConnection.Dispose();
     }
 }
 

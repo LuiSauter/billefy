@@ -47,6 +47,8 @@ public sealed class ReverseTransactionCommandHandler
             return Result.Failure<Guid>(Error.NotFound("Transaction.NotFound", "Transaction not found."));
         }
 
+        if (original.WorkspaceSettlementId.HasValue)
+            return Result.Failure<Guid>(Error.Conflict("WorkspaceSettlement.RequiresCoordinatedReverse", "Settlement legs must be reversed through the workspace workflow."));
         if (original.InvestmentId.HasValue)
             return Result.Failure<Guid>(Error.Conflict("InvestmentCash.RequiresCoordinatedReverse", "Investment cash movements must be reversed through the investment endpoint."));
 

@@ -19,6 +19,7 @@ import {
   BarChart3,
   Settings,
   Calendar,
+  Users,
 } from "lucide-react";
 
 export type NavigationTab =
@@ -37,6 +38,7 @@ export type NavigationTab =
   | "metas"
   | "calendario"
   | "recurrentes"
+  | "compartido"
   | "configuracion";
 
 interface SidebarProps {
@@ -80,6 +82,7 @@ export function Sidebar({
     { id: "metas" as NavigationTab, label: "Metas", icon: Target },
     { id: "calendario" as NavigationTab, label: "Calendario", icon: Calendar },
     { id: "recurrentes" as NavigationTab, label: "Pagos recurrentes", icon: Repeat },
+    { id: "compartido" as NavigationTab, label: "Compartido", icon: Users },
     { id: "configuracion" as NavigationTab, label: "Configuración", icon: Settings },
   ];
 

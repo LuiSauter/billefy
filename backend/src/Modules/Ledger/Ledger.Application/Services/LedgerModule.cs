@@ -1,3 +1,4 @@
+using System.Data.Common;
 using BuildingBlocks.Common;
 using BuildingBlocks.Currencies;
 using BuildingBlocks.Time;
@@ -15,6 +16,7 @@ public sealed class LedgerModule : ILedgerModule
     private readonly IAccountRepository _accountRepository;
     private readonly ITransactionRepository _transactionRepository;
     private readonly ICategoryService _categoryService;
+    private readonly ICategoryRepository _categoryRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IClock _clock;
     private readonly IRateSnapshotProvider? _rateSnapshotProvider;
@@ -25,15 +27,22 @@ public sealed class LedgerModule : ILedgerModule
         ICategoryService categoryService,
         IUnitOfWork unitOfWork,
         IClock clock,
+        ICategoryRepository categoryRepository,
         IRateSnapshotProvider? rateSnapshotProvider = null)
     {
         _accountRepository = accountRepository;
         _transactionRepository = transactionRepository;
         _categoryService = categoryService;
+        _categoryRepository = categoryRepository;
         _unitOfWork = unitOfWork;
         _clock = clock;
         _rateSnapshotProvider = rateSnapshotProvider;
     }
+
+    public Task<T> ExecuteWorkspaceAtomicAsync<T>(
+        Func<DbConnection, DbTransaction, CancellationToken, Task<T>> operation,
+        CancellationToken cancellationToken = default) =>
+        _unitOfWork.ExecuteWorkspaceAtomicAsync(operation, cancellationToken);
 
     public async Task<IReadOnlyList<Guid>> GetExpenseCategoryIdsForCurrentUserAsync(
         CancellationToken cancellationToken = default)
@@ -196,6 +205,87 @@ public sealed class LedgerModule : ILedgerModule
         return new(reversal.Id, null);
     }
 
+    public Task<WorkspaceLedgerTransactionResultDto> RegisterSharedExpenseAsync(
+        SharedExpenseLedgerRequestDto request, CancellationToken cancellationToken = default) =>
+        RegisterWorkspaceTransactionAsync(request.UserId, request.AccountId, request.Amount, request.Currency,
+            TransactionDirection.Expense, request.CategoryId, null, request.OccurredAt, request.Description, cancellationToken);
+
+    public Task<WorkspaceLedgerTransactionResultDto> RegisterSharedIncomeAsync(
+        SharedIncomeLedgerRequestDto request, CancellationToken cancellationToken = default) =>
+        RegisterWorkspaceTransactionAsync(request.UserId, request.AccountId, request.Amount, request.Currency,
+            TransactionDirection.Income, request.CategoryId, null, request.OccurredAt, request.Description, cancellationToken);
+
+    public Task<WorkspaceLedgerTransactionResultDto> RegisterWorkspaceSettlementLegAsync(
+        SettlementLegRequestDto request, CancellationToken cancellationToken = default)
+    {
+        if (request.Direction is not ("Outflow" or "Inflow") || request.WorkspaceSettlementId == Guid.Empty)
+            return Task.FromResult(new WorkspaceLedgerTransactionResultDto(null, "Workspace.InvalidSettlementLeg"));
+        return RegisterWorkspaceTransactionAsync(request.UserId, request.AccountId, request.Amount, request.Currency,
+            request.Direction == "Outflow" ? TransactionDirection.Expense : TransactionDirection.Income,
+            null, request.WorkspaceSettlementId, request.OccurredAt, request.Description, cancellationToken);
+    }
+
+    private async Task<WorkspaceLedgerTransactionResultDto> RegisterWorkspaceTransactionAsync(
+        Guid userId, Guid accountId, decimal amount, string currency, TransactionDirection direction,
+        Guid? categoryId, Guid? settlementId, DateTime occurredAt, string? description, CancellationToken ct)
+    {
+        if (amount <= 0) return new(null, "Workspace.InvalidAmount");
+        if (description?.Trim().Length > 500) return new(null, "Workspace.InvalidDescription");
+        var account = await _accountRepository.GetByIdForUserAsync(userId, accountId, ct);
+        if (account is null) return new(null, "Account.NotFound");
+        if (account.IsArchived) return new(null, "Account.Archived");
+        if (!StringComparer.Ordinal.Equals(currency, account.Currency.Code))
+            return new(null, "Workspace.CurrencyMismatch");
+        if (amount != decimal.Round(amount, account.Currency.DecimalPlaces))
+            return new(null, "Workspace.InvalidPrecision");
+        if (categoryId.HasValue)
+        {
+            var category = (await _categoryRepository.GetByUserIdAsync(userId, ct)).SingleOrDefault(c => c.Id == categoryId);
+            if (category is null) return new(null, "Category.NotFound");
+            var isIncomeCategory = category.Icon?.StartsWith("Income|", StringComparison.Ordinal) == true;
+            if ((direction == TransactionDirection.Income) != isIncomeCategory)
+                return new(null, "Category.DirectionMismatch");
+        }
+        decimal? rate = null;
+        string? source = null;
+        if (_rateSnapshotProvider is not null)
+        {
+            var snapshot = await _rateSnapshotProvider.GetSnapshotAsync(account.Currency.Code,
+                account.Currency.Code == "USD" ? "BOB" : "USD", userId, ct);
+            if (snapshot is not null) { rate = snapshot.AppliedRate; source = snapshot.RateSource; }
+        }
+        var money = Money.Of(amount, account.Currency);
+        var transaction = settlementId.HasValue
+            ? Transaction.CreateWorkspaceSettlementLeg(userId, accountId, money, direction, settlementId.Value,
+                occurredAt, description, rate, source, _clock.UtcNow)
+            : Transaction.Create(userId, accountId, money, direction, categoryId, occurredAt, description, rate, source, _clock.UtcNow);
+        await _transactionRepository.AddAsync(transaction, ct);
+        await _unitOfWork.SaveChangesAsync(ct);
+        return new(transaction.Id, null);
+    }
+
+    public async Task<WorkspaceLedgerTransactionResultDto> ReverseWorkspaceLedgerTransactionAsync(
+        Guid userId, Guid transactionId, CancellationToken cancellationToken = default)
+    {
+        var original = await _transactionRepository.GetByIdAsync(transactionId, cancellationToken);
+        if (original is null || original.UserId != userId || original.ReversesId.HasValue ||
+            original.TransferId.HasValue || original.InvestmentId.HasValue || original.IsReconciliationAdjustment ||
+            (!original.WorkspaceSettlementId.HasValue && original.Direction != TransactionDirection.Expense))
+            return new(null, "Workspace.TransactionNotFound");
+        if (await _transactionRepository.GetReversalByOriginalIdAsync(transactionId, cancellationToken) is not null)
+            return new(null, "Workspace.AlreadyReversed");
+        var reversal = Transaction.CreateReversal(original, _clock.UtcNow, "Workspace transaction reversal", _clock.UtcNow);
+        await _transactionRepository.AddAsync(reversal, cancellationToken);
+        try { await _unitOfWork.SaveChangesAsync(cancellationToken); }
+        catch
+        {
+            if (await _transactionRepository.GetReversalByOriginalIdAsync(transactionId, cancellationToken) is not null)
+                return new(null, "Workspace.AlreadyReversed");
+            throw;
+        }
+        return new(reversal.Id, null);
+    }
+
     public async Task<LoanDisbursementReversalResultDto> ValidateLoanDisbursementReversalAsync(
         LoanDisbursementReversalRequestDto request,
         CancellationToken cancellationToken = default)
@@ -315,8 +405,10 @@ public sealed class LedgerModule : ILedgerModule
 
         foreach (var t in txns)
         {
-            // Transfers and linked investment cash are balance movements, not ordinary income/spending.
-            if (t.TransferId.HasValue || t.InvestmentId.HasValue) continue;
+            // Linked cash movements and reversals are not ordinary income/spending.
+            if (t.TransferId.HasValue || t.InvestmentId.HasValue || t.WorkspaceSettlementId.HasValue ||
+                t.IsReconciliationAdjustment || t.ReversesId.HasValue ||
+                await _transactionRepository.GetReversalByOriginalIdAsync(t.Id, cancellationToken) is not null) continue;
 
             if (t.Direction == TransactionDirection.Income)
             {

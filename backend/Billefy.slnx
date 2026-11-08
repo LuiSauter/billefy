@@ -60,6 +60,12 @@
     <Project Path="src/Modules/Planning/Planning.Domain/Planning.Domain.csproj" />
     <Project Path="src/Modules/Planning/Planning.Infrastructure/Planning.Infrastructure.csproj" />
   </Folder>
+  <Folder Name="/src/Modules/Workspaces/">
+    <Project Path="src/Modules/Workspaces/Workspaces.Application/Workspaces.Application.csproj" />
+    <Project Path="src/Modules/Workspaces/Workspaces.Contracts/Workspaces.Contracts.csproj" />
+    <Project Path="src/Modules/Workspaces/Workspaces.Domain/Workspaces.Domain.csproj" />
+    <Project Path="src/Modules/Workspaces/Workspaces.Infrastructure/Workspaces.Infrastructure.csproj" />
+  </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Api.Tests/Api.Tests.csproj" />
     <Project Path="tests/Architecture.Tests/Architecture.Tests.csproj" />
@@ -69,5 +75,6 @@
     <Project Path="tests/Lending.Domain.Tests/Lending.Domain.Tests.csproj" />
     <Project Path="tests/Ledger.Domain.Tests/Ledger.Domain.Tests.csproj" />
     <Project Path="tests/Ledger.IntegrationTests/Ledger.IntegrationTests.csproj" />
+    <Project Path="tests/Workspaces.Domain.Tests/Workspaces.Domain.Tests.csproj" />
   </Folder>
 </Solution>

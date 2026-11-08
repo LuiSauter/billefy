@@ -31,6 +31,8 @@ internal sealed class TransactionConfiguration : IEntityTypeConfiguration<Transa
         builder.Property(t => t.TransferId).HasColumnName("transfer_id");
         builder.Property(t => t.AppliedRate).HasColumnName("applied_rate").HasPrecision(20, 6);
         builder.Property(t => t.RateSource).HasColumnName("rate_source").HasMaxLength(50);
+        builder.Property(t => t.WorkspaceSettlementId).HasColumnName("workspace_settlement_id");
+        builder.HasIndex(t => t.WorkspaceSettlementId);
         builder.Property(t => t.InvestmentId).HasColumnName("investment_id");
         builder.Property(t => t.InvestmentCashKind).HasColumnName("investment_cash_kind").HasConversion<string>().HasMaxLength(20);
         builder.Property(t => t.IsReconciliationAdjustment).HasColumnName("is_reconciliation_adjustment").IsRequired();

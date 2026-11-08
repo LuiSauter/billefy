@@ -29,6 +29,10 @@
     <ProjectReference Include="..\Modules\Lending\Lending.Infrastructure\Lending.Infrastructure.csproj" />
     <ProjectReference Include="..\Modules\Planning\Planning.Application\Planning.Application.csproj" />
     <ProjectReference Include="..\Modules\Planning\Planning.Infrastructure\Planning.Infrastructure.csproj" />
+    <ProjectReference Include="..\Modules\Workspaces\Workspaces.Infrastructure\Workspaces.Infrastructure.csproj" />
+    <ProjectReference Include="..\Modules\Workspaces\Workspaces.Application\Workspaces.Application.csproj" />
+    <ProjectReference Include="..\Modules\Workspaces\Workspaces.Contracts\Workspaces.Contracts.csproj" />
+    <ProjectReference Include="..\Modules\Workspaces\Workspaces.Domain\Workspaces.Domain.csproj" />
     <ProjectReference Include="..\Modules\Messaging\Messaging.Application\Messaging.Application.csproj" />
     <ProjectReference Include="..\Modules\Messaging\Messaging.Infrastructure\Messaging.Infrastructure.csproj" />
     <ProjectReference Include="..\Integrations\Billefy.Integrations.Fx\Billefy.Integrations.Fx.csproj" />

@@ -111,6 +111,11 @@ Jwt__ExpirationMinutes="60"
 # ------------------------------------------------------------------------------
 Google__ClientId="TU_GOOGLE_CLIENT_ID.apps.googleusercontent.com"
 Google__ClientSecret="TU_GOOGLE_CLIENT_SECRET"
+
+# ------------------------------------------------------------------------------
+# 10. Seguridad & Encriptación en Reposo (AES-256-GCM)
+# ------------------------------------------------------------------------------
+Security__EncryptionKey="billefy_production_aes_256_gcm_master_encryption_key_2026!"
 EOF
 ```
 
