@@ -8,7 +8,6 @@ import {
   calculateBalanceEvolution,
   formatNativeBalance,
   getCurrencyConversionLabel,
-  valueInUsd,
 } from "./accounts-overview";
 
 function makeAccount(overrides: Partial<AccountDto>): AccountDto {
