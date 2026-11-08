@@ -51,4 +51,9 @@ public sealed class AccountRepository : IAccountRepository
     {
         await _context.Accounts.AddAsync(account, cancellationToken);
     }
+
+    public void Remove(Account account)
+    {
+        _context.Accounts.Remove(account);
+    }
 }

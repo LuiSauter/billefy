@@ -89,6 +89,36 @@ public sealed class AccountService(
         return Result.Success();
     }
 
+    public async Task<Result> DeleteAccountAsync(
+        Guid accountId,
+        CancellationToken cancellationToken = default)
+    {
+        if (!userContext.IsAuthenticated)
+        {
+            return Result.Failure(Error.Unauthorized("Auth.Unauthorized", "User is not authenticated."));
+        }
+
+        var account = await accountRepository.GetByIdAsync(accountId, cancellationToken);
+        if (account is null || account.UserId != userContext.UserId!.Value)
+        {
+            return Result.Failure(Error.NotFound("Account.NotFound", $"Account with id {accountId} was not found."));
+        }
+
+        var transactions = await transactionRepository.GetByAccountIdAsync(accountId, cancellationToken);
+        if (transactions.Count > 0)
+        {
+            // Per ACC-05: Accounts with transactions cannot be deleted; they are archived instead.
+            account.Archive();
+        }
+        else
+        {
+            accountRepository.Remove(account);
+        }
+
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+        return Result.Success();
+    }
+
     public async Task<Result<ReconciliationResult>> ReconcileAccountAsync(
         Guid accountId,
         ReconcileAccountRequest request,

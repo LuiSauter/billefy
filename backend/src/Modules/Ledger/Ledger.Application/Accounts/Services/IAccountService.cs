@@ -43,6 +43,7 @@ public interface IAccountService
     Task<Result<List<AccountDto>>> GetAccountsAsync(CancellationToken cancellationToken = default);
     Task<Result<List<AccountDto>>> GetAccountsByUserIdAsync(Guid userId, CancellationToken cancellationToken = default);
     Task<Result> UpdateAccountAsync(Guid accountId, UpdateAccountRequest request, CancellationToken cancellationToken = default);
+    Task<Result> DeleteAccountAsync(Guid accountId, CancellationToken cancellationToken = default);
     Task<Result<ReconciliationResult>> ReconcileAccountAsync(
         Guid accountId,
         ReconcileAccountRequest request,

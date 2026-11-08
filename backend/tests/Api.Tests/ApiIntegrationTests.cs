@@ -2486,6 +2486,55 @@ public sealed class InvestmentCashApiTests : IDisposable
         (await planningDb.InvestmentCashLinks.IgnoreQueryFilters().CountAsync(l => l.InvestmentId == investmentId)).Should().Be(1);
     }
 
+    [Fact]
+    public async Task DeleteAccount_RemovesEmptyAccount_AndArchivesAccountWithTransactions()
+    {
+        var testUser = Guid.NewGuid();
+        var foreignUser = Guid.NewGuid();
+
+        // 1. Create account without transactions
+        var emptyAccountId = await CreateAccountAsync(testUser, "Empty Account", 0m);
+
+        // Foreign user cannot delete it
+        var foreignDel = await SendAsync(HttpMethod.Delete, $"/v1/accounts/{emptyAccountId}", foreignUser);
+        foreignDel.StatusCode.Should().Be(HttpStatusCode.NotFound);
+
+        // Owner deletes empty account
+        var delEmpty = await SendAsync(HttpMethod.Delete, $"/v1/accounts/{emptyAccountId}", testUser);
+        delEmpty.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        // Account is gone
+        var getAccounts = await SendAsync(HttpMethod.Get, "/v1/accounts", testUser);
+        var list = await getAccounts.Content.ReadFromJsonAsync<List<AccountDto>>();
+        list.Should().BeEmpty();
+
+        // 2. Create account with transaction (ACC-05)
+        var activeAccountId = await CreateAccountAsync(testUser, "Active Account", 500m);
+        var txnRes = await SendAsync(HttpMethod.Post, "/v1/transactions", testUser, new
+        {
+            AccountId = activeAccountId,
+            Amount = 100m,
+            Direction = "Expense",
+            Description = "Test expense"
+        });
+        txnRes.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        // Delete account with transactions -> should be archived (NoContent)
+        var delActive = await SendAsync(HttpMethod.Delete, $"/v1/accounts/{activeAccountId}", testUser);
+        delActive.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        // Archived account is excluded from active accounts list
+        var getAccountsAfter = await SendAsync(HttpMethod.Get, "/v1/accounts", testUser);
+        var listAfter = await getAccountsAfter.Content.ReadFromJsonAsync<List<AccountDto>>();
+        listAfter.Should().BeEmpty();
+
+        // Transaction still exists in transaction history
+        var getTxns = await SendAsync(HttpMethod.Get, $"/v1/transactions?accountId={activeAccountId}", testUser);
+        getTxns.StatusCode.Should().Be(HttpStatusCode.OK);
+        var txns = await getTxns.Content.ReadFromJsonAsync<List<TransactionDto>>();
+        txns.Should().NotBeEmpty();
+    }
+
     private async Task<Guid> CreateAccountAsync(Guid userId, string name, decimal balance)
     {
         var response = await SendAsync(HttpMethod.Post, "/v1/accounts", userId,

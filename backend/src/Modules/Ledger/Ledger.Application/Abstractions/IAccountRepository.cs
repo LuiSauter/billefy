@@ -9,4 +9,5 @@ public interface IAccountRepository
     Task<IReadOnlyList<Account>> GetAllAsync(bool includeArchived = false, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Account>> GetByUserIdAsync(Guid userId, bool includeArchived = false, CancellationToken cancellationToken = default);
     Task AddAsync(Account account, CancellationToken cancellationToken = default);
+    void Remove(Account account);
 }

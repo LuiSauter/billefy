@@ -52,6 +52,20 @@ public static class AccountEndpoints
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status401Unauthorized);
 
+        group.MapDelete("/{id:guid}", async (
+            [FromRoute] Guid id,
+            IAccountService service,
+            CancellationToken ct) =>
+        {
+            var result = await service.DeleteAccountAsync(id, ct);
+            return result.ToHttpResult(() => Results.NoContent());
+        })
+        .WithName("DeleteAccount")
+        .WithSummary("Delete an account if it has no transactions, or archive it if it has transaction history (ACC-05).")
+        .Produces(StatusCodes.Status204NoContent)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status404NotFound);
+
         group.MapPost("/{id:guid}/reconcile", async (
             [FromRoute] Guid id,
             [FromBody] ReconcileAccountRequest request,
