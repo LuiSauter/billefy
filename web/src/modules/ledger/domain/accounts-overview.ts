@@ -14,6 +14,8 @@ export interface CategorySummary {
   label: string;
   count: number;
   amount: number;
+  amountUsd?: number;
+  amountBob?: number;
   percentage: number;
   color: string;
 }
@@ -297,28 +299,34 @@ export function getCurrencyConversionLabel(
   p2pRate: number = 9.85,
   formatNumber: (n: number | Decimal) => string
 ): string | null {
-  const num = balance instanceof Decimal ? balance.toNumber() : Number(balance) || 0;
-  const rate = p2pRate > 0 ? p2pRate : 9.85;
+  const dec = balance instanceof Decimal ? balance : new Decimal(balance || 0);
+  const rate = new Decimal(p2pRate > 0 ? p2pRate : 9.85);
 
   if (userCurrency === "BOB") {
     if (accountCurrency === "BOB") {
       return null;
     }
-    const usd = valueInUsd(num, accountCurrency, rate);
-    const convertedBob = usd * rate;
+    let convertedBob: Decimal;
+    if (accountCurrency === "USD" || accountCurrency === "USDT" || accountCurrency === "USDC") {
+      convertedBob = dec.times(rate).toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
+    } else {
+      const usdFloat = valueInUsd(dec.toNumber(), accountCurrency, rate.toNumber());
+      convertedBob = new Decimal(usdFloat).times(rate).toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
+    }
     return `≈ Bs. ${formatNumber(convertedBob)}`;
   } else {
     if (accountCurrency === "USD") {
       return null;
     }
     if (accountCurrency === "BOB") {
-      const convertedUsd = num / rate;
+      const convertedUsd = dec.div(rate).toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
       return `≈ $ ${formatNumber(convertedUsd)} USD`;
     }
     if (accountCurrency === "USDT" || accountCurrency === "USDC") {
-      return `≈ $ ${formatNumber(num)} USD`;
+      return `≈ $ ${formatNumber(dec.toDecimalPlaces(2, Decimal.ROUND_HALF_UP))} USD`;
     }
-    const convertedUsd = valueInUsd(num, accountCurrency, rate);
+    const usdFloat = valueInUsd(dec.toNumber(), accountCurrency, rate.toNumber());
+    const convertedUsd = new Decimal(usdFloat).toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
     return `≈ $ ${formatNumber(convertedUsd)} USD`;
   }
 }
@@ -334,6 +342,8 @@ export function calculateAccountsOverview(
       label: "Bancos",
       count: 0,
       amount: 0,
+      amountUsd: 0,
+      amountBob: 0,
       percentage: 0,
       color: "#2dd4bf", // teal / green
     },
@@ -342,6 +352,8 @@ export function calculateAccountsOverview(
       label: "Wallets digitales",
       count: 0,
       amount: 0,
+      amountUsd: 0,
+      amountBob: 0,
       percentage: 0,
       color: "#a855f7", // purple
     },
@@ -350,6 +362,8 @@ export function calculateAccountsOverview(
       label: "Cripto",
       count: 0,
       amount: 0,
+      amountUsd: 0,
+      amountBob: 0,
       percentage: 0,
       color: "#f59e0b", // yellow / amber
     },
@@ -358,6 +372,8 @@ export function calculateAccountsOverview(
       label: "Efectivo",
       count: 0,
       amount: 0,
+      amountUsd: 0,
+      amountBob: 0,
       percentage: 0,
       color: "#06b6d4", // blue / cyan
     },
@@ -366,34 +382,79 @@ export function calculateAccountsOverview(
       label: "Otros",
       count: 0,
       amount: 0,
+      amountUsd: 0,
+      amountBob: 0,
       percentage: 0,
       color: "#818cf8", // indigo / gray
     },
   };
 
-  let totalUsd = 0;
-  let totalBob = 0;
+  const groups: AccountCategoryGroup[] = ["bancos", "wallets", "cripto", "efectivo", "otros"];
+  const categoryUsdMap: Record<AccountCategoryGroup, Decimal> = {
+    bancos: new Decimal(0),
+    wallets: new Decimal(0),
+    cripto: new Decimal(0),
+    efectivo: new Decimal(0),
+    otros: new Decimal(0),
+  };
+  const categoryBobMap: Record<AccountCategoryGroup, Decimal> = {
+    bancos: new Decimal(0),
+    wallets: new Decimal(0),
+    cripto: new Decimal(0),
+    efectivo: new Decimal(0),
+    otros: new Decimal(0),
+  };
+
+  let totalUsd = new Decimal(0);
+  let totalBob = new Decimal(0);
+  const rate = new Decimal(p2pRate > 0 ? p2pRate : 9.85);
 
   for (const acc of accounts) {
-    const balanceNum = acc.balance instanceof Decimal ? acc.balance.toNumber() : Number(acc.balance) || 0;
-    const usdVal = valueInUsd(balanceNum, acc.currency, p2pRate);
-    const bobVal = acc.currency === "BOB" ? balanceNum : balanceNum * p2pRate;
+    const rawBalance = acc.balance instanceof Decimal ? acc.balance : new Decimal(acc.balance || 0);
+    const balanceNum = rawBalance.toNumber();
 
-    totalUsd += usdVal;
-    totalBob += bobVal;
+    let accUsd: Decimal;
+    let accBob: Decimal;
+
+    if (acc.currency === "BOB") {
+      accBob = rawBalance;
+      accUsd = rawBalance.div(rate);
+    } else if (acc.currency === "USD" || acc.currency === "USDT" || acc.currency === "USDC") {
+      accUsd = rawBalance;
+      accBob = rawBalance.times(rate);
+    } else {
+      const usdFloat = valueInUsd(balanceNum, acc.currency, rate.toNumber());
+      accUsd = new Decimal(usdFloat);
+      accBob = accUsd.times(rate);
+    }
+
+    totalUsd = totalUsd.plus(accUsd);
+    totalBob = totalBob.plus(accBob);
 
     const group = classifyAccountCategory(acc);
     initialCategoryTotals[group].count += 1;
-    initialCategoryTotals[group].amount += usdVal;
+    categoryUsdMap[group] = categoryUsdMap[group].plus(accUsd);
+    categoryBobMap[group] = categoryBobMap[group].plus(accBob);
   }
 
-  // Calculate percentages
-  const groups: AccountCategoryGroup[] = ["bancos", "wallets", "cripto", "efectivo", "otros"];
+  // Calculate percentages and rounded amounts
   for (const g of groups) {
-    if (totalUsd > 0) {
-      initialCategoryTotals[g].percentage = Number(
-        ((initialCategoryTotals[g].amount / totalUsd) * 100).toFixed(1)
-      );
+    const catUsd = categoryUsdMap[g];
+    const catBob = categoryBobMap[g];
+
+    const roundedUsd = catUsd.toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toNumber();
+    const roundedBob = catBob.toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toNumber();
+
+    initialCategoryTotals[g].amountUsd = roundedUsd;
+    initialCategoryTotals[g].amountBob = roundedBob;
+    initialCategoryTotals[g].amount = roundedUsd;
+
+    if (totalUsd.gt(0)) {
+      initialCategoryTotals[g].percentage = catUsd
+        .div(totalUsd)
+        .times(100)
+        .toDecimalPlaces(1, Decimal.ROUND_HALF_UP)
+        .toNumber();
     } else {
       initialCategoryTotals[g].percentage = 0;
     }
@@ -416,12 +477,13 @@ export function calculateAccountsOverview(
       netThisMonthUsd += usdVal;
     }
 
-    const previousTotalUsd = totalUsd - netThisMonthUsd;
+    const totalUsdNum = totalUsd.toNumber();
+    const previousTotalUsd = totalUsdNum - netThisMonthUsd;
     if (Math.abs(previousTotalUsd) >= 1) {
       monthlyChangePct = Number(
-        (((totalUsd - previousTotalUsd) / Math.abs(previousTotalUsd)) * 100).toFixed(1)
+        (((totalUsdNum - previousTotalUsd) / Math.abs(previousTotalUsd)) * 100).toFixed(1)
       );
-    } else if (totalUsd > 0) {
+    } else if (totalUsdNum > 0) {
       monthlyChangePct = 6.8; // Baseline positive if fresh account
     }
   }
@@ -429,8 +491,8 @@ export function calculateAccountsOverview(
   const categoryList = groups.map((g) => initialCategoryTotals[g]);
 
   return {
-    totalUsd: Math.round(totalUsd * 100) / 100,
-    totalBob: Math.round(totalBob * 100) / 100,
+    totalUsd: totalUsd.toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toNumber(),
+    totalBob: totalBob.toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toNumber(),
     monthlyChangePct,
     categoryTotals: initialCategoryTotals,
     categoryList,

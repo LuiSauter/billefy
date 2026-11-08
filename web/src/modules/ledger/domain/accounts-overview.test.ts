@@ -74,12 +74,32 @@ describe("accounts-overview domain", () => {
 
       const overview = calculateAccountsOverview(accounts, [], 10);
       expect(overview.totalUsd).toBe(2000);
+      expect(overview.totalBob).toBe(20000);
       expect(overview.categoryTotals.bancos.amount).toBe(1000);
+      expect(overview.categoryTotals.bancos.amountUsd).toBe(1000);
+      expect(overview.categoryTotals.bancos.amountBob).toBe(10000);
       expect(overview.categoryTotals.bancos.percentage).toBe(50);
       expect(overview.categoryTotals.wallets.amount).toBe(500);
+      expect(overview.categoryTotals.wallets.amountUsd).toBe(500);
+      expect(overview.categoryTotals.wallets.amountBob).toBe(5000);
       expect(overview.categoryTotals.wallets.percentage).toBe(25);
       expect(overview.categoryTotals.cripto.amount).toBe(500);
+      expect(overview.categoryTotals.cripto.amountUsd).toBe(500);
+      expect(overview.categoryTotals.cripto.amountBob).toBe(5000);
       expect(overview.categoryTotals.cripto.percentage).toBe(25);
+    });
+
+    it("calculates exact converted amountBob and amountUsd for otros without ratio distortions", () => {
+      const accounts: AccountDto[] = [
+        makeAccount({ id: "1", name: "Broker ETF", type: "International", balance: new Decimal(124), currency: "USDC" }),
+        makeAccount({ id: "2", name: "Banco Unión", type: "Bank", balance: new Decimal(100), currency: "BOB" }),
+      ];
+
+      const overview = calculateAccountsOverview(accounts, [], 9.85);
+      // Broker ETF is in "otros" with 124 USDC
+      // 124 * 9.85 = 1221.40 BOB exactly
+      expect(overview.categoryTotals.otros.amountUsd).toBe(124);
+      expect(overview.categoryTotals.otros.amountBob).toBe(1221.4);
     });
   });
 

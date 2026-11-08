@@ -55,15 +55,15 @@ export function AccountsAnalyticsSidePanels({
   // Donut data
   const donutData = useMemo(() => {
     return metrics.categoryList
-      .filter((cat) => cat.amount > 0)
+      .filter((cat) => (isUsd ? (cat.amountUsd ?? cat.amount) : (cat.amountBob ?? cat.amount)) > 0)
       .map((cat) => ({
         name: cat.label,
         group: cat.group,
-        value: cat.amount,
+        value: isUsd ? (cat.amountUsd ?? cat.amount) : (cat.amountBob ?? cat.amount),
         percentage: cat.percentage,
         color: CATEGORY_COLORS[cat.group] || cat.color,
       }));
-  }, [metrics.categoryList]);
+  }, [metrics.categoryList, isUsd]);
 
   // Evolution data
   const evolutionData = useMemo(() => {

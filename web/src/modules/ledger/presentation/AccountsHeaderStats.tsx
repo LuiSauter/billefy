@@ -183,8 +183,8 @@ export function AccountsHeaderStats({
             const config = categoryIcons[cat.group];
             const Icon = config.icon;
             const displayCatAmount = isUsd
-              ? cat.amount
-              : cat.amount * (metrics.totalUsd > 0 ? metrics.totalBob / metrics.totalUsd : 1);
+              ? (cat.amountUsd ?? cat.amount)
+              : (cat.amountBob ?? cat.amount);
 
             return (
               <div
