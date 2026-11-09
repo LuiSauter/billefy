@@ -232,6 +232,7 @@ export function InvestmentsView({
           isOpen={!!operationInvestment}
           onClose={() => setOperationInvestment(null)}
           onConfirmOperation={handleConfirmOperation}
+          onFetchStockQuote={controller.getStockQuote}
           currencySymbol={currencySymbol}
         />
 
@@ -350,6 +351,7 @@ export function InvestmentsView({
         isOpen={createOpen}
         onClose={() => setCreateOpen(false)}
         onCreate={createInvestment}
+        onFetchStockQuote={controller.getStockQuote}
         currencySymbol={currencySymbol}
       />
 
@@ -367,6 +369,7 @@ export function InvestmentsView({
         isOpen={!!operationInvestment}
         onClose={() => setOperationInvestment(null)}
         onConfirmOperation={handleConfirmOperation}
+        onFetchStockQuote={controller.getStockQuote}
         currencySymbol={currencySymbol}
       />
 

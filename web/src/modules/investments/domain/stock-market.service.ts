@@ -25,7 +25,7 @@ export async function fetchStockQuote(
     return cached.quote;
   }
 
-  // 1. If http client is available, query through backend proxy
+  // 1. If http client is available, query through .NET backend proxy
   if (http) {
     try {
       const data = await http.get<StockQuote>(
@@ -36,41 +36,25 @@ export async function fetchStockQuote(
         return data;
       }
     } catch {
-      // Fallback below
+      // Fallback to internal Next.js server route below
     }
   }
 
-  // 2. Direct browser fetch fallback (for tests or standalone execution)
+  // 2. Query through internal Next.js Route Handler (running server-side, 0 CORS issues)
   try {
-    const res = await fetch(
-      `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(clean)}?interval=1d&range=1d`,
-      {
-        headers: {
-          Accept: "application/json",
-        },
+    const res = await fetch(`/api/market/quote?ticker=${encodeURIComponent(clean)}`);
+    if (res.ok) {
+      const data: StockQuote = await res.json();
+      if (data && data.price > 0) {
+        quoteCache.set(clean, { quote: data, timestamp: Date.now() });
+        return data;
       }
-    );
-    if (!res.ok) return null;
-
-    const data = await res.json();
-    const result = data?.chart?.result?.[0];
-    const meta = result?.meta;
-    if (!meta || !meta.regularMarketPrice) return null;
-
-    const quote: StockQuote = {
-      ticker: meta.symbol || clean,
-      price: meta.regularMarketPrice,
-      changePercent: meta.regularMarketChangePercent ?? null,
-      currency: meta.currency || "USD",
-      exchangeName: meta.fullExchangeName || meta.exchangeName || null,
-      updatedAt: new Date().toISOString(),
-    };
-
-    quoteCache.set(clean, { quote, timestamp: Date.now() });
-    return quote;
+    }
   } catch {
-    return null;
+    // Return null if offline or server unreachable
   }
+
+  return null;
 }
 
 export function calculateStockTotalValue(quantity: number, price: number): number {

@@ -35,6 +35,7 @@ interface CreateInvestmentModalProps {
   isOpen: boolean;
   onClose: () => void;
   onCreate: (input: CreateInvestmentInput) => Promise<void>;
+  onFetchStockQuote?: (ticker: string) => Promise<StockQuote | null>;
   currencySymbol?: string;
 }
 
@@ -85,6 +86,7 @@ export function CreateInvestmentModal({
   isOpen,
   onClose,
   onCreate,
+  onFetchStockQuote,
   currencySymbol = "$",
 }: CreateInvestmentModalProps) {
   void currencySymbol;
@@ -115,13 +117,13 @@ export function CreateInvestmentModal({
     }
     setLoadingStockQuote(true);
     try {
-      const q = await fetchStockQuote(sym);
+      const q = onFetchStockQuote ? await onFetchStockQuote(sym) : await fetchStockQuote(sym);
       setLiveStockQuote(q);
       return q;
     } finally {
       setLoadingStockQuote(false);
     }
-  }, []);
+  }, [onFetchStockQuote]);
 
   // Fetch live price when crypto changes
   const loadTicker = useCallback(async (symbol: string) => {

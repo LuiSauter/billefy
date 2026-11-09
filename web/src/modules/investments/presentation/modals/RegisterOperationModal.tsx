@@ -43,6 +43,7 @@ interface RegisterOperationModalProps {
     notes?: string;
     linkedAccountId?: string;
   }) => Promise<void>;
+  onFetchStockQuote?: (ticker: string) => Promise<StockQuote | null>;
   currencySymbol?: string;
 }
 
@@ -61,6 +62,7 @@ export function RegisterOperationModal({
   isOpen,
   onClose,
   onConfirmOperation,
+  onFetchStockQuote,
   currencySymbol = "$",
 }: RegisterOperationModalProps) {
   const [type, setType] = useState<"buy" | "sell" | "dividend">("buy");
@@ -106,7 +108,7 @@ export function RegisterOperationModal({
   const loadStockMarketPrice = useCallback(async (sym: string) => {
     setLoadingLivePrice(true);
     try {
-      const quote = await fetchStockQuote(sym);
+      const quote = onFetchStockQuote ? await onFetchStockQuote(sym) : await fetchStockQuote(sym);
       if (quote && quote.price > 0) {
         setLiveStockQuote(quote);
         setUnitPriceStr(String(quote.price));
@@ -117,7 +119,7 @@ export function RegisterOperationModal({
       setLoadingLivePrice(false);
     }
     return null;
-  }, []);
+  }, [onFetchStockQuote]);
 
   // Initialize form state when opening
   useEffect(() => {

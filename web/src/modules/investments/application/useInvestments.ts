@@ -5,7 +5,7 @@ import { IHttpClient } from "@/shared/application/http-client.contract";
 import { notify } from "@/shared/lib/notify";
 import { CreateInvestmentInput, Investment, InvestmentTransactionDto, RegisterInvestmentOperationInput } from "../domain/investment.types";
 import { extractCryptoSymbol, fetchCryptoTicker } from "../domain/binance-market.service";
-import { fetchStockQuote } from "../domain/stock-market.service";
+import { fetchStockQuote, StockQuote } from "../domain/stock-market.service";
 
 export interface InvestmentCashInput { accountId: string; amount: string; description?: string; occurredAt?: string }
 export interface InvestmentCashResult { ledgerTransactionId: string; investmentId: string; kind: "Contribution" | "Disposal" }
@@ -220,6 +220,13 @@ export function useInvestments(http: IHttpClient | null) {
     [http, refresh]
   );
 
+  const getStockQuote = useCallback(
+    async (ticker: string): Promise<StockQuote | null> => {
+      return fetchStockQuote(ticker, http);
+    },
+    [http]
+  );
+
   return useMemo(
     () => ({
       investments,
@@ -228,6 +235,7 @@ export function useInvestments(http: IHttpClient | null) {
       deleteInvestment,
       registerOperation,
       getTransactions,
+      getStockQuote,
       refreshAfterCash,
       recordCash,
       reverseCash,
@@ -242,6 +250,7 @@ export function useInvestments(http: IHttpClient | null) {
       deleteInvestment,
       registerOperation,
       getTransactions,
+      getStockQuote,
       refreshAfterCash,
       recordCash,
       reverseCash,
