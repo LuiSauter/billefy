@@ -273,6 +273,7 @@ export default function DashboardPage() {
               onReverseTxn={dashboard.reverseTransaction}
               onEditTxn={modals.openEditTransaction}
               investments={investmentsCtl.investments}
+              distributionPlan={planCtl.plan}
               onUpdateAccount={dashboard.updateAccount}
               onOpenAccountsTab={() => setActiveTab("cuentas")}
               onOpenInvestmentsTab={() => setActiveTab("inversiones")}

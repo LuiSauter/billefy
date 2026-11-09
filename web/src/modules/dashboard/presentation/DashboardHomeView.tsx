@@ -10,6 +10,7 @@ import { BalanceMetrics } from "@/modules/dashboard/application/useFinancialMetr
 import { UserDto } from "@/modules/identity/domain/identity.types";
 import { usePatrimonio } from "@/modules/patrimonio/application/usePatrimonio";
 import { useUserCategories } from "@/modules/ledger/application/CategoriesContext";
+import { DistributionPlan } from "@/modules/planning/domain/distribution-plan";
 import { calculateDashboardHomeAnalytics } from "../domain/dashboard-home-analytics";
 import { DashboardWelcomeHeader } from "./home/DashboardWelcomeHeader";
 import { DashboardHeroKpiCards } from "./home/DashboardHeroKpiCards";
@@ -47,6 +48,7 @@ export interface DashboardHomeViewProps {
   onReverseTxn: (txnId: string) => void;
   onEditTxn?: (txn: TransactionDto) => void;
   investments?: Investment[];
+  distributionPlan?: DistributionPlan | null;
   onOpenAccountsTab?: () => void;
   onOpenInvestmentsTab?: () => void;
   onOpenPlanTab?: () => void;
@@ -72,6 +74,7 @@ export function DashboardHomeView({
   onDiscardDraft,
   onConfirmAllDrafts,
   investments = [],
+  distributionPlan,
   onOpenAccountsTab,
   onOpenInvestmentsTab,
   onOpenPlanTab,
@@ -109,6 +112,7 @@ export function DashboardHomeView({
       p2pRate,
       year,
       month,
+      distributionPlan,
     });
   }, [
     accounts,
@@ -122,6 +126,7 @@ export function DashboardHomeView({
     p2pRate,
     year,
     month,
+    distributionPlan,
   ]);
 
   const handleSelectMonth = (newYear: number, newMonth: number) => {
@@ -218,6 +223,7 @@ export function DashboardHomeView({
             <DashboardDistributionCard
               distribution={analytics.recommendedDistribution}
               selectedCurrency={selectedCurrency}
+              onOpenPlanTab={onOpenPlanTab}
             />
           </div>
           <div className="flex-1">

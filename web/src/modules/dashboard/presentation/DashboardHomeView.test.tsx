@@ -245,4 +245,35 @@ describe("DashboardHomeView Redesign Integration", () => {
     expect(html).toContain("patrimonio");
     expect(html).toContain("Ver plan de acción");
   });
+
+  it("renders custom user-configured distribution plan rule and buckets when enabled", () => {
+    const customPlan = {
+      enabled: true,
+      buckets: [
+        { id: "b1", name: "Gastos fijos", percent: 40, colorKey: "blue" as const, categoryIds: [] },
+        { id: "b2", name: "Estilo de vida", percent: 30, colorKey: "pink" as const, categoryIds: [] },
+        { id: "b3", name: "Ahorro", percent: 20, colorKey: "emerald" as const, categoryIds: [] },
+        { id: "b4", name: "Inversión", percent: 10, colorKey: "amber" as const, categoryIds: [] },
+      ],
+    };
+
+    const html = renderToStaticMarkup(
+      <DashboardHomeView
+        {...mockProps}
+        onOpenPlanTab={vi.fn()}
+        distributionPlan={customPlan}
+      />
+    );
+
+    expect(html).toContain("Regla de distribución (40/30/20/10)");
+    expect(html).toContain("40%");
+    expect(html).toContain("Gastos fijos");
+    expect(html).toContain("30%");
+    expect(html).toContain("Estilo de vida");
+    expect(html).toContain("20%");
+    expect(html).toContain("Ahorro");
+    expect(html).toContain("10%");
+    expect(html).toContain("Inversión");
+    expect(html).toContain("Ajustar regla");
+  });
 });

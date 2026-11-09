@@ -4,6 +4,8 @@ import { LoanSummaryDto } from "@/modules/lending/domain/lending.types";
 import { Investment } from "@/modules/investments/domain/investment.types";
 import { PatrimonialAsset, PatrimonialLiability } from "@/modules/patrimonio/domain/patrimonio.types";
 import { calculatePatrimonioOverview, convertPatrimonioAmount } from "@/modules/patrimonio/domain/net-worth-analytics";
+import { DistributionPlan } from "@/modules/planning/domain/distribution-plan";
+import { CategoryColorKey } from "@/modules/ledger/domain/category.types";
 
 export interface DashboardHeroKpis {
   netWorth: number;
@@ -22,7 +24,18 @@ export interface MonthlyCashFlow {
   chartData: { name: string; amount: number; fill: string }[];
 }
 
+export interface DashboardDistributionBucket {
+  id: string;
+  name: string;
+  percent: number;
+  amount: number;
+  colorKey: CategoryColorKey | string;
+}
+
 export interface RecommendedDistribution {
+  ruleLabel: string;
+  isCustom: boolean;
+  buckets: DashboardDistributionBucket[];
   necesidades: number;
   estiloDeVida: number;
   ahorroEInversion: number;
@@ -88,6 +101,7 @@ export interface DashboardHomeAnalyticsInput {
   p2pRate?: number;
   year?: number;
   month?: number; // 0-indexed (0 = Jan, 9 = Oct)
+  distributionPlan?: DistributionPlan | null;
 }
 
 const CATEGORY_COLORS = [
@@ -113,6 +127,7 @@ export function calculateDashboardHomeAnalytics({
   p2pRate = 10,
   year = new Date().getFullYear(),
   month = new Date().getMonth(),
+  distributionPlan,
 }: DashboardHomeAnalyticsInput): DashboardHomeAnalyticsResult {
   const targetCurrency: "USD" | "BOB" = selectedCurrency === "USD" ? "USD" : "BOB";
   const effectiveP2pRate = p2pRate > 0 ? p2pRate : 10;
@@ -235,11 +250,47 @@ export function calculateDashboardHomeAnalytics({
     ],
   };
 
-  // 4. Real 50/30/20 Recommended Distribution calculated on authentic income
+  // 4. Authentic Income Distribution based on user plan or default 50/30/20
+  const isCustomPlan = Boolean(distributionPlan?.enabled && distributionPlan.buckets?.length);
+  const planBuckets = isCustomPlan
+    ? distributionPlan!.buckets
+    : [
+        { id: "necesidades", name: "Necesidades", percent: 50, colorKey: "emerald" as CategoryColorKey },
+        { id: "estiloDeVida", name: "Estilo de vida", percent: 30, colorKey: "amber" as CategoryColorKey },
+        { id: "ahorroEInversion", name: "Ahorro e inversión", percent: 20, colorKey: "violet" as CategoryColorKey },
+      ];
+
+  const ruleLabel = planBuckets.map((b) => b.percent).join("/");
+
+  const calculatedBuckets: DashboardDistributionBucket[] = planBuckets.map((b) => {
+    const bucketAmount = new Decimal(incomeVal)
+      .mul(b.percent)
+      .div(100)
+      .toDecimalPlaces(2)
+      .toNumber();
+    return {
+      id: b.id || b.name,
+      name: b.name,
+      percent: b.percent,
+      amount: bucketAmount,
+      colorKey: (b.colorKey as CategoryColorKey) || "blue",
+    };
+  });
+
+  const findBucketAmount = (keywords: string[], fallbackIndex: number) => {
+    const match = calculatedBuckets.find((b) =>
+      keywords.some((k) => b.name.toLowerCase().includes(k))
+    );
+    return match ? match.amount : calculatedBuckets[fallbackIndex]?.amount ?? 0;
+  };
+
   const recommendedDistribution: RecommendedDistribution = {
-    necesidades: new Decimal(incomeVal).mul(0.5).toDecimalPlaces(2).toNumber(),
-    estiloDeVida: new Decimal(incomeVal).mul(0.3).toDecimalPlaces(2).toNumber(),
-    ahorroEInversion: new Decimal(incomeVal).mul(0.2).toDecimalPlaces(2).toNumber(),
+    ruleLabel,
+    isCustom: isCustomPlan,
+    buckets: calculatedBuckets,
+    necesidades: findBucketAmount(["necesidad"], 0),
+    estiloDeVida: findBucketAmount(["estilo", "deseo"], 1),
+    ahorroEInversion: findBucketAmount(["ahorro", "invers"], 2),
   };
 
   // 5. Real Category Expenses Breakdown

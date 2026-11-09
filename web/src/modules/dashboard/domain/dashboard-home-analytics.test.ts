@@ -187,9 +187,12 @@ describe("Dashboard Home Analytics Engine (100% Authentic Data)", () => {
     expect(result.monthlyCashFlow.savings).toBe(4741); // 6800 - 2059
 
     // 50/30/20 based on authentic 6800 income
+    expect(result.recommendedDistribution.ruleLabel).toBe("50/30/20");
+    expect(result.recommendedDistribution.isCustom).toBe(false);
     expect(result.recommendedDistribution.necesidades).toBe(3400); // 50%
     expect(result.recommendedDistribution.estiloDeVida).toBe(2040); // 30%
     expect(result.recommendedDistribution.ahorroEInversion).toBe(1360); // 20%
+    expect(result.recommendedDistribution.buckets).toHaveLength(3);
 
     // Category breakdown should contain Vivienda and Alimentación
     expect(result.categoryExpenses).toHaveLength(2);
@@ -219,5 +222,63 @@ describe("Dashboard Home Analytics Engine (100% Authentic Data)", () => {
     expect(result.monthlyCashFlow.savings).toBe(0);
     expect(result.categoryExpenses).toHaveLength(0);
     expect(result.topInvestments).toHaveLength(0);
+  });
+
+  it("calculates custom user-configured distribution plan when enabled", () => {
+    const customPlan = {
+      enabled: true,
+      buckets: [
+        { id: "b1", name: "Gastos fijos", percent: 40, colorKey: "blue" as const, categoryIds: [] },
+        { id: "b2", name: "Estilo de vida", percent: 30, colorKey: "pink" as const, categoryIds: [] },
+        { id: "b3", name: "Ahorro", percent: 20, colorKey: "emerald" as const, categoryIds: [] },
+        { id: "b4", name: "Inversión", percent: 10, colorKey: "amber" as const, categoryIds: [] },
+      ],
+    };
+
+    const result = calculateDashboardHomeAnalytics({
+      accounts: mockAccounts,
+      transactions: mockTransactions,
+      loans: mockLoans,
+      investments: mockInvestments,
+      manualAssets: mockManualAssets,
+      categoryNamesMap: mockCategoryNames,
+      selectedCurrency: "USD",
+      p2pRate: 10,
+      year: 2026,
+      month: 9,
+      distributionPlan: customPlan,
+    });
+
+    expect(result.recommendedDistribution.isCustom).toBe(true);
+    expect(result.recommendedDistribution.ruleLabel).toBe("40/30/20/10");
+    expect(result.recommendedDistribution.buckets).toHaveLength(4);
+    expect(result.recommendedDistribution.buckets[0]).toEqual({
+      id: "b1",
+      name: "Gastos fijos",
+      percent: 40,
+      amount: 2720, // 6800 * 0.40
+      colorKey: "blue",
+    });
+    expect(result.recommendedDistribution.buckets[1]).toEqual({
+      id: "b2",
+      name: "Estilo de vida",
+      percent: 30,
+      amount: 2040, // 6800 * 0.30
+      colorKey: "pink",
+    });
+    expect(result.recommendedDistribution.buckets[2]).toEqual({
+      id: "b3",
+      name: "Ahorro",
+      percent: 20,
+      amount: 1360, // 6800 * 0.20
+      colorKey: "emerald",
+    });
+    expect(result.recommendedDistribution.buckets[3]).toEqual({
+      id: "b4",
+      name: "Inversión",
+      percent: 10,
+      amount: 680, // 6800 * 0.10
+      colorKey: "amber",
+    });
   });
 });
