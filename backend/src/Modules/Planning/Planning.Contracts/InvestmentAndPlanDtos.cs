@@ -58,6 +58,14 @@ public sealed record RegisterInvestmentOperationRequest(
 public sealed record InvestmentCashRequest(Guid AccountId, decimal Amount, string? Description = null, DateTime? OccurredAt = null);
 public sealed record InvestmentCashResult(Guid LedgerTransactionId, Guid InvestmentId, string Kind);
 
+public sealed record StockQuoteDto(
+    string Ticker,
+    decimal Price,
+    decimal? ChangePercent,
+    string Currency,
+    string? ExchangeName,
+    DateTime UpdatedAt);
+
 public sealed record PlanBucketDto(
     string Id,
     string Name,

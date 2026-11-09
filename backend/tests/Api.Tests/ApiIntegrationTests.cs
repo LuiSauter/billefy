@@ -2598,6 +2598,20 @@ public sealed class InvestmentCashApiTests : IDisposable
         apple.CurrentValue.Should().Be(1440m); // 1000 + 440
     }
 
+    [Fact]
+    public async Task GetMarketQuote_WithInvalidTicker_ReturnsBadRequestOrNotFound()
+    {
+        var testUser = Guid.NewGuid();
+
+        // Empty ticker
+        var emptyRes = await SendAsync(HttpMethod.Get, "/v1/planning/market/quote?ticker=", testUser);
+        emptyRes.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        // Delisted / fake ticker
+        var notFoundRes = await SendAsync(HttpMethod.Get, "/v1/planning/market/quote?ticker=NONEXISTENT_XYZ_9999", testUser);
+        notFoundRes.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
     private async Task<Guid> CreateAccountAsync(Guid userId, string name, decimal balance)
     {
         var response = await SendAsync(HttpMethod.Post, "/v1/accounts", userId,

@@ -6,6 +6,7 @@ import {
   TrendingDown,
   Coins,
   Zap,
+  TrendingUp,
   RefreshCw,
   ArrowDownUp,
   SlidersHorizontal,
@@ -19,6 +20,7 @@ import {
   calculateCryptoQuantityFromUsdt,
   calculateCryptoUsdtValue,
 } from "../../domain/binance-market.service";
+import { fetchStockQuote, StockQuote } from "../../domain/stock-market.service";
 import { ResponsiveDrawer } from "@/shared/ui/responsive-drawer";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
@@ -71,6 +73,7 @@ export function RegisterOperationModal({
   const [linkedAccountId, setLinkedAccountId] = useState<string>("");
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [liveCryptoPrice, setLiveCryptoPrice] = useState<number | null>(null);
+  const [liveStockQuote, setLiveStockQuote] = useState<StockQuote | null>(null);
   const [priceChangePercent, setPriceChangePercent] = useState<number | null>(null);
   const [loadingLivePrice, setLoadingLivePrice] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -99,6 +102,23 @@ export function RegisterOperationModal({
     return null;
   }, []);
 
+  // Fetch live stock quote from Yahoo Finance
+  const loadStockMarketPrice = useCallback(async (sym: string) => {
+    setLoadingLivePrice(true);
+    try {
+      const quote = await fetchStockQuote(sym);
+      if (quote && quote.price > 0) {
+        setLiveStockQuote(quote);
+        setUnitPriceStr(String(quote.price));
+        setPriceChangePercent(quote.changePercent);
+        return quote.price;
+      }
+    } finally {
+      setLoadingLivePrice(false);
+    }
+    return null;
+  }, []);
+
   // Initialize form state when opening
   useEffect(() => {
     if (!investment || !isOpen) return;
@@ -107,6 +127,7 @@ export function RegisterOperationModal({
     setQuantityStr("");
     setDollarAmountStr("");
     setFeesStr("0");
+    setNotes("");
     setLinkedAccountId("");
     setType("buy");
     setShowAdvanced(false);
@@ -114,6 +135,8 @@ export function RegisterOperationModal({
     const symbol = extractCryptoSymbol(investment);
     if (symbol) {
       void loadMarketPrice(symbol);
+    } else if ((investment.kind === "stocks" || investment.kind === "funds") && investment.ticker) {
+      void loadStockMarketPrice(investment.ticker);
     } else {
       if (investment.quantity > 0 && investment.currentValue > 0) {
         const implied = Number((investment.currentValue / investment.quantity).toFixed(2));
@@ -122,9 +145,10 @@ export function RegisterOperationModal({
         setUnitPriceStr("");
       }
       setLiveCryptoPrice(null);
+      setLiveStockQuote(null);
       setPriceChangePercent(null);
     }
-  }, [investment, isOpen, loadMarketPrice]);
+  }, [investment, isOpen, loadMarketPrice, loadStockMarketPrice]);
 
   if (!isOpen || !investment) return null;
 
@@ -234,8 +258,9 @@ export function RegisterOperationModal({
   };
 
   const handleApplyLivePrice = () => {
-    if (liveCryptoPrice && liveCryptoPrice > 0) {
-      handleUnitPriceChange(String(liveCryptoPrice));
+    const liveP = liveCryptoPrice || liveStockQuote?.price;
+    if (liveP && liveP > 0) {
+      handleUnitPriceChange(String(liveP));
     }
   };
 
@@ -515,18 +540,61 @@ export function RegisterOperationModal({
               </div>
             )}
 
-            {/* Non-crypto asset ticker header */}
-            {investment.kind !== "crypto" && investment.ticker && (
-              <div className="p-3 rounded-xl bg-muted/40 border border-border flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="px-2 py-0.5 rounded-md text-xs font-mono font-extrabold bg-blue-500/15 text-blue-300 border border-blue-500/30">
-                    {investment.ticker}
-                  </span>
-                  <span className="font-bold text-foreground text-xs">{investment.name}</span>
+            {/* Live Stock / ETF Quote Card from Yahoo Finance */}
+            {(investment.kind === "stocks" || investment.kind === "funds") && investment.ticker && (
+              <div className="p-3.5 rounded-2xl bg-gradient-to-r from-blue-500/10 via-muted/40 to-muted/20 border border-border flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-xl bg-blue-500/15 border border-blue-500/30 text-blue-400 font-black text-sm flex items-center justify-center shrink-0">
+                    <TrendingUp className="w-5 h-5" />
+                  </div>
+                  <div className="flex flex-col min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-extrabold text-foreground text-sm truncate">
+                        {investment.name}
+                      </span>
+                      <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-blue-500/15 text-blue-300 border border-blue-500/30 font-mono">
+                        {investment.ticker}
+                      </span>
+                      <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-blue-500/15 text-blue-300 border border-blue-500/30">
+                        Yahoo Finance
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-muted-foreground font-medium truncate">
+                      {liveStockQuote?.exchangeName ? `${liveStockQuote.exchangeName} • ` : ""}Cotización en tiempo real
+                    </span>
+                  </div>
                 </div>
-                <span className="text-xs font-mono font-bold text-muted-foreground">
-                  Tenencia: {investment.quantity} {cryptoSymbol}
-                </span>
+
+                <div className="flex flex-col items-end shrink-0">
+                  <div className="flex items-center gap-1.5">
+                    {loadingLivePrice ? (
+                      <RefreshCw className="w-4 h-4 animate-spin text-muted-foreground" />
+                    ) : (
+                      <span className="font-mono font-black text-base text-foreground tracking-tight">
+                        $ {liveStockQuote ? liveStockQuote.price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "..."}
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => loadStockMarketPrice(investment.ticker!)}
+                      title="Refrescar cotización"
+                      className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition cursor-pointer"
+                    >
+                      <RefreshCw className={cn("w-3 h-3", loadingLivePrice && "animate-spin")} />
+                    </button>
+                  </div>
+                  {priceChangePercent !== null && (
+                    <span
+                      className={cn(
+                        "text-[10px] font-bold",
+                        priceChangePercent >= 0 ? "text-emerald-400" : "text-rose-400"
+                      )}
+                    >
+                      {priceChangePercent >= 0 ? "+" : ""}
+                      {priceChangePercent.toFixed(2)}% (24h)
+                    </span>
+                  )}
+                </div>
               </div>
             )}
 

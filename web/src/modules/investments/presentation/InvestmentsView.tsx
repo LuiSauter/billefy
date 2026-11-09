@@ -90,12 +90,16 @@ export function InvestmentsView({
   const [editInvestment, setEditInvestment] = useState<Investment | null>(null);
   const [operationInvestment, setOperationInvestment] = useState<Investment | null>(null);
 
-  // Auto-sync crypto prices once on load if user has crypto positions
+  // Auto-sync market prices once on load if user has crypto or stocks/funds positions
   const hasAutoSynced = useRef(false);
   useEffect(() => {
     if (hasAutoSynced.current || investments.length === 0) return;
-    const hasCrypto = investments.some((i) => i.kind === "crypto" && i.quantity > 0);
-    if (hasCrypto) {
+    const hasSyncable = investments.some(
+      (i) =>
+        i.quantity > 0 &&
+        (i.kind === "crypto" || ((i.kind === "stocks" || i.kind === "funds") && !!i.ticker))
+    );
+    if (hasSyncable) {
       hasAutoSynced.current = true;
       void controller.syncLiveCryptoPrices(investments);
     }
@@ -265,9 +269,9 @@ export function InvestmentsView({
         onSyncLivePrices={async () => {
           const count = await controller.syncLiveCryptoPrices();
           if (count > 0) {
-            notify.success(`Se actualizaron ${count} precios en vivo desde Binance Spot.`);
+            notify.success(`Se actualizaron ${count} cotizaciones en vivo (Binance y Yahoo Finance).`);
           } else {
-            notify.info("Las cotizaciones de tus criptos ya están al día.");
+            notify.info("Las cotizaciones de tus activos ya están al día.");
           }
         }}
         isSyncingLivePrices={controller.isSyncingLivePrices}

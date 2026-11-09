@@ -104,7 +104,7 @@ export function InvestmentsHeader({
             onClick={onSyncLivePrices}
             disabled={isSyncingLivePrices}
             className="h-10 px-3.5 rounded-xl border border-purple-500/30 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 text-xs font-bold flex items-center gap-2 transition cursor-pointer shadow-2xs disabled:opacity-50"
-            title="Actualizar cotizaciones en vivo desde Binance Spot"
+            title="Actualizar cotizaciones en vivo (Binance y Yahoo Finance)"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isSyncingLivePrices ? "animate-spin" : ""}`} />
             <span>{isSyncingLivePrices ? "Actualizando precios..." : "Actualizar cotizaciones"}</span>

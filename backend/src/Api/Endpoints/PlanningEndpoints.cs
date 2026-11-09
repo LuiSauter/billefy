@@ -6,6 +6,7 @@ using Ledger.Contracts;
 using Microsoft.AspNetCore.Mvc;
 using Planning.Application.Services;
 using Planning.Contracts;
+using System.Text.Json;
 
 namespace Api.Endpoints;
 
@@ -202,6 +203,79 @@ public static class PlanningEndpoints
         .Produces<List<InvestmentTransactionDto>>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status404NotFound);
+
+        // Public stock / ETF market quote proxy
+        group.MapGet("/market/quote", async (
+            [FromQuery] string ticker,
+            IHttpClientFactory httpClientFactory,
+            CancellationToken ct) =>
+        {
+            if (string.IsNullOrWhiteSpace(ticker) || ticker.Length > 20)
+                return Results.Problem(statusCode: StatusCodes.Status400BadRequest, title: "Market.InvalidTicker", detail: "A valid ticker symbol is required.");
+
+            var cleanTicker = ticker.Trim().ToUpperInvariant();
+            var client = httpClientFactory.CreateClient();
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+            client.Timeout = TimeSpan.FromSeconds(10);
+
+            try
+            {
+                var response = await client.GetAsync($"https://query1.finance.yahoo.com/v8/finance/chart/{Uri.EscapeDataString(cleanTicker)}?interval=1d&range=1d", ct);
+                if (!response.IsSuccessStatusCode)
+                    return Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Market.QuoteNotFound", detail: $"Quote for ticker '{cleanTicker}' not found.");
+
+                var content = await response.Content.ReadAsStringAsync(ct);
+                using var doc = JsonDocument.Parse(content);
+
+                if (!doc.RootElement.TryGetProperty("chart", out var chartEl) ||
+                    !chartEl.TryGetProperty("result", out var resultEl) ||
+                    resultEl.ValueKind != JsonValueKind.Array ||
+                    resultEl.GetArrayLength() == 0)
+                {
+                    return Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Market.QuoteNotFound", detail: $"No market data found for '{cleanTicker}'.");
+                }
+
+                var metaEl = resultEl[0].GetProperty("meta");
+                var symbol = metaEl.TryGetProperty("symbol", out var symEl) ? symEl.GetString() ?? cleanTicker : cleanTicker;
+                var currency = metaEl.TryGetProperty("currency", out var currEl) ? currEl.GetString() ?? "USD" : "USD";
+                var exchange = metaEl.TryGetProperty("fullExchangeName", out var exEl) ? exEl.GetString() : null;
+
+                decimal price = decimal.Zero;
+                if (metaEl.TryGetProperty("regularMarketPrice", out var priceEl) && priceEl.ValueKind == JsonValueKind.Number)
+                {
+                    price = priceEl.GetDecimal();
+                }
+
+                decimal? changePercent = null;
+                if (metaEl.TryGetProperty("regularMarketChangePercent", out var cpEl) && cpEl.ValueKind == JsonValueKind.Number)
+                {
+                    changePercent = cpEl.GetDecimal();
+                }
+
+                if (price <= decimal.Zero)
+                {
+                    return Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Market.QuoteNotFound", detail: $"Price for ticker '{cleanTicker}' is unavailable.");
+                }
+
+                return Results.Ok(new StockQuoteDto(
+                    symbol,
+                    price,
+                    changePercent,
+                    currency,
+                    exchange,
+                    DateTime.UtcNow));
+            }
+            catch (Exception)
+            {
+                return Results.Problem(statusCode: StatusCodes.Status502BadGateway, title: "Market.UpstreamError", detail: "Could not fetch quote from public market provider.");
+            }
+        })
+        .WithName("GetMarketQuote")
+        .WithSummary("Fetch real-time stock/ETF quote from public market data.")
+        .Produces<StockQuoteDto>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status502BadGateway);
 
         // Distribution plan (optional per user)
         group.MapGet("/distribution-plan", async (

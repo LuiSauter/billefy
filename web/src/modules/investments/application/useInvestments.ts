@@ -5,6 +5,7 @@ import { IHttpClient } from "@/shared/application/http-client.contract";
 import { notify } from "@/shared/lib/notify";
 import { CreateInvestmentInput, Investment, InvestmentTransactionDto, RegisterInvestmentOperationInput } from "../domain/investment.types";
 import { extractCryptoSymbol, fetchCryptoTicker } from "../domain/binance-market.service";
+import { fetchStockQuote } from "../domain/stock-market.service";
 
 export interface InvestmentCashInput { accountId: string; amount: string; description?: string; occurredAt?: string }
 export interface InvestmentCashResult { ledgerTransactionId: string; investmentId: string; kind: "Contribution" | "Disposal" }
@@ -42,20 +43,33 @@ export function useInvestments(http: IHttpClient | null) {
     async (itemsToSync?: Investment[]): Promise<number> => {
       if (!http) return 0;
       const list = itemsToSync ?? investments;
-      const cryptoItems = list.filter((i) => i.kind === "crypto" && i.quantity > 0);
-      if (cryptoItems.length === 0) return 0;
+      const syncableItems = list.filter(
+        (i) =>
+          i.quantity > 0 &&
+          (i.kind === "crypto" || ((i.kind === "stocks" || i.kind === "funds") && !!i.ticker))
+      );
+      if (syncableItems.length === 0) return 0;
 
       setIsSyncingLivePrices(true);
       let updatedCount = 0;
       try {
         await Promise.allSettled(
-          cryptoItems.map(async (inv) => {
-            const symbol = extractCryptoSymbol(inv);
-            if (!symbol) return;
+          syncableItems.map(async (inv) => {
             try {
-              const ticker = await fetchCryptoTicker(symbol);
-              if (ticker && ticker.price > 0) {
-                const freshValue = Number((inv.quantity * ticker.price).toFixed(2));
+              let price = 0;
+              if (inv.kind === "crypto") {
+                const symbol = extractCryptoSymbol(inv);
+                if (symbol) {
+                  const ticker = await fetchCryptoTicker(symbol);
+                  if (ticker && ticker.price > 0) price = ticker.price;
+                }
+              } else if (inv.ticker) {
+                const quote = await fetchStockQuote(inv.ticker, http);
+                if (quote && quote.price > 0) price = quote.price;
+              }
+
+              if (price > 0) {
+                const freshValue = Number((inv.quantity * price).toFixed(2));
                 if (Math.abs(freshValue - inv.currentValue) >= 0.01) {
                   await http.put(`/v1/planning/investments/${inv.id}/value`, {
                     currentValue: freshValue,
@@ -113,8 +127,11 @@ export function useInvestments(http: IHttpClient | null) {
         const list = Array.isArray(freshData) ? freshData : [];
         setInvestments(list);
 
-        // Automatically update live crypto prices right after creation!
-        if (input.kind === "crypto") {
+        // Automatically update live market prices right after creation!
+        if (
+          input.kind === "crypto" ||
+          ((input.kind === "stocks" || input.kind === "funds") && input.ticker)
+        ) {
           await syncLiveCryptoPrices(list);
         }
       } catch (err) {

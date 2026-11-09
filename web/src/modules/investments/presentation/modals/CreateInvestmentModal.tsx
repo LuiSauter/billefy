@@ -23,6 +23,13 @@ import {
   CryptoTickerPrice,
   CryptoAssetMeta,
 } from "../../domain/binance-market.service";
+import {
+  fetchStockQuote,
+  StockQuote,
+  calculateStockTotalValue,
+  calculateStockQuantityFromValue,
+} from "../../domain/stock-market.service";
+import { cn } from "@/shared/lib/utils";
 
 interface CreateInvestmentModalProps {
   isOpen: boolean;
@@ -97,6 +104,25 @@ export function CreateInvestmentModal({
   const [liveTicker, setLiveTicker] = useState<CryptoTickerPrice | null>(null);
   const [loadingTicker, setLoadingTicker] = useState(false);
 
+  // Stock / ETF Specific State
+  const [liveStockQuote, setLiveStockQuote] = useState<StockQuote | null>(null);
+  const [loadingStockQuote, setLoadingStockQuote] = useState(false);
+
+  const loadStockQuote = useCallback(async (sym: string) => {
+    if (!sym || sym.trim().length === 0) {
+      setLiveStockQuote(null);
+      return null;
+    }
+    setLoadingStockQuote(true);
+    try {
+      const q = await fetchStockQuote(sym);
+      setLiveStockQuote(q);
+      return q;
+    } finally {
+      setLoadingStockQuote(false);
+    }
+  }, []);
+
   // Fetch live price when crypto changes
   const loadTicker = useCallback(async (symbol: string) => {
     setLoadingTicker(true);
@@ -129,31 +155,43 @@ export function CreateInvestmentModal({
     }
   }, [liveTicker, kind, selectedCrypto.decimals, quantity, value]);
 
-  // Recalculate estimated total value when quantity changes for crypto
+  // Recalculate estimated total value when quantity changes for crypto or stocks
   const handleQuantityChange = (rawQty: string) => {
     setQuantity(rawQty);
+    const qty = toNumber(rawQty);
     if (kind === "crypto" && liveTicker && liveTicker.price > 0) {
-      const qty = toNumber(rawQty);
       if (qty > 0) {
-        const computed = calculateCryptoUsdtValue(qty, liveTicker.price);
-        setValue(String(computed));
+        setValue(String(calculateCryptoUsdtValue(qty, liveTicker.price)));
+      } else if (rawQty.trim() === "") {
+        setValue("");
+      }
+    } else if ((kind === "stocks" || kind === "funds") && liveStockQuote && liveStockQuote.price > 0) {
+      if (qty > 0) {
+        setValue(String(calculateStockTotalValue(qty, liveStockQuote.price)));
       } else if (rawQty.trim() === "") {
         setValue("");
       }
     }
   };
 
-  // Recalculate estimated crypto quantity when value in USDT changes
+  // Recalculate estimated quantity when value in currency changes
   const handleValueChange = (rawVal: string) => {
     setValue(rawVal);
+    const val = toNumber(rawVal);
     if (kind === "crypto" && liveTicker && liveTicker.price > 0) {
-      const val = toNumber(rawVal);
       if (val > 0) {
         const computedQty = calculateCryptoQuantityFromUsdt(
           val,
           liveTicker.price,
           selectedCrypto.decimals ?? 6
         );
+        setQuantity(String(computedQty));
+      } else if (rawVal.trim() === "") {
+        setQuantity("");
+      }
+    } else if ((kind === "stocks" || kind === "funds") && liveStockQuote && liveStockQuote.price > 0) {
+      if (val > 0) {
+        const computedQty = calculateStockQuantityFromValue(val, liveStockQuote.price, 4);
         setQuantity(String(computedQty));
       } else if (rawVal.trim() === "") {
         setQuantity("");
@@ -209,6 +247,14 @@ export function CreateInvestmentModal({
     setName(`${item.name} (${item.symbol})`);
     setIconKey("trending-up");
     setColorKey(item.color);
+    void loadStockQuote(item.symbol).then((q) => {
+      if (q && q.price > 0) {
+        const qNum = toNumber(quantity);
+        const vNum = toNumber(value);
+        if (qNum > 0) setValue(String(calculateStockTotalValue(qNum, q.price)));
+        else if (vNum > 0) setQuantity(String(calculateStockQuantityFromValue(vNum, q.price, 4)));
+      }
+    });
   };
 
   const selectFundPreset = (item: { symbol: string; name: string; color: CategoryColorKey }) => {
@@ -216,6 +262,14 @@ export function CreateInvestmentModal({
     setName(`${item.name} (${item.symbol})`);
     setIconKey("piggy-bank");
     setColorKey(item.color);
+    void loadStockQuote(item.symbol).then((q) => {
+      if (q && q.price > 0) {
+        const qNum = toNumber(quantity);
+        const vNum = toNumber(value);
+        if (qNum > 0) setValue(String(calculateStockTotalValue(qNum, q.price)));
+        else if (vNum > 0) setQuantity(String(calculateStockQuantityFromValue(vNum, q.price, 4)));
+      }
+    });
   };
 
   const selectRealEstatePreset = (typeLabel: string) => {
@@ -483,9 +537,69 @@ export function CreateInvestmentModal({
                     type="text"
                     value={ticker}
                     onChange={(e) => setTicker(e.target.value.toUpperCase())}
+                    onBlur={() => {
+                      if (ticker.trim().length > 0) void loadStockQuote(ticker.trim());
+                    }}
                     placeholder="Ej. AAPL, SPY, VOO, NVDA"
                     className="w-full h-10 px-3 rounded-xl bg-muted/40 border border-border text-foreground font-mono uppercase text-sm font-bold outline-none focus:border-purple-500 transition"
                   />
+                </div>
+              )}
+
+              {/* Live Stock / ETF Quote Card from Yahoo Finance */}
+              {(kind === "stocks" || kind === "funds") && (
+                <div className="p-3 rounded-xl bg-card border border-border flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-blue-500/15 border border-blue-500/30 text-blue-400 flex items-center justify-center font-black text-sm shrink-0">
+                      <TrendingUp className="w-4 h-4" />
+                    </div>
+                    <div className="flex flex-col min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-bold text-foreground text-xs font-mono">
+                          {liveStockQuote ? liveStockQuote.ticker : ticker || "Ticker"}
+                        </span>
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-500/15 text-blue-300 border border-blue-500/30">
+                          Yahoo Finance
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-muted-foreground truncate">
+                        {liveStockQuote?.exchangeName ? `${liveStockQuote.exchangeName} • ` : ""}Cotización en vivo
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col items-end shrink-0">
+                    <div className="flex items-center gap-1.5">
+                      {loadingStockQuote ? (
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin text-muted-foreground" />
+                      ) : (
+                        <span className="font-mono font-bold text-sm text-foreground">
+                          {liveStockQuote ? `$ ${liveStockQuote.price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "Escribí un ticker"}
+                        </span>
+                      )}
+                      {ticker && (
+                        <button
+                          type="button"
+                          onClick={() => loadStockQuote(ticker)}
+                          title="Refrescar cotización"
+                          className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition cursor-pointer"
+                        >
+                          <RefreshCw className={cn("w-3 h-3", loadingStockQuote && "animate-spin")} />
+                        </button>
+                      )}
+                    </div>
+                    {liveStockQuote?.changePercent !== null && liveStockQuote?.changePercent !== undefined && (
+                      <span
+                        className={cn(
+                          "text-[10px] font-bold flex items-center gap-0.5",
+                          liveStockQuote.changePercent >= 0 ? "text-emerald-400" : "text-rose-400"
+                        )}
+                      >
+                        {liveStockQuote.changePercent >= 0 ? "+" : ""}
+                        {liveStockQuote.changePercent.toFixed(2)}% (24h)
+                      </span>
+                    )}
+                  </div>
                 </div>
               )}
 
