@@ -87,6 +87,19 @@ export function CreateInvestmentModal({
     }
   }, [kind, selectedCrypto, isOpen, loadTicker]);
 
+  // When live ticker updates, if one field is filled and the other empty, auto-convert
+  useEffect(() => {
+    if (kind === "crypto" && liveTicker && liveTicker.price > 0) {
+      const q = toNumber(quantity);
+      const v = toNumber(value);
+      if (v > 0 && q === 0) {
+        setQuantity(String(calculateCryptoQuantityFromUsdt(v, liveTicker.price, selectedCrypto.decimals ?? 8)));
+      } else if (q > 0 && v === 0) {
+        setValue(String(calculateCryptoUsdtValue(q, liveTicker.price)));
+      }
+    }
+  }, [liveTicker, kind, selectedCrypto.decimals, quantity, value]);
+
   // Recalculate estimated total value when quantity changes for crypto
   const handleQuantityChange = (rawQty: string) => {
     setQuantity(rawQty);

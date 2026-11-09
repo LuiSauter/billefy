@@ -1,3 +1,5 @@
+import Decimal from "decimal.js";
+
 export interface CryptoAssetMeta {
   symbol: string;
   name: string;
@@ -42,7 +44,10 @@ export function getCryptoBySymbol(symbol: string): CryptoAssetMeta | undefined {
 
 export function calculateCryptoUsdtValue(quantity: number, price: number): number {
   if (!quantity || quantity <= 0 || !price || price <= 0) return 0;
-  return Number((quantity * price).toFixed(2));
+  return new Decimal(quantity)
+    .times(new Decimal(price))
+    .toDecimalPlaces(2, Decimal.ROUND_HALF_UP)
+    .toNumber();
 }
 
 export function calculateCryptoQuantityFromUsdt(
@@ -52,8 +57,10 @@ export function calculateCryptoQuantityFromUsdt(
 ): number {
   if (!valueUsdt || valueUsdt <= 0 || !price || price <= 0) return 0;
   const decPlaces = Math.min(8, Math.max(0, decimals));
-  const raw = valueUsdt / price;
-  return Number(raw.toFixed(decPlaces));
+  return new Decimal(valueUsdt)
+    .div(new Decimal(price))
+    .toDecimalPlaces(decPlaces, Decimal.ROUND_HALF_UP)
+    .toNumber();
 }
 
 export function extractCryptoSymbol(inv: { name: string; kind?: string }): string | null {
