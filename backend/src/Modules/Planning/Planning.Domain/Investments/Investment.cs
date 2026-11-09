@@ -10,6 +10,7 @@ public sealed class Investment : Entity
     private const int MaxHistoryPoints = 100;
 
     public string Name { get; private set; }
+    public string? Ticker { get; private set; }
     public string Kind { get; private set; }
     public string IconKey { get; private set; }
     public string ColorKey { get; private set; }
@@ -40,7 +41,8 @@ public sealed class Investment : Entity
         string currency,
         decimal quantity,
         decimal currentValue,
-        DateTime createdAt)
+        DateTime createdAt,
+        string? ticker = null)
         : base(Guid.NewGuid(), userId, createdAt)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
@@ -51,6 +53,7 @@ public sealed class Investment : Entity
             throw new ArgumentOutOfRangeException(nameof(currentValue), "Current value must be strictly positive.");
 
         Name = name.Trim();
+        Ticker = string.IsNullOrWhiteSpace(ticker) ? null : ticker.Trim().ToUpperInvariant();
         Kind = string.IsNullOrWhiteSpace(kind) ? "other" : kind.Trim().ToLowerInvariant();
         IconKey = string.IsNullOrWhiteSpace(iconKey) ? "sparkles" : iconKey.Trim();
         ColorKey = string.IsNullOrWhiteSpace(colorKey) ? "blue" : colorKey.Trim();
@@ -70,8 +73,12 @@ public sealed class Investment : Entity
         string currency,
         decimal quantity,
         decimal currentValue,
-        DateTime createdAt) =>
-        new(userId, name, kind, iconKey, colorKey, currency, quantity, currentValue, createdAt);
+        DateTime createdAt,
+        string? ticker = null) =>
+        new(userId, name, kind, iconKey, colorKey, currency, quantity, currentValue, createdAt, ticker);
+
+    public void SetTicker(string? ticker) =>
+        Ticker = string.IsNullOrWhiteSpace(ticker) ? null : ticker.Trim().ToUpperInvariant();
 
     /// <summary>Records a new valuation; variation is always derived from InitialValue and history.</summary>
     public void UpdateValue(decimal newValue, decimal? quantity, DateTime at)

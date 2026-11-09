@@ -15,6 +15,7 @@ internal sealed class InvestmentConfiguration : IEntityTypeConfiguration<Investm
         builder.Property(i => i.Id).HasColumnName("id");
         builder.Property(i => i.UserId).HasColumnName("user_id").IsRequired();
         builder.Property(i => i.Name).HasColumnName("name").HasMaxLength(150).IsRequired();
+        builder.Property(i => i.Ticker).HasColumnName("ticker").HasMaxLength(20);
         builder.Property(i => i.Kind).HasColumnName("kind").HasMaxLength(30).IsRequired();
         builder.Property(i => i.IconKey).HasColumnName("icon_key").HasMaxLength(30).IsRequired();
         builder.Property(i => i.ColorKey).HasColumnName("color_key").HasMaxLength(30).IsRequired();

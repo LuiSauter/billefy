@@ -7,7 +7,8 @@ public sealed class PlanningFinancialDataReset(PlanningDbContext db) : IPlanning
 {
     public async Task ResetForUserAsync(Guid userId, CancellationToken cancellationToken = default)
     {
-        // Links restrict investment deletion and must be removed first.
+        // Links and transactions restrict investment deletion and must be removed first.
+        await db.InvestmentTransactions.Where(x => x.UserId == userId).ExecuteDeleteAsync(cancellationToken);
         await db.InvestmentCashLinks.Where(x => x.UserId == userId).ExecuteDeleteAsync(cancellationToken);
         await db.Investments.Where(x => x.UserId == userId).ExecuteDeleteAsync(cancellationToken);
         await db.Budgets.Where(x => x.UserId == userId).ExecuteDeleteAsync(cancellationToken);

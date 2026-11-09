@@ -2552,6 +2552,52 @@ public sealed class InvestmentCashApiTests : IDisposable
         accounts[0].Name.Should().Be("Wallet USDC");
     }
 
+    [Fact]
+    public async Task InvestmentOperations_RegisterAndAuditTransactions_PersistInDatabase()
+    {
+        var testUser = Guid.NewGuid();
+
+        // 1. Create stock investment with ticker
+        var createRes = await SendAsync(HttpMethod.Post, "/v1/planning/investments", testUser,
+            new CreateInvestmentRequest("Apple Inc.", "stocks", "trending-up", "blue", "USD", 5m, 1000m, "AAPL"));
+        createRes.StatusCode.Should().Be(HttpStatusCode.Created);
+        var invId = (await createRes.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
+
+        // 2. Initial transaction exists
+        var txListRes = await SendAsync(HttpMethod.Get, $"/v1/planning/investments/{invId}/transactions", testUser);
+        txListRes.StatusCode.Should().Be(HttpStatusCode.OK);
+        var txList = await txListRes.Content.ReadFromJsonAsync<List<InvestmentTransactionDto>>();
+        txList.Should().NotBeNull();
+        txList!.Count.Should().Be(1);
+        txList[0].Type.Should().Be("Buy");
+        txList[0].Quantity.Should().Be(5m);
+        txList[0].TotalAmount.Should().Be(1000m);
+
+        // 3. Register Buy operation
+        var buyRes = await SendAsync(HttpMethod.Post, $"/v1/planning/investments/{invId}/operations", testUser,
+            new RegisterInvestmentOperationRequest("Buy", 2m, 220m, 440m, 5m, DateTime.UtcNow, "DCA compra"));
+        buyRes.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        // 4. Register Dividend operation
+        var divRes = await SendAsync(HttpMethod.Post, $"/v1/planning/investments/{invId}/operations", testUser,
+            new RegisterInvestmentOperationRequest("Dividend", 0m, 0m, 35m, 0m, DateTime.UtcNow, "Dividendo trimestral"));
+        divRes.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        // 5. Query transactions log
+        var allTxRes = await SendAsync(HttpMethod.Get, $"/v1/planning/investments/{invId}/transactions", testUser);
+        var allTx = await allTxRes.Content.ReadFromJsonAsync<List<InvestmentTransactionDto>>();
+        allTx.Should().NotBeNull();
+        allTx!.Count.Should().Be(3);
+
+        // 6. Verify investment updated
+        var getInvRes = await SendAsync(HttpMethod.Get, "/v1/planning/investments", testUser);
+        var investments = await getInvRes.Content.ReadFromJsonAsync<List<InvestmentDto>>();
+        var apple = investments!.Single(i => i.Id == invId);
+        apple.Ticker.Should().Be("AAPL");
+        apple.Quantity.Should().Be(7m); // 5 + 2
+        apple.CurrentValue.Should().Be(1440m); // 1000 + 440
+    }
+
     private async Task<Guid> CreateAccountAsync(Guid userId, string name, decimal balance)
     {
         var response = await SendAsync(HttpMethod.Post, "/v1/accounts", userId,

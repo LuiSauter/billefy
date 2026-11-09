@@ -17,7 +17,8 @@ public sealed record InvestmentDto(
     decimal? VariationPct,
     List<InvestmentValuePointDto> History,
     DateTime CreatedAt,
-    DateTime? ArchivedAt = null);
+    DateTime? ArchivedAt = null,
+    string? Ticker = null);
 
 public sealed record CreateInvestmentRequest(
     string Name,
@@ -26,9 +27,33 @@ public sealed record CreateInvestmentRequest(
     string ColorKey,
     string Currency,
     decimal Quantity,
-    decimal CurrentValue);
+    decimal CurrentValue,
+    string? Ticker = null);
 
 public sealed record UpdateInvestmentValueRequest(decimal CurrentValue, decimal? Quantity = null);
+
+public sealed record InvestmentTransactionDto(
+    Guid Id,
+    Guid InvestmentId,
+    string Type,
+    decimal Quantity,
+    decimal UnitPrice,
+    decimal TotalAmount,
+    decimal Fees,
+    DateTime OccurredAt,
+    string? Notes,
+    Guid? LedgerTransactionId,
+    DateTime CreatedAt);
+
+public sealed record RegisterInvestmentOperationRequest(
+    string Type,
+    decimal Quantity,
+    decimal UnitPrice,
+    decimal TotalAmount,
+    decimal Fees = 0m,
+    DateTime? OccurredAt = null,
+    string? Notes = null,
+    Guid? LinkedAccountId = null);
 
 public sealed record InvestmentCashRequest(Guid AccountId, decimal Amount, string? Description = null, DateTime? OccurredAt = null);
 public sealed record InvestmentCashResult(Guid LedgerTransactionId, Guid InvestmentId, string Kind);

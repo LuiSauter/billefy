@@ -231,6 +231,11 @@ namespace Planning.Infrastructure.Migrations
                         .HasColumnType("numeric(28,10)")
                         .HasColumnName("quantity");
 
+                    b.Property<string>("Ticker")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("ticker");
+
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid")
                         .HasColumnName("user_id");
@@ -289,6 +294,77 @@ namespace Planning.Infrastructure.Migrations
                     b.HasIndex("UserId", "InvestmentId", "LinkedAt");
 
                     b.ToTable("investment_cash_links", (string)null);
+                });
+
+            modelBuilder.Entity("Planning.Domain.Investments.InvestmentTransaction", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<decimal>("Fees")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(20, 6)
+                        .HasColumnType("numeric(20,6)")
+                        .HasDefaultValue(0m)
+                        .HasColumnName("fees");
+
+                    b.Property<Guid>("InvestmentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("investment_id");
+
+                    b.Property<Guid?>("LedgerTransactionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("ledger_transaction_id");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("notes");
+
+                    b.Property<DateTime>("OccurredAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("occurred_at");
+
+                    b.Property<decimal>("Quantity")
+                        .HasPrecision(28, 10)
+                        .HasColumnType("numeric(28,10)")
+                        .HasColumnName("quantity");
+
+                    b.Property<decimal>("TotalAmount")
+                        .HasPrecision(20, 6)
+                        .HasColumnType("numeric(20,6)")
+                        .HasColumnName("total_amount");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("type");
+
+                    b.Property<decimal>("UnitPrice")
+                        .HasPrecision(20, 6)
+                        .HasColumnType("numeric(20,6)")
+                        .HasColumnName("unit_price");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LedgerTransactionId");
+
+                    b.HasIndex("InvestmentId", "UserId");
+
+                    b.HasIndex("UserId", "InvestmentId", "OccurredAt");
+
+                    b.ToTable("investment_transactions", (string)null);
                 });
 
             modelBuilder.Entity("Planning.Domain.Recurring.RecurringPayment", b =>
@@ -405,6 +481,16 @@ namespace Planning.Infrastructure.Migrations
                         .HasForeignKey("InvestmentId", "UserId")
                         .HasPrincipalKey("Id", "UserId")
                         .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Planning.Domain.Investments.InvestmentTransaction", b =>
+                {
+                    b.HasOne("Planning.Domain.Investments.Investment", null)
+                        .WithMany()
+                        .HasForeignKey("InvestmentId", "UserId")
+                        .HasPrincipalKey("Id", "UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 #pragma warning restore 612, 618

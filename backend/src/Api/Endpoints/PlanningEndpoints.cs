@@ -172,6 +172,37 @@ public static class PlanningEndpoints
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status404NotFound);
 
+        group.MapPost("/investments/{id:guid}/operations", async (
+            [FromRoute] Guid id,
+            [FromBody] RegisterInvestmentOperationRequest request,
+            IInvestmentService service,
+            CancellationToken ct) =>
+        {
+            var result = await service.RegisterOperationAsync(id, request, ct);
+            return result.ToHttpResult(tx => Results.Created($"/v1/planning/investments/{id}/transactions/{tx.Id}", tx));
+        })
+        .WithName("RegisterInvestmentOperation")
+        .WithSummary("Register an immutable investment operation (buy, sell, dividend, fee, revaluation).")
+        .Produces<InvestmentTransactionDto>(StatusCodes.Status201Created)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict);
+
+        group.MapGet("/investments/{id:guid}/transactions", async (
+            [FromRoute] Guid id,
+            IInvestmentService service,
+            CancellationToken ct) =>
+        {
+            var result = await service.GetTransactionsAsync(id, ct);
+            return result.ToHttpResult();
+        })
+        .WithName("GetInvestmentTransactions")
+        .WithSummary("Get full transaction audit log for an investment.")
+        .Produces<List<InvestmentTransactionDto>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status404NotFound);
+
         // Distribution plan (optional per user)
         group.MapGet("/distribution-plan", async (
             IDistributionPlanService service,

@@ -24,4 +24,13 @@ internal sealed class InvestmentRepository(PlanningDbContext context) : IInvestm
 
     public Task<InvestmentCashLink?> GetCashLinkByLedgerTransactionIdAsync(Guid transactionId, CancellationToken cancellationToken = default) =>
         context.InvestmentCashLinks.FirstOrDefaultAsync(link => link.LedgerTransactionId == transactionId, cancellationToken);
+
+    public async Task AddTransactionAsync(InvestmentTransaction transaction, CancellationToken cancellationToken = default) =>
+        await context.InvestmentTransactions.AddAsync(transaction, cancellationToken);
+
+    public Task<List<InvestmentTransaction>> GetTransactionsByInvestmentIdAsync(Guid investmentId, CancellationToken cancellationToken = default) =>
+        context.InvestmentTransactions
+            .Where(t => t.InvestmentId == investmentId)
+            .OrderByDescending(t => t.OccurredAt)
+            .ToListAsync(cancellationToken);
 }

@@ -34,6 +34,8 @@ public interface IInvestmentRepository
     Task AddAsync(Planning.Domain.Investments.Investment investment, CancellationToken cancellationToken = default);
     Task AddCashLinkAsync(Planning.Domain.Investments.InvestmentCashLink link, CancellationToken cancellationToken = default);
     Task<Planning.Domain.Investments.InvestmentCashLink?> GetCashLinkByLedgerTransactionIdAsync(Guid transactionId, CancellationToken cancellationToken = default);
+    Task AddTransactionAsync(Planning.Domain.Investments.InvestmentTransaction transaction, CancellationToken cancellationToken = default);
+    Task<List<Planning.Domain.Investments.InvestmentTransaction>> GetTransactionsByInvestmentIdAsync(Guid investmentId, CancellationToken cancellationToken = default);
 }
 
 public interface IDistributionPlanRepository
