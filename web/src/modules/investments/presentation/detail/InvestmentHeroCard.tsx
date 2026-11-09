@@ -56,6 +56,11 @@ export function InvestmentHeroCard({
                 <h2 className="text-lg sm:text-xl font-black text-foreground tracking-tight truncate">
                   {investment.name}
                 </h2>
+                {investment.ticker && (
+                  <span className="px-2 py-0.5 rounded-md text-[11px] font-mono font-extrabold bg-blue-500/15 text-blue-300 border border-blue-500/30 shrink-0">
+                    {investment.ticker}
+                  </span>
+                )}
               </div>
               <div className="flex items-center gap-2 mt-1">
                 <span className="text-xs text-muted-foreground font-medium">

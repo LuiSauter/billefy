@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { IHttpClient } from "@/shared/application/http-client.contract";
 import { notify } from "@/shared/lib/notify";
-import { CreateInvestmentInput, Investment } from "../domain/investment.types";
+import { CreateInvestmentInput, Investment, InvestmentTransactionDto, RegisterInvestmentOperationInput } from "../domain/investment.types";
 import { extractCryptoSymbol, fetchCryptoTicker } from "../domain/binance-market.service";
 
 export interface InvestmentCashInput { accountId: string; amount: string; description?: string; occurredAt?: string }
@@ -154,6 +154,40 @@ export function useInvestments(http: IHttpClient | null) {
     [http, refresh]
   );
 
+  const registerOperation = useCallback(
+    async (investmentId: string, input: RegisterInvestmentOperationInput): Promise<InvestmentTransactionDto | null> => {
+      if (!http) throw new Error("No hay conexión disponible.");
+      try {
+        const tx = await http.post<InvestmentTransactionDto>(
+          `/v1/planning/investments/${investmentId}/operations`,
+          input
+        );
+        await refresh();
+        return tx;
+      } catch (err) {
+        notify.error("No se pudo registrar la operación", err);
+        return null;
+      }
+    },
+    [http, refresh]
+  );
+
+  const getTransactions = useCallback(
+    async (investmentId: string): Promise<InvestmentTransactionDto[]> => {
+      if (!http) return [];
+      try {
+        const data = await http.get<InvestmentTransactionDto[]>(
+          `/v1/planning/investments/${investmentId}/transactions`
+        );
+        return Array.isArray(data) ? data : [];
+      } catch (err) {
+        notify.error("No se pudieron cargar las operaciones del activo", err);
+        return [];
+      }
+    },
+    [http]
+  );
+
   const syncBinancePortfolio = useCallback(
     async (): Promise<SyncBinancePortfolioResponse> => {
       if (!http) throw new Error("No hay conexión disponible.");
@@ -175,6 +209,8 @@ export function useInvestments(http: IHttpClient | null) {
       createInvestment,
       updateInvestmentValue,
       deleteInvestment,
+      registerOperation,
+      getTransactions,
       refreshAfterCash,
       recordCash,
       reverseCash,
@@ -187,6 +223,8 @@ export function useInvestments(http: IHttpClient | null) {
       createInvestment,
       updateInvestmentValue,
       deleteInvestment,
+      registerOperation,
+      getTransactions,
       refreshAfterCash,
       recordCash,
       reverseCash,

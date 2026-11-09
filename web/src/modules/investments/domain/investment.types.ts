@@ -10,6 +10,7 @@ export interface InvestmentValuePoint {
 export interface Investment {
   id: string;
   name: string;
+  ticker?: string;
   kind: InvestmentKind;
   iconKey: CategoryIconKey;
   colorKey: CategoryColorKey;
@@ -21,16 +22,45 @@ export interface Investment {
   currentValue: number;
   history: InvestmentValuePoint[];
   createdAt: string;
+  archivedAt?: string | null;
 }
 
 export interface CreateInvestmentInput {
   name: string;
+  ticker?: string;
   kind: InvestmentKind;
   iconKey: CategoryIconKey;
   colorKey: CategoryColorKey;
   currency: string;
   quantity: number;
   currentValue: number;
+}
+
+export type InvestmentTransactionType = "Buy" | "Sell" | "Dividend" | "Fee" | "Revaluation";
+
+export interface InvestmentTransactionDto {
+  id: string;
+  investmentId: string;
+  type: InvestmentTransactionType;
+  quantity: number;
+  unitPrice: number;
+  totalAmount: number;
+  fees: number;
+  occurredAt: string;
+  notes?: string;
+  ledgerTransactionId?: string;
+  createdAt: string;
+}
+
+export interface RegisterInvestmentOperationInput {
+  type: InvestmentTransactionType;
+  quantity: number;
+  unitPrice: number;
+  totalAmount: number;
+  fees?: number;
+  occurredAt?: string;
+  notes?: string;
+  linkedAccountId?: string;
 }
 
 export const INVESTMENT_KINDS: {

@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { ArrowDownLeft, ArrowUpRight, RefreshCw, MoreVertical } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, RefreshCw, MoreVertical, Coins } from "lucide-react";
 import { InvestmentOperation } from "../../domain/investment-detail";
 
 interface InvestmentOperationsTableProps {
@@ -77,6 +77,11 @@ export function InvestmentOperationsTable({
                       <span className="inline-flex items-center gap-1 text-rose-400 font-bold">
                         <ArrowUpRight className="w-3.5 h-3.5" />
                         <span>Venta</span>
+                      </span>
+                    ) : op.type === "dividend" ? (
+                      <span className="inline-flex items-center gap-1 text-amber-400 font-bold">
+                        <Coins className="w-3.5 h-3.5" />
+                        <span>Dividendo / Renta</span>
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1 text-cyan-400 font-bold">

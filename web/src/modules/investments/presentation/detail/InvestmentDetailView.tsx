@@ -1,11 +1,12 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import { Investment } from "../../domain/investment.types";
+import { Investment, InvestmentTransactionDto } from "../../domain/investment.types";
 import {
   calculateInvestmentDetailMetrics,
   calculateAssetEvolutionPoints,
   getDerivedOperations,
+  mapTransactionsToOperations,
 } from "../../domain/investment-detail";
 import { InvestmentDetailHeader } from "./InvestmentDetailHeader";
 import { InvestmentHeroCard } from "./InvestmentHeroCard";
@@ -21,6 +22,7 @@ import { InvestmentPriceAlertsCard } from "./InvestmentPriceAlertsCard";
 interface InvestmentDetailViewProps {
   investment: Investment;
   allInvestments: Investment[];
+  transactions?: InvestmentTransactionDto[];
   onBack: () => void;
   onOpenUpdatePrice: (investment: Investment) => void;
   onOpenEditInvestment: (investment: Investment) => void;
@@ -31,6 +33,7 @@ interface InvestmentDetailViewProps {
 export function InvestmentDetailView({
   investment,
   allInvestments,
+  transactions,
   onBack,
   onOpenUpdatePrice,
   onOpenEditInvestment,
@@ -49,8 +52,11 @@ export function InvestmentDetailView({
   }, [investment, evolutionMonths]);
 
   const operations = useMemo(() => {
+    if (transactions && transactions.length > 0) {
+      return mapTransactionsToOperations(transactions);
+    }
     return getDerivedOperations(investment);
-  }, [investment]);
+  }, [investment, transactions]);
 
   return (
     <div className="flex flex-col gap-6">

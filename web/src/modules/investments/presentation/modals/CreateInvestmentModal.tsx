@@ -46,6 +46,34 @@ function toNumber(raw: string): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+const POPULAR_STOCKS = [
+  { symbol: "AAPL", name: "Apple Inc.", color: "blue" as CategoryColorKey },
+  { symbol: "NVDA", name: "NVIDIA Corp.", color: "emerald" as CategoryColorKey },
+  { symbol: "MSFT", name: "Microsoft", color: "sky" as CategoryColorKey },
+  { symbol: "GOOGL", name: "Alphabet (Google)", color: "amber" as CategoryColorKey },
+  { symbol: "AMZN", name: "Amazon.com", color: "orange" as CategoryColorKey },
+  { symbol: "TSLA", name: "Tesla Inc.", color: "rose" as CategoryColorKey },
+  { symbol: "MELI", name: "MercadoLibre", color: "yellow" as CategoryColorKey },
+];
+
+const POPULAR_FUNDS = [
+  { symbol: "SPY", name: "SPDR S&P 500 ETF", color: "emerald" as CategoryColorKey },
+  { symbol: "VOO", name: "Vanguard S&P 500", color: "rose" as CategoryColorKey },
+  { symbol: "QQQ", name: "Invesco QQQ (Nasdaq)", color: "purple" as CategoryColorKey },
+  { symbol: "VTI", name: "Vanguard Total Stock", color: "blue" as CategoryColorKey },
+  { symbol: "SCHD", name: "Schwab US Dividend", color: "cyan" as CategoryColorKey },
+  { symbol: "VT", name: "Vanguard Total World", color: "teal" as CategoryColorKey },
+];
+
+const REAL_ESTATE_PRESETS = [
+  "Departamento",
+  "Casa",
+  "Local / Oficina",
+  "Terreno",
+  "Cochera / Garaje",
+  "Edificio en renta",
+];
+
 export function CreateInvestmentModal({
   isOpen,
   onClose,
@@ -54,6 +82,7 @@ export function CreateInvestmentModal({
 }: CreateInvestmentModalProps) {
   void currencySymbol;
   const [name, setName] = useState("");
+  const [ticker, setTicker] = useState("");
   const [kind, setKind] = useState<InvestmentKind>("crypto");
   const [iconKey, setIconKey] = useState<CategoryIconKey>("coins");
   const [colorKey, setColorKey] = useState<CategoryColorKey>("amber");
@@ -160,10 +189,12 @@ export function CreateInvestmentModal({
     setKind(k);
     if (k === "crypto") {
       setName(`${selectedCrypto.name} (${selectedCrypto.symbol})`);
+      setTicker(selectedCrypto.symbol);
       setCurrency("USDT");
       void loadTicker(selectedCrypto.symbol);
     } else {
       setName("");
+      setTicker("");
       setCurrency("USD");
       const def = INVESTMENT_KINDS.find((i) => i.value === k);
       if (def) {
@@ -171,6 +202,26 @@ export function CreateInvestmentModal({
         setColorKey(def.color);
       }
     }
+  };
+
+  const selectStockPreset = (item: { symbol: string; name: string; color: CategoryColorKey }) => {
+    setTicker(item.symbol);
+    setName(`${item.name} (${item.symbol})`);
+    setIconKey("trending-up");
+    setColorKey(item.color);
+  };
+
+  const selectFundPreset = (item: { symbol: string; name: string; color: CategoryColorKey }) => {
+    setTicker(item.symbol);
+    setName(`${item.name} (${item.symbol})`);
+    setIconKey("piggy-bank");
+    setColorKey(item.color);
+  };
+
+  const selectRealEstatePreset = (typeLabel: string) => {
+    setName(`${typeLabel} `);
+    setIconKey("home");
+    setColorKey("violet");
   };
 
   const filteredCryptos = POPULAR_CRYPTOS.filter(
@@ -185,8 +236,13 @@ export function CreateInvestmentModal({
 
     setSubmitting(true);
     try {
+      const finalTicker =
+        ticker.trim().toUpperCase() ||
+        (kind === "crypto" ? selectedCrypto.symbol : undefined);
+
       await onCreate({
         name: name.trim(),
+        ticker: finalTicker,
         kind,
         iconKey,
         colorKey,
@@ -195,6 +251,7 @@ export function CreateInvestmentModal({
         currentValue: toNumber(value),
       });
       setName("");
+      setTicker("");
       setQuantity("");
       setValue("");
       onClose();
@@ -352,17 +409,104 @@ export function CreateInvestmentModal({
               </div>
             </div>
           ) : (
-            /* Standard Name Field for other investment kinds */
-            <div className="flex flex-col gap-1.5">
-              <label className="font-semibold text-foreground">Nombre del activo</label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Ej. ETF S&P 500, Depto. Alquiler, Bono del Tesoro"
-                className="w-full h-10 px-3 rounded-xl bg-muted/40 border border-border text-foreground text-sm font-semibold outline-none focus:border-purple-500 transition"
-                autoFocus
-              />
+            <div className="flex flex-col gap-3">
+              {/* Specialized Stock / ETF / Real Estate Presets */}
+              {kind === "stocks" && (
+                <div className="flex flex-col gap-1.5 p-3 rounded-xl bg-muted/40 border border-border">
+                  <span className="text-[11px] font-bold text-foreground">Acciones populares:</span>
+                  <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                    {POPULAR_STOCKS.map((item) => (
+                      <button
+                        key={item.symbol}
+                        type="button"
+                        onClick={() => selectStockPreset(item)}
+                        className={`px-2.5 py-1 rounded-lg border text-[11px] font-bold shrink-0 transition cursor-pointer ${
+                          ticker === item.symbol
+                            ? "bg-blue-600 text-white border-blue-500 shadow-xs"
+                            : "bg-card border-border text-foreground hover:bg-muted"
+                        }`}
+                      >
+                        {item.symbol}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {kind === "funds" && (
+                <div className="flex flex-col gap-1.5 p-3 rounded-xl bg-muted/40 border border-border">
+                  <span className="text-[11px] font-bold text-foreground">ETFs / Fondos populares:</span>
+                  <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                    {POPULAR_FUNDS.map((item) => (
+                      <button
+                        key={item.symbol}
+                        type="button"
+                        onClick={() => selectFundPreset(item)}
+                        className={`px-2.5 py-1 rounded-lg border text-[11px] font-bold shrink-0 transition cursor-pointer ${
+                          ticker === item.symbol
+                            ? "bg-emerald-600 text-white border-emerald-500 shadow-xs"
+                            : "bg-card border-border text-foreground hover:bg-muted"
+                        }`}
+                      >
+                        {item.symbol}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {kind === "realestate" && (
+                <div className="flex flex-col gap-1.5 p-3 rounded-xl bg-muted/40 border border-border">
+                  <span className="text-[11px] font-bold text-foreground">Tipo de propiedad:</span>
+                  <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                    {REAL_ESTATE_PRESETS.map((label) => (
+                      <button
+                        key={label}
+                        type="button"
+                        onClick={() => selectRealEstatePreset(label)}
+                        className="px-2.5 py-1 rounded-lg bg-card border border-border text-[11px] font-bold text-foreground hover:bg-muted shrink-0 transition cursor-pointer"
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Ticker Input for Stocks & Funds */}
+              {(kind === "stocks" || kind === "funds") && (
+                <div className="flex flex-col gap-1.5">
+                  <label className="font-semibold text-foreground">
+                    Símbolo o Ticker bursátil
+                  </label>
+                  <input
+                    type="text"
+                    value={ticker}
+                    onChange={(e) => setTicker(e.target.value.toUpperCase())}
+                    placeholder="Ej. AAPL, SPY, VOO, NVDA"
+                    className="w-full h-10 px-3 rounded-xl bg-muted/40 border border-border text-foreground font-mono uppercase text-sm font-bold outline-none focus:border-purple-500 transition"
+                  />
+                </div>
+              )}
+
+              {/* Name Field */}
+              <div className="flex flex-col gap-1.5">
+                <label className="font-semibold text-foreground">
+                  {kind === "realestate" ? "Nombre o ubicación del inmueble" : "Nombre del activo"}
+                </label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder={
+                    kind === "realestate"
+                      ? "Ej. Depto. Equipetrol 3B, Local Av. Monseñor"
+                      : "Ej. ETF S&P 500, Apple Inc."
+                  }
+                  className="w-full h-10 px-3 rounded-xl bg-muted/40 border border-border text-foreground text-sm font-semibold outline-none focus:border-purple-500 transition"
+                  autoFocus
+                />
+              </div>
             </div>
           )}
 
@@ -393,7 +537,13 @@ export function CreateInvestmentModal({
               <label className="font-semibold text-foreground">
                 {kind === "crypto"
                   ? `Cantidad de monedas (${selectedCrypto.symbol})`
-                  : "Cantidad (unidades, tokens o m²)"}
+                  : kind === "stocks"
+                  ? "Cantidad de acciones o títulos"
+                  : kind === "funds"
+                  ? "Cantidad de cuotapartes"
+                  : kind === "realestate"
+                  ? "Superficie (m²) o Unidades"
+                  : "Cantidad (unidades)"}
               </label>
               <input
                 type="text"

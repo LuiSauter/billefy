@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import { InvestmentsController } from "../application/useInvestments";
-import { Investment } from "../domain/investment.types";
+import { Investment, InvestmentTransactionDto } from "../domain/investment.types";
 import { calculatePortfolioOverview } from "../domain/portfolio-analytics";
 import { AccountDto } from "@/modules/ledger/domain/ledger.types";
 import { GoalDto } from "@/modules/planning/domain/planning.types";
@@ -61,6 +61,24 @@ export function InvestmentsView({
 
   // Navigation State
   const [selectedInvestmentId, setSelectedInvestmentId] = useState<string | null>(null);
+  const [selectedInvestmentTransactions, setSelectedInvestmentTransactions] = useState<InvestmentTransactionDto[]>([]);
+
+  // Load transactions when selecting an investment
+  useEffect(() => {
+    if (!selectedInvestmentId) {
+      setSelectedInvestmentTransactions([]);
+      return;
+    }
+    let cancelled = false;
+    void controller.getTransactions(selectedInvestmentId).then((txs) => {
+      if (!cancelled) {
+        setSelectedInvestmentTransactions(txs);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedInvestmentId, controller]);
   const [selectedPeriod, setSelectedPeriod] = useState<string>("6m");
   const [isSyncingBinance, setIsSyncingBinance] = useState(false);
 
@@ -113,39 +131,58 @@ export function InvestmentsView({
   // Handle operation submission
   const handleConfirmOperation = async (params: {
     investmentId: string;
-    type: "buy" | "sell";
+    type: "buy" | "sell" | "dividend";
     quantity: number;
     unitPrice: number;
     totalAmount: number;
     fees: number;
     date: string;
+    notes?: string;
     linkedAccountId?: string;
   }) => {
     const target = investments.find((i) => i.id === params.investmentId);
     if (!target) return;
 
-    let newQty = target.quantity;
-    let newTotal = target.currentValue;
+    const opType =
+      params.type === "dividend"
+        ? "Dividend"
+        : params.type === "buy"
+        ? "Buy"
+        : "Sell";
 
-    if (params.type === "buy") {
-      newQty = Number((target.quantity + params.quantity).toFixed(8));
-      newTotal = Number((target.currentValue + params.totalAmount).toFixed(2));
-    } else {
-      newQty = Math.max(0, Number((target.quantity - params.quantity).toFixed(8)));
-      newTotal = Math.max(0, Number((target.currentValue - params.quantity * params.unitPrice).toFixed(2)));
+    // 1. Persist immutable operation in backend transaction ledger
+    await controller.registerOperation(target.id, {
+      type: opType,
+      quantity: params.quantity,
+      unitPrice: params.unitPrice,
+      totalAmount: params.totalAmount,
+      fees: params.fees,
+      occurredAt: params.date,
+      notes: params.notes,
+      linkedAccountId: params.linkedAccountId,
+    });
+
+    // Refresh transaction list for selected investment
+    if (selectedInvestmentId === target.id) {
+      const freshTxs = await controller.getTransactions(target.id);
+      setSelectedInvestmentTransactions(freshTxs);
     }
 
-    // Update investment value on server
-    await updateInvestmentValue(target.id, newTotal, newQty);
-
-    // If linked to cash account, record ledger movement
+    // 2. If linked to cash account, record ledger cash movement
     if (params.linkedAccountId) {
-      const kind = params.type === "buy" ? "Contribution" : "Disposal";
+      const cashKind =
+        params.type === "buy"
+          ? "Contribution"
+          : "Disposal";
+
       try {
-        await recordCash(target.id, kind, {
+        await recordCash(target.id, cashKind, {
           accountId: params.linkedAccountId,
           amount: String(params.totalAmount),
-          description: `${params.type === "buy" ? "Compra" : "Venta"} de ${target.name}`,
+          description:
+            params.type === "dividend"
+              ? `Cobro de dividendo/renta de ${target.name}`
+              : `${params.type === "buy" ? "Compra" : "Venta"} de ${target.name}`,
           occurredAt: params.date,
         });
         await onCashComplete();
@@ -162,6 +199,7 @@ export function InvestmentsView({
         <InvestmentDetailView
           investment={selectedInvestment}
           allInvestments={investments}
+          transactions={selectedInvestmentTransactions}
           onBack={() => setSelectedInvestmentId(null)}
           onOpenUpdatePrice={(inv) => setUpdatePriceInvestment(inv)}
           onOpenEditInvestment={(inv) => setEditInvestment(inv)}

@@ -1,6 +1,13 @@
-import { Investment } from "./investment.types";
+import { Investment, InvestmentTransactionDto } from "./investment.types";
 
-export type InvestmentOperationType = "buy" | "sell" | "contribution" | "withdrawal" | "revaluation";
+export type InvestmentOperationType =
+  | "buy"
+  | "sell"
+  | "contribution"
+  | "withdrawal"
+  | "revaluation"
+  | "dividend"
+  | "fee";
 
 export interface InvestmentOperation {
   id: string;
@@ -137,6 +144,32 @@ export function calculateAssetEvolutionPoints(
   }
 
   return points;
+}
+
+export function mapTransactionsToOperations(
+  transactions: InvestmentTransactionDto[]
+): InvestmentOperation[] {
+  return transactions.map((t) => {
+    let mappedType: InvestmentOperationType = "buy";
+    const lower = t.type.toLowerCase();
+    if (lower === "buy") mappedType = "buy";
+    else if (lower === "sell") mappedType = "sell";
+    else if (lower === "dividend") mappedType = "dividend";
+    else if (lower === "fee") mappedType = "fee";
+    else if (lower === "revaluation") mappedType = "revaluation";
+
+    return {
+      id: t.id,
+      investmentId: t.investmentId,
+      date: t.occurredAt,
+      type: mappedType,
+      quantity: t.quantity,
+      unitPrice: t.unitPrice,
+      totalAmount: t.totalAmount,
+      status: "completed" as const,
+      notes: t.notes,
+    };
+  });
 }
 
 export function getDerivedOperations(investment: Investment): InvestmentOperation[] {
