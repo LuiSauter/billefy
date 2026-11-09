@@ -29,6 +29,7 @@ import {
   calculateStockTotalValue,
   calculateStockQuantityFromValue,
 } from "../../domain/stock-market.service";
+import { StockPicker } from "../StockPicker";
 import { cn } from "@/shared/lib/utils";
 
 interface CreateInvestmentModalProps {
@@ -529,11 +530,53 @@ export function CreateInvestmentModal({
                 </div>
               )}
 
-              {/* Ticker Input for Stocks & Funds */}
+              {/* Stock / ETF Search Picker with shadcn */}
+              {(kind === "stocks" || kind === "funds") && (
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="font-semibold text-foreground">
+                      Buscar y seleccionar {kind === "stocks" ? "acción" : "fondo / ETF"}
+                    </label>
+                    <span className="text-[10px] text-muted-foreground font-semibold">
+                      Mercado bursátil en vivo
+                    </span>
+                  </div>
+                  <StockPicker
+                    selectedTicker={ticker}
+                    kind={kind}
+                    placeholder={
+                      kind === "stocks"
+                        ? "Buscar acción por ticker o nombre (ej. NVDA, Apple, Tesla)..."
+                        : "Buscar ETF por ticker o nombre (ej. SPY, S&P 500, QQQ)..."
+                    }
+                    onSelectStock={(stock) => {
+                      setTicker(stock.symbol);
+                      setName(`${stock.name} (${stock.symbol})`);
+                      if (stock.type === "ETF") {
+                        setIconKey("piggy-bank");
+                        setColorKey("emerald");
+                      } else {
+                        setIconKey("trending-up");
+                        setColorKey("blue");
+                      }
+                      void loadStockQuote(stock.symbol).then((q) => {
+                        if (q && q.price > 0) {
+                          const qNum = toNumber(quantity);
+                          const vNum = toNumber(value);
+                          if (qNum > 0) setValue(String(calculateStockTotalValue(qNum, q.price)));
+                          else if (vNum > 0) setQuantity(String(calculateStockQuantityFromValue(vNum, q.price, 4)));
+                        }
+                      });
+                    }}
+                  />
+                </div>
+              )}
+
+              {/* Ticker Input for Stocks & Funds (custom edit) */}
               {(kind === "stocks" || kind === "funds") && (
                 <div className="flex flex-col gap-1.5">
                   <label className="font-semibold text-foreground">
-                    Símbolo o Ticker bursátil
+                    Símbolo o Ticker seleccionado
                   </label>
                   <input
                     type="text"
@@ -542,7 +585,7 @@ export function CreateInvestmentModal({
                     onBlur={() => {
                       if (ticker.trim().length > 0) void loadStockQuote(ticker.trim());
                     }}
-                    placeholder="Ej. AAPL, SPY, VOO, NVDA"
+                    placeholder="Ej. NVDA, AAPL, SPY, VOO"
                     className="w-full h-10 px-3 rounded-xl bg-muted/40 border border-border text-foreground font-mono uppercase text-sm font-bold outline-none focus:border-purple-500 transition"
                   />
                 </div>

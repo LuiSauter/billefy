@@ -3,6 +3,7 @@ import {
   calculateStockTotalValue,
   calculateStockQuantityFromValue,
   fetchStockQuote,
+  searchStocks,
 } from "./stock-market.service";
 import { IHttpClient } from "@/shared/application/http-client.contract";
 
@@ -51,6 +52,37 @@ describe("stock-market.service", () => {
     it("returns null on blank ticker", async () => {
       const quote = await fetchStockQuote("");
       expect(quote).toBeNull();
+    });
+  });
+
+  describe("searchStocks", () => {
+    it("returns curated popular list when query is empty", async () => {
+      const results = await searchStocks("");
+      expect(results.length).toBeGreaterThan(5);
+      expect(results.some((r) => r.symbol === "NVDA")).toBe(true);
+    });
+
+    it("filters locally and merges with backend results", async () => {
+      const mockHttp: IHttpClient = {
+        get: vi.fn().mockResolvedValue([
+          {
+            symbol: "NVDA",
+            name: "NVIDIA Corp.",
+            type: "Stock",
+            exchange: "NASDAQ",
+            sector: "Technology",
+          },
+        ]),
+        post: vi.fn(),
+        put: vi.fn(),
+        delete: vi.fn(),
+        patch: vi.fn(),
+      };
+
+      const results = await searchStocks("nvda", mockHttp);
+      expect(results.length).toBeGreaterThanOrEqual(1);
+      expect(results[0].symbol).toBe("NVDA");
+      expect(mockHttp.get).toHaveBeenCalledWith("/v1/planning/market/search?query=nvda");
     });
   });
 });

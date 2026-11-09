@@ -277,6 +277,70 @@ public static class PlanningEndpoints
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status502BadGateway);
 
+        group.MapGet("/market/search", async (
+            [FromQuery] string query,
+            IHttpClientFactory httpClientFactory,
+            CancellationToken ct) =>
+        {
+            if (string.IsNullOrWhiteSpace(query))
+                return Results.Ok(new List<MarketSearchResultDto>());
+
+            var cleanQuery = query.Trim();
+            var client = httpClientFactory.CreateClient();
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+            client.Timeout = TimeSpan.FromSeconds(10);
+
+            try
+            {
+                var response = await client.GetAsync(
+                    $"https://query1.finance.yahoo.com/v1/finance/search?q={Uri.EscapeDataString(cleanQuery)}&quotesCount=10&newsCount=0",
+                    ct);
+
+                if (!response.IsSuccessStatusCode)
+                    return Results.Ok(new List<MarketSearchResultDto>());
+
+                var content = await response.Content.ReadAsStringAsync(ct);
+                using var doc = JsonDocument.Parse(content);
+
+                var list = new List<MarketSearchResultDto>();
+                if (doc.RootElement.TryGetProperty("quotes", out var quotesEl) &&
+                    quotesEl.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var q in quotesEl.EnumerateArray())
+                    {
+                        var quoteType = q.TryGetProperty("quoteType", out var qt) ? qt.GetString() : null;
+                        if (quoteType is not ("EQUITY" or "ETF")) continue;
+
+                        var symbol = q.TryGetProperty("symbol", out var s) ? s.GetString() : null;
+                        if (string.IsNullOrWhiteSpace(symbol) || symbol.Contains('=')) continue;
+
+                        var name = q.TryGetProperty("shortname", out var sn) && !string.IsNullOrWhiteSpace(sn.GetString())
+                            ? sn.GetString()
+                            : q.TryGetProperty("longname", out var ln) ? ln.GetString() : symbol;
+
+                        var exch = q.TryGetProperty("exchDisp", out var ed) ? ed.GetString() : null;
+                        var sector = q.TryGetProperty("sector", out var sec) ? sec.GetString() : null;
+
+                        list.Add(new MarketSearchResultDto(
+                            symbol,
+                            name ?? symbol,
+                            quoteType == "ETF" ? "ETF" : "Stock",
+                            exch,
+                            sector));
+                    }
+                }
+
+                return Results.Ok(list);
+            }
+            catch (Exception)
+            {
+                return Results.Ok(new List<MarketSearchResultDto>());
+            }
+        })
+        .WithName("SearchMarketQuotes")
+        .WithSummary("Search public stocks and ETFs by ticker or company name.")
+        .Produces<List<MarketSearchResultDto>>(StatusCodes.Status200OK);
+
         // Distribution plan (optional per user)
         group.MapGet("/distribution-plan", async (
             IDistributionPlanService service,

@@ -66,6 +66,13 @@ public sealed record StockQuoteDto(
     string? ExchangeName,
     DateTime UpdatedAt);
 
+public sealed record MarketSearchResultDto(
+    string Symbol,
+    string Name,
+    string Type,
+    string? Exchange,
+    string? Sector);
+
 public sealed record PlanBucketDto(
     string Id,
     string Name,

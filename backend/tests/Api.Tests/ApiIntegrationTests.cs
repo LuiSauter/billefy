@@ -2612,6 +2612,18 @@ public sealed class InvestmentCashApiTests : IDisposable
         notFoundRes.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
+    [Fact]
+    public async Task SearchMarketQuotes_ReturnsResultsOrEmpty()
+    {
+        var testUser = Guid.NewGuid();
+
+        // Empty query returns empty list
+        var emptyRes = await SendAsync(HttpMethod.Get, "/v1/planning/market/search?query=", testUser);
+        emptyRes.StatusCode.Should().Be(HttpStatusCode.OK);
+        var emptyList = await emptyRes.Content.ReadFromJsonAsync<List<MarketSearchResultDto>>();
+        emptyList.Should().BeEmpty();
+    }
+
     private async Task<Guid> CreateAccountAsync(Guid userId, string name, decimal balance)
     {
         var response = await SendAsync(HttpMethod.Post, "/v1/accounts", userId,

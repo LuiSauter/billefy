@@ -2828,6 +2828,40 @@
         }
       }
     },
+    "/v1/planning/market/search": {
+      "get": {
+        "tags": [
+          "Planning"
+        ],
+        "summary": "Search public stocks and ETFs by ticker or company name.",
+        "operationId": "SearchMarketQuotes",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MarketSearchResultDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/planning/distribution-plan": {
       "get": {
         "tags": [
@@ -8166,6 +8200,39 @@
           },
           "cancellationEligibility": {
             "$ref": "#/components/schemas/LoanCancellationEligibilityDto"
+          }
+        }
+      },
+      "MarketSearchResultDto": {
+        "required": [
+          "symbol",
+          "name",
+          "type",
+          "exchange",
+          "sector"
+        ],
+        "type": "object",
+        "properties": {
+          "symbol": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "exchange": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sector": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
