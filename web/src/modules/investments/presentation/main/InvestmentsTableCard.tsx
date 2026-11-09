@@ -5,6 +5,13 @@ import { MoreVertical, ExternalLink, RefreshCw, ArrowDownUp, Trash2 } from "luci
 import { Investment, InvestmentKind } from "../../domain/investment.types";
 import { CategoryIconBadge } from "@/modules/ledger/presentation/CategoryIcon";
 import { CategoryColorKey, CategoryIconKey } from "@/modules/ledger/domain/category.types";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/shared/ui/dropdown-menu";
 
 interface InvestmentsTableCardProps {
   investments: Investment[];
@@ -47,7 +54,6 @@ export function InvestmentsTableCard({
   formatter,
 }: InvestmentsTableCardProps) {
   const [selectedKind, setSelectedKind] = useState<"all" | InvestmentKind>("all");
-  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
   const filteredInvestments =
     selectedKind === "all"
@@ -178,71 +184,49 @@ export function InvestmentsTableCard({
 
                   {/* Acciones */}
                   <td
-                    className="py-3.5 pr-2 text-right relative"
+                    className="py-3.5 pr-2 text-right"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <button
-                      type="button"
-                      onClick={() => setOpenMenuId(openMenuId === inv.id ? null : inv.id)}
-                      className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/70 transition cursor-pointer"
-                      title="Opciones"
-                    >
-                      <MoreVertical className="w-4 h-4" />
-                    </button>
-
-                    {openMenuId === inv.id && (
-                      <div className="absolute right-0 top-10 w-44 rounded-xl bg-card border border-border shadow-xl z-30 py-1 animate-in fade-in zoom-in-95 duration-100 text-left">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setOpenMenuId(null);
-                            onSelectInvestment(inv.id);
-                          }}
-                          className="w-full px-3 py-2 text-xs text-foreground hover:bg-muted flex items-center gap-2 cursor-pointer"
-                        >
-                          <ExternalLink className="w-3.5 h-3.5 text-purple-400" />
+                    <DropdownMenu>
+                      <DropdownMenuTrigger
+                        render={
+                          <button
+                            type="button"
+                            className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/70 transition cursor-pointer"
+                            title="Opciones de inversión"
+                            aria-label="Opciones de inversión"
+                          >
+                            <MoreVertical className="w-4 h-4" />
+                          </button>
+                        }
+                      />
+                      <DropdownMenuContent align="end" className="w-48">
+                        <DropdownMenuItem onClick={() => onSelectInvestment(inv.id)}>
+                          <ExternalLink className="w-4 h-4 text-purple-400" />
                           <span>Ver detalle</span>
-                        </button>
+                        </DropdownMenuItem>
 
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setOpenMenuId(null);
-                            onOpenUpdatePrice(inv);
-                          }}
-                          className="w-full px-3 py-2 text-xs text-foreground hover:bg-muted flex items-center gap-2 cursor-pointer"
-                        >
-                          <RefreshCw className="w-3.5 h-3.5 text-cyan-400" />
+                        <DropdownMenuItem onClick={() => onOpenUpdatePrice(inv)}>
+                          <RefreshCw className="w-4 h-4 text-cyan-400" />
                           <span>Actualizar precio</span>
-                        </button>
+                        </DropdownMenuItem>
 
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setOpenMenuId(null);
-                            onOpenCashModal(inv);
-                          }}
-                          className="w-full px-3 py-2 text-xs text-foreground hover:bg-muted flex items-center gap-2 cursor-pointer"
-                        >
-                          <ArrowDownUp className="w-3.5 h-3.5 text-emerald-400" />
+                        <DropdownMenuItem onClick={() => onOpenCashModal(inv)}>
+                          <ArrowDownUp className="w-4 h-4 text-emerald-400" />
                           <span>Registrar aporte/retiro</span>
-                        </button>
+                        </DropdownMenuItem>
 
-                        <div className="border-t border-border/60 my-1" />
+                        <DropdownMenuSeparator />
 
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setOpenMenuId(null);
-                            onDeleteInvestment(inv.id);
-                          }}
-                          className="w-full px-3 py-2 text-xs text-rose-400 hover:bg-rose-500/10 flex items-center gap-2 cursor-pointer"
+                        <DropdownMenuItem
+                          variant="destructive"
+                          onClick={() => onDeleteInvestment(inv.id)}
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Trash2 className="w-4 h-4" />
                           <span>Archivar activo</span>
-                        </button>
-                      </div>
-                    )}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </td>
                 </tr>
               );
