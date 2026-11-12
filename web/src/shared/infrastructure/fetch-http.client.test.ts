@@ -31,7 +31,7 @@ describe("FetchHttpClient & Module Repositories", () => {
     const accounts = await ledgerRepo.getAccounts();
 
     expect(mockFetch).toHaveBeenCalledWith(
-      "http://localhost:5000/v1/accounts",
+      "http://localhost:5267/v1/accounts",
       expect.objectContaining({
         headers: expect.any(Headers),
       })

@@ -55,6 +55,33 @@ import { FetchHttpClient } from "@/shared/infrastructure/fetch-http.client";
 import { defaultTokenStorage } from "@/shared/infrastructure/local-storage-token.adapter";
 import { notify } from "@/shared/lib/notify";
 import { setNumberFormatPreferences } from "@/shared/lib/number-format";
+import { useUserCategories } from "@/modules/ledger/application/CategoriesContext";
+
+export function clearClientFinancialStorage(
+  storage: { length: number; key(index: number): string | null; removeItem(key: string): void } | null = typeof window !== "undefined" ? window.localStorage : null
+) {
+  if (!storage) return;
+  try {
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < storage.length; i++) {
+      const key = storage.key(i);
+      if (!key) continue;
+      if (
+        key.startsWith("billefy_patrimonial_") ||
+        key.startsWith("billefy_tx_form_draft_") ||
+        key.startsWith("billefy_ws_expense_draft_") ||
+        key.startsWith("billefy_user_categories_")
+      ) {
+        keysToRemove.push(key);
+      }
+    }
+    for (const key of keysToRemove) {
+      storage.removeItem(key);
+    }
+  } catch {
+    // Ignore storage errors
+  }
+}
 
 export interface SettingsViewProps {
   user?: UserDto | null;
@@ -124,6 +151,7 @@ export function SettingsView({
   const { theme, setTheme } = useTheme();
   const { updatePreferredCurrency } = useAuth();
 
+  const { resetCategories } = useUserCategories();
   const [activeTab, setActiveTab] = useState<SettingsTab>("todos");
   const [saving, setSaving] = useState(false);
   const [currencies, setCurrencies] = useState<CurrencyCatalogEntryDto[]>(DEFAULT_CURRENCIES);
@@ -377,6 +405,8 @@ Respaldo automático: ${settings.autoBackup ? "Activado" : "Desactivado"}
       const repo = new IdentityApiRepository(new FetchHttpClient({ authToken: token || undefined }));
       await repo.resetFinancialData();
       setResetFinancialDataOpen(false);
+      resetCategories();
+      clearClientFinancialStorage();
       try {
         await onFinancialDataReset?.();
       } catch {

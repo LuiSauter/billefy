@@ -1,5 +1,6 @@
 "use client";
 
+// Auth context for Billefy authentication state
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { FetchHttpClient } from "@/shared/infrastructure/fetch-http.client";
 import { defaultTokenStorage } from "@/shared/infrastructure/local-storage-token.adapter";
@@ -12,6 +13,8 @@ interface AuthContextType {
   user: UserDto | null;
   token: string | null;
   error: string | null;
+  loginWithPassword: (email: string, password: string) => Promise<AuthResponseDto>;
+  registerWithPassword: (fullName: string, email: string, password: string) => Promise<AuthResponseDto>;
   loginWithGoogle: (idToken: string) => Promise<AuthResponseDto>;
   updatePreferredCurrency: (preferredCurrency: string) => Promise<UserDto>;
   logout: () => Promise<void>;
@@ -80,6 +83,66 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     verifyAuth();
+  }, []);
+
+  const loginWithPassword = useCallback(async (email: string, password: string): Promise<AuthResponseDto> => {
+    setError(null);
+    setIsLoading(true);
+
+    const repo = new IdentityApiRepository(new FetchHttpClient());
+
+    try {
+      const res = await repo.loginWithPassword(email, password);
+      setToken(res.accessToken);
+      setUser(res.user);
+      setIsAuthenticated(true);
+
+      defaultTokenStorage.setAccessToken(res.accessToken);
+      defaultTokenStorage.setRefreshToken(res.refreshToken);
+      defaultTokenStorage.setUser(res.user);
+
+      return res;
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Credenciales inválidas. Revisa tu email y contraseña.";
+      setError(message);
+      setIsAuthenticated(false);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  const registerWithPassword = useCallback(async (fullName: string, email: string, password: string): Promise<AuthResponseDto> => {
+    setError(null);
+    setIsLoading(true);
+
+    const repo = new IdentityApiRepository(new FetchHttpClient());
+
+    try {
+      const res = await repo.registerWithPassword(fullName, email, password);
+      setToken(res.accessToken);
+      setUser(res.user);
+      setIsAuthenticated(true);
+
+      defaultTokenStorage.setAccessToken(res.accessToken);
+      defaultTokenStorage.setRefreshToken(res.refreshToken);
+      defaultTokenStorage.setUser(res.user);
+
+      return res;
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Error al registrar la cuenta.";
+      setError(message);
+      setIsAuthenticated(false);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
   const loginWithGoogle = useCallback(async (idToken: string): Promise<AuthResponseDto> => {
@@ -160,6 +223,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user,
         token,
         error,
+        loginWithPassword,
+        registerWithPassword,
         loginWithGoogle,
         updatePreferredCurrency,
         logout,

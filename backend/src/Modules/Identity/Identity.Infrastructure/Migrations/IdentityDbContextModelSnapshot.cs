@@ -115,6 +115,11 @@ namespace Identity.Infrastructure.Migrations
                         .HasDefaultValue("es-BO")
                         .HasColumnName("number_grouping_convention");
 
+                    b.Property<string>("PasswordHash")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("password_hash");
+
                     b.Property<string>("PictureUrl")
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)")

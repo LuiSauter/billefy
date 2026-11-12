@@ -36,16 +36,19 @@ export class FetchHttpClient implements IHttpClient {
 
   constructor(config: HttpClientConfig = {}) {
     const defaultBaseUrl =
+      (typeof window !== "undefined" && (window.localStorage?.getItem("billefy_api_url") || (window as unknown as { __BILLEFY_API_URL__?: string }).__BILLEFY_API_URL__)) ||
       (typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_URL) ||
-      "http://localhost:5000";
+      "http://localhost:5267";
     this.baseUrl = (config.baseUrl || defaultBaseUrl).replace(/\/+$/, "");
     this.userId = config.userId;
     this.authToken = config.authToken;
     this.tokenStorage = config.tokenStorage || defaultTokenStorage;
     this.fetchFn =
       config.fetchFn ||
-      (typeof fetch !== "undefined"
-        ? fetch
+      (typeof window !== "undefined"
+        ? window.fetch.bind(window)
+        : typeof globalThis.fetch !== "undefined"
+        ? globalThis.fetch.bind(globalThis)
         : ((async () => new Response()) as typeof fetch));
   }
 

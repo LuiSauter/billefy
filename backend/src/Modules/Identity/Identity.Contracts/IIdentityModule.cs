@@ -4,6 +4,8 @@ namespace Identity.Contracts;
 
 public interface IIdentityModule
 {
+    Task<Result<AuthResponseDto>> RegisterWithPasswordAsync(RegisterWithPasswordRequest request, CancellationToken ct = default);
+    Task<Result<AuthResponseDto>> LoginWithPasswordAsync(LoginWithPasswordRequest request, CancellationToken ct = default);
     Task<Result<AuthResponseDto>> LoginWithGoogleAsync(GoogleLoginRequest request, CancellationToken ct = default);
     Task<Result<AuthResponseDto>> RefreshTokenAsync(string refreshToken, CancellationToken ct = default);
     Task<Result<UserDto>> GetCurrentUserAsync(Guid userId, CancellationToken ct = default);

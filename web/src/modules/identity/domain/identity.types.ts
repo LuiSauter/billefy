@@ -28,6 +28,8 @@ export interface UserDataExportDto {
 }
 
 export interface IIdentityRepository {
+  registerWithPassword(fullName: string, email: string, password: string, preferredCurrency?: string): Promise<AuthResponseDto>;
+  loginWithPassword(email: string, password: string): Promise<AuthResponseDto>;
   loginWithGoogle(idToken: string, preferredCurrency?: string): Promise<AuthResponseDto>;
   refreshToken(refreshToken: string): Promise<AuthResponseDto>;
   getCurrentUser(): Promise<UserDto>;

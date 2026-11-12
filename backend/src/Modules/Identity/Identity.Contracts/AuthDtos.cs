@@ -35,6 +35,16 @@ public sealed record EmailLoginRequest(
     string? FullName = null,
     string? PreferredCurrency = "BOB");
 
+public sealed record RegisterWithPasswordRequest(
+    string FullName,
+    string Email,
+    string Password,
+    string? PreferredCurrency = "BOB");
+
+public sealed record LoginWithPasswordRequest(
+    string Email,
+    string Password);
+
 public sealed record RefreshTokenRequest(
     string RefreshToken);
 

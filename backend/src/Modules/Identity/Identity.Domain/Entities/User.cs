@@ -28,6 +28,7 @@ public sealed class User : Entity
     public string Email { get; private set; } = null!;
     public string FullName { get; private set; } = null!;
     public string? PictureUrl { get; private set; }
+    public string? PasswordHash { get; private set; }
     public string PreferredCurrency { get; private set; } = "BOB";
     public string NumberGroupingConvention { get; private set; } = "es-BO";
     public int MaximumDecimalPlaces { get; private set; } = 2;
@@ -76,6 +77,25 @@ public sealed class User : Entity
             FullName = fullName.Trim();
         }
         PictureUrl = pictureUrl;
+    }
+
+    public void SetPasswordHash(string passwordHash)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(passwordHash);
+        PasswordHash = passwordHash;
+    }
+
+    public static Result<User> CreateWithPassword(
+        string email,
+        string fullName,
+        string passwordHash,
+        string preferredCurrency = "BOB",
+        DateTime? now = null)
+    {
+        var result = Create(email, fullName, null, preferredCurrency, now);
+        if (result.IsFailure) return result;
+        result.Value.SetPasswordHash(passwordHash);
+        return result;
     }
 
     public void UpdatePreferredCurrency(string currency)

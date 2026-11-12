@@ -21,7 +21,41 @@ public static class AuthEndpoints
 
     private static void MapAuthGroup(RouteGroupBuilder group, bool includeNames)
     {
-        // 1. Google OAuth (The sole authentication provider allowed)
+        // 0a. Register with Email and Password
+        var registerRoute = group.MapPost("/register", async (
+            [FromBody] RegisterWithPasswordRequest request,
+            [FromServices] IIdentityModule identityModule,
+            CancellationToken ct) =>
+        {
+            var result = await identityModule.RegisterWithPasswordAsync(request, ct);
+            return result.ToHttpResult(auth => Results.Created("/v1/auth/me", auth));
+        })
+        .WithSummary("Registra un nuevo usuario con email y contraseña segura")
+        .Produces<AuthResponseDto>(StatusCodes.Status201Created)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .AllowAnonymous();
+
+        if (includeNames) registerRoute.WithName("RegisterWithPassword");
+
+        // 0b. Login with Email and Password
+        var loginRoute = group.MapPost("/login", async (
+            [FromBody] LoginWithPasswordRequest request,
+            [FromServices] IIdentityModule identityModule,
+            CancellationToken ct) =>
+        {
+            var result = await identityModule.LoginWithPasswordAsync(request, ct);
+            return result.ToHttpResult();
+        })
+        .WithSummary("Inicia sesión mediante email y contraseña")
+        .Produces<AuthResponseDto>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .AllowAnonymous();
+
+        if (includeNames) loginRoute.WithName("LoginWithPassword");
+
+        // 1. Google OAuth
         var googleRoute = group.MapPost("/google", async (
             [FromBody] GoogleLoginRequest request,
             [FromServices] IIdentityModule identityModule,

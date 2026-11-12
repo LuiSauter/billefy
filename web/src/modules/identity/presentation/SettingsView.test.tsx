@@ -1,7 +1,7 @@
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { SettingsView } from "./SettingsView";
+import { SettingsView, clearClientFinancialStorage } from "./SettingsView";
 import { formatNumber } from "@/shared/lib/number-format";
 import { UserDto } from "../domain/identity.types";
 
@@ -130,5 +130,53 @@ describe("SettingsView presentation", () => {
     expect(html).toContain("Descargar reporte completo");
     expect(html).toContain("Borrar datos financieros");
     expect(html).toContain("Eliminar cuenta");
+  });
+});
+
+describe("clearClientFinancialStorage", () => {
+  it("clears financial caches, category keys, and transaction drafts while preserving auth and preferences", () => {
+    const store = new Map<string, string>();
+    const mockStorage = {
+      get length() {
+        return store.size;
+      },
+      key(index: number) {
+        return [...store.keys()][index] ?? null;
+      },
+      getItem(key: string) {
+        return store.get(key) ?? null;
+      },
+      setItem(key: string, value: string) {
+        store.set(key, value);
+      },
+      removeItem(key: string) {
+        store.delete(key);
+      },
+    };
+
+    mockStorage.setItem("billefy_patrimonial_assets_v1", JSON.stringify([{ id: "1" }]));
+    mockStorage.setItem("billefy_patrimonial_liabilities_v1", JSON.stringify([{ id: "2" }]));
+    mockStorage.setItem("billefy_tx_form_draft_u-123", JSON.stringify({ amount: 100 }));
+    mockStorage.setItem("billefy_user_categories_v2_u-123", JSON.stringify([{ id: "c1" }]));
+    mockStorage.setItem("billefy_ws_expense_draft_ws-1", JSON.stringify({ note: "draft" }));
+
+    // Non-financial data that must be preserved
+    mockStorage.setItem("billefy_auth_token", "jwt-token");
+    mockStorage.setItem("billefy_user", JSON.stringify({ id: "u-123" }));
+    mockStorage.setItem("billefy_settings_u-123", JSON.stringify({ theme: "dark" }));
+    mockStorage.setItem("billefy_theme", "dark");
+
+    clearClientFinancialStorage(mockStorage);
+
+    expect(mockStorage.getItem("billefy_patrimonial_assets_v1")).toBeNull();
+    expect(mockStorage.getItem("billefy_patrimonial_liabilities_v1")).toBeNull();
+    expect(mockStorage.getItem("billefy_tx_form_draft_u-123")).toBeNull();
+    expect(mockStorage.getItem("billefy_user_categories_v2_u-123")).toBeNull();
+    expect(mockStorage.getItem("billefy_ws_expense_draft_ws-1")).toBeNull();
+
+    expect(mockStorage.getItem("billefy_auth_token")).toBe("jwt-token");
+    expect(mockStorage.getItem("billefy_user")).toBe(JSON.stringify({ id: "u-123" }));
+    expect(mockStorage.getItem("billefy_settings_u-123")).toBe(JSON.stringify({ theme: "dark" }));
+    expect(mockStorage.getItem("billefy_theme")).toBe("dark");
   });
 });

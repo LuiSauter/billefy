@@ -49,6 +49,7 @@ public static class DependencyInjection
         services.AddScoped<IIdentityUnitOfWork, IdentityUnitOfWork>();
 
         services.AddSingleton<ITokenService, JwtTokenService>();
+        services.AddSingleton<IPasswordHasher, PasswordHasher>();
         services.AddScoped<IIdentityModule, IdentityService>();
 
         return services;

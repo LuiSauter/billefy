@@ -9,6 +9,34 @@ import {
 export class IdentityApiRepository implements IIdentityRepository {
   constructor(private readonly http: IHttpClient) {}
 
+  async registerWithPassword(
+    fullName: string,
+    email: string,
+    password: string,
+    preferredCurrency?: string
+  ): Promise<AuthResponseDto> {
+    const res = await this.http.post<AuthResponseDto>("/api/v1/auth/register", {
+      fullName,
+      email,
+      password,
+      preferredCurrency: preferredCurrency || "BOB",
+    });
+    this.http.setAuthSession(res.accessToken, res.user.id);
+    return res;
+  }
+
+  async loginWithPassword(
+    email: string,
+    password: string
+  ): Promise<AuthResponseDto> {
+    const res = await this.http.post<AuthResponseDto>("/api/v1/auth/login", {
+      email,
+      password,
+    });
+    this.http.setAuthSession(res.accessToken, res.user.id);
+    return res;
+  }
+
   async loginWithGoogle(
     idToken: string,
     preferredCurrency?: string

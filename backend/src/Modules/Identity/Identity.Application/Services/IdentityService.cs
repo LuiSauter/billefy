@@ -18,6 +18,7 @@ public sealed class IdentityService : IIdentityModule
     private readonly IClock _clock;
     private readonly GoogleAuthValidationOptions _googleOptions;
     private readonly ICurrencyCatalog _currencyCatalog;
+    private readonly IPasswordHasher _passwordHasher;
 
     public IdentityService(
         IUserRepository userRepository,
@@ -26,7 +27,8 @@ public sealed class IdentityService : IIdentityModule
         IIdentityUnitOfWork unitOfWork,
         IClock clock,
         ICurrencyCatalog currencyCatalog,
-        GoogleAuthValidationOptions? googleOptions = null)
+        GoogleAuthValidationOptions? googleOptions = null,
+        IPasswordHasher? passwordHasher = null)
     {
         _userRepository = userRepository;
         _refreshTokenRepository = refreshTokenRepository;
@@ -35,6 +37,101 @@ public sealed class IdentityService : IIdentityModule
         _clock = clock;
         _currencyCatalog = currencyCatalog;
         _googleOptions = googleOptions ?? new GoogleAuthValidationOptions(string.Empty, AllowDevPlainEmailTokens: false);
+        _passwordHasher = passwordHasher ?? new PasswordHasher();
+    }
+
+    public async Task<Result<AuthResponseDto>> RegisterWithPasswordAsync(
+        RegisterWithPasswordRequest request,
+        CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(request.FullName))
+        {
+            return Result.Failure<AuthResponseDto>(Error.Validation("Identity.InvalidFullName", "El nombre completo no puede estar vacío."));
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Email) || !request.Email.Contains('@'))
+        {
+            return Result.Failure<AuthResponseDto>(Error.Validation("Identity.InvalidEmail", "El correo electrónico no es válido."));
+        }
+
+        var passwordValidation = PasswordValidator.Validate(request.Password);
+        if (passwordValidation.IsFailure)
+        {
+            return Result.Failure<AuthResponseDto>(passwordValidation.Error);
+        }
+
+        var normalizedEmail = request.Email.Trim().ToLowerInvariant();
+        var existing = await _userRepository.GetByEmailAsync(normalizedEmail, ct);
+        if (existing is not null && !existing.IsDeleted)
+        {
+            return Result.Failure<AuthResponseDto>(Error.Conflict("Identity.EmailAlreadyRegistered", "El correo electrónico ya está registrado."));
+        }
+
+        var preferredCurrency = !string.IsNullOrWhiteSpace(request.PreferredCurrency) &&
+            await _currencyCatalog.IsActiveAsync(request.PreferredCurrency.Trim().ToUpperInvariant(), ct)
+            ? request.PreferredCurrency.Trim().ToUpperInvariant()
+            : "BOB";
+
+        var passwordHash = _passwordHasher.HashPassword(request.Password);
+
+        User user;
+        if (existing is not null && existing.IsDeleted)
+        {
+            existing.UpdateProfile(request.FullName, null);
+            existing.SetPasswordHash(passwordHash);
+            existing.UpdatePreferredCurrency(preferredCurrency);
+            existing.RecordLogin(_clock.UtcNow);
+            _userRepository.Update(existing);
+            user = existing;
+        }
+        else
+        {
+            var createResult = User.CreateWithPassword(
+                normalizedEmail,
+                request.FullName.Trim(),
+                passwordHash,
+                preferredCurrency,
+                _clock.UtcNow);
+
+            if (createResult.IsFailure)
+            {
+                return Result.Failure<AuthResponseDto>(createResult.Error);
+            }
+
+            user = createResult.Value;
+            await _userRepository.AddAsync(user, ct);
+        }
+
+        await _unitOfWork.CommitAsync(ct);
+        return await GenerateAuthResponseAsync(user, ct);
+    }
+
+    public async Task<Result<AuthResponseDto>> LoginWithPasswordAsync(
+        LoginWithPasswordRequest request,
+        CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
+        {
+            return Result.Failure<AuthResponseDto>(Error.Unauthorized("Identity.InvalidCredentials", "Credenciales inválidas."));
+        }
+
+        var normalizedEmail = request.Email.Trim().ToLowerInvariant();
+        var user = await _userRepository.GetByEmailAsync(normalizedEmail, ct);
+        if (user is null || user.IsDeleted || string.IsNullOrWhiteSpace(user.PasswordHash))
+        {
+            return Result.Failure<AuthResponseDto>(Error.Unauthorized("Identity.InvalidCredentials", "Credenciales inválidas."));
+        }
+
+        if (!_passwordHasher.VerifyPassword(request.Password, user.PasswordHash))
+        {
+            return Result.Failure<AuthResponseDto>(Error.Unauthorized("Identity.InvalidCredentials", "Credenciales inválidas."));
+        }
+
+        user.RecordLogin(_clock.UtcNow);
+        _userRepository.Update(user);
+        await _unitOfWork.CommitAsync(ct);
+
+        return await GenerateAuthResponseAsync(user, ct);
     }
 
     public async Task<Result<AuthResponseDto>> LoginWithGoogleAsync(GoogleLoginRequest request, CancellationToken ct = default)
