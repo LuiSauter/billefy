@@ -57,7 +57,7 @@ describe("SettingsView presentation", () => {
     expect(html).toContain("Datos");
   });
 
-  it("renders all sections from docs/redesign/settings.png", () => {
+  it("renders all functional settings sections", () => {
     const html = renderToStaticMarkup(
       <SettingsView
         user={mockUser}
@@ -79,7 +79,6 @@ describe("SettingsView presentation", () => {
 
     // Card 2: Preferencias generales
     expect(html).toContain("Preferencias generales");
-    expect(html).toContain("Idioma");
     expect(html).toContain("Tema");
     expect(html).toContain("Formato de fecha");
     expect(html).toContain("Inicio de semana");
@@ -87,13 +86,7 @@ describe("SettingsView presentation", () => {
     expect(html).toContain("Agrupación de números");
     expect(html).toContain("Española (1.234,56)");
     expect(html).toContain("Internacional (1,234.56)");
-    expect(html).toContain("Decimales máximos");
-
-    // Card 3: Configuración saludable
-    expect(html).toContain("Configuración saludable");
-    expect(html).toContain("Moneda base:");
-    expect(html).toContain("2FA Google");
-    expect(html).toContain("Último respaldo:");
+    expect(html).toContain("Decimales");
 
     // Card 4: Moneda y región
     expect(html).toContain("Moneda y región");
@@ -103,8 +96,6 @@ describe("SettingsView presentation", () => {
     // Card 5: Seguridad
     expect(html).toContain("Seguridad");
     expect(html).toContain("Contraseña");
-    expect(html).toContain("Autenticación en dos pasos (2FA)");
-    expect(html).toContain("Biometría / WebAuthn");
     expect(html).toContain("Sesiones activas");
     expect(html).toContain("Cerrar otras sesiones");
 
