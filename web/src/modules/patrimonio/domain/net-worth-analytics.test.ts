@@ -204,7 +204,7 @@ describe("net-worth-analytics domain (100% authentic, zero mock hardcodes)", () 
     // Debt insight should reflect the real 16.0% ratio
     const debtInsight = overview.insights.find((i) => i.text.includes("deuda"));
     expect(debtInsight).toBeDefined();
-    expect(debtInsight!.text).toContain("16.0%");
+    expect(debtInsight!.text).toContain("16,02%");
   });
 
   it("converts all metrics to BOB when targetCurrency is BOB with p2p rate", () => {
@@ -227,7 +227,7 @@ describe("net-worth-analytics domain (100% authentic, zero mock hardcodes)", () 
     expect(overview.netWorth).toBe(1127000);
 
     // Evolution points must be formatted with Bs.
-    expect(overview.evolutionPoints[overview.evolutionPoints.length - 1].formattedValue).toContain("Bs.");
+    expect(overview.evolutionPoints[overview.evolutionPoints.length - 1].formattedValue).toContain("Bs ");
     expect(overview.evolutionPoints[overview.evolutionPoints.length - 1].value).toBe(1127000);
   });
 

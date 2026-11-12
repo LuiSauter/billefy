@@ -11,6 +11,7 @@ import {
 } from "recharts";
 import { ChevronDown, Calendar } from "lucide-react";
 import { PatrimonioEvolutionPoint } from "../domain/patrimonio.types";
+import { Amount } from "@/shared/ui/amount";
 
 interface PatrimonioEvolutionChartProps {
   points: PatrimonioEvolutionPoint[];
@@ -23,7 +24,7 @@ const PERIOD_CHOICES = ["Últimos 12 meses", "Últimos 6 meses", "Este año", "T
 export function PatrimonioEvolutionChart({
   points,
   currentNetWorth,
-  currency = "$",
+  currency = "USD",
 }: PatrimonioEvolutionChartProps) {
   const [selectedPeriod, setSelectedPeriod] = useState("Últimos 12 meses");
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -43,8 +44,8 @@ export function PatrimonioEvolutionChart({
         </h3>
 
         <div className="flex items-center gap-2">
-          <span className="hidden sm:inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-black bg-purple-600 text-white shadow-xs font-mono">
-            {currency} {currentNetWorth.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          <span className="hidden sm:inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-black bg-purple-600 text-white shadow-xs">
+            <Amount value={currentNetWorth} currency={currency} size="inherit" tone="inherit" />
           </span>
 
           <div className="relative">
@@ -111,8 +112,8 @@ export function PatrimonioEvolutionChart({
                   return (
                     <div className="rounded-xl bg-popover/95 backdrop-blur-md border border-border/80 px-3 py-2 shadow-xl">
                       <p className="text-[11px] font-semibold text-muted-foreground">{data.month}</p>
-                      <p className="text-xs font-bold text-foreground font-mono mt-0.5">
-                        {currency} {data.value.toLocaleString("en-US")}
+                      <p className="text-xs font-bold text-foreground mt-0.5">
+                        <Amount value={data.value} currency={currency} size="inherit" tone="inherit" />
                       </p>
                     </div>
                   );

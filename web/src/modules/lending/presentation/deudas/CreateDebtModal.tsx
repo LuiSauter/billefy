@@ -212,10 +212,10 @@ export function CreateDebtModal({ isOpen, onClose, accounts, monthlyIncome, sele
                 <SelectField {...control} value={form.currency} onChange={e => patch({ currency: e.target.value, account: "" })}
                   options={[{ value: "BOB", label: "Bolivianos (BOB)" }, { value: "USD", label: "Dólares (USD)" }]} />}</FormField>
               <FormField htmlFor="debt-principal" label="Monto inicial" required>{control =>
-                <MoneyInput {...control} required value={form.principal} currency={form.currency === "BOB" ? "Bs" : "$"}
+                <MoneyInput {...control} required value={form.principal} currency={form.currency}
                   onValueChange={principal => patch({ principal })} />}</FormField>
               <FormField htmlFor="debt-balance" label="Saldo actual" hint="Al crear una deuda, el saldo es igual al monto inicial.">{control =>
-                <MoneyInput {...control} readOnly value={form.principal} currency={form.currency === "BOB" ? "Bs" : "$"} onValueChange={() => {}} />}</FormField>
+                <MoneyInput {...control} readOnly value={form.principal} currency={form.currency} onValueChange={() => {}} />}</FormField>
               <FormField htmlFor="debt-rate" label="Tasa de interés anual %" required>{control =>
                 <Input {...control} type="number" min="0" step="0.01" required disabled={form.method === "NoInterest"}
                   value={form.method === "NoInterest" ? "0" : form.rate} onChange={e => patch({ rate: e.target.value })} />}</FormField>

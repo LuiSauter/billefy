@@ -224,7 +224,7 @@ export function CreateLoanModal({
               <MoneyInput
                 {...control}
                 size="lg"
-                currency={currency === "BOB" ? "Bs" : currency === "USD" ? "$" : "USDT"}
+                currency={currency}
                 value={principal}
                 onValueChange={setPrincipal}
               />

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
+import { getCurrencyMeta } from "@/shared/lib/currency";
 import { usePatrimonio } from "../application/usePatrimonio";
 import { calculatePatrimonioOverview } from "../domain/net-worth-analytics";
 import { Investment } from "@/modules/investments/domain/investment.types";
@@ -27,7 +28,6 @@ interface PatrimonioViewProps {
   loans: LoanSummaryDto[];
   transactions?: TransactionDto[];
   onNavigateToInvestments?: () => void;
-  currencySymbol?: string;
   selectedCurrency?: "BOB" | "USD";
   onToggleCurrency?: () => void;
   p2pRate?: number;
@@ -39,7 +39,6 @@ export function PatrimonioView({
   loans = [],
   transactions = [],
   onNavigateToInvestments,
-  currencySymbol,
   selectedCurrency = "BOB",
   onToggleCurrency,
   p2pRate = 9.85,
@@ -56,10 +55,7 @@ export function PatrimonioView({
   const [addAssetOpen, setAddAssetOpen] = useState(false);
   const [addLiabilityOpen, setAddLiabilityOpen] = useState(false);
 
-  const targetCurrency: "USD" | "BOB" =
-    selectedCurrency || (currencySymbol === "Bs." ? "BOB" : "USD");
-  const activeSymbol =
-    currencySymbol || (targetCurrency === "BOB" ? "Bs." : "$");
+  const targetCurrency: "USD" | "BOB" = selectedCurrency || "USD";
   const effectiveP2pRate = p2pRate > 0 ? p2pRate : 9.85;
 
   // Consolidated authentic calculation
@@ -105,7 +101,7 @@ export function PatrimonioView({
       {/* 2. Top 4 KPI Cards: Patrimonio Neto, Activos, Pasivos, Ratio de endeudamiento */}
       <PatrimonioKpiCards
         metrics={metrics}
-        currency={activeSymbol}
+        currency={targetCurrency}
         targetCurrency={targetCurrency}
         p2pRate={effectiveP2pRate}
       />
@@ -117,7 +113,7 @@ export function PatrimonioView({
           <PatrimonioEvolutionChart
             points={metrics.evolutionPoints}
             currentNetWorth={metrics.netWorth}
-            currency={activeSymbol}
+            currency={targetCurrency}
           />
         </div>
 
@@ -126,7 +122,7 @@ export function PatrimonioView({
           <PatrimonioDistributionDonut
             categories={metrics.assetsByCategory}
             totalAssets={metrics.totalAssets}
-            currency={activeSymbol}
+            currency={targetCurrency}
           />
         </div>
       </div>
@@ -140,14 +136,14 @@ export function PatrimonioView({
             totalAssets={metrics.totalAssets}
             onSelectCategory={handleSelectAssetCategory}
             onDeleteAsset={deleteAsset}
-            currency={activeSymbol}
+            currency={targetCurrency}
           />
 
           <PatrimonioLiabilitiesList
             categories={metrics.liabilitiesByCategory}
             totalLiabilities={metrics.totalLiabilities}
             onDeleteLiability={deleteLiability}
-            currency={activeSymbol}
+            currency={targetCurrency}
           />
         </div>
 
@@ -159,7 +155,7 @@ export function PatrimonioView({
             netWorth={metrics.netWorth}
             assetsPct={metrics.composition.assetsPct}
             liabilitiesPct={metrics.composition.liabilitiesPct}
-            currency={activeSymbol}
+            currency={targetCurrency}
           />
 
           <PatrimonioInsightsCard insights={metrics.insights} />
@@ -171,7 +167,7 @@ export function PatrimonioView({
         isOpen={addAssetOpen}
         onClose={() => setAddAssetOpen(false)}
         onAddAsset={addAsset}
-        currencySymbol={activeSymbol}
+        currencySymbol={getCurrencyMeta(targetCurrency).symbol}
         defaultCurrency={targetCurrency}
       />
 
@@ -179,7 +175,7 @@ export function PatrimonioView({
         isOpen={addLiabilityOpen}
         onClose={() => setAddLiabilityOpen(false)}
         onAddLiability={addLiability}
-        currencySymbol={activeSymbol}
+        currencySymbol={getCurrencyMeta(targetCurrency).symbol}
         defaultCurrency={targetCurrency}
       />
     </div>

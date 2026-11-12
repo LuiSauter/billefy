@@ -12,7 +12,7 @@ import { PeriodSummaryMetricsCard } from "./PeriodSummaryMetricsCard";
 import { PopularReportsCard } from "./PopularReportsCard";
 import { PeriodConclusionBanner } from "./PeriodConclusionBanner";
 
-vi.mock("@/shared/hooks/use-number-format", () => ({ useNumberFormat: vi.fn(() => formatNumber) }));
+vi.mock("@/shared/hooks/use-number-format", () => ({ useNumberFormat: vi.fn(() => formatNumber), useNumberPreferences: vi.fn(() => ({ convention: "es-BO", decimalPlaces: 2 })) }));
 // Observe chart wiring without replacing Recharts or requiring a browser runner.
 vi.mock("recharts", async (importOriginal) => {
   const actual = await importOriginal<typeof import("recharts")>();
@@ -56,8 +56,10 @@ describe("NetWorthEvolutionChartCard", () => {
   it.each(["BOB", "USD", "USDT"])("shows the latest supplied value and accessible monthly history in %s", (selectedCurrency) => {
     const html = renderToStaticMarkup(<NetWorthEvolutionChartCard data={evolution} selectedCurrency={selectedCurrency} />);
     expect(html).toContain("Evolución del patrimonio neto");
-    expect(html).toContain(`126.540,00 ${selectedCurrency}`);
-    expect(html).toContain(`120.000,13 ${selectedCurrency}`);
+    const symbol = selectedCurrency === "BOB" ? "Bs" : selectedCurrency === "USD" ? "$" : "USDT";
+    const formatted = (value: string) => selectedCurrency === "USDT" ? `${value} USDT` : `${symbol} ${value}`;
+    expect(html).toContain(formatted("126.540,00"));
+    expect(html).toContain(formatted("120.000,13"));
     expect(html).toContain("2026-09");
     expect(html).toContain("2026-10");
     expect(html).toContain('data-slot="badge"');
@@ -80,8 +82,8 @@ describe("NetWorthEvolutionChartCard", () => {
     expect(nodes(gradient).filter((node) => node.type === "stop")).toHaveLength(2);
     const tooltip = propsOf(tree, Tooltip);
     const formatter = tooltip.formatter as (value: number | undefined) => string;
-    expect(formatter(126540)).toBe("126.540,00 USD");
-    expect(formatter(-1200.125)).toBe("-1.200,13 USD");
+    expect(formatter(126540)).toBe("$ 126.540,00");
+    expect(formatter(-1200.125)).toBe("-$ 1.200,13");
     expect(formatter(undefined)).toBe("");
     const labelFormatter = tooltip.labelFormatter as (label: string, payload: unknown[]) => string;
     expect(labelFormatter("Oct", [{ payload: evolution[1] }])).toBe("2026-10");
@@ -90,7 +92,7 @@ describe("NetWorthEvolutionChartCard", () => {
   it("respects the user's number formatting preferences", () => {
     vi.mocked(useNumberFormat).mockReturnValueOnce((value) => formatNumber(value, "en-US"));
     const html = renderToStaticMarkup(<NetWorthEvolutionChartCard data={evolution} selectedCurrency="USD" />);
-    expect(html).toContain("126,540.00 USD");
+    expect(html).toContain("$ 126.540,00");
   });
 
   it("uses a distinct gradient for each chart instance", () => {
@@ -104,7 +106,7 @@ describe("NetWorthEvolutionChartCard", () => {
   it("does not mistake a negative or zero latest net worth for missing data", () => {
     for (const netWorth of [-1500.125, 0]) {
       const html = renderToStaticMarkup(<NetWorthEvolutionChartCard data={[{ ...evolution[0], netWorth }]} selectedCurrency="USD" />);
-      expect(html).toContain(`${formatNumber(netWorth)} USD`);
+      expect(html).toContain(netWorth < 0 ? `-$ ${formatNumber(Math.abs(netWorth))}` : `$ ${formatNumber(netWorth)}`);
       expect(html).toContain("recharts-responsive-container");
       expect(html).not.toContain("Sin datos de patrimonio");
     }
@@ -113,7 +115,7 @@ describe("NetWorthEvolutionChartCard", () => {
   it("shows the latest value rather than the peak when net worth declines", () => {
     const declining = [{ ...evolution[0], netWorth: 120000 }, { ...evolution[1], netWorth: -2500.5 }];
     const html = renderToStaticMarkup(<NetWorthEvolutionChartCard data={declining} selectedCurrency="USD" />);
-    expect(html).toMatch(/title="Último patrimonio neto">-2\.500,50 USD<\/span>/);
+    expect(html).toMatch(/title="Último patrimonio neto">.*>-\$ 2\.500,50<\/span>/);
     expect(propsOf(chartContainer().children, AreaChart).data).toEqual(declining);
   });
 
@@ -121,7 +123,7 @@ describe("NetWorthEvolutionChartCard", () => {
     const html = renderToStaticMarkup(<NetWorthEvolutionChartCard data={[]} selectedCurrency="USD" />);
     expect(html).toContain("Sin datos de patrimonio en este período");
     expect(html).toContain("—");
-    expect(html).not.toContain("0,00 USD");
+    expect(html).not.toContain("$ 0,00");
     expect(html).not.toContain("recharts-responsive-container");
   });
 });
@@ -129,7 +131,7 @@ describe("NetWorthEvolutionChartCard", () => {
 describe("PeriodSummaryMetricsCard", () => {
   it("renders all four supplied ratios, shared badges and target explanations", () => {
     const html = renderToStaticMarkup(<PeriodSummaryMetricsCard summary={summary} />);
-    for (const text of ["Resumen del período", "Ratio de ahorro", "Crecimiento del patrimonio", "Ratio de endeudamiento", "Cumplimiento del presupuesto", "27.8%", "+8.4%", "20.0%", "92.4%", "(Recomendado: &gt;= 20%)", "vs. período anterior", "(Saludable: &lt; 30%)", "del gasto planificado"]) {
+    for (const text of ["Resumen del período", "Ratio de ahorro", "Crecimiento del patrimonio", "Ratio de endeudamiento", "Cumplimiento del presupuesto", "27,80%", "+8,40%", "20,00%", "92,40%", "(Recomendado: &gt;= 20%)", "vs. período anterior", "(Saludable: &lt; 30%)", "del gasto planificado"]) {
       expect(html).toContain(text);
     }
     expect(html.match(/data-slot="badge"/g)).toHaveLength(4);
@@ -138,7 +140,7 @@ describe("PeriodSummaryMetricsCard", () => {
   it("preserves negative ratios and budget overruns without clamping or positive signs", () => {
     const tree = PeriodSummaryMetricsCard({ summary: { savingsRatio: -12.55, netWorthGrowthPct: -8.45, debtRatio: 65, budgetCompliance: 124.55 } });
     const html = renderToStaticMarkup(tree);
-    for (const text of ["-12.6%", "-8.5%", "65.0%", "124.6%"]) expect(html).toContain(text);
+    for (const text of ["-12,60%", "-8,50%", "65,00%", "124,60%"]) expect(html).toContain(text);
     expect(nodes(tree).filter((node) => node.type === Badge).map((node) => node.props.variant)).toEqual(["expense", "expense", "expense", "expense"]);
   });
 
@@ -146,8 +148,7 @@ describe("PeriodSummaryMetricsCard", () => {
     const tree = PeriodSummaryMetricsCard({ summary: { savingsRatio: 20, netWorthGrowthPct: 0, debtRatio: 30, budgetCompliance: 100 } });
     expect(nodes(tree).filter((node) => node.type === Badge).map((node) => node.props.variant)).toEqual(["success", "secondary", "expense", "success"]);
     const html = renderToStaticMarkup(tree);
-    expect(html).toContain("0.0%");
-    expect(html).not.toContain("+0.0%");
+    expect(html).toContain("+0,00%");
   });
 
   it("does not display unavailable ratios as percentages or assign them a health assessment", () => {
@@ -160,10 +161,11 @@ describe("PeriodSummaryMetricsCard", () => {
 
   it("distinguishes supplied zero values from missing summary data", () => {
     const zero = renderToStaticMarkup(<PeriodSummaryMetricsCard summary={{ savingsRatio: 0, netWorthGrowthPct: 0, debtRatio: 0, budgetCompliance: 0 }} />);
-    expect(zero.match(/>0\.0%<\/span>/g)).toHaveLength(4);
+    expect(zero.match(/>0,00%<\/span>/g)).toHaveLength(3);
+    expect(zero.match(/>\+0,00%<\/span>/g)).toHaveLength(1);
     const missing = renderToStaticMarkup(<PeriodSummaryMetricsCard />);
     expect(missing.match(/>—<\/span>/g)).toHaveLength(4);
-    expect(missing).not.toContain("0.0%");
+    expect(missing).not.toContain("0,00%");
   });
 });
 
@@ -201,7 +203,7 @@ describe("PeriodConclusionBanner", () => {
     expect(html).toContain("lucide-lightbulb");
     expect(html).toContain("amber");
     expect(html).toContain('data-slot="button"');
-    expect(html).not.toContain("27.8%");
+    expect(html).not.toContain("27,80%");
   });
 
   it("forwards the recommendations action and disables it when unavailable", () => {

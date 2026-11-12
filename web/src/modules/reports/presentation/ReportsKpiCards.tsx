@@ -3,10 +3,10 @@
 import React from "react";
 import Decimal from "decimal.js";
 import { ArrowDown, Layers, TrendingUp, Wallet } from "lucide-react";
-import { useNumberFormat } from "@/shared/hooks/use-number-format";
 import { Badge } from "@/shared/ui/badge";
 import { Card, CardContent } from "@/shared/ui/card";
 import type { FinancialReport } from "../domain/reports-analytics";
+import { Amount, Percentage } from "@/shared/ui/amount";
 
 interface ReportsKpiCardsProps {
   /** Already aggregated and converted to selectedCurrency by the domain engine. */
@@ -15,7 +15,6 @@ interface ReportsKpiCardsProps {
 }
 
 export function ReportsKpiCards({ kpis, selectedCurrency }: ReportsKpiCardsProps) {
-  const format = useNumberFormat();
   const cards = [
     { label: "Ingresos totales", value: kpis.totalIncome, growth: kpis.incomeGrowthPct, icon: TrendingUp, tone: "bg-emerald-500/15 text-emerald-400", expense: false },
     { label: "Gastos totales", value: kpis.totalExpenses, growth: kpis.expensesGrowthPct, icon: ArrowDown, tone: "bg-rose-500/15 text-rose-400", expense: true },
@@ -37,10 +36,10 @@ export function ReportsKpiCards({ kpis, selectedCurrency }: ReportsKpiCardsProps
               <div className="min-w-0">
                 <h2 className="text-sm font-medium">{label}</h2>
                 <p className="my-1 break-words text-xl font-bold tracking-tight tabular-nums">
-                  {format(value)} {selectedCurrency}
+                  <Amount value={value} currency={selectedCurrency} size="inherit" tone="inherit" />
                 </p>
                 <Badge variant={change.isZero() ? "secondary" : favorable ? "success" : "expense"} title="Variación respecto al período anterior">
-                  {change.gt(0) ? "+" : ""}{change.isZero() ? "0.0" : change.toFixed(1)}%
+                  <Percentage value={change} sign="always" size="inherit" tone="inherit" />
                 </Badge>
               </div>
             </CardContent>

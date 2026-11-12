@@ -129,11 +129,6 @@ export function ReportsView({
       ) : (
         <>
           {exportError && <p role="alert" className="text-sm text-destructive">No se pudo exportar el reporte. Intenta de nuevo.</p>}
-          <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/80 bg-card/60 px-4 py-2.5 text-xs text-muted-foreground shadow-2xs">
-            <span>
-              Valores unificados en <strong className="text-foreground">{selectedCurrency === "USD" ? "Dólares ($)" : "Bolivianos (Bs.)"}</strong> (≈ aprox. P2P {p2pRate ? `Bs. ${Number(p2pRate).toFixed(2)}` : "9.85"}). Cada cuenta conserva su saldo en su moneda original.
-            </span>
-          </div>
           {selectedPopularReport && <p role="status" className="text-sm text-muted-foreground">
             Reporte seleccionado: {popularReports[selectedPopularReport]?.label}. Las secciones relacionadas están resaltadas.
           </p>}

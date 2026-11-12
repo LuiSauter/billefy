@@ -148,7 +148,7 @@ describe("RegisterLoanPaymentModal", () => {
     ]);
     change(tree, "payment-account", "usd"); tree = render(); await submit(tree); expect(props.onSubmit).not.toHaveBeenCalled();
     tree = render({ loan: { ...loan, id: "usd-loan", currency: "USD" } }); tree = render();
-    expect(control(tree, "payment-account").props.value).toBe(""); expect(control(tree, "payment-amount").props.currency).toBe("$");
+    expect(control(tree, "payment-account").props.value).toBe(""); expect(control(tree, "payment-amount").props.currency).toBe("USD");
   });
 
   it("uses the local calendar day across a UTC date boundary", () => {

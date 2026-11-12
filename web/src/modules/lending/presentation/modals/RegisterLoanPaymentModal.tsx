@@ -225,7 +225,7 @@ export function RegisterLoanPaymentModal({ isOpen, onClose, loan, accounts, onSu
         </div>}
         <FormField htmlFor="payment-amount" label={amountLabel} hint={isCollection ? "Ingresá el monto que recibiste." : "Ingresá el monto que pagaste."} required>{control =>
           <MoneyInput {...control} required aria-invalid={Boolean(form.amount) && !validAmount} aria-describedby={!validAmount && form.amount ? "payment-amount-error" : undefined}
-            size="lg" currency={loan.currency === "BOB" ? "Bs" : loan.currency === "USD" ? "$" : loan.currency}
+            size="lg" currency={loan.currency}
             value={form.amount} onValueChange={amount => patch({ amount, amountEdited: true })} />}</FormField>
         {form.amount && !validAmount && <p id="payment-amount-error" role="alert" className="text-sm text-destructive">Ingresá un monto positivo de hasta {amountScale} decimales y dentro de la precisión permitida.</p>}
         <FormGrid>

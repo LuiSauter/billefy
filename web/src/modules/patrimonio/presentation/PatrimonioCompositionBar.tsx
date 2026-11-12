@@ -2,6 +2,7 @@
 
 import React from "react";
 import { Wallet } from "lucide-react";
+import { Amount } from "@/shared/ui/amount";
 
 interface PatrimonioCompositionBarProps {
   totalAssets: number;
@@ -18,7 +19,7 @@ export function PatrimonioCompositionBar({
   netWorth,
   assetsPct,
   liabilitiesPct,
-  currency = "$",
+  currency = "USD",
 }: PatrimonioCompositionBarProps) {
   return (
     <div className="rounded-2xl bg-card border border-border/80 p-5 shadow-2xs flex flex-col gap-4">
@@ -49,7 +50,7 @@ export function PatrimonioCompositionBar({
           </div>
           <div className="flex items-center gap-3">
             <span className="font-mono font-bold text-foreground">
-              {currency} {totalAssets.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              <Amount value={totalAssets} currency={currency} size="inherit" tone="inherit" />
             </span>
             <span className="font-mono text-muted-foreground font-semibold w-12 text-right">
               {assetsPct}%
@@ -65,7 +66,7 @@ export function PatrimonioCompositionBar({
           </div>
           <div className="flex items-center gap-3">
             <span className="font-mono font-bold text-foreground">
-              {currency} {totalLiabilities.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              <Amount value={totalLiabilities} currency={currency} size="inherit" tone="inherit" />
             </span>
             <span className="font-mono text-muted-foreground font-semibold w-12 text-right">
               {liabilitiesPct}%
@@ -81,7 +82,7 @@ export function PatrimonioCompositionBar({
           </div>
           <div className="flex items-center gap-3">
             <span className="font-mono font-black text-white text-sm">
-              {currency} {netWorth.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              <Amount value={netWorth} currency={currency} size="inherit" tone="inherit" />
             </span>
             <span className="font-mono text-purple-300 font-bold w-12 text-right">
               100%

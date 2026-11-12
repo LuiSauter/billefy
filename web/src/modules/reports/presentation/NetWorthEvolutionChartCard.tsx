@@ -2,10 +2,12 @@
 
 import React, { useId } from "react";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { useNumberFormat } from "@/shared/hooks/use-number-format";
+import { useNumberFormat, useNumberPreferences } from "@/shared/hooks/use-number-format";
+import { formatAmountText } from "@/shared/lib/amount-format";
 import { Badge } from "@/shared/ui/badge";
 import { Card, CardContent, CardHeader } from "@/shared/ui/card";
 import type { FinancialReport } from "../domain/reports-analytics";
+import { Amount } from "@/shared/ui/amount";
 
 interface NetWorthEvolutionChartCardProps {
   /** Chronological values already converted to selectedCurrency by the domain engine. */
@@ -16,7 +18,8 @@ interface NetWorthEvolutionChartCardProps {
 export function NetWorthEvolutionChartCard({ data, selectedCurrency }: NetWorthEvolutionChartCardProps) {
   const format = useNumberFormat();
   const gradientId = `net-worth-${useId().replace(/:/g, "")}`;
-  const money = (value: number | string) => `${format(value)} ${selectedCurrency}`;
+  const preferences = useNumberPreferences();
+  const money = (value: number | string) => formatAmountText(value, selectedCurrency, preferences);
   const latest = data.at(-1);
 
   return (
@@ -24,7 +27,7 @@ export function NetWorthEvolutionChartCard({ data, selectedCurrency }: NetWorthE
       <CardHeader className="flex-row flex-wrap items-center justify-between gap-2">
         <h2 className="text-lg font-bold tracking-tight">Evolución del patrimonio neto</h2>
         <Badge variant="outline" className="border-purple-500/50 bg-purple-500/10 tabular-nums" title="Último patrimonio neto">
-          {latest ? money(latest.netWorth) : "—"}
+          {latest ? <Amount value={latest.netWorth} currency={selectedCurrency} size="inherit" tone="inherit" /> : "—"}
         </Badge>
       </CardHeader>
       <CardContent>

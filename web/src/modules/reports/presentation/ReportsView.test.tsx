@@ -17,7 +17,7 @@ import { ReportGenerationCard } from "./ReportGenerationCard";
 import { PopularReportsCard } from "./PopularReportsCard";
 import { PeriodConclusionBanner } from "./PeriodConclusionBanner";
 
-vi.mock("@/shared/hooks/use-number-format", () => ({ useNumberFormat: () => formatNumber }));
+vi.mock("@/shared/hooks/use-number-format", () => ({ useNumberFormat: () => formatNumber, useNumberPreferences: () => ({ convention: "es-BO", decimalPlaces: 2 }) }));
 vi.mock("../application/report-export.service", () => ({
   exportReportAsCsv: vi.fn(), exportReportAsJson: vi.fn(), exportReportAsPrintable: vi.fn(),
 }));
@@ -128,9 +128,9 @@ describe("ReportsView", () => {
       "Resumen del período", "Reportes populares", "Conclusión del período"]) {
       expect(html).toContain(heading);
     }
-    expect(html).toContain("1.500,00 BOB");
-    expect(html).toContain("200,00 BOB");
-    expect(html).toContain("1.300,00 BOB");
+    expect(html).toContain("Bs 1.500,00");
+    expect(html).toContain("Bs 200,00");
+    expect(html).toContain("Bs 1.300,00");
     expect(html).toContain('aria-busy="false"');
     expect(html).toContain('data-slot="select-field"');
     expect(html).toContain('data-slot="button"');
@@ -316,10 +316,9 @@ describe("ReportsView", () => {
     expect(headerProps.p2pRate).toBe(9.85);
     expect(headerProps.onToggleCurrency).toBe(onToggleCurrency);
     const html = renderToStaticMarkup(tree);
-    expect(html).toContain("Valores unificados en");
-    expect(html).toContain("Bolivianos (Bs.)");
-    expect(html).toContain("≈ aprox. P2P Bs. 9.85");
-    expect(html).toContain("Cada cuenta conserva su saldo en su moneda original");
+    expect(html).toContain("BOB (Bs)");
+    expect(html).toContain("≈ P2P");
+    expect(html).toContain(">Bs 9,85</span>");
   });
 
   it("does not fabricate converted values when FX is missing and recovers with a valid rate", () => {

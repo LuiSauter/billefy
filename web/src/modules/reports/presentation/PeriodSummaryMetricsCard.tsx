@@ -6,6 +6,7 @@ import { PiggyBank, Scale, Target, TrendingUp } from "lucide-react";
 import { Badge } from "@/shared/ui/badge";
 import { Card, CardContent, CardHeader } from "@/shared/ui/card";
 import type { FinancialReport } from "../domain/reports-analytics";
+import { Percentage } from "@/shared/ui/amount";
 
 interface PeriodSummaryMetricsCardProps {
   summary?: FinancialReport["periodSummary"];
@@ -37,7 +38,7 @@ export function PeriodSummaryMetricsCard({ summary }: PeriodSummaryMetricsCardPr
                 </dt>
                 <dd>
                   <Badge variant={variant} className="tabular-nums">
-                    {change ? `${signed && change.gt(0) ? "+" : ""}${change.isZero() ? "0.0" : change.toFixed(1)}%` : "—"}
+                    {change ? <Percentage value={change} sign={signed ? "always" : "auto"} size="inherit" tone="inherit" /> : "—"}
                   </Badge>
                 </dd>
                 <dd className="col-span-2 pl-11 text-xs text-muted-foreground @min-[440px]:col-span-1 @min-[440px]:pl-0">{target}</dd>

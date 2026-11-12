@@ -14,7 +14,7 @@ import { IncomeVsExpensesChartCard } from "./IncomeVsExpensesChartCard";
 import { CategoryExpensesDonutCard } from "./CategoryExpensesDonutCard";
 
 // Keep the node-only runner; use the same default decimal formatter as the hook.
-vi.mock("@/shared/hooks/use-number-format", () => ({ useNumberFormat: () => formatNumber }));
+vi.mock("@/shared/hooks/use-number-format", () => ({ useNumberFormat: () => formatNumber, useNumberPreferences: () => ({ convention: "es-BO", decimalPlaces: 2 }) }));
 
 function nodes(tree: unknown): React.ReactElement<Record<string, unknown>>[] {
   if (Array.isArray(tree)) return tree.flatMap(nodes);
@@ -90,10 +90,11 @@ describe("Reports top section", () => {
   it.each(["BOB", "USD", "USDT"])("renders actual KPI values in selected currency %s without conversion or invented growth", (selectedCurrency) => {
     const html = renderToStaticMarkup(<ReportsKpiCards kpis={kpis} selectedCurrency={selectedCurrency} />);
     for (const label of ["Ingresos totales", "Gastos totales", "Ahorro / Inversión", "Balance neto"]) expect(html).toContain(label);
-    expect(html).toContain(`40.800,00 ${selectedCurrency}`);
-    expect(html).toContain(`24.520,00 ${selectedCurrency}`);
-    expect(html).toContain(`16.280,00 ${selectedCurrency}`);
-    for (const growth of ["+12.6%", "+5.2%", "+28.4%", "+18.7%"]) expect(html).toContain(growth);
+    const money = (value: string) => selectedCurrency === "BOB" ? `Bs ${value}` : selectedCurrency === "USD" ? `$ ${value}` : `${value} USDT`;
+    expect(html).toContain(money("40.800,00"));
+    expect(html).toContain(money("24.520,00"));
+    expect(html).toContain(money("16.280,00"));
+    for (const growth of ["+12,60%", "+5,20%", "+28,40%", "+18,70%"]) expect(html).toContain(growth);
     expect(html.match(/data-slot="card"/g)).toHaveLength(4);
   });
 
@@ -102,11 +103,10 @@ describe("Reports top section", () => {
       totalIncome: 0, incomeGrowthPct: 0, expensesGrowthPct: -5.2,
       netBalance: -1200.125, netBalanceGrowthPct: -18.7,
     }} />);
-    expect(html).toContain("-1.200,13 USD");
-    expect(html).toContain("-18.7%");
-    expect(html).toContain("-5.2%");
-    expect(html).toContain(">0.0%</span>");
-    expect(html).not.toContain("+0.0%");
+    expect(html).toContain("-$ 1.200,13");
+    expect(html).toContain("-18,70%");
+    expect(html).toContain("-5,20%");
+    expect(html).toContain(">+0,00%</span>");
   });
 
   it("renders chronological monthly bars and currency-formatted tooltips", () => {
@@ -117,7 +117,7 @@ describe("Reports top section", () => {
     expect(bars.map((node) => node.props.dataKey)).toEqual(["income", "expenses"]);
     expect(bars[0].props.fill).not.toBe(bars[1].props.fill);
     const formatter = propsOf(tree, Tooltip).formatter as (value: number) => string;
-    expect(formatter(4000.25)).toBe("4.000,25 USD");
+    expect(formatter(4000.25)).toBe("$ 4.000,25");
     const html = renderToStaticMarkup(tree);
     expect(html).toContain("Ingresos vs. Gastos");
     expect(html).toContain("Ingresos");
@@ -128,8 +128,8 @@ describe("Reports top section", () => {
     expect(html).toContain("recharts-responsive-container");
     expect(html).toContain("2026-09");
     expect(html).toContain("2026-10");
-    expect(html).toContain("4.000,25 USD");
-    expect(html).toContain("1.500,10 USD");
+    expect(html).toContain("$ 4.000,25");
+    expect(html).toContain("$ 1.500,10");
   });
 
   it("renders the donut, supplied total and every category's amount and percentage", () => {
@@ -144,9 +144,9 @@ describe("Reports top section", () => {
     expect(fills).toHaveLength(categories.length);
     expect(new Set(fills).size).toBe(categories.length);
     const formatter = propsOf(tree, Tooltip).formatter as (value: number) => string;
-    expect(formatter(7000)).toBe("7.000,00 BOB");
+    expect(formatter(7000)).toBe("Bs 7.000,00");
     const html = renderToStaticMarkup(tree);
-    for (const value of ["Gastos por categoría", "Total de gastos", "10.000,00 BOB", "Vivienda", "Alimentación", "70.0%", "30.0%", "7.000,00 BOB", "3.000,00 BOB", "recharts-responsive-container"]) {
+    for (const value of ["Gastos por categoría", "Total de gastos", "Bs 10.000,00", "Vivienda", "Alimentación", "70,00%", "30,00%", "Bs 7.000,00", "Bs 3.000,00", "recharts-responsive-container"]) {
       expect(html).toContain(value);
     }
   });
@@ -156,7 +156,7 @@ describe("Reports top section", () => {
     const donut = renderToStaticMarkup(<CategoryExpensesDonutCard data={[]} totalExpenses={0} selectedCurrency="USD" />);
     expect(bars).toContain("Sin movimientos en este período");
     expect(donut).toContain("Sin gastos en este período");
-    expect(donut).toContain("0,00 USD");
+    expect(donut).toContain("$ 0,00");
     expect(donut).not.toContain("recharts-responsive-container");
   });
 
@@ -173,7 +173,7 @@ describe("Reports top section", () => {
       totalExpenses={1.05} selectedCurrency="USDT"
     />);
     expect(html).toContain("Educación continua");
-    expect(html).toContain("28.6%");
+    expect(html).toContain("28,57%");
     expect(html).toContain("0,30 USDT");
     expect(html).toContain("1,05 USDT");
     expect(html).not.toContain("Vivienda");

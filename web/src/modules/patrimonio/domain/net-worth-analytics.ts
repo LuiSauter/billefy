@@ -14,6 +14,8 @@ import {
   PatrimonioEvolutionPoint,
   PatrimonioInsight,
 } from "./patrimonio.types";
+import { formatAmountText, formatPercent } from "@/shared/lib/amount-format";
+import { getNumberFormatPreferences } from "@/shared/lib/number-format";
 
 interface CalculatePatrimonioParams {
   manualAssets?: PatrimonialAsset[];
@@ -215,7 +217,7 @@ export function calculatePatrimonioOverview({
           originalValue: remaining,
           category: "other",
           currency: loan.currency,
-          notes: `Tasa: ${(loan.interestRate * 100).toFixed(1)}% • Saldo pendiente`,
+          notes: `Tasa: ${formatPercent(loan.interestRate * 100, getNumberFormatPreferences())} • Saldo pendiente`,
           isFromModule: true,
         });
       }
@@ -262,7 +264,7 @@ export function calculatePatrimonioOverview({
         originalAmount: remaining,
         category,
         currency: loan.currency,
-        notes: `Tasa: ${(loan.interestRate * 100).toFixed(1)}%`,
+        notes: `Tasa: ${formatPercent(loan.interestRate * 100, getNumberFormatPreferences())}`,
         isFromModule: true,
       });
     }
@@ -484,7 +486,7 @@ export function calculatePatrimonioOverview({
     if (totalLiabilities > 0) {
       insights.push({
         id: "ins-debt",
-        text: `Tu nivel de deuda (${debtRatioPct.toFixed(1)}%) se mantiene en un rango ${debtHealth.toLowerCase()}.`,
+        text: `Tu nivel de deuda (${formatPercent(debtRatioPct, getNumberFormatPreferences())}) se mantiene en un rango ${debtHealth.toLowerCase()}.`,
         type: debtHealth === "Saludable" ? "positive" : debtHealth === "Moderado" ? "info" : "warning",
       });
     } else {
@@ -529,7 +531,6 @@ function calculateHistoricalEvolutionPoints(
 ): PatrimonioEvolutionPoint[] {
   const points: PatrimonioEvolutionPoint[] = [];
   const now = new Date();
-  const symbol = targetCurrency === "BOB" ? "Bs." : "$";
 
   const currentTotalAssets =
     investments.reduce((acc, i) => acc + convertPatrimonioAmount(i.currentValue || 0, i.currency, targetCurrency, p2pRate), 0) +
@@ -555,7 +556,7 @@ function calculateHistoricalEvolutionPoints(
         date: d.toISOString().split("T")[0],
         month: MONTH_NAMES_ES[d.getMonth()],
         value: 0,
-        formattedValue: `${symbol} 0`,
+        formattedValue: formatAmountText(0, targetCurrency, getNumberFormatPreferences()),
       });
     }
     return points;
@@ -570,7 +571,7 @@ function calculateHistoricalEvolutionPoints(
         date: d.toISOString().split("T")[0],
         month: monthLabel,
         value: currentNet,
-        formattedValue: `${symbol} ${currentNet.toLocaleString("en-US")}`,
+        formattedValue: formatAmountText(currentNet, targetCurrency, getNumberFormatPreferences()),
       });
     } else {
       // Historical calculation as of date d
@@ -626,7 +627,7 @@ function calculateHistoricalEvolutionPoints(
         date: d.toISOString().split("T")[0],
         month: monthLabel,
         value: net,
-        formattedValue: `${symbol} ${net.toLocaleString("en-US")}`,
+        formattedValue: formatAmountText(net, targetCurrency, getNumberFormatPreferences()),
       });
     }
   }

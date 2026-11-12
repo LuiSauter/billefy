@@ -322,7 +322,6 @@ export default function DashboardPage() {
               transactions={dashboard.transactions}
               onNavigateToInvestments={() => setActiveTab("inversiones")}
               selectedCurrency={selectedCurrency}
-              currencySymbol={selectedCurrency === "BOB" ? "Bs." : "$"}
               onToggleCurrency={() =>
                 setSelectedCurrency((prev) => (prev === "BOB" ? "USD" : "BOB"))
               }

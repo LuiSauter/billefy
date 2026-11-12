@@ -187,7 +187,7 @@ export function CreateLentLoanModal({ isOpen, onClose, accounts, selectedCurrenc
                 <SelectField {...control} value={form.currency} onChange={e => patch({ currency: e.target.value, account: "" })}
                   options={[{ value: "BOB", label: "Bolivianos (BOB)" }, { value: "USD", label: "Dólares (USD)" }]} />}</FormField>
               <FormField htmlFor="lent-principal" label="Monto prestado" required>{control =>
-                <MoneyInput {...control} required value={form.principal} currency={form.currency === "BOB" ? "Bs" : "$"}
+                <MoneyInput {...control} required value={form.principal} currency={form.currency}
                   onValueChange={principal => patch({ principal })} />}</FormField>
               <FormField htmlFor="lent-date" label="Fecha del préstamo" required>{control =>
                 <Input {...control} required type="date" value={form.date} onChange={e => patch({ date: e.target.value })} />}</FormField>

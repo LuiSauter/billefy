@@ -3,10 +3,12 @@
 import React from "react";
 import { Car, Cross, Ellipsis, Heart, House, Tag, Utensils } from "lucide-react";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
-import { useNumberFormat } from "@/shared/hooks/use-number-format";
+import { useNumberPreferences } from "@/shared/hooks/use-number-format";
+import { formatAmountText } from "@/shared/lib/amount-format";
 import { Badge } from "@/shared/ui/badge";
 import { Card, CardContent, CardHeader } from "@/shared/ui/card";
 import type { FinancialReport } from "../domain/reports-analytics";
+import { Amount, Percentage } from "@/shared/ui/amount";
 
 interface CategoryExpensesDonutCardProps {
   data: FinancialReport["categoryExpenses"];
@@ -21,8 +23,8 @@ const categoryIcons: Record<string, typeof Tag | undefined> = {
 };
 
 export function CategoryExpensesDonutCard({ data, totalExpenses, selectedCurrency }: CategoryExpensesDonutCardProps) {
-  const format = useNumberFormat();
-  const money = (value: number | string) => `${format(value)} ${selectedCurrency}`;
+  const preferences = useNumberPreferences();
+  const money = (value: number | string) => formatAmountText(value, selectedCurrency, preferences);
 
   return (
     <Card className="h-full min-w-0 border-border/80">
@@ -43,7 +45,7 @@ export function CategoryExpensesDonutCard({ data, totalExpenses, selectedCurrenc
             </ResponsiveContainer>
           )}
           <div className={`pointer-events-none absolute inset-0 flex flex-col items-center justify-center rounded-full px-8 text-center ${data.length === 0 ? "border-8 border-muted" : ""}`}>
-            <span className="max-w-full break-words text-sm font-bold tabular-nums">{money(totalExpenses)}</span>
+            <span className="max-w-full break-words text-sm font-bold tabular-nums"><Amount value={totalExpenses} currency={selectedCurrency} size="inherit" tone="inherit" /></span>
             <span className="mt-1 text-xs text-muted-foreground">Total de gastos</span>
           </div>
         </div>
@@ -60,8 +62,8 @@ export function CategoryExpensesDonutCard({ data, totalExpenses, selectedCurrenc
                     <Icon className="size-4" />
                   </Badge>
                   <span className="min-w-0 flex-1 truncate" title={item.category}>{item.category}</span>
-                  <span className="shrink-0 tabular-nums">{item.percentage.toFixed(1)}%</span>
-                  <span className="ml-2 shrink-0 text-right font-semibold tabular-nums">{money(item.amount)}</span>
+                  <span className="shrink-0 tabular-nums"><Percentage value={item.percentage} sign="never" size="inherit" tone="inherit" /></span>
+                  <span className="ml-2 shrink-0 text-right font-semibold tabular-nums"><Amount value={item.amount} currency={selectedCurrency} size="inherit" tone="inherit" /></span>
                 </li>
               );
             })}

@@ -3,6 +3,7 @@
 import React from "react";
 import { Info, TrendingUp, TrendingDown, Layers, CreditCard, Scale } from "lucide-react";
 import { PatrimonioOverviewMetrics } from "../domain/patrimonio.types";
+import { Amount, Percentage } from "@/shared/ui/amount";
 
 interface PatrimonioKpiCardsProps {
   metrics: PatrimonioOverviewMetrics;
@@ -13,15 +14,15 @@ interface PatrimonioKpiCardsProps {
 
 export function PatrimonioKpiCards({
   metrics,
-  currency = "$",
+  currency = "USD",
   targetCurrency = "USD",
   p2pRate = 9.85,
 }: PatrimonioKpiCardsProps) {
-  const isBob = currency === "Bs." || targetCurrency === "BOB";
+  const isBob = currency === "BOB" || targetCurrency === "BOB";
   const rate = p2pRate > 0 ? p2pRate : 9.85;
   const convertedEquivalent = isBob
-    ? `$ ${(metrics.netWorth / rate).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD`
-    : `Bs. ${(metrics.netWorth * rate).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    ? <Amount value={metrics.netWorth / rate} currency="USD" size="inherit" tone="inherit" />
+    : <Amount value={metrics.netWorth * rate} currency="BOB" size="inherit" tone="inherit" />;
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-12 gap-3.5">
       {/* 1. Hero Card: Patrimonio Neto */}
@@ -61,18 +62,18 @@ export function PatrimonioKpiCards({
         </div>
 
         <div className="my-2 relative z-10">
-          <div className="text-2xl sm:text-3xl font-black text-white tracking-tight font-mono">
-            {currency} {metrics.netWorth.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          <div className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+            <Amount value={metrics.netWorth} currency={currency} size="inherit" tone="inherit" />
           </div>
-          <div className="text-xs font-medium text-purple-200/80 font-mono mt-0.5">
-            ≈ {convertedEquivalent} (P2P Bs {rate.toFixed(2)})
+          <div className="text-xs font-medium text-purple-200/80 mt-0.5">
+            ≈ {convertedEquivalent} (P2P <Amount value={rate} currency="BOB" size="inherit" tone="inherit" />)
           </div>
         </div>
 
         <div className="flex items-center gap-2 relative z-10">
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold border bg-emerald-500/15 text-emerald-400 border-emerald-500/30">
             <TrendingUp className="w-3 h-3 stroke-[2.5]" />
-            +{metrics.previousNetWorthChangePct?.toFixed(1) || "0.0"}%
+            <Percentage value={metrics.previousNetWorthChangePct ?? 0} sign="always" size="inherit" tone="inherit" />
           </span>
           <span className="text-[11px] font-medium text-purple-200/70">
             vs. mes anterior
@@ -92,14 +93,14 @@ export function PatrimonioKpiCards({
         </div>
 
         <div className="my-2">
-          <div className="text-2xl font-black text-foreground font-mono tracking-tight">
-            {currency} {metrics.totalAssets.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          <div className="text-2xl font-black text-foreground tracking-tight">
+            <Amount value={metrics.totalAssets} currency={currency} size="inherit" tone="inherit" />
           </div>
         </div>
 
         <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-400">
           <TrendingUp className="w-3.5 h-3.5 stroke-[2.5]" />
-          <span>+{metrics.assetsChangePct?.toFixed(1) || "0.0"}%</span>
+          <span><Percentage value={metrics.assetsChangePct ?? 0} sign="always" size="inherit" tone="inherit" /></span>
         </div>
       </div>
 
@@ -115,14 +116,14 @@ export function PatrimonioKpiCards({
         </div>
 
         <div className="my-2">
-          <div className="text-2xl font-black text-foreground font-mono tracking-tight">
-            {currency} {metrics.totalLiabilities.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          <div className="text-2xl font-black text-foreground tracking-tight">
+            <Amount value={metrics.totalLiabilities} currency={currency} size="inherit" tone="inherit" />
           </div>
         </div>
 
         <div className="flex items-center gap-1.5 text-xs font-bold text-rose-400">
           <TrendingDown className="w-3.5 h-3.5 stroke-[2.5]" />
-          <span>{metrics.liabilitiesChangePct?.toFixed(1) || "0.0"}%</span>
+          <span><Percentage value={metrics.liabilitiesChangePct ?? 0} sign="auto" size="inherit" tone="inherit" /></span>
         </div>
       </div>
 
@@ -140,8 +141,8 @@ export function PatrimonioKpiCards({
         </div>
 
         <div className="my-2 flex items-baseline justify-between gap-1">
-          <span className="text-2xl font-black text-foreground font-mono tracking-tight">
-            {metrics.debtRatioPct.toFixed(1)}%
+          <span className="text-2xl font-black text-foreground tracking-tight">
+            <Percentage value={metrics.debtRatioPct} sign="never" size="inherit" tone="inherit" />
           </span>
           <span
             className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${

@@ -97,7 +97,7 @@ export function LoanPaymentModal({
             <MoneyInput
               {...control}
               size="lg"
-              currency="Bs"
+              currency="BOB"
               value={amount}
               onValueChange={setAmount}
             />

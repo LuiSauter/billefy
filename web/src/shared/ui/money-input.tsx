@@ -4,6 +4,7 @@ import * as React from "react"
 import { cn } from "@/shared/lib/utils"
 
 import { sanitizeDecimalInput } from "@/shared/lib/money-input"
+import { formatCurrencyLabel } from "@/shared/lib/currency"
 
 type MoneyInputProps = Omit<
   React.ComponentProps<"input">,
@@ -13,7 +14,7 @@ type MoneyInputProps = Omit<
   value: string
   /** Receives the sanitized decimal string. */
   onValueChange: (value: string) => void
-  /** Currency label shown in the leading chip: "Bs", "$", "USDT"... */
+  /** ISO-style currency code ("BOB", "USD", "USDT"); the chip shows its symbol. */
   currency: string
   /** Maximum fractional digits (default 2). */
   maxDecimals?: number
@@ -50,7 +51,7 @@ function MoneyInput({
           size === "lg" ? "h-9 text-sm" : "h-7 text-sm"
         )}
       >
-        {currency}
+        {/^[A-Z]{3,5}$/.test(currency) ? formatCurrencyLabel(currency) : currency}
       </span>
       <input
         type="text"

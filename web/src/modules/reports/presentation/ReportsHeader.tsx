@@ -4,6 +4,7 @@ import React from "react";
 import { CalendarDays, Download } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import { SelectField } from "@/shared/ui/select-field";
+import { Amount } from "@/shared/ui/amount";
 
 export type ReportsPeriodMonths = 1 | 3 | 6 | 12;
 
@@ -45,14 +46,14 @@ export function ReportsHeader({
             type="button"
             variant="outline"
             onClick={onToggleCurrency}
-            title={`Alternar moneda del reporte (${selectedCurrency === "BOB" ? "Ver en USD" : "Ver en BOB"}). Tasa P2P: Bs. ${Number(p2pRate).toFixed(2)}`}
+            aria-label={selectedCurrency === "BOB" ? "Ver reporte en USD" : "Ver reporte en BOB"}
             className="flex items-center gap-1.5 font-bold shadow-2xs"
           >
             <span className="text-purple-400 font-extrabold">
-              {selectedCurrency === "USD" ? "USD ($)" : "BOB (Bs.)"}
+              {selectedCurrency === "USD" ? "USD ($)" : "BOB (Bs)"}
             </span>
-            <span className="text-[10px] text-muted-foreground font-mono hidden sm:inline">
-              ≈ P2P {Number(p2pRate).toFixed(2)}
+            <span className="text-[10px] text-muted-foreground hidden sm:inline">
+              ≈ P2P <Amount value={Number(p2pRate)} currency="BOB" size="inherit" tone="inherit" />
             </span>
           </Button>
         )}

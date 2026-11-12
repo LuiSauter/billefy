@@ -2,7 +2,8 @@
 
 import React from "react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { useNumberFormat } from "@/shared/hooks/use-number-format";
+import { useNumberFormat, useNumberPreferences } from "@/shared/hooks/use-number-format";
+import { formatAmountText } from "@/shared/lib/amount-format";
 import { Card, CardContent, CardHeader } from "@/shared/ui/card";
 import type { FinancialReport } from "../domain/reports-analytics";
 
@@ -15,7 +16,8 @@ const colors = { income: "#a855f7", expenses: "#fb7185" };
 
 export function IncomeVsExpensesChartCard({ data, selectedCurrency }: IncomeVsExpensesChartCardProps) {
   const format = useNumberFormat();
-  const money = (value: number | string) => `${format(value)} ${selectedCurrency}`;
+  const preferences = useNumberPreferences();
+  const money = (value: number | string) => formatAmountText(value, selectedCurrency, preferences);
   const hasMovements = data.some((point) => point.income !== 0 || point.expenses !== 0);
 
   return (

@@ -9,6 +9,7 @@ import { validatePassword } from "../domain/password-policy";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { FormField } from "@/shared/ui/form-field";
+import { Amount } from "@/shared/ui/amount";
 
 interface AuthScreenProps {
   p2pRate?: number;
@@ -127,7 +128,7 @@ export function AuthScreen({ p2pRate = 9.85, onLoginSuccess }: AuthScreenProps) 
           <div className="self-start mt-2 px-4 py-2 rounded-full bg-accent border border-primary/30 flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
             <span className="text-sm font-bold text-accent-foreground">
-              Cotización P2P en Vivo: 1 USDT = Bs. {p2pRate.toFixed(2)}
+              Cotización P2P en Vivo: 1 USDT = <Amount value={p2pRate} currency="BOB" size="inherit" tone="inherit" />
             </span>
           </div>
         </div>

@@ -4,6 +4,7 @@ import React from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { AssetCategorySummary } from "../domain/patrimonio.types";
 import { Home, TrendingUp, Laptop, Car, Banknote, Sparkles } from "lucide-react";
+import { Amount, Percentage } from "@/shared/ui/amount";
 
 interface PatrimonioDistributionDonutProps {
   categories: AssetCategorySummary[];
@@ -23,7 +24,7 @@ const ICON_MAP: Record<string, React.ElementType> = {
 export function PatrimonioDistributionDonut({
   categories,
   totalAssets,
-  currency = "$",
+  currency = "USD",
 }: PatrimonioDistributionDonutProps) {
   const chartData = categories.length > 0
     ? categories
@@ -47,8 +48,8 @@ export function PatrimonioDistributionDonut({
                     return (
                       <div className="rounded-xl bg-popover/95 backdrop-blur-md border border-border/80 px-3 py-2 shadow-xl">
                         <p className="text-[11px] font-semibold text-muted-foreground">{data.label}</p>
-                        <p className="text-xs font-bold text-foreground font-mono mt-0.5">
-                          {currency} {data.totalValue.toLocaleString("en-US")} ({data.percentage}%)
+                        <p className="text-xs font-bold text-foreground mt-0.5">
+                          <Amount value={data.totalValue} currency={currency} size="inherit" tone="inherit" /> (<Percentage value={data.percentage} sign="never" size="inherit" tone="inherit" />)
                         </p>
                       </div>
                     );
@@ -76,8 +77,8 @@ export function PatrimonioDistributionDonut({
 
           {/* Centered Total */}
           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center px-2">
-            <span className="text-sm font-black text-foreground font-mono tracking-tight leading-tight">
-              {currency} {totalAssets.toLocaleString("en-US", { maximumFractionDigits: 0 })}
+            <span className="text-sm font-black text-foreground tracking-tight leading-tight">
+              <Amount value={totalAssets} currency={currency} size="inherit" tone="inherit" />
             </span>
             <span className="text-[10px] font-semibold text-muted-foreground mt-0.5">
               Activos totales
@@ -107,11 +108,11 @@ export function PatrimonioDistributionDonut({
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
-                  <span className="text-foreground font-mono font-bold">
+                  <span className="text-foreground font-bold">
                     {item.percentage}%
                   </span>
-                  <span className="text-[11px] font-mono text-muted-foreground hidden sm:inline">
-                    {currency} {item.totalValue.toLocaleString("en-US", { maximumFractionDigits: 0 })}
+                  <span className="text-[11px] text-muted-foreground hidden sm:inline">
+                    <Amount value={item.totalValue} currency={currency} size="inherit" tone="inherit" />
                   </span>
                 </div>
               </div>

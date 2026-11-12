@@ -13,6 +13,7 @@ import { ResponsiveDrawer } from "@/shared/ui/responsive-drawer";
 import { Button } from "@/shared/ui/button";
 import { UserDto, getUserDisplayName } from "../domain/identity.types";
 import { UserAvatar } from "./UserAvatar";
+import { Amount } from "@/shared/ui/amount";
 
 interface UserProfileModalProps {
   isOpen: boolean;
@@ -145,7 +146,7 @@ export function UserProfileModal({
                 Tasa P2P Referencial
               </span>
               <span className="text-sm font-extrabold text-emerald-500 mt-0.5">
-                1 USDT = Bs. {p2pRate.toFixed(2)}
+                1 USDT = <Amount value={p2pRate} currency="BOB" size="inherit" tone="inherit" />
               </span>
             </div>
           </div>

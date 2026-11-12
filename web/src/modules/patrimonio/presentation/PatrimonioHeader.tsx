@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from "react";
 import { Plus, Calendar, ChevronDown, Landmark } from "lucide-react";
+import { Amount } from "@/shared/ui/amount";
 
 interface PatrimonioHeaderProps {
   onOpenAddAsset: () => void;
@@ -89,14 +90,14 @@ export function PatrimonioHeader({
           <button
             type="button"
             onClick={onToggleCurrency}
-            title={`Alternar moneda (BOB / USD). Tasa P2P: Bs. ${p2pRate.toFixed(2)}`}
+            aria-label="Alternar moneda (BOB / USD)"
             className="h-10 px-3.5 rounded-xl border border-border/80 bg-card/80 hover:bg-muted text-foreground text-xs font-bold flex items-center gap-2 transition cursor-pointer shadow-2xs"
           >
             <span className="text-purple-400 font-extrabold">
               {selectedCurrency === "BOB" ? "BOB (Bs.)" : "USD ($)"}
             </span>
-            <span className="text-[10px] text-muted-foreground font-mono hidden sm:inline">
-              P2P Bs. {p2pRate.toFixed(2)}
+            <span className="text-[10px] text-muted-foreground hidden sm:inline">
+              P2P <Amount value={p2pRate} currency="BOB" size="inherit" tone="inherit" />
             </span>
             <span className="text-xs text-muted-foreground">▼</span>
           </button>

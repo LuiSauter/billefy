@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { ChevronDown, ChevronRight, Home, User, CreditCard, MoreHorizontal, Trash2 } from "lucide-react";
 import { LiabilityCategorySummary } from "../domain/patrimonio.types";
+import { Amount } from "@/shared/ui/amount";
 
 interface PatrimonioLiabilitiesListProps {
   categories: LiabilityCategorySummary[];
@@ -23,7 +24,7 @@ export function PatrimonioLiabilitiesList({
   categories,
   totalLiabilities,
   onDeleteLiability,
-  currency = "$",
+  currency = "USD",
 }: PatrimonioLiabilitiesListProps) {
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
 
@@ -40,8 +41,8 @@ export function PatrimonioLiabilitiesList({
         <h3 className="text-base sm:text-lg font-bold text-foreground tracking-tight">
           Mis pasivos
         </h3>
-        <span className="text-base sm:text-lg font-black font-mono text-foreground">
-          {currency} {totalLiabilities.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        <span className="text-base sm:text-lg font-black text-foreground">
+          <Amount value={totalLiabilities} currency={currency} size="inherit" tone="inherit" />
         </span>
       </div>
 
@@ -76,10 +77,10 @@ export function PatrimonioLiabilitiesList({
 
                 <div className="flex items-center gap-3 shrink-0">
                   <div className="flex flex-col items-end">
-                    <span className="text-sm font-black font-mono text-foreground">
-                      {currency} {cat.totalAmount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    <span className="text-sm font-black text-foreground">
+                      <Amount value={cat.totalAmount} currency={currency} size="inherit" tone="inherit" />
                     </span>
-                    <span className="text-[11px] font-mono text-muted-foreground">
+                    <span className="text-[11px] text-muted-foreground">
                       {cat.percentage}%
                     </span>
                   </div>
@@ -105,9 +106,9 @@ export function PatrimonioLiabilitiesList({
                         </span>
                         <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground truncate">
                           {item.notes && <span>{item.notes}</span>}
-                          {item.originalAmount !== undefined && item.currency && item.currency !== (currency === "Bs." ? "BOB" : "USD") && (
+                          {item.originalAmount !== undefined && item.currency && item.currency !== currency && (
                             <span className="font-mono text-rose-400">
-                              • Orig: {item.currency === "BOB" ? "Bs." : "$"}{item.originalAmount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {item.currency}
+                              • Orig: <Amount value={item.originalAmount} currency={item.currency} size="inherit" tone="inherit" />
                             </span>
                           )}
                         </div>
@@ -115,7 +116,7 @@ export function PatrimonioLiabilitiesList({
 
                       <div className="flex items-center gap-2.5 shrink-0">
                         <span className="font-mono font-bold text-rose-400">
-                          {currency} {item.amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          <Amount value={item.amount} currency={currency} size="inherit" tone="inherit" />
                         </span>
 
                         {!item.isFromModule && onDeleteLiability && (
