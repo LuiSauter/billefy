@@ -9,7 +9,7 @@ import {
   resolveAccountVisualMeta,
 } from "@/modules/ledger/domain/account-meta";
 import { CategoryIconBadge } from "./CategoryIcon";
-import { useNumberFormat } from "@/shared/hooks/use-number-format";
+import { Amount } from "@/shared/ui/amount";
 
 interface AccountsListProps {
   accounts: AccountDto[];
@@ -32,15 +32,7 @@ export function AccountsList({
   onUpdateAccount,
 }: AccountsListProps) {
   const [editing, setEditing] = useState<AccountDto | null>(null);
-  const format = useNumberFormat();
   const getSublabel = (acc: AccountDto) => getAccountTypeLabel(acc.type);
-
-  const formatBalance = (acc: AccountDto) => {
-    const amount = format(acc.balance);
-    if (acc.currency === "BOB") return `Bs ${amount}`;
-    if (acc.currency === "USD") return `$${amount}`;
-    return `${amount} ${acc.currency}`;
-  };
 
   return (
     <div className="p-[18px] rounded-[16px] bg-card border border-border flex flex-col gap-3.5 shadow-2xs">
@@ -114,9 +106,7 @@ export function AccountsList({
               <div className="text-[11px] font-medium text-muted-foreground">
                 {getSublabel(acc)}
               </div>
-              <div className="text-sm font-extrabold text-foreground font-mono">
-                {formatBalance(acc)}
-              </div>
+              <Amount value={acc.balance} currency={acc.currency} size="sm" />
             </div>
           ))}
         </div>

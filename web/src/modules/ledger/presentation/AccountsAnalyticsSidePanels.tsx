@@ -19,7 +19,9 @@ import {
   EvolutionPoint,
 } from "../domain/accounts-overview";
 import { AccountDto, TransactionDto } from "../domain/ledger.types";
-import { useNumberFormat } from "@/shared/hooks/use-number-format";
+import { useNumberPreferences } from "@/shared/hooks/use-number-format";
+import { formatAmountText, formatPercent } from "@/shared/lib/amount-format";
+import { Amount } from "@/shared/ui/amount";
 
 interface AccountsAnalyticsSidePanelsProps {
   metrics: AccountsOverviewMetrics;
@@ -44,13 +46,13 @@ export function AccountsAnalyticsSidePanels({
   p2pRate = 9.85,
   currency = "USD",
 }: AccountsAnalyticsSidePanelsProps) {
-  const format = useNumberFormat();
+  const preferences = useNumberPreferences();
   const [timeframeMonths, setTimeframeMonths] = useState<number>(6);
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const isUsd = currency === "USD";
   const displayTotal = isUsd ? metrics.totalUsd : metrics.totalBob;
-  const currencySymbol = isUsd ? "$" : "Bs.";
+  const displayCurrency = isUsd ? "USD" : "BOB";
 
   // Donut data
   const donutData = useMemo(() => {
@@ -72,12 +74,7 @@ export function AccountsAnalyticsSidePanels({
 
   const latestPoint = evolutionData[evolutionData.length - 1];
 
-  const formatK = (value: number) => {
-    if (value >= 1000) {
-      return `${Math.round(value / 1000)}K`;
-    }
-    return `${value}`;
-  };
+  const formatK = (value: number) => formatAmountText(value, displayCurrency, preferences, { compact: true });
 
   return (
     <div className="flex flex-col gap-4">
@@ -116,9 +113,7 @@ export function AccountsAnalyticsSidePanels({
 
             {/* Centered Total inside Donut */}
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center px-2">
-              <span className="text-sm font-black text-foreground font-mono tracking-tight leading-tight">
-                {currencySymbol} {format(displayTotal)}
-              </span>
+              <Amount value={displayTotal} currency={displayCurrency} size="sm" className="min-w-0 truncate" />
               <span className="text-[10px] font-semibold text-muted-foreground mt-0.5">
                 Total en cuentas
               </span>
@@ -143,8 +138,8 @@ export function AccountsAnalyticsSidePanels({
                       {cat.label}
                     </span>
                   </div>
-                  <span className="text-foreground font-mono font-bold">
-                    {cat.percentage.toFixed(1)}%
+                  <span className="text-foreground font-bold">
+                    {formatPercent(cat.percentage, preferences)}
                   </span>
                 </div>
               );
@@ -198,9 +193,7 @@ export function AccountsAnalyticsSidePanels({
         {/* Highlight pill of current total */}
         {latestPoint && (
           <div className="flex justify-end">
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-bold bg-purple-500/10 text-purple-600 dark:text-purple-300 border border-purple-500/30 shadow-xs font-mono">
-              $ {format(latestPoint.balance)}
-            </span>
+            <Amount value={latestPoint.balance} currency="USD" size="xs" className="inline-flex items-center px-2.5 py-0.5 rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-300 border border-purple-500/30 shadow-xs" />
           </div>
         )}
 
@@ -233,9 +226,7 @@ export function AccountsAnalyticsSidePanels({
                     return (
                       <div className="rounded-xl bg-popover border border-border p-2.5 shadow-xl text-xs">
                         <p className="text-muted-foreground font-medium">{data.month}</p>
-                        <p className="text-foreground font-black font-mono mt-0.5">
-                          $ {format(data.balance)}
-                        </p>
+                        <p className="mt-0.5"><Amount value={data.balance} currency="USD" size="sm" /></p>
                       </div>
                     );
                   }

@@ -1,8 +1,10 @@
 "use client";
 
+import React from "react";
 import { AccountDto } from "@/modules/ledger/domain/ledger.types";
 import { DraftDto } from "@/modules/ingestion/domain/ingestion.types";
 import { Check, Sparkles } from "lucide-react";
+import { Amount } from "@/shared/ui/amount";
 
 interface DraftsInboxProps {
   drafts: DraftDto[];
@@ -76,7 +78,6 @@ export function DraftsInbox({
       <div className="flex flex-col gap-2">
         {drafts.slice(0, 3).map((draft) => {
           const isIncome = draft.direction === "Income";
-          const formattedAmount = `${isIncome ? "+" : "-"}Bs ${draft.amount.toFixed(2)}`;
 
           return (
             <div
@@ -90,13 +91,12 @@ export function DraftsInbox({
 
               {/* Right: Amount + Ok button */}
               <div className="flex items-center gap-2 shrink-0">
-                <span
-                  className={`text-sm font-bold font-mono ${
-                    isIncome ? "text-emerald-400" : "text-foreground"
-                  }`}
-                >
-                  {formattedAmount}
-                </span>
+                <Amount
+                  value={isIncome ? draft.amount : draft.amount.negated()}
+                  currency={draft.currency}
+                  tone="neutral"
+                  size="sm"
+                />
 
                 <button
                   onClick={() => onConfirmDraft(draft, resolveAccountId(draft))}

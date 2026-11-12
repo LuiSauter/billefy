@@ -10,7 +10,10 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/shared/ui/chart";
-import { useNumberFormat } from "@/shared/hooks/use-number-format";
+import { useNumberPreferences } from "@/shared/hooks/use-number-format";
+import { formatAmountText } from "@/shared/lib/amount-format";
+import { Amount } from "@/shared/ui/amount";
+import { getCurrencyMeta } from "@/shared/lib/currency";
 
 interface CashFlowAreaChartProps {
   transactions: TransactionDto[];
@@ -30,9 +33,11 @@ const chartConfig = {
 
 export function CashFlowAreaChart({
   transactions,
-  currencySymbol = "Bs.",
+  currencySymbol = "BOB",
 }: CashFlowAreaChartProps) {
-  const format = useNumberFormat();
+  const preferences = useNumberPreferences();
+  const normalizedCurrencyLabel = currencySymbol.replace(/\.$/, "");
+  const currency = ["BOB", "USD"].find((code) => getCurrencyMeta(code).symbol === normalizedCurrencyLabel) ?? currencySymbol;
   const data = useMemo(() => {
     // Group transactions by day (or synthetic 7-day flow if empty)
     if (!transactions || transactions.length === 0) {
@@ -108,16 +113,12 @@ export function CashFlowAreaChart({
           <div className="flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
             <span className="text-muted-foreground">Ingresos:</span>
-            <span className="text-emerald-400 font-mono font-bold">
-              +{currencySymbol} {format(totalIncome)}
-            </span>
+            <Amount value={totalIncome} currency={currency} sign="always" tone="income" size="sm" />
           </div>
           <div className="flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
             <span className="text-muted-foreground">Gastos:</span>
-            <span className="text-rose-400 font-mono font-bold">
-              -{currencySymbol} {format(totalExpense)}
-            </span>
+            <Amount value={-totalExpense} currency={currency} tone="expense" size="sm" />
           </div>
         </div>
       </div>
@@ -147,8 +148,14 @@ export function CashFlowAreaChart({
             axisLine={false}
             tickMargin={8}
             tick={{ fill: "var(--muted-foreground)", fontSize: 11 }}
+            tickFormatter={(value: number) => formatAmountText(value, currency, preferences)}
           />
-          <ChartTooltip content={<ChartTooltipContent />} />
+          <ChartTooltip content={<ChartTooltipContent formatter={(value, name) => (
+            <div className="flex min-w-0 flex-1 justify-between gap-2">
+              <span className="truncate text-muted-foreground">{name}</span>
+              <Amount value={Number(value)} currency={currency} size="xs" />
+            </div>
+          )} />} />
           <Area
             type="monotone"
             dataKey="income"

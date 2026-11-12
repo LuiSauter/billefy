@@ -37,7 +37,7 @@ describe("AccountsHeaderStats", () => {
     expect(html).toContain("Cuentas");
     expect(html).toContain("Saldo total en cuentas");
     expect(html).toContain("$ 24.860,00");
-    expect(html).toContain("+6.8%");
+    expect(html).toContain("+6,80%");
     expect(html).toContain("Bancos");
     expect(html).toContain("Wallets digitales");
     expect(html).toContain("Cripto");

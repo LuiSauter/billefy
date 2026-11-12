@@ -17,7 +17,6 @@ import {
 import { AccountDto } from "../domain/ledger.types";
 import {
   classifyAccountCategory,
-  formatNativeBalance,
   getAccountSubtitle,
   getAccountVisualProfile,
   getCategoryBadge,
@@ -26,6 +25,7 @@ import {
 import { resolveAccountVisualMeta } from "../domain/account-meta";
 import { CategoryIconBadge } from "./CategoryIcon";
 import { useNumberFormat } from "@/shared/hooks/use-number-format";
+import { Amount } from "@/shared/ui/amount";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -221,9 +221,7 @@ export function AccountCard({
       {/* Middle row: Balance & Conversion */}
       <div className="my-3 pl-2 flex flex-col gap-0.5">
         <div className="flex items-baseline gap-1.5">
-          <span className="text-xl font-black text-foreground font-mono tracking-tight">
-            {formatNativeBalance(account.balance, account.currency, format)}
-          </span>
+          <Amount value={account.balance} currency={account.currency} size="lg" className="min-w-0 truncate" />
           {account.currency !== "BOB" && account.currency !== "USD" && (
             <span className="text-xs font-bold text-muted-foreground">
               {account.currency}
@@ -231,7 +229,7 @@ export function AccountCard({
           )}
         </div>
         {conversionLabel && (
-          <span className="text-xs font-semibold text-muted-foreground/90 font-mono">
+          <span className="text-xs font-semibold text-muted-foreground/90">
             {conversionLabel}
           </span>
         )}

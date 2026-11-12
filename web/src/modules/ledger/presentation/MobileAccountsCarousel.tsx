@@ -3,6 +3,7 @@
 import React from "react";
 import { PlusCircle } from "lucide-react";
 import { AccountDto } from "@/modules/ledger/domain/ledger.types";
+import { Amount } from "@/shared/ui/amount";
 
 interface MobileAccountsCarouselProps {
   accounts: AccountDto[];
@@ -41,14 +42,6 @@ export function MobileAccountsCarousel({
       ) : (
         <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-none snap-x">
           {accounts.map((acc) => {
-            const isUsdt = acc.currency === "USDT";
-            const bal = acc.balance.toNumber();
-            const formatted = isUsdt
-              ? `${bal.toFixed(0)} USDT`
-              : `Bs ${bal.toLocaleString("en-US", {
-                  minimumFractionDigits: 0,
-                  maximumFractionDigits: 0,
-                })}`;
             const dotColor =
               acc.type === "Bank"
                 ? "#3B82F6"
@@ -81,9 +74,7 @@ export function MobileAccountsCarousel({
                 <div className="text-sm font-semibold text-foreground truncate">
                   {acc.name}
                 </div>
-                <div className="text-sm font-extrabold font-mono text-foreground">
-                  {formatted}
-                </div>
+                <Amount value={acc.balance} currency={acc.currency} size="sm" />
               </div>
             );
           })}

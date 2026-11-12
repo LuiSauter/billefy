@@ -5,6 +5,8 @@ import { ArrowDownUp, HandCoins, Plus, Sparkles, PlusCircle, Landmark } from "lu
 import { AccountDto } from "@/modules/ledger/domain/ledger.types";
 import { BalanceMetrics } from "@/modules/ledger/domain/balance-calculator";
 import { MobileAccountsCarousel } from "@/modules/ledger/presentation/MobileAccountsCarousel";
+import { AccountBalanceDisplay } from "./AccountBalanceDisplay";
+import { Amount } from "@/shared/ui/amount";
 
 interface MobileWalletCardProps {
   metrics: BalanceMetrics;
@@ -34,14 +36,6 @@ export function MobileWalletCard({
   onOpenCreateAccount,
 }: MobileWalletCardProps) {
   const isBob = selectedCurrency === "BOB";
-  const mainAmount = isBob
-    ? `Bs. ${metrics.totalPatrimonioBob}`
-    : `$${metrics.consolidatedUsd} USD`;
-
-  const subAmount = isBob
-    ? `≈ $${metrics.consolidatedUsd} USD (P2P: Bs. ${p2pRate.toFixed(2)})`
-    : `≈ Bs. ${metrics.totalPatrimonioBob} (P2P: Bs. ${p2pRate.toFixed(2)})`;
-
   const hasAccounts = accounts.length > 0;
 
   return (
@@ -60,21 +54,15 @@ export function MobileWalletCard({
           </button>
         </div>
 
-        <div className="flex flex-col">
-          <div className="text-[32px] font-black tracking-tight font-mono text-white leading-tight">
-            {mainAmount}
-          </div>
-          <div className="text-sm font-semibold text-muted-foreground font-mono mt-0.5">
-            {subAmount}
-          </div>
-        </div>
+        <AccountBalanceDisplay bobAmount={metrics.totalPatrimonioBob} usdAmount={metrics.consolidatedUsd} p2pRate={p2pRate} selectedCurrency={selectedCurrency} size="xl" className="flex flex-col" amountClassName="text-white" />
 
         <div className="pt-2 border-t border-border flex items-center justify-between">
           <div className="px-2 py-0.5 rounded-[6px] bg-emerald-500/20 text-emerald-400 font-bold text-xs">
             {hasAccounts ? "Activo" : "Sin cuentas"}
           </div>
-          <div className="text-xs font-medium text-muted-foreground font-mono">
-            Bancos Bs. {metrics.bankLiquidityBob} • Cripto {metrics.cryptoUsdt} USDT
+          <div className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
+            <span>Bancos</span><Amount value={metrics.bankLiquidityBob} currency="BOB" size="xs" />
+            <span>• Cripto</span><Amount value={metrics.cryptoUsdt} currency="USDT" size="xs" />
           </div>
         </div>
       </div>

@@ -13,6 +13,9 @@ import {
 import { CATEGORY_COLOR_THEMES } from "@/modules/ledger/domain/category.types";
 import { useUserCategories } from "@/modules/ledger/application/CategoriesContext";
 import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from "@/shared/ui/chart";
+import { Amount } from "@/shared/ui/amount";
+import { useNumberPreferences } from "@/shared/hooks/use-number-format";
+import { formatAmountText, formatPercent } from "@/shared/lib/amount-format";
 
 interface CategoryDistributionCardProps {
   direction: "Income" | "Expense";
@@ -29,6 +32,7 @@ export function CategoryDistributionCard({
   p2pRate,
 }: CategoryDistributionCardProps) {
   const { findCategory } = useUserCategories();
+  const preferences = useNumberPreferences();
   const months = useMemo(() => getAvailableMonths(transactions), [transactions]);
   const [month, setMonth] = useState(() => monthKey(new Date()));
   const isIncome = direction === "Income";
@@ -90,7 +94,14 @@ export function CategoryDistributionCard({
           <div className="relative h-44 w-44 shrink-0">
             <ChartContainer config={chartConfig} className="h-44 w-44 aspect-square">
               <PieChart>
-                <ChartTooltip content={<ChartTooltipContent nameKey="name" />} />
+                <ChartTooltip content={<ChartTooltipContent nameKey="name" formatter={(value, name) => (
+                  <div className="flex min-w-0 flex-1 justify-between gap-2">
+                    <span className="truncate text-muted-foreground">{name}</span>
+                    <span className="shrink-0 font-sans font-medium text-foreground tabular-nums">
+                      {formatAmountText(Number(value), "BOB", preferences)}
+                    </span>
+                  </div>
+                )} />} />
                 <Pie
                   data={slices}
                   dataKey="value"
@@ -110,9 +121,7 @@ export function CategoryDistributionCard({
               <span className="text-[10px] font-bold uppercase text-muted-foreground">
                 Total
               </span>
-              <span className="text-sm font-extrabold font-mono text-foreground">
-                Bs {Math.round(total).toLocaleString("en-US")}
-              </span>
+              <Amount value={total} currency="BOB" size="sm" />
             </div>
           </div>
 
@@ -126,8 +135,8 @@ export function CategoryDistributionCard({
                   />
                   <span className="truncate font-semibold text-foreground">{s.name}</span>
                 </span>
-                <span className="font-mono font-bold text-muted-foreground shrink-0">
-                  {((s.value / total) * 100).toFixed(1)}%
+                <span className="font-bold text-muted-foreground shrink-0">
+                  {formatPercent((s.value / total) * 100, preferences)}
                 </span>
               </li>
             ))}

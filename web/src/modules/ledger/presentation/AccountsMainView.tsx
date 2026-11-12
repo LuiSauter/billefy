@@ -6,13 +6,13 @@ import { AccountDto } from "../domain/ledger.types";
 import { AccountCard } from "./AccountCard";
 import {
   classifyAccountCategory,
-  formatNativeBalance,
   getAccountSubtitle,
   getCategoryBadge,
   getCurrencyConversionLabel,
 } from "../domain/accounts-overview";
 import { EditAccountModal } from "./EditAccountModal";
 import { useNumberFormat } from "@/shared/hooks/use-number-format";
+import { Amount } from "@/shared/ui/amount";
 import { ResponsiveDrawer } from "@/shared/ui/responsive-drawer";
 import { Button } from "@/shared/ui/button";
 
@@ -165,9 +165,7 @@ export function AccountsMainView({
 
                 <div className="flex items-center gap-3">
                   <div className="text-right">
-                    <div className="text-sm sm:text-base font-black text-foreground font-mono">
-                      {formatNativeBalance(acc.balance, acc.currency, format)}
-                    </div>
+                    <Amount value={acc.balance} currency={acc.currency} size="sm" className="min-w-0 truncate" />
                     <div className="text-[11px] font-bold text-muted-foreground flex items-center justify-end gap-1.5">
                       <span>{acc.currency}</span>
                       {conversionLabel && (

@@ -20,6 +20,7 @@ import { MoneyInput } from "@/shared/ui/money-input";
 import { ResponsiveDrawer } from "@/shared/ui/responsive-drawer";
 import { SegmentedControl } from "@/shared/ui/segmented-control";
 import { currencyChipLabel, normalizeAmountString } from "@/shared/lib/keypad";
+import { Amount } from "@/shared/ui/amount";
 
 interface CreateAccountModalProps {
   isOpen: boolean;
@@ -153,11 +154,7 @@ export function CreateAccountModal({ isOpen, onClose, onSubmit, defaultCurrency 
               </span>
             </div>
           </div>
-          <span className="text-sm font-mono font-extrabold text-primary shrink-0">
-            {currency === "BOB" ? "Bs. " : currency === "USD" ? "$ " : ""}
-            {initialBalance.trim() || "0.00"}
-            {currency === "USDT" ? " USDT" : currency === "USDC" ? " USDC" : ""}
-          </span>
+          <Amount value={initialBalance.trim() || "0"} currency={currency} size="sm" className="shrink-0 text-primary" />
         </div>
 
         {/* Account Type Cards */}

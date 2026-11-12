@@ -12,7 +12,9 @@ import {
   ArrowUpRight,
   ArrowDownRight,
 } from "lucide-react";
-import { useNumberFormat } from "@/shared/hooks/use-number-format";
+import { useNumberPreferences } from "@/shared/hooks/use-number-format";
+import { formatPercent } from "@/shared/lib/amount-format";
+import { Amount } from "@/shared/ui/amount";
 import {
   AccountCategoryGroup,
   AccountsOverviewMetrics,
@@ -31,14 +33,10 @@ export function AccountsHeaderStats({
   onOpenCreateAccountModal,
   onOpenCsvModal,
 }: AccountsHeaderStatsProps) {
-  const formatNumber = useNumberFormat();
+  const preferences = useNumberPreferences();
   const isUsd = currency === "USD";
+  const displayCurrency = isUsd ? "USD" : "BOB";
   const displayTotal = isUsd ? metrics.totalUsd : metrics.totalBob;
-  const currencySymbol = isUsd ? "$" : "Bs.";
-
-  const formatAmount = (val: number) => {
-    return `${currencySymbol} ${formatNumber(val)}`;
-  };
 
   const categoryIcons: Record<
     AccountCategoryGroup,
@@ -151,9 +149,7 @@ export function AccountsHeaderStats({
           </div>
 
           <div className="my-2 relative z-10">
-            <div className="text-2xl sm:text-3xl font-black text-white tracking-tight font-mono">
-              {formatAmount(displayTotal)}
-            </div>
+            <Amount value={displayTotal} currency={displayCurrency} size="xl" className="text-white" />
           </div>
 
           <div className="flex items-center gap-2 relative z-10">
@@ -169,7 +165,7 @@ export function AccountsHeaderStats({
               ) : (
                 <ArrowDownRight className="w-3 h-3 stroke-[2.5]" />
               )}
-              {changePct !== null ? `${changePct > 0 ? "+" : ""}${changePct}%` : "+0.0%"}
+              {changePct !== null ? `${changePct < 0 ? "−" : changePct > 0 ? "+" : ""}${formatPercent(changePct, preferences)}` : `+${formatPercent(0, preferences)}`}
             </span>
             <span className="text-[11px] font-medium text-purple-200/70">
               vs. mes anterior
@@ -200,15 +196,13 @@ export function AccountsHeaderStats({
                   </span>
                 </div>
 
-                <div className="my-2 text-base sm:text-[17px] font-bold text-foreground font-mono truncate">
-                  {formatAmount(displayCatAmount)}
-                </div>
+                <Amount value={displayCatAmount} currency={displayCurrency} size="md" className="my-2 min-w-0 truncate" />
 
                 <div>
                   <span
                     className={`inline-block px-2 py-0.5 rounded-full text-[11px] font-bold border ${config.badgeClasses}`}
                   >
-                    {cat.percentage.toFixed(1)}%
+                    {formatPercent(cat.percentage, preferences)}
                   </span>
                 </div>
               </div>
