@@ -14,7 +14,9 @@ import { CATEGORY_COLOR_THEMES } from "@/modules/ledger/domain/category.types";
 import { useUserCategories } from "@/modules/ledger/application/CategoriesContext";
 import { CategoryIconBadge } from "@/modules/ledger/presentation/CategoryIcon";
 import { Button } from "@/shared/ui/button";
-import { useNumberFormat } from "@/shared/hooks/use-number-format";
+import { useNumberPreferences } from "@/shared/hooks/use-number-format";
+import { formatPercent } from "@/shared/lib/amount-format";
+import { Amount } from "@/shared/ui/amount";
 import { Input } from "@/shared/ui/input";
 import {
   PLAN_PRESETS,
@@ -40,7 +42,7 @@ export function DistributionPlanView({
 }: DistributionPlanViewProps) {
   const { plan, setBuckets, setEnabled, validationErrors } = controller;
   const { buckets } = plan;
-  const format = useNumberFormat();
+  const preferences = useNumberPreferences();
   const { getCategoriesByDirection } = useUserCategories();
   const expenseCategories = getCategoriesByDirection("Expense");
   const [editOverride, setEditOverride] = useState<boolean | null>(null);
@@ -102,8 +104,8 @@ export function DistributionPlanView({
           </h1>
           <p className="text-xs font-medium text-muted-foreground mt-0.5">
             {monthLabel(month)} • Ingresos del mes:{" "}
-            <span className="font-mono font-bold text-foreground">
-              Bs {format(income)}
+            <span className="font-bold text-foreground">
+              <Amount value={income} currency="BOB" size="sm" className="text-foreground" />
             </span>
           </p>
         </div>
@@ -253,11 +255,11 @@ export function DistributionPlanView({
               <Plus className="w-4 h-4" /> Agregar grupo
             </Button>
             <span
-              className={`text-sm font-extrabold font-mono ${
+              className={`text-sm font-extrabold ${
                 total === 100 ? "text-emerald-500" : "text-rose-500"
               }`}
             >
-              Total: {total}%
+              Total: {formatPercent(total, preferences)}
             </span>
           </div>
 
@@ -290,11 +292,11 @@ export function DistributionPlanView({
                     <span className="w-3 h-3 rounded-full" style={{ backgroundColor: theme.swatchHex }} />
                     {b.name}
                   </span>
-                  <span className="text-xs font-bold text-muted-foreground">{b.percent}%</span>
+                  <span className="text-xs font-bold text-muted-foreground">{formatPercent(b.percent, preferences)}</span>
                 </div>
                 {bucketTrackingMode(b) === "TargetOnly" ? (
                   <>
-                    <p className="text-sm font-bold font-mono">Objetivo asignado: Bs {format(target)}</p>
+                    <p className="text-sm font-bold">Objetivo asignado: <Amount value={target} currency="BOB" size="sm" /></p>
                     <p className="text-xs text-muted-foreground">No registra aportes ni mide avance de ahorro/inversión.</p>
                   </>
                 ) : <>
@@ -307,13 +309,9 @@ export function DistributionPlanView({
                     }}
                   />
                 </div>
-                <div className="flex items-center justify-between text-xs font-mono">
-                  <span className={over ? "text-rose-500 font-bold" : "text-foreground font-bold"}>
-                    Bs {format(spent)}
-                  </span>
-                  <span className="text-muted-foreground">
-                    de Bs {format(target)}
-                  </span>
+                <div className="flex items-center justify-between gap-2 text-xs">
+                  <Amount value={spent} currency="BOB" size="xs" className={over ? "text-rose-500" : "text-foreground"} />
+                  <span className="text-muted-foreground">de <Amount value={target} currency="BOB" size="xs" /></span>
                 </div>
                 </>}
               </div>

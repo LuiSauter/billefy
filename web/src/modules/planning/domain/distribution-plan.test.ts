@@ -99,7 +99,7 @@ describe("plan UI contract (static rendering, not browser interaction)", () => {
 
   it("retains legacy expense progress regardless of the group name", () => {
     const html = render([bucket({ name: "Ahorro", percent: 100 })]);
-    expect(html).toContain("de Bs");
+    expect(html).toMatch(/de\s*(?:<[^>]+>)*\s*Bs/);
     expect(html).toContain("overflow-hidden");
     expect(html).not.toContain("No registra aportes");
   });

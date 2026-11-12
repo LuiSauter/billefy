@@ -27,20 +27,20 @@ const render = (value: DistributionPlan | undefined = plan, items = budgets) =>
 describe("distribution plan guide presentation", () => {
   it("shows the loaded custom plan and configured limits per currency, not spending or income allocations", () => {
     const html = render();
-    for (const text of ["Mi hogar", "75%", "Gastos", "BOB 80", "USD 12", "EUR 90", "USD 7", "Límites generales", "Categorías sin grupo"]) {
+    for (const text of ["Mi hogar", "75,00%", "Gastos", "Bs 80,00", "$ 12,00", "€ 90,00", "$ 7,00", "Límites generales", "Categorías sin grupo"]) {
       expect(html).toContain(text);
     }
     expect(html).not.toContain("987654");
     expect(html).not.toContain("50 / 30 / 20");
     const target = html.split("<article").find((part) => part.includes("Reserva"))!.split("</article>")[0];
-    expect(target).toContain("25%");
+    expect(target).toContain("25,00%");
     expect(target).toContain("Solo objetivo");
     expect(target).not.toMatch(/BOB|USD|EUR|progress|contribuciones/);
   });
 
   it("retains percentage guidance with no budgets and explicitly explains missing configured caps", () => {
     const html = render(plan, []);
-    expect(html).toContain("75%");
+    expect(html).toContain("75,00%");
     expect(html).toContain("Sin límites configurados");
     expect(html).not.toContain("BOB 0");
   });
@@ -80,7 +80,7 @@ describe("distribution plan guide load states", () => {
 
   it("keeps the last loaded plan with a stale warning when a refresh fails", () => {
     const html = renderStatus("stale");
-    expect(html).toContain("75%");
+    expect(html).toContain("75,00%");
     expect(html).toContain("puede estar desactualizado");
     expect(html).toContain("Reintentar");
   });

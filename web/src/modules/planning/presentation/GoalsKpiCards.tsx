@@ -3,13 +3,17 @@
 import React from "react";
 import { Target, TrendingUp, Calendar, Trophy, Plane } from "lucide-react";
 import { GoalDto } from "../domain/planning.types";
+import { Amount } from "@/shared/ui/amount";
+import { formatPercent } from "@/shared/lib/amount-format";
+import { useNumberPreferences } from "@/shared/hooks/use-number-format";
 
 interface GoalsKpiCardsProps {
   goals: GoalDto[];
-  formatMoney: (amount: number) => string;
+  currency: string;
 }
 
-export function GoalsKpiCards({ goals, formatMoney }: GoalsKpiCardsProps) {
+export function GoalsKpiCards({ goals, currency }: GoalsKpiCardsProps) {
+  const preferences = useNumberPreferences();
   const totalGoals = goals.length;
   const completedGoals = goals.filter((g) => (g.percentageAchieved ?? 0) >= 100).length;
   const activeGoals = totalGoals - completedGoals;
@@ -50,10 +54,10 @@ export function GoalsKpiCards({ goals, formatMoney }: GoalsKpiCardsProps) {
             Metas activas
           </span>
           <div className="flex items-baseline gap-2 mt-0.5">
-            <span className="text-2xl font-black text-white font-mono">
+            <span className="text-2xl font-black text-white">
               {activeGoals}
             </span>
-            <span className="text-xs font-medium text-slate-400 font-mono">
+            <span className="text-xs font-medium text-slate-400">
               de {totalGoals} totales
             </span>
           </div>
@@ -70,8 +74,8 @@ export function GoalsKpiCards({ goals, formatMoney }: GoalsKpiCardsProps) {
             <span className="text-xs font-semibold text-slate-400 truncate">
               Progreso promedio
             </span>
-            <span className="text-2xl font-black text-white font-mono mt-0.5">
-              {avgProgress}%
+            <span className="text-2xl font-black text-white mt-0.5">
+              {formatPercent(avgProgress, preferences)}
             </span>
           </div>
         </div>
@@ -111,9 +115,7 @@ export function GoalsKpiCards({ goals, formatMoney }: GoalsKpiCardsProps) {
           <span className="text-xs font-semibold text-slate-400 truncate">
             Ahorro mensual total
           </span>
-          <span className="text-2xl font-black text-white font-mono mt-0.5">
-            {formatMoney(totalMonthlySavings)}
-          </span>
+          <Amount value={totalMonthlySavings} currency={currency} size="xl" className="mt-0.5" />
           <span className="text-[11px] font-semibold text-slate-400 flex items-center gap-1 mt-0.5">
             {totalMonthlySavings > 0
               ? "Requerido para cumplir objetivos"

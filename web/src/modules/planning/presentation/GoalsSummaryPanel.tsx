@@ -4,18 +4,22 @@ import React, { useMemo } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import { Lightbulb, ArrowRight, Target } from "lucide-react";
 import { GoalDto } from "../domain/planning.types";
+import { Amount } from "@/shared/ui/amount";
+import { formatPercent } from "@/shared/lib/amount-format";
+import { useNumberPreferences } from "@/shared/hooks/use-number-format";
 
 interface GoalsSummaryPanelProps {
   goals: GoalDto[];
-  formatMoney: (amount: number) => string;
+  currency: string;
   onOpenPlan?: () => void;
 }
 
 export function GoalsSummaryPanel({
   goals,
-  formatMoney,
+  currency,
   onOpenPlan,
 }: GoalsSummaryPanelProps) {
+  const preferences = useNumberPreferences();
   const totalTarget = goals.reduce((acc, g) => acc + (Number(g.targetAmount) || 0), 0);
   const totalCurrent = goals.reduce((acc, g) => acc + (Number(g.currentAmount) || 0), 0);
   const activeCount = goals.filter((g) => (g.percentageAchieved ?? 0) < 100).length;
@@ -68,12 +72,8 @@ export function GoalsSummaryPanel({
               <span className="text-[11px] font-medium text-muted-foreground leading-tight">
                 {activeCount} {activeCount === 1 ? "meta activa" : "metas activas"}
               </span>
-              <span className="text-base font-black text-foreground font-mono leading-tight my-0.5">
-                {formatMoney(totalCurrent)}
-              </span>
-              <span className="text-[10px] text-muted-foreground font-mono">
-                de {formatMoney(totalTarget)}
-              </span>
+              <Amount value={totalCurrent} currency={currency} size="md" className="leading-tight my-0.5" />
+              <span className="text-[10px] text-muted-foreground">de <Amount value={totalTarget} currency={currency} size="xs" /></span>
             </div>
           </div>
 
@@ -96,8 +96,8 @@ export function GoalsSummaryPanel({
                       {item.name}
                     </span>
                   </div>
-                  <span className="font-mono font-bold text-foreground text-[11px] shrink-0">
-                    {item.percentage}%
+                  <span className="font-bold text-foreground text-[11px] shrink-0">
+                    {formatPercent(item.percentage, preferences)}
                   </span>
                 </div>
               ))
@@ -139,8 +139,8 @@ export function GoalsSummaryPanel({
                           {item.name}
                         </span>
                       </div>
-                      <span className="font-mono font-bold text-foreground text-xs whitespace-nowrap shrink-0">
-                        {formatMoney(monthlyAmount)} / mes
+                      <span className="font-bold text-foreground text-xs whitespace-nowrap shrink-0">
+                        <Amount value={monthlyAmount} currency={item.currency} size="xs" /> / mes
                       </span>
                     </div>
 

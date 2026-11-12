@@ -1,6 +1,8 @@
 "use client";
 
 import React from "react";
+import { useNumberPreferences } from "@/shared/hooks/use-number-format";
+import { formatAmountText, formatPercent } from "@/shared/lib/amount-format";
 import { useUserCategories } from "@/modules/ledger/application/CategoriesContext";
 import { buildBudgetPlanGuide, CurrencyCap } from "../domain/budget-plan-guide";
 import { DistributionPlan } from "../domain/distribution-plan";
@@ -40,14 +42,16 @@ function PlanLoadAlert({ message, onRetry }: { message: string; onRetry?: () => 
 }
 
 function ConfiguredCaps({ caps }: { caps: CurrencyCap[] }) {
+  const preferences = useNumberPreferences();
   return caps.length ? (
-    <ul className="flex flex-wrap gap-x-4 gap-y-1 font-mono text-sm text-foreground">
-      {caps.map((cap) => <li key={cap.currency}>{cap.currency} {cap.amount}</li>)}
+    <ul className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-foreground">
+      {caps.map((cap) => <li key={cap.currency}>{formatAmountText(cap.amount, cap.currency, preferences)}</li>)}
     </ul>
   ) : <p className="text-sm text-muted-foreground">Sin límites configurados.</p>;
 }
 
 export function DistributionPlanGuide({ plan, budgets, planStatus = "loaded", onRetryPlan }: DistributionPlanGuideProps) {
+  const preferences = useNumberPreferences();
   const { categories } = useUserCategories();
   const guide = buildBudgetPlanGuide(plan, budgets, categories.filter((c) => c.direction === "Expense").map((c) => c.id));
 
@@ -84,7 +88,7 @@ export function DistributionPlanGuide({ plan, budgets, planStatus = "loaded", on
               <article key={group.id} className="min-w-0 rounded-xl border border-border bg-background p-3.5 sm:p-4 space-y-2">
                 <div className="flex items-center justify-between gap-2 font-bold text-foreground">
                   <h3 className="text-sm sm:text-base truncate min-w-0">{group.name}</h3>
-                  <span className="text-primary font-mono text-sm sm:text-base shrink-0">{group.percent}%</span>
+                  <span className="text-primary text-sm sm:text-base shrink-0">{formatPercent(group.percent, preferences)}</span>
                 </div>
                 <div className="text-xs text-muted-foreground flex items-center gap-1.5">
                   <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary/60" />

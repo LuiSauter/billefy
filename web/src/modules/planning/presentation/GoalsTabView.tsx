@@ -1,10 +1,9 @@
 "use client";
 
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo } from "react";
 import { Plus, Search, ChevronDown } from "lucide-react";
 import { GoalDto, UpdateGoalRequest } from "../domain/planning.types";
 import { AccountDto } from "@/modules/ledger/domain/ledger.types";
-import { formatNumber } from "@/shared/lib/number-format";
 import { notify } from "@/shared/lib/notify";
 
 // Presentation Components
@@ -50,17 +49,6 @@ export function GoalsTabView({
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<GoalStatusFilter>("Todas");
   const [sortBy, setSortBy] = useState<GoalSortOption>("fecha");
-
-  // Currency Formatter
-  const formatMoney = useCallback(
-    (amount: number) => {
-      const isUsd = selectedCurrency === "USD";
-      const convention = isUsd ? "en-US" : "es-BO";
-      const formatted = formatNumber(amount, convention, 2);
-      return isUsd ? `$ ${formatted}` : `Bs. ${formatted}`;
-    },
-    [selectedCurrency]
-  );
 
   // Filtered & Sorted Goals
   const filteredGoals = useMemo(() => {
@@ -156,7 +144,7 @@ export function GoalsTabView({
       </div>
 
       {/* 2. Top 4 KPI Cards */}
-      <GoalsKpiCards goals={goals} formatMoney={formatMoney} />
+      <GoalsKpiCards goals={goals} currency={selectedCurrency} />
 
       {/* 3. Filter & Search Toolbar */}
       <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
@@ -249,7 +237,6 @@ export function GoalsTabView({
               <GoalCard
                 key={goal.id}
                 goal={goal}
-                formatMoney={formatMoney}
                 onEdit={setEditingGoal}
                 onDelete={handleDeleteGoal}
               />
@@ -261,7 +248,7 @@ export function GoalsTabView({
         <div className="lg:col-span-4">
           <GoalsSummaryPanel
             goals={goals}
-            formatMoney={formatMoney}
+            currency={selectedCurrency}
             onOpenPlan={onOpenPlan}
           />
         </div>

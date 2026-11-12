@@ -1,7 +1,9 @@
 import React from "react";
 import { FinancialHealthDto } from "@/modules/planning/domain/planning.types";
 import { netCashFlowHint } from "@/modules/planning/domain/goals-overview";
-import { useNumberFormat } from "@/shared/hooks/use-number-format";
+import { useNumberPreferences } from "@/shared/hooks/use-number-format";
+import { formatPercent } from "@/shared/lib/amount-format";
+import { Amount } from "@/shared/ui/amount";
 
 interface HealthIndicatorsCardProps { health: FinancialHealthDto | null; loading?: boolean; error?: Error | null; onRetry?: () => void; }
 function monthLabel(date: string) {
@@ -10,8 +12,7 @@ function monthLabel(date: string) {
   return new Intl.DateTimeFormat("es", { month: "long", year: "numeric", timeZone: "UTC" }).format(parsed);
 }
 export function HealthIndicatorsCard({ health, loading = false, error = null, onRetry = () => {} }: HealthIndicatorsCardProps) {
-  const format = useNumberFormat();
-  const money = (value: number, currency: string) => `${format(value)} ${currency}`;
+  const preferences = useNumberPreferences();
   const retry = <button type="button" onClick={onRetry} className="min-h-11 rounded-lg border border-border px-4 font-semibold hover:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">Reintentar</button>;
   return <section aria-labelledby="health-heading" className="min-w-0 rounded-2xl border border-border bg-card p-4 sm:p-6">
     <h2 id="health-heading" className="text-lg font-extrabold">Tu mes</h2>
@@ -23,12 +24,12 @@ export function HealthIndicatorsCard({ health, loading = false, error = null, on
     {health && health.currencies.length > 0 && <ul className="mt-4 grid min-w-0 gap-3 sm:grid-cols-2">{health.currencies.map((item) => <li key={item.currency} className="min-w-0 rounded-xl border border-border bg-background p-4">
       <h3 className="font-bold">{item.currency}</h3>
       <dl className="mt-3 grid min-w-0 gap-y-2 text-sm">
-        <div className="flex min-w-0 flex-wrap justify-between gap-x-2"><dt className="text-muted-foreground">Ingresos del mes</dt><dd className="max-w-full break-all text-right font-mono">{money(item.monthlyIncome, item.currency)}</dd></div>
-        <div className="flex min-w-0 flex-wrap justify-between gap-x-2"><dt className="text-muted-foreground">Gastos del mes</dt><dd className="max-w-full break-all text-right font-mono">{money(item.monthlyExpenses, item.currency)}</dd></div>
-        <div className={`flex min-w-0 flex-wrap justify-between gap-x-2 font-semibold ${item.netCashFlow < 0 ? "text-rose-600 dark:text-rose-400" : ""}`}><dt>{item.netCashFlow < 0 ? "Déficit del mes" : "Flujo neto"}</dt><dd className="max-w-full break-all text-right font-mono">{money(item.netCashFlow, item.currency)}</dd></div>
-        <div className="flex min-w-0 flex-wrap justify-between gap-x-2"><dt className="text-muted-foreground">Tasa de ahorro</dt><dd className="font-mono">{item.savingsRatePercentage === null ? "No disponible" : `${item.savingsRatePercentage}%`}</dd></div>
-        <div className="flex min-w-0 flex-wrap justify-between gap-x-2"><dt className="text-muted-foreground">Saldo actual</dt><dd className="max-w-full break-all text-right font-mono">{money(item.currentBalance, item.currency)}</dd></div>
-        <div className="flex min-w-0 flex-wrap justify-between gap-x-2"><dt className="text-muted-foreground">Capital de deuda pendiente</dt><dd className="max-w-full break-all text-right font-mono">{money(item.outstandingDebtPrincipal, item.currency)}</dd></div>
+        <div className="flex min-w-0 flex-wrap justify-between gap-x-2"><dt className="text-muted-foreground">Ingresos del mes</dt><dd className="max-w-full text-right"><Amount value={item.monthlyIncome} currency={item.currency} size="sm" /></dd></div>
+        <div className="flex min-w-0 flex-wrap justify-between gap-x-2"><dt className="text-muted-foreground">Gastos del mes</dt><dd className="max-w-full text-right"><Amount value={item.monthlyExpenses} currency={item.currency} size="sm" /></dd></div>
+        <div className={`flex min-w-0 flex-wrap justify-between gap-x-2 font-semibold ${item.netCashFlow < 0 ? "text-rose-600 dark:text-rose-400" : ""}`}><dt>{item.netCashFlow < 0 ? "Déficit del mes" : "Flujo neto"}</dt><dd className="max-w-full text-right"><Amount value={item.netCashFlow} currency={item.currency} size="sm" tone={item.netCashFlow < 0 ? "expense" : "neutral"} /></dd></div>
+        <div className="flex min-w-0 flex-wrap justify-between gap-x-2"><dt className="text-muted-foreground">Tasa de ahorro</dt><dd>{item.savingsRatePercentage === null ? "No disponible" : formatPercent(item.savingsRatePercentage, preferences)}</dd></div>
+        <div className="flex min-w-0 flex-wrap justify-between gap-x-2"><dt className="text-muted-foreground">Saldo actual</dt><dd className="max-w-full text-right"><Amount value={item.currentBalance} currency={item.currency} size="sm" /></dd></div>
+        <div className="flex min-w-0 flex-wrap justify-between gap-x-2"><dt className="text-muted-foreground">Capital de deuda pendiente</dt><dd className="max-w-full text-right"><Amount value={item.outstandingDebtPrincipal} currency={item.currency} size="sm" /></dd></div>
       </dl>
       {netCashFlowHint(item.monthlyIncome, item.monthlyExpenses) && <p className="mt-3 rounded-lg bg-rose-500/10 p-2 text-sm text-rose-700 dark:text-rose-300">{netCashFlowHint(item.monthlyIncome, item.monthlyExpenses)}</p>}
     </li>)}</ul>}

@@ -16,10 +16,12 @@ import {
   Target,
 } from "lucide-react";
 import { GoalDto } from "../domain/planning.types";
+import { Amount } from "@/shared/ui/amount";
+import { formatPercent } from "@/shared/lib/amount-format";
+import { useNumberPreferences } from "@/shared/hooks/use-number-format";
 
 interface GoalCardProps {
   goal: GoalDto;
-  formatMoney: (amount: number) => string;
   onEdit?: (goal: GoalDto) => void;
   onDelete?: (id: string) => void;
 }
@@ -75,7 +77,8 @@ export function getGoalIconAndTheme(name: string) {
   };
 }
 
-export function GoalCard({ goal, formatMoney, onEdit, onDelete }: GoalCardProps) {
+export function GoalCard({ goal, onEdit, onDelete }: GoalCardProps) {
+  const preferences = useNumberPreferences();
   const target = Number(goal.targetAmount) || 0;
   const current = Number(goal.currentAmount) || 0;
   const percentage = Math.min(100, Math.max(0, Math.round(goal.percentageAchieved ?? 0)));
@@ -99,14 +102,14 @@ export function GoalCard({ goal, formatMoney, onEdit, onDelete }: GoalCardProps)
     );
   } else if (isPaused) {
     statusBadge = (
-      <span className="px-2.5 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-slate-400 text-[11px] font-bold">
+      <span className="px-2.5 py-0.5 rounded-full bg-muted border border-border text-muted-foreground text-[11px] font-bold">
         Pausada
       </span>
     );
   }
 
   return (
-    <div className="bg-[#131B2E] border border-[#1E293B] rounded-[20px] p-5 flex flex-col justify-between gap-4 shadow-sm hover:border-slate-700/80 transition-all">
+    <div className="bg-card border border-border rounded-[20px] p-5 flex flex-col justify-between gap-4 shadow-sm hover:border-muted-foreground/50 transition-all">
       {/* 1. Header with Icon Badge, Title, Subtitle, Badge & 3-dots */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
@@ -117,10 +120,10 @@ export function GoalCard({ goal, formatMoney, onEdit, onDelete }: GoalCardProps)
           </div>
 
           <div className="flex flex-col min-w-0">
-            <h3 className="text-[15px] font-black text-white truncate tracking-tight">
+            <h3 className="text-[15px] font-black text-foreground truncate tracking-tight">
               {goal.name}
             </h3>
-            <p className="text-xs text-slate-400 font-medium truncate mt-0.5">
+            <p className="text-xs text-muted-foreground font-medium truncate mt-0.5">
               {goal.accountName ? `Cuenta: ${goal.accountName}` : "Sin cuenta vinculada"}
             </p>
           </div>
@@ -131,7 +134,7 @@ export function GoalCard({ goal, formatMoney, onEdit, onDelete }: GoalCardProps)
           {statusBadge}
           <button
             type="button"
-            className="p-1 text-slate-400 hover:text-white transition"
+            className="p-1 text-muted-foreground hover:text-foreground transition"
             title="Opciones"
           >
             <MoreVertical className="w-3.5 h-3.5" />
@@ -143,13 +146,13 @@ export function GoalCard({ goal, formatMoney, onEdit, onDelete }: GoalCardProps)
       <div className="flex items-center gap-3 pt-1">
         {/* Radial Ring */}
         <div className="relative w-12 h-12 flex items-center justify-center shrink-0">
-          <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
+          <svg className="w-full h-full -rotate-90 text-muted-foreground" viewBox="0 0 36 36">
             <circle
               cx="18"
               cy="18"
               r="14"
               fill="none"
-              stroke="#1E293B"
+              stroke="currentColor"
               strokeWidth="3.5"
             />
             <circle
@@ -164,42 +167,35 @@ export function GoalCard({ goal, formatMoney, onEdit, onDelete }: GoalCardProps)
               strokeLinecap="round"
             />
           </svg>
-          <span className="absolute text-[11px] font-black font-mono text-white">
-            {percentage}%
+          <span className="absolute text-[11px] font-black text-foreground">
+            {formatPercent(percentage, preferences)}
           </span>
         </div>
 
         {/* Numbers + Bar */}
         <div className="flex-1 flex flex-col gap-1.5 min-w-0">
-          <div className="flex items-center justify-end font-mono text-xs font-bold text-white">
-            <span>
-              {formatMoney(current)} / {formatMoney(target)}
-            </span>
+          <div className="flex items-center justify-end gap-1 text-xs min-w-0">
+            <Amount value={current} currency={goal.currency} size="xs" />
+            <span className="text-muted-foreground">/</span>
+            <Amount value={target} currency={goal.currency} size="xs" />
           </div>
-          <div className="w-full h-2 rounded-full bg-[#1E293B] overflow-hidden">
+          <div className="w-full h-2 rounded-full bg-muted overflow-hidden">
             <div
-              className="h-full rounded-full transition-all duration-300"
-              style={{
-                width: `${percentage}%`,
-                backgroundColor: isCompleted
-                  ? "#A855F7"
-                  : isPaused
-                  ? "#64748B"
-                  : "#7C3AED",
-              }}
+              className={`h-full rounded-full transition-all duration-300 ${isCompleted ? "bg-purple-500" : isPaused ? "bg-muted-foreground" : "bg-primary"}`}
+              style={{ width: `${percentage}%` }}
             />
           </div>
         </div>
       </div>
 
       {/* 3. Target Date & Remaining Time */}
-      <div className="flex items-center justify-between text-xs text-slate-400 font-medium">
+      <div className="flex items-center justify-between text-xs text-muted-foreground font-medium">
         <div className="flex items-center gap-1.5 truncate">
-          <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+          <Calendar className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
           <span>{goal.targetDate || "Sin fecha fija"}</span>
         </div>
 
-        <span className="font-semibold text-slate-300 shrink-0">
+        <span className="font-semibold text-muted-foreground shrink-0">
           {isCompleted ? (
             <span className="text-sky-400 flex items-center gap-1">
               <CheckCircle2 className="w-3.5 h-3.5" />
@@ -215,21 +211,21 @@ export function GoalCard({ goal, formatMoney, onEdit, onDelete }: GoalCardProps)
 
       {/* 4. Tag Pills (Real currency & tracking mode) */}
       <div className="flex flex-wrap gap-1.5">
-        <span className="px-3 py-0.5 rounded-full bg-[#1A2338] text-slate-300 text-[11px] font-medium border border-slate-700/50">
+        <span className="px-3 py-0.5 rounded-full bg-muted text-muted-foreground text-[11px] font-medium border border-border">
           {goal.currency}
         </span>
-        <span className="px-3 py-0.5 rounded-full bg-[#1A2338] text-slate-300 text-[11px] font-medium border border-slate-700/50">
+        <span className="px-3 py-0.5 rounded-full bg-muted text-muted-foreground text-[11px] font-medium border border-border">
           {goal.trackingStatus === "tracked" ? "Vinculada" : "Sin vincular"}
         </span>
         {goal.monthlyContributionNeeded ? (
-          <span className="px-3 py-0.5 rounded-full bg-[#1A2338] text-slate-300 text-[11px] font-medium border border-slate-700/50 font-mono">
-            {formatMoney(goal.monthlyContributionNeeded)}/mes
+          <span className="px-3 py-0.5 rounded-full bg-muted text-muted-foreground text-[11px] font-medium border border-border">
+            <Amount value={goal.monthlyContributionNeeded} currency={goal.currency} size="xs" />/mes
           </span>
         ) : null}
       </div>
 
       {/* 5. Footer: "Ver detalles →" and Actions (Pencil, Trash) */}
-      <div className="flex items-center justify-between pt-3 border-t border-[#1E293B]/80">
+      <div className="flex items-center justify-between pt-3 border-t border-border">
         <button
           type="button"
           onClick={() => onEdit?.(goal)}
@@ -244,7 +240,7 @@ export function GoalCard({ goal, formatMoney, onEdit, onDelete }: GoalCardProps)
             <button
               type="button"
               onClick={() => onEdit(goal)}
-              className="p-1 text-slate-500 hover:text-slate-300 transition"
+              className="p-1 text-muted-foreground hover:text-foreground transition"
               title="Editar meta"
             >
               <Pencil className="w-3.5 h-3.5" />
@@ -254,7 +250,7 @@ export function GoalCard({ goal, formatMoney, onEdit, onDelete }: GoalCardProps)
             <button
               type="button"
               onClick={() => onDelete(goal.id)}
-              className="p-1 text-slate-500 hover:text-rose-400 transition"
+              className="p-1 text-muted-foreground hover:text-destructive transition"
               title="Eliminar meta"
             >
               <Trash2 className="w-3.5 h-3.5" />

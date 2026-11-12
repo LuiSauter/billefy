@@ -27,6 +27,8 @@ import { FormField } from "@/shared/ui/form-field";
 import { Input } from "@/shared/ui/input";
 import { MoneyInput } from "@/shared/ui/money-input";
 import { ResponsiveDrawer } from "@/shared/ui/responsive-drawer";
+import { Amount } from "@/shared/ui/amount";
+import { formatCurrencyLabel } from "@/shared/lib/currency";
 import { SegmentedControl } from "@/shared/ui/segmented-control";
 import {
   Select,
@@ -547,7 +549,7 @@ export function CreateRecurringModal({
                 <MoneyInput
                   {...control}
                   size="lg"
-                  currency={currency === "BOB" ? "Bs" : currency === "USD" ? "$" : "USDT"}
+                  currency={formatCurrencyLabel(currency)}
                   value={amount}
                   onValueChange={setAmount}
                 />
@@ -719,9 +721,9 @@ export function CreateRecurringModal({
                           <span className="text-xs font-extrabold truncate">{acc.name}</span>
                           {isSelected && <Check className="w-3.5 h-3.5 text-primary" />}
                         </div>
-                        <div className="flex items-center justify-between text-[11px] font-mono text-muted-foreground">
+                        <div className="flex items-center justify-between text-[11px] text-muted-foreground">
                           <span>{acc.currency}</span>
-                          <span className="font-semibold text-foreground">{acc.balance.toFixed(2)}</span>
+                          <Amount value={acc.balance} currency={acc.currency} size="xs" className="text-foreground" />
                         </div>
                       </button>
                     );

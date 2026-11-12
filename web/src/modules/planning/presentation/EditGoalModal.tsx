@@ -11,6 +11,7 @@ import { Input } from "@/shared/ui/input";
 import { MoneyInput } from "@/shared/ui/money-input";
 import { ResponsiveDrawer } from "@/shared/ui/responsive-drawer";
 import { SelectField } from "@/shared/ui/select-field";
+import { formatCurrencyLabel } from "@/shared/lib/currency";
 
 export interface EditGoalModalProps {
   goal: GoalDto;
@@ -76,8 +77,7 @@ export function EditGoalModal({
     }
   };
 
-  const currencySymbol =
-    goal.currency === "BOB" ? "Bs" : goal.currency === "USD" ? "$" : goal.currency;
+  const currencySymbol = formatCurrencyLabel(goal.currency);
 
   return (
     <ResponsiveDrawer
@@ -137,7 +137,7 @@ export function EditGoalModal({
               type="text"
               value={`${goal.currency} (${currencySymbol})`}
               readOnly
-              className="bg-muted/50 cursor-not-allowed font-mono text-xs"
+              className="bg-muted/50 cursor-not-allowed text-xs"
             />
           )}
         </FormField>

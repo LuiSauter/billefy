@@ -4,6 +4,9 @@ import React from "react";
 import { Plus } from "lucide-react";
 import { GoalDto } from "@/modules/planning/domain/planning.types";
 import { buildGoalOverview } from "@/modules/planning/domain/goals-overview";
+import { Amount } from "@/shared/ui/amount";
+import { formatPercent } from "@/shared/lib/amount-format";
+import { useNumberPreferences } from "@/shared/hooks/use-number-format";
 
 interface FinancialGoalsViewProps {
   goals: GoalDto[];
@@ -17,6 +20,7 @@ const retryClass = "min-h-11 rounded-lg border border-border px-4 font-semibold 
 const statusCopy = { unlinked: "Sin cuenta vinculada", unavailable: "Cuenta no disponible", currency_mismatch: "Moneda distinta" } as const;
 
 export function FinancialGoalsView({ goals, loading = false, error = null, onRetry = () => {}, onOpenCreateGoalModal, onOpenAccounts }: FinancialGoalsViewProps) {
+  const preferences = useNumberPreferences();
   const hasData = goals.length > 0;
   return (
     <section aria-labelledby="goals-heading" className="min-w-0 rounded-2xl border border-border bg-card p-4 sm:p-6 flex flex-col gap-4">
@@ -32,11 +36,11 @@ export function FinancialGoalsView({ goals, loading = false, error = null, onRet
           const view = buildGoalOverview(goal);
           return <li key={goal.id} className="min-w-0 rounded-xl border border-border bg-background p-4">
             <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div className="min-w-0"><h3 className="break-words font-bold">{goal.name}</h3><p className="mt-1 break-words text-sm text-muted-foreground">Meta: <span className="font-mono text-foreground">{view.target}</span>{goal.targetDate ? ` · Fecha: ${goal.targetDate}` : ""}</p></div>
-              <div className="min-w-0 text-left sm:text-right">{view.tracked ? <><p className="break-words font-mono text-sm">Actual: <strong>{view.current}</strong></p><p className="break-words font-mono text-sm text-muted-foreground">Faltan: {view.remaining}</p></> : <p className="text-sm font-semibold text-amber-700 dark:text-amber-300">{statusCopy[view.trackingStatus === "tracked" ? "unavailable" : view.trackingStatus]}</p>}</div>
+              <div className="min-w-0"><h3 className="break-words font-bold">{goal.name}</h3><p className="mt-1 break-words text-sm text-muted-foreground">Meta: <Amount value={goal.targetAmount} currency={goal.currency} size="sm" />{goal.targetDate ? ` · Fecha: ${goal.targetDate}` : ""}</p></div>
+              <div className="min-w-0 text-left sm:text-right">{view.tracked ? <><p className="break-words text-sm">Actual: <Amount value={goal.currentAmount!} currency={goal.currency} size="sm" /></p><p className="break-words text-sm text-muted-foreground">Faltan: <Amount value={goal.remainingAmount!} currency={goal.currency} size="sm" /></p></> : <p className="text-sm font-semibold text-amber-700 dark:text-amber-300">{statusCopy[view.trackingStatus === "tracked" ? "unavailable" : view.trackingStatus]}</p>}</div>
             </div>
             {view.tracked ? <div className="mt-3 min-w-0">
-              <div className="mb-1 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs"><span>{view.percentage}% completado</span>{view.monthly !== null && view.months !== null && view.months > 0 && <span className="break-words">En {view.months} {view.months === 1 ? "mes" : "meses"}: {view.monthly}/mes</span>}</div>
+              <div className="mb-1 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs"><span>{formatPercent(view.percentage!, preferences)} completado</span>{view.monthly !== null && view.months !== null && view.months > 0 && <span className="break-words">En {view.months} {view.months === 1 ? "mes" : "meses"}: <Amount value={goal.monthlyContributionNeeded!} currency={goal.currency} size="xs" />/mes</span>}</div>
               <div role="progressbar" aria-label={`Avance de ${goal.name}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={view.percentage!} className="h-2 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary" style={{ width: `${view.percentage}%` }} /></div>
               <p className="mt-2 break-words text-xs text-muted-foreground">Saldo de {view.accountName ?? "la cuenta vinculada"}{view.shared ? ` · Compartida con ${goal.sharedGoalCount} metas` : ""}</p>
             </div> : <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><span className="text-xs text-muted-foreground">Vincula una cuenta para seguir el saldo real.</span><button type="button" onClick={onOpenAccounts} className="min-h-11 self-start rounded-lg border border-border px-3 text-sm font-semibold hover:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">Ver cuentas</button></div>}
