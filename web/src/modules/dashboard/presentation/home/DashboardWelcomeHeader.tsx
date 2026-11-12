@@ -59,13 +59,13 @@ export function DashboardWelcomeHeader({
   return (
     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-1">
       {/* User greeting */}
-      <div className="flex items-center gap-3.5">
+      <div className="flex min-w-0 items-center gap-3.5">
         <div className="relative rounded-full p-0.5 border-2 border-purple-500/40 shadow-xs">
           <UserAvatar user={user} size="md" />
           <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-background absolute -bottom-0.5 -right-0.5" />
         </div>
-        <div>
-          <h1 className="text-xl sm:text-2xl font-black text-foreground tracking-tight flex items-center gap-2">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-black text-foreground tracking-tight flex items-center gap-2 truncate">
             <span>Hola, {displayName}</span>
             <span className="inline-block animate-pulse">👋</span>
           </h1>
@@ -116,7 +116,7 @@ export function DashboardWelcomeHeader({
           size="icon"
           onClick={onOpenNotifications}
           className="w-9 h-9 rounded-xl border-border bg-card/70 hover:bg-muted relative text-foreground"
-          title="Notificaciones"
+          title="Notificaciones" aria-label="Notificaciones"
         >
           <Bell className="w-4 h-4 text-muted-foreground" />
           <span className="w-2 h-2 rounded-full bg-purple-500 absolute top-2 right-2 ring-2 ring-background" />
@@ -129,7 +129,7 @@ export function DashboardWelcomeHeader({
           size="icon"
           onClick={onOpenSettings}
           className="w-9 h-9 rounded-xl border-border bg-card/70 hover:bg-muted text-foreground"
-          title="Configuración"
+          title="Configuración" aria-label="Configuración"
         >
           <Settings className="w-4 h-4 text-muted-foreground" />
         </Button>

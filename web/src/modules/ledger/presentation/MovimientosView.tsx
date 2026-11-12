@@ -399,7 +399,7 @@ export function MovimientosView({
       </div>
 
       {/* 3. Filters Row */}
-      <div className="grid grid-cols-1 gap-2.5 rounded-2xl border border-border/80 bg-card/80 p-3 sm:grid-cols-2 lg:grid-cols-[minmax(160px,1fr)_minmax(160px,1fr)_minmax(160px,1fr)_minmax(150px,0.9fr)_minmax(200px,1.5fr)_auto]">
+      <div className="grid grid-cols-1 gap-2.5 rounded-2xl border border-border/80 bg-card/80 p-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
         {/* Month calendar popover using shadcn Popover & Calendar */}
         <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
           <PopoverTrigger

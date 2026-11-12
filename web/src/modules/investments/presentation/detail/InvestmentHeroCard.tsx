@@ -18,7 +18,7 @@ interface InvestmentHeroCardProps {
 export function InvestmentHeroCard({
   investment,
   metrics,
-  currency = "$",
+  currency = "USD",
   onOpenEdit,
 }: InvestmentHeroCardProps) {
   const isPositiveGain = metrics.gainLoss >= 0;
@@ -87,7 +87,7 @@ export function InvestmentHeroCard({
               type="button"
               onClick={onOpenEdit}
               className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/70 transition cursor-pointer"
-              title="Opciones de la inversión"
+              title="Opciones de la inversión" aria-label="Opciones de la inversión"
             >
               <MoreVertical className="w-4 h-4" />
             </button>

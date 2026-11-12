@@ -107,8 +107,8 @@ export function LoanDetailModal(props: LoanDetailModalProps) {
         {/* Schedule */}
         <div className="flex flex-col gap-2">
           <h4 className="text-sm font-bold text-foreground">Cronograma de cuotas</h4>
-          <div className="max-h-64 overflow-y-auto border border-border rounded-2xl divide-y divide-border text-xs">
-            <div className="grid grid-cols-7 font-bold py-2.5 px-3 bg-muted text-muted-foreground sticky top-0 text-[11px]">
+          <div className="max-h-64 overflow-auto border border-border rounded-2xl divide-y divide-border text-xs">
+            <div className="min-w-[560px]"><div className="grid grid-cols-7 font-bold py-2.5 px-3 bg-muted text-muted-foreground sticky top-0 text-[11px]">
               <span>#</span>
               <span>Vence</span>
               <span>Esperado</span>
@@ -158,7 +158,7 @@ export function LoanDetailModal(props: LoanDetailModalProps) {
                 </div>
               );
             })}
-          </div>
+          </div></div>
         </div>
 
         {/* Payments history */}

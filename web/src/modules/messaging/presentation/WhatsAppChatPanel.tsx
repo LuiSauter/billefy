@@ -58,7 +58,7 @@ export function WhatsAppChatPanel({
             >
               <div
                 className={cn(
-                  "max-w-[85%] rounded-2xl px-3.5 py-2 text-sm leading-relaxed",
+                  "max-w-[85%] rounded-2xl px-3.5 py-2 text-sm leading-relaxed break-words",
                   item.from === "user"
                     ? "rounded-br-md bg-success text-success-foreground"
                     : "rounded-bl-md border border-border bg-muted text-foreground"
