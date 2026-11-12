@@ -1,7 +1,7 @@
 "use client";
 
 // Auth context for Billefy authentication state
-import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from "react";
 import { FetchHttpClient } from "@/shared/infrastructure/fetch-http.client";
 import { defaultTokenStorage } from "@/shared/infrastructure/local-storage-token.adapter";
 import { AuthResponseDto, UserDto } from "../domain/identity.types";
@@ -215,22 +215,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return updated;
   }, [token, user]);
 
+  const contextValue = useMemo(
+    () => ({
+      isAuthenticated,
+      isLoading,
+      user,
+      token,
+      error,
+      loginWithPassword,
+      registerWithPassword,
+      loginWithGoogle,
+      updatePreferredCurrency,
+      logout,
+      clearError,
+    }),
+    [
+      isAuthenticated,
+      isLoading,
+      user,
+      token,
+      error,
+      loginWithPassword,
+      registerWithPassword,
+      loginWithGoogle,
+      updatePreferredCurrency,
+      logout,
+      clearError,
+    ]
+  );
+
   return (
-    <AuthContext.Provider
-      value={{
-        isAuthenticated,
-        isLoading,
-        user,
-        token,
-        error,
-        loginWithPassword,
-        registerWithPassword,
-        loginWithGoogle,
-        updatePreferredCurrency,
-        logout,
-        clearError,
-      }}
-    >
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );

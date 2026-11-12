@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useMemo, useCallback } from "react";
 import { AccountDto } from "@/modules/ledger/domain/ledger.types";
 import { DraftDto } from "@/modules/ingestion/domain/ingestion.types";
 import { Check, Sparkles } from "lucide-react";
@@ -21,6 +21,43 @@ export function DraftsInbox({
   onConfirmDraft,
   onConfirmAll,
 }: DraftsInboxProps) {
+  const accountByCurrency = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const a of accounts) {
+      if (!map.has(a.currency)) map.set(a.currency, a.id);
+    }
+    return map;
+  }, [accounts]);
+
+  const accountById = useMemo(() => {
+    return new Map(accounts.map((a) => [a.id, a]));
+  }, [accounts]);
+
+  const defaultAccountId = accounts[0]?.id || "";
+
+  const resolveAccountId = useCallback(
+    (draft: DraftDto): string => {
+      return (
+        draft.suggestedAccountId ||
+        accountByCurrency.get(draft.currency) ||
+        defaultAccountId
+      );
+    },
+    [accountByCurrency, defaultAccountId]
+  );
+
+  const getAccountLabel = useCallback(
+    (draft: DraftDto): string => {
+      const accId = resolveAccountId(draft);
+      const acc = accountById.get(accId);
+      const channel = acc?.name || draft.source || "Canal Digital";
+      const ref = draft.reference || "Gasto detectado";
+      return `${ref} • ${channel}`;
+    },
+    [resolveAccountId, accountById]
+  );
+
+
   if (drafts.length === 0) {
     return (
       <div className="p-[18px] rounded-[16px] bg-card border border-border shadow-2xs flex flex-col items-center justify-center text-center py-8">
@@ -34,23 +71,6 @@ export function DraftsInbox({
       </div>
     );
   }
-
-  const resolveAccountId = (draft: DraftDto): string => {
-    return (
-      draft.suggestedAccountId ||
-      accounts.find((a) => a.currency === draft.currency)?.id ||
-      accounts[0]?.id ||
-      ""
-    );
-  };
-
-  const getAccountLabel = (draft: DraftDto): string => {
-    const accId = resolveAccountId(draft);
-    const acc = accounts.find((a) => a.id === accId);
-    const channel = acc?.name || draft.source || "Canal Digital";
-    const ref = draft.reference || "Gasto detectado";
-    return `${ref} • ${channel}`;
-  };
 
   const handleConfirmAll = () => {
     if (onConfirmAll) {

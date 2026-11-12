@@ -300,17 +300,27 @@ export function CategoriesProvider({ children }: { children: React.ReactNode }) 
     }
   }, [storageKey, legacyKey]);
 
+  const contextValue = useMemo(
+    () => ({
+      categories,
+      getCategoriesByDirection,
+      findCategory,
+      createCategory,
+      deleteCategory,
+      resetCategories,
+    }),
+    [
+      categories,
+      getCategoriesByDirection,
+      findCategory,
+      createCategory,
+      deleteCategory,
+      resetCategories,
+    ]
+  );
+
   return (
-    <CategoriesContext.Provider
-      value={{
-        categories,
-        getCategoriesByDirection,
-        findCategory,
-        createCategory,
-        deleteCategory,
-        resetCategories,
-      }}
-    >
+    <CategoriesContext.Provider value={contextValue}>
       {children}
     </CategoriesContext.Provider>
   );
