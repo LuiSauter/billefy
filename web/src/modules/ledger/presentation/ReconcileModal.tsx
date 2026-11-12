@@ -9,6 +9,7 @@ import { FormField } from "@/shared/ui/form-field";
 import { Input } from "@/shared/ui/input";
 import { ResponsiveDrawer } from "@/shared/ui/responsive-drawer";
 import { sanitizeDecimalInput } from "@/shared/lib/money-input";
+import { Amount } from "@/shared/ui/amount";
 
 interface ReconcileModalProps {
   isOpen: boolean;
@@ -125,10 +126,7 @@ export function ReconcileModal({ isOpen, account, onClose, onSubmit }: Reconcile
             <span className="text-sm font-semibold text-foreground">Saldo en el libro mayor</span>
             <span className="text-xs text-muted-foreground">Calculado por Billefy</span>
           </div>
-          <span className="text-xl font-bold whitespace-nowrap text-foreground tabular-nums">
-            {account.balance.toFixed(2)}{" "}
-            <span className="text-sm font-semibold text-muted-foreground">{account.currency}</span>
-          </span>
+          <Amount value={account.balance} currency={account.currency} size="lg" />
         </div>
 
         <FormField
@@ -166,10 +164,14 @@ export function ReconcileModal({ isOpen, account, onClose, onSubmit }: Reconcile
             <span className="text-sm font-semibold text-foreground">Diferencia calculada</span>
             <span className="text-xs text-muted-foreground">{tone.hint}</span>
           </div>
-          <span className={`text-lg font-bold whitespace-nowrap tabular-nums ${tone.value}`}>
-            {isPositive ? "+" : ""}
-            {diff.toFixed(2)} <span className="text-xs font-semibold">{account.currency}</span>
-          </span>
+          <Amount
+            value={diff}
+            currency={account.currency}
+            sign={isPositive ? "always" : "auto"}
+            size="md"
+            tone="neutral"
+            className={tone.value}
+          />
         </div>
 
         <FormField label="Nota o motivo" hint="Opcional.">

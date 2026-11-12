@@ -45,7 +45,10 @@ import {
 import { NativeSelect, NativeSelectOption } from "@/shared/ui/native-select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/shared/ui/popover";
 import { MonthPicker } from "@/shared/ui/month-picker";
-import { formatUserNumber } from "@/shared/lib/number-format";
+import { useNumberFormat, useNumberPreferences } from "@/shared/hooks/use-number-format";
+import { formatAmountText } from "@/shared/lib/amount-format";
+import { formatCurrencyLabel } from "@/shared/lib/currency";
+import { Amount } from "@/shared/ui/amount";
 
 export interface MovimientosViewProps {
   http: IHttpClient | null;
@@ -86,15 +89,6 @@ function toTargetCurrency(
     return dec.times(rate);
   }
   return dec;
-}
-
-function formatCurrencyAmount(
-  amount: Decimal | string | number,
-  currency: "BOB" | "USD",
-  format: (value: Decimal | string | number) => string
-): string {
-  const formatted = format(amount);
-  return currency === "USD" ? `$ ${formatted}` : `Bs. ${formatted}`;
 }
 
 const kindLabel = (kind: MovementKind, investmentCashKind?: string) =>
@@ -153,7 +147,8 @@ export function MovimientosView({
   onEditTxn,
 }: MovimientosViewProps) {
   const { categories } = useUserCategories();
-  const formatNumber = formatUserNumber;
+  const numberPreferences = useNumberPreferences();
+  const formatNumber = useNumberFormat();
   const now = new Date();
   const [month, setMonth] = useState(
     `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
@@ -382,11 +377,11 @@ export function MovimientosView({
                     {title}
                   </span>
                   <div className="mt-1 flex items-baseline gap-2">
-                    <span className="text-md font-bold tracking-tight text-white lg:text-lg tabular-nums">
-                      {summaries.length > 0
-                        ? formatCurrencyAmount(amount, selectedCurrency, formatNumber)
-                        : "—"}
-                    </span>
+                    {summaries.length > 0 ? (
+                      <Amount value={amount} currency={selectedCurrency} size="lg" className="text-white" />
+                    ) : (
+                      <span className="text-md font-bold tracking-tight text-white lg:text-lg">—</span>
+                    )}
                     {badge && summaries.length > 0 && (
                       <Badge
                         variant={badgeVariant}
@@ -666,13 +661,14 @@ export function MovimientosView({
                     </TableCell>
 
                     {/* Monto in Single Selected Currency */}
-                    <TableCell
-                      className={`whitespace-nowrap text-right font-semibold tabular-nums ${
-                        isIncome ? "text-emerald-400" : "text-rose-400"
-                      }`}
-                    >
-                      {isIncome ? "+ " : "− "}
-                      {formatCurrencyAmount(convertedAmount, selectedCurrency, formatNumber)}
+                    <TableCell className="whitespace-nowrap text-right">
+                      <Amount
+                        value={isIncome ? convertedAmount : convertedAmount.negated()}
+                        currency={selectedCurrency}
+                        sign={isIncome ? "always" : "auto"}
+                        size="sm"
+                        tone={isIncome ? "income" : "expense"}
+                      />
                     </TableCell>
 
                     {/* Kebab menu button */}
@@ -808,29 +804,19 @@ export function MovimientosView({
 
               {/* Big amount in selected currency */}
               <div className="my-4">
-                <p
-                  className={`text-2xl font-bold tracking-tight tabular-nums ${
-                    selected.direction === "Income"
-                      ? "text-emerald-400"
-                      : "text-rose-400"
-                  }`}
-                >
-                  {selected.direction === "Income" ? "+ " : "− "}
-                  {formatCurrencyAmount(
-                    toTargetCurrency(
-                      selected.amount,
-                      selected.currency,
-                      selectedCurrency,
-                      p2pRate
-                    ),
-                    selectedCurrency,
-                    formatNumber
-                  )}
-                </p>
+                <Amount
+                  value={selected.direction === "Income"
+                    ? toTargetCurrency(selected.amount, selected.currency, selectedCurrency, p2pRate)
+                    : toTargetCurrency(selected.amount, selected.currency, selectedCurrency, p2pRate).negated()}
+                  currency={selectedCurrency}
+                  sign={selected.direction === "Income" ? "always" : "auto"}
+                  size="xl"
+                  tone={selected.direction === "Income" ? "income" : "expense"}
+                  className="tracking-tight"
+                />
                 {selected.currency !== selectedCurrency && (
                   <p className="mt-0.5 text-xs text-muted-foreground">
-                    Monto original: {selected.currency}{" "}
-                    {new Decimal(selected.amount).toFixed(2)}
+                    Monto original: {formatAmountText(selected.amount, selected.currency, numberPreferences)}
                   </p>
                 )}
               </div>
@@ -928,9 +914,7 @@ export function MovimientosView({
                         <span className="text-muted-foreground">
                           {a.categoryName || "Categoría"}
                         </span>
-                        <span className="font-semibold tabular-nums text-foreground">
-                          {`${selected.currency} ${new Decimal(a.amount).toFixed(2)}`}
-                        </span>
+                        <Amount value={a.amount} currency={selected.currency} size="sm" />
                       </div>
                     ))}
                   </div>
@@ -950,13 +934,16 @@ export function MovimientosView({
                           <span className="text-muted-foreground">
                             {l.accountName}
                           </span>
-                          <span className="font-semibold tabular-nums text-foreground">
-                            {`${l.direction === "Income" ? "+" : "−"} ${l.currency} ${new Decimal(l.amount).toFixed(2)}`}
-                          </span>
+                          <Amount
+                            value={l.direction === "Income" ? l.amount : new Decimal(l.amount).negated()}
+                            currency={l.currency}
+                            sign={l.direction === "Income" ? "always" : "auto"}
+                            size="sm"
+                          />
                         </div>
                         {l.appliedRate && (
                           <span className="block text-xs text-muted-foreground">
-                            Tasa {l.appliedRate} · {l.rateSource || "Manual"}
+                            Tasa {formatCurrencyLabel("BOB")} {formatNumber(l.appliedRate)} · {l.rateSource || "Manual"}
                           </span>
                         )}
                       </div>

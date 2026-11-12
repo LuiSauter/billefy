@@ -13,6 +13,8 @@ vi.mock("react", async (importOriginal) => {
       return [slots[index], (value: unknown) => { slots[index] = value; }];
     },
     useEffect: () => {},
+    useCallback: (callback: () => unknown) => callback,
+    useSyncExternalStore: (_subscribe: unknown, getSnapshot: () => unknown) => getSnapshot(),
   };
 });
 

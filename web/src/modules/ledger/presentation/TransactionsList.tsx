@@ -16,6 +16,8 @@ import {
 import { useUserCategories } from "@/modules/ledger/application/CategoriesContext";
 import { CategoryIconBadge } from "./CategoryIcon";
 import { useNumberFormat } from "@/shared/hooks/use-number-format";
+import { formatCurrencyLabel } from "@/shared/lib/currency";
+import { Amount } from "@/shared/ui/amount";
 
 type TransactionListFilter = "ALL" | "Income" | "Expense";
 
@@ -179,10 +181,10 @@ export function TransactionsList({
                 (isIncome ? "Ingreso" : "Gasto");
 
             const rateBadgeText = txn.rateSource
-              ? `${txn.rateSource} Bs ${txn.appliedRate?.toFixed(2) || p2pRate.toFixed(2)}`
+              ? `${txn.rateSource} ${formatCurrencyLabel("BOB")} ${formatNumber(txn.appliedRate || p2pRate)}`
               : txn.currency === "BOB"
-              ? `P2P Bs ${p2pRate.toFixed(2)}`
-              : `1.00 USD`;
+              ? `P2P ${formatCurrencyLabel("BOB")} ${formatNumber(p2pRate)}`
+              : `${formatNumber(1)} ${formatCurrencyLabel("USD")}`;
 
             return (
               <div
@@ -257,19 +259,19 @@ export function TransactionsList({
                 {/* Right: Amounts & Edit Action */}
                 <div className="flex items-center gap-3 shrink-0">
                   <div className="flex flex-col items-end">
-                    <span
-                      className={`text-sm font-extrabold font-mono tabular-nums ${
-                        isIncome ? "text-emerald-500" : "text-foreground"
-                      }`}
-                    >
-                      {isIncome ? "+" : "-"}
-                      {txn.currency === "BOB" ? "Bs. " : ""}
-                      {formatNumber(txn.amount)}
-                      {txn.currency !== "BOB" ? ` ${txn.currency}` : ""}
-                    </span>
-                    <span className="text-[11px] font-medium text-muted-foreground font-mono tabular-nums">
-                      ≈ ${formatNumber(eqUsd)} USD
-                    </span>
+                    <Amount
+                      value={isIncome ? txn.amount : new Decimal(txn.amount).negated()}
+                      currency={txn.currency}
+                      sign={isIncome ? "always" : "auto"}
+                      size="sm"
+                      tone={isIncome ? "income" : "neutral"}
+                    />
+                    <Amount
+                      value={eqUsd}
+                      currency="USD"
+                      size="xs"
+                      className="text-muted-foreground"
+                    />
                   </div>
 
                   {canEdit && onEditTxn && (

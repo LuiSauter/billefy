@@ -2,6 +2,7 @@
 import React, { useRef, useState } from "react";
 import Decimal from "decimal.js";
 import { AccountDto, RegisterTransferRequest } from "../domain/ledger.types";
+import { Amount } from "@/shared/ui/amount";
 const positive = (value: string) => { try { return value.trim() !== "" && new Decimal(value).isFinite() && new Decimal(value).gt(0); } catch { return false; } };
 interface Props { isOpen: boolean; accounts: AccountDto[]; onClose: () => void; onSubmit: (request: RegisterTransferRequest) => Promise<void> }
 export function MovementTransferModal({ isOpen, accounts, onClose, onSubmit }: Props) {
@@ -36,7 +37,7 @@ export function MovementTransferModal({ isOpen, accounts, onClose, onSubmit }: P
     <label className="block text-sm">Monto origen<input aria-label="Monto origen" inputMode="decimal" value={sourceAmount} onChange={e=>setSourceAmount(e.target.value)} className="mt-1 w-full rounded border border-border bg-background p-2" /></label>
     <label className="block text-sm">Cuenta destino<select aria-label="Cuenta destino" value={destinationId} onChange={e=>setDestinationId(e.target.value)} className="mt-1 w-full rounded border border-border bg-background p-2">{accounts.map(a=><option key={a.id} value={a.id}>{a.name} · {a.currency}</option>)}</select></label>
     {supportedFx && <label className="block text-sm">Tasa manual BOB por USD<input aria-label="Tasa manual BOB por USD" inputMode="decimal" value={rate} onChange={e=>setRate(e.target.value)} className="mt-1 w-full rounded border border-border bg-background p-2" /><span className="text-xs text-muted-foreground">Ingresá la cotización acordada. Se enviará con origen Manual, no como tasa de mercado.</span></label>}
-    {destinationValue && <p className="text-sm">Monto destino calculado: <strong>{destinationValue} {destinationCurrency}</strong></p>}
+    {destinationValue && destinationCurrency && <p className="text-sm">Monto destino calculado: <Amount value={destinationValue} currency={destinationCurrency} size="sm" /></p>}
     {!sameCurrency && !dollarParity && !supportedFx && <p role="alert" className="text-sm text-amber-400">Esta combinación de monedas no está soportada.</p>}
     <label className="block text-sm">Descripción<input aria-label="Descripción" value={description} onChange={e=>setDescription(e.target.value)} className="mt-1 w-full rounded border border-border bg-background p-2" /></label>
     {error&&<p role="alert" className="text-sm text-rose-400">{error} No se reintentó automáticamente.</p>}

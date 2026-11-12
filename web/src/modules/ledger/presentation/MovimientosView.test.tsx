@@ -4,7 +4,7 @@ import { AccountDto } from "../domain/ledger.types";
 
 const { slots, getMovements, reloadMovements, screenState } = vi.hoisted(() => ({ slots: [] as unknown[], getMovements: vi.fn(), reloadMovements: vi.fn(), screenState: { loading: false, error: null as string | null, data: null as unknown } }));
 let cursor = 0;
-vi.mock("react", async (importOriginal) => { const actual = await importOriginal<typeof import("react")>(); return { ...actual, useState: (initial: unknown) => { const i = cursor++; if (!(i in slots)) slots[i] = initial; return [slots[i], (value: unknown) => { slots[i] = typeof value === "function" ? (value as (old: unknown) => unknown)(slots[i]) : value; }]; }, useMemo: (fn: () => unknown) => fn(), useEffect: () => {} }; });
+vi.mock("react", async (importOriginal) => { const actual = await importOriginal<typeof import("react")>(); return { ...actual, useState: (initial: unknown) => { const i = cursor++; if (!(i in slots)) slots[i] = initial; return [slots[i], (value: unknown) => { slots[i] = typeof value === "function" ? (value as (old: unknown) => unknown)(slots[i]) : value; }]; }, useMemo: (fn: () => unknown) => fn(), useEffect: () => {}, useCallback: (callback: () => unknown) => callback, useSyncExternalStore: (_subscribe: unknown, getSnapshot: () => unknown) => getSnapshot() }; });
 vi.mock("../application/useMovements", () => ({ useMovements: (_http: unknown, query: unknown) => { getMovements(query); return { data: screenState.data ?? pageData, loading: screenState.loading, error: screenState.error, reload: reloadMovements }; } }));
 vi.mock("../application/CategoriesContext", () => ({ useUserCategories: () => ({ categories: [{ id: "cat-1", name: "Comida" }, { id: "cat-2", name: "Casa" }] }) }));
 import { MovimientosView } from "./MovimientosView";
@@ -30,8 +30,7 @@ describe("MovimientosView interactions", () => {
     ] });
     const tree = render();
     expect(text(tree)).toContain("Ajuste de conciliación");
-    expect(text(tree)).toContain("Bs. 20,00");
-    expect(text(tree)).toContain("Bs. 8,25");
+    expect(nodes(tree).filter(n => (n.type as { name?: string })?.name === "Amount").slice(0, 2).map(n => String(n.props.value))).toEqual(["20", "8.25"]);
     const adjustmentRow = nodes(tree).find(n => n.props.tabIndex === 0 && text(n.props.children).includes("Balance correction"));
     expect(adjustmentRow).toBeDefined();
   });
@@ -44,22 +43,19 @@ describe("MovimientosView interactions", () => {
     expect(htmlBob).toContain("Gastos del mes");
     expect(htmlBob).toContain("Transferencias");
     expect(htmlBob).toContain("Inversiones");
-    expect(htmlBob).toContain("Bs. 70,00"); // 20 BOB + (5 USD * 10)
-    expect(htmlBob).toContain("Bs. 28,25"); // 8.25 BOB + (2 USD * 10)
-    expect(htmlBob).toContain("Bs. 62,00"); // 2 BOB + (6 USD * 10)
-    expect(htmlBob).toContain("Bs. 84,00"); // 4 BOB + (8 USD * 10)
+    const bobAmounts = nodes(treeBob).filter(n => (n.type as { name?: string })?.name === "Amount");
+    expect(bobAmounts.slice(0, 4).map(n => String(n.props.value))).toEqual(["70", "28.25", "62", "84"]);
+    expect(bobAmounts.slice(0, 4).every(n => n.props.currency === "BOB")).toBe(true);
     expect(nodes(treeBob).filter(n => n.props["data-kpi-card"] === "true")).toHaveLength(4);
 
     // 2. Render in USD mode
     const treeUsd = render(vi.fn(), undefined, {}, "USD", 10);
-    const htmlUsd = text(treeUsd);
-    expect(htmlUsd).toContain("$ 7,00"); // (20 BOB / 10) + 5 USD
-    expect(htmlUsd).toContain("$ 2,83"); // (8.25 BOB / 10) + 2 USD
-    expect(htmlUsd).toContain("$ 6,20"); // (2 BOB / 10) + 6 USD
-    expect(htmlUsd).toContain("$ 8,40"); // (4 BOB / 10) + 8 USD
+    const usdAmounts = nodes(treeUsd).filter(n => (n.type as { name?: string })?.name === "Amount");
+    expect(usdAmounts.slice(0, 4).map(n => String(n.props.value))).toEqual(["7", "2.825", "6.2", "8.4"]);
+    expect(usdAmounts.slice(0, 4).every(n => n.props.currency === "USD")).toBe(true);
 
-    expect(htmlBob).toContain("Comida BOB 5.25");
-    expect(htmlBob).toContain("Casa BOB 3.00");
+    expect(bobAmounts.some(n => n.props.currency === "BOB" && String(n.props.value) === "5.25")).toBe(true);
+    expect(bobAmounts.some(n => n.props.currency === "BOB" && String(n.props.value) === "3")).toBe(true);
     const description = find(treeBob, n => n.type === "h3");
     expect(description.props.children).toBe("Compra");
 
@@ -68,11 +64,11 @@ describe("MovimientosView interactions", () => {
     (rows[1].props.onClick as () => void)();
     const transfer = render(vi.fn(), undefined, {}, "BOB", 10);
     expect(nodes(transfer).some(n => n.type === "b" && text(n.props.children).includes("Tramos de transferencia"))).toBe(true);
-    expect(text(transfer)).toMatch(/Tasa\s+7\s+·\s+Manual/);
+    expect(text(transfer)).toMatch(/Tasa\s+Bs\s+7,00\s+·\s+Manual/);
     expect(nodes(transfer).some(n => n.type === "b" && text(n.props.children).includes("Distribución por categoría"))).toBe(false);
-    const transferText = text(transfer);
-    expect(transferText).toMatch(/Cuenta USD\s*−\s*USD 10\.00/);
-    expect(transferText).toMatch(/Cuenta BOB\s*\+\s*BOB 70\.00/);
+    const transferAmounts = nodes(transfer).filter(n => (n.type as { name?: string })?.name === "Amount");
+    expect(transferAmounts.some(n => n.props.currency === "USD" && String(n.props.value) === "-10")).toBe(true);
+    expect(transferAmounts.some(n => n.props.currency === "BOB" && String(n.props.value) === "70")).toBe(true);
   });
 
   it("shows investment cash linked to its investment and offers only linked reversal actions", async () => {

@@ -12,6 +12,10 @@ import { SelectField } from "@/shared/ui/select-field";
 import { notify } from "@/shared/lib/notify";
 import { currencyChipLabel } from "@/shared/lib/keypad";
 import { NoAccountsNotice } from "@/shared/ui/no-accounts-notice";
+import { Amount } from "@/shared/ui/amount";
+import { useNumberFormat, useNumberPreferences } from "@/shared/hooks/use-number-format";
+import { formatAmountText } from "@/shared/lib/amount-format";
+import { formatCurrencyLabel } from "@/shared/lib/currency";
 
 interface FxTransferModalProps {
   isOpen: boolean;
@@ -38,6 +42,8 @@ export function FxTransferModal({
   onConfirmTransfer,
   onOpenCreateAccount,
 }: FxTransferModalProps) {
+  const formatNumber = useNumberFormat();
+  const numberPreferences = useNumberPreferences();
   const [fromAccountId, setFromAccountId] = useState("");
   const [toAccountId, setToAccountId] = useState("");
   const [amountStr, setAmountStr] = useState("");
@@ -133,7 +139,7 @@ export function FxTransferModal({
   const accountOptions = accounts.map((a) => ({
     value: a.id,
     label: a.name,
-    description: `${a.currency} · Saldo ${a.balance.toFixed(2)}`,
+    description: `${a.currency} · Saldo ${formatAmountText(a.balance, a.currency, numberPreferences)}`,
   }));
 
   return (
@@ -242,12 +248,14 @@ export function FxTransferModal({
               <span className="text-xs font-semibold text-foreground">
                 Hacia: {toAccount?.name || "Cuenta destino"}
               </span>
-              <div
-                aria-live="polite"
-                aria-label="Monto que recibirás"
-                className="text-3xl font-bold text-success tabular-nums"
-              >
-                + {targetAmountDecimal.toFixed(2)}
+              <div aria-live="polite" aria-label="Monto que recibirás">
+                <Amount
+                  value={targetAmountDecimal}
+                  currency={toAccount?.currency}
+                  sign="always"
+                  size="xl"
+                  tone="income"
+                />
               </div>
               <span className="text-xs font-semibold text-muted-foreground">
                 {toAccount?.currency === "USDT" ? "USDT (Cripto)" : toAccount?.currency}
@@ -258,7 +266,7 @@ export function FxTransferModal({
           {/* Rate snapshot pill (OpenPencil RPill) */}
           <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-primary/20 bg-accent px-4 py-3">
             <span className="text-sm font-semibold text-accent-foreground">
-              Tasa snapshot: 1 USDT = Bs. {p2pRate.toFixed(2)} (Binance P2P Buy)
+              Tasa snapshot: 1 USDT = {formatCurrencyLabel("BOB")} {formatNumber(p2pRate)} (Binance P2P Buy)
             </span>
             <span className="inline-flex items-center gap-1 text-sm font-semibold text-primary tabular-nums">
               <Timer className="size-4" aria-hidden="true" />

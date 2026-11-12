@@ -40,6 +40,10 @@ import { SegmentedControl } from "@/shared/ui/segmented-control";
 import { isPositiveDecimal } from "@/shared/lib/money-input";
 import { currencyChipLabel, normalizeAmountString } from "@/shared/lib/keypad";
 import { NoAccountsNotice } from "@/shared/ui/no-accounts-notice";
+import { Amount } from "@/shared/ui/amount";
+import { useNumberFormat, useNumberPreferences } from "@/shared/hooks/use-number-format";
+import { formatAmountText } from "@/shared/lib/amount-format";
+import { formatCurrencyLabel } from "@/shared/lib/currency";
 
 interface RegisterTransactionModalProps {
   isOpen: boolean;
@@ -75,6 +79,8 @@ export function RegisterTransactionModal({
   onOpenCreateAccount,
 }: RegisterTransactionModalProps) {
   const { findCategory } = useUserCategories();
+  const formatNumber = useNumberFormat();
+  const numberPreferences = useNumberPreferences();
   const { draft, updateDraft, clearDraft, hasUnsavedChanges } =
     useTransactionFormDraft(defaultAccountId || (accounts[0]?.id ?? ""));
 
@@ -134,10 +140,11 @@ export function RegisterTransactionModal({
   const amountDecimal = new Decimal(isAmountValid ? normalizedAmount : "0");
   const isUsdAccount =
     selectedAccount?.currency === "USD" || selectedAccount?.currency === "USDT";
+  const rateLabel = `${formatCurrencyLabel("BOB")} ${formatNumber(p2pRate)}`;
   const equivText = isAmountValid
     ? isUsdAccount
-      ? `≈ Bs. ${amountDecimal.times(p2pRate).toFixed(2)} (P2P Bs. ${p2pRate.toFixed(2)})`
-      : `≈ $${amountDecimal.div(p2pRate || 9.85).toFixed(2)} USD (P2P Bs. ${p2pRate.toFixed(2)})`
+      ? `≈ ${formatAmountText(amountDecimal.times(p2pRate), "BOB", numberPreferences)} (P2P ${rateLabel})`
+      : `≈ ${formatAmountText(amountDecimal.div(p2pRate || 9.85), "USD", numberPreferences)} (P2P ${rateLabel})`
     : null;
 
   const handleStep1Submit = (e: React.FormEvent) => {
@@ -613,9 +620,7 @@ export function RegisterTransactionModal({
                             <span className="text-xs font-extrabold truncate">
                               {acc.name}
                             </span>
-                            <span className="text-[11px] font-mono text-muted-foreground">
-                              {acc.currency} · {acc.balance.toFixed(2)}
-                            </span>
+                            <Amount value={acc.balance} currency={acc.currency} size="xs" className="text-muted-foreground" />
                           </button>
                         );
                       })}
