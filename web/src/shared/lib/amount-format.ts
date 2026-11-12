@@ -25,3 +25,13 @@ export function formatAmountText(value: string | number | Decimal, currency: str
 export function formatPercent(value: string | number | Decimal, preferences: NumberFormatPreferences): string {
   return `${formatNumber(new Decimal(value).abs(), preferences.convention, preferences.decimalPlaces)}%`;
 }
+export function formatSignedPercent(value: string | number | Decimal, preferences: NumberFormatPreferences, sign: "auto" | "always" | "never" = "auto"): string {
+  const amount = new Decimal(value);
+  const prefix = sign === "never" ? "" : amount.isNegative() ? "-" : sign === "always" ? "+" : "";
+  return `${prefix}${formatPercent(amount, preferences)}`;
+}
+export function formatQuantity(value: string | number | Decimal, preferences: NumberFormatPreferences, maxDecimals = 8): string {
+  const text = formatNumber(value, preferences.convention, maxDecimals);
+  const separator = preferences.convention === "es-BO" ? "," : ".";
+  return text.includes(separator) ? text.replace(new RegExp(`\\${separator}?0+$`), "") : text;
+}

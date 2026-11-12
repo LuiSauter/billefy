@@ -307,7 +307,7 @@ export default function DashboardPage() {
               p2pRate={p2pRate}
               accounts={dashboard.accounts}
               goals={dashboard.goals}
-              currencySymbol={selectedCurrency === "BOB" ? "Bs." : "$"}
+              currency={selectedCurrency}
               onCashComplete={dashboard.refreshLedger}
               onOpenCreateGoalModal={() => modals.setIsGoalModalOpen(true)}
               onOpenBinanceModal={() => modals.setIsBinanceModalOpen(true)}

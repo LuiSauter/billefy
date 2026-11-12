@@ -253,7 +253,7 @@ export function CreateDebtModal({ isOpen, onClose, accounts, monthlyIncome, sele
                 {[["Tipo", `Deuda · ${form.category}`], ["Saldo", principal ? <Amount value={principal} currency={form.currency} size="sm" /> : "—"],
                   ["Cuota mensual calculada", installment ? <Amount value={installment} currency={form.currency} size="sm" /> : "—"],
                   ["Interés anual", annualPercent ? `${annualPercent.toString()}%` : "—"], ["Cuenta", account?.name ?? "Sin seleccionar"]].map(([label, value]) =>
-                  <div key={label} className="flex flex-wrap justify-between gap-2 border-b border-border pb-2"><dt className="text-muted-foreground">{label}</dt><dd className="font-semibold">{value}</dd></div>)}
+                  <div key={String(label)} className="flex flex-wrap justify-between gap-2 border-b border-border pb-2"><dt className="text-muted-foreground">{label}</dt><dd className="font-semibold">{value}</dd></div>)}
               </dl>
               <div className="space-y-2 border-t border-border pt-3">
                 <p className="text-sm font-semibold">Deuda / ingreso (DTI)</p>

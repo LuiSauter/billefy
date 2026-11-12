@@ -6,6 +6,7 @@ import { Investment } from "../../domain/investment.types";
 import { InvestmentDetailMetrics } from "../../domain/investment-detail";
 import { CategoryIconBadge } from "@/modules/ledger/presentation/CategoryIcon";
 import { CategoryColorKey, CategoryIconKey } from "@/modules/ledger/domain/category.types";
+import { Amount, Percentage, Quantity } from "@/shared/ui/amount";
 
 interface InvestmentHeroCardProps {
   investment: Investment;
@@ -57,7 +58,7 @@ export function InvestmentHeroCard({
                   {investment.name}
                 </h2>
                 {investment.ticker && (
-                  <span className="px-2 py-0.5 rounded-md text-[11px] font-mono font-extrabold bg-blue-500/15 text-blue-300 border border-blue-500/30 shrink-0">
+                  <span className="px-2 py-0.5 rounded-md text-[11px] font-extrabold bg-blue-500/15 text-blue-300 border border-blue-500/30 shrink-0">
                     {investment.ticker}
                   </span>
                 )}
@@ -98,15 +99,15 @@ export function InvestmentHeroCard({
           {/* 1. Valor actual */}
           <div className="flex flex-col gap-1">
             <span className="text-xs font-semibold text-muted-foreground">Valor actual</span>
-            <span className="text-xl sm:text-2xl font-black font-mono text-foreground tracking-tight">
-              {currency} {metrics.currentValue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            <span className="text-xl sm:text-2xl font-black text-foreground tracking-tight">
+              <Amount value={metrics.currentValue} currency={currency} size="inherit" tone="inherit" />
             </span>
             <div className="flex items-center gap-1 text-[11px] font-bold text-emerald-400">
               <TrendingUp className="w-3 h-3 stroke-[2.5]" />
               <span>
                 {metrics.recentChangePct !== null
-                  ? `${metrics.recentChangePct >= 0 ? "+" : ""}${metrics.recentChangePct.toFixed(2)}% (24 h)`
-                  : "+0.00% (24 h)"}
+                  ? <Percentage value={metrics.recentChangePct} sign="always" size="inherit" tone="inherit" />
+                  : <Percentage value={0} sign="always" size="inherit" tone="inherit" />}{" "}(24 h)
               </span>
             </div>
           </div>
@@ -115,12 +116,12 @@ export function InvestmentHeroCard({
           <div className="flex flex-col gap-1">
             <span className="text-xs font-semibold text-muted-foreground">Ganancia / Pérdida</span>
             <span
-              className={`text-xl sm:text-2xl font-black font-mono tracking-tight ${
+              className={`text-xl sm:text-2xl font-black tracking-tight ${
                 isPositiveGain ? "text-emerald-400" : "text-rose-400"
               }`}
             >
               {isPositiveGain ? "+ " : "- "}
-              {currency} {Math.abs(metrics.gainLoss).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              <Amount value={Math.abs(metrics.gainLoss)} currency={currency} size="inherit" tone="inherit" />
             </span>
             <div
               className={`flex items-center gap-1 text-[11px] font-bold ${
@@ -129,7 +130,7 @@ export function InvestmentHeroCard({
             >
               <TrendingUp className="w-3 h-3 stroke-[2.5]" />
               <span>
-                {isPositiveGain ? "+" : ""}{metrics.gainLossPct.toFixed(2)}%
+                <Percentage value={metrics.gainLossPct} sign="always" size="inherit" tone="inherit" />
               </span>
             </div>
           </div>
@@ -137,8 +138,8 @@ export function InvestmentHeroCard({
           {/* 3. Rentabilidad (ROI) */}
           <div className="flex flex-col gap-1">
             <span className="text-xs font-semibold text-muted-foreground">Rentabilidad (ROI)</span>
-            <span className="text-xl sm:text-2xl font-black font-mono text-emerald-400 tracking-tight">
-              +{metrics.roiPct.toFixed(2)}%
+            <span className="text-xl sm:text-2xl font-black text-emerald-400 tracking-tight">
+              <Percentage value={metrics.roiPct} sign="always" size="inherit" tone="inherit" />
             </span>
             <span className="text-[11px] text-muted-foreground">retorno total</span>
           </div>
@@ -146,11 +147,11 @@ export function InvestmentHeroCard({
           {/* 4. Cantidad & Costo promedio */}
           <div className="flex flex-col gap-1">
             <span className="text-xs font-semibold text-muted-foreground">Cantidad</span>
-            <span className="text-base sm:text-lg font-black font-mono text-foreground tracking-tight truncate">
-              {metrics.quantity.toLocaleString("en-US", { maximumFractionDigits: 8 })} {investment.currency}
+            <span className="text-base sm:text-lg font-black text-foreground tracking-tight truncate">
+              <Quantity value={metrics.quantity} size="inherit" /> {investment.currency}
             </span>
             <span className="text-[11px] text-muted-foreground truncate">
-              Costo prom: {currency} {metrics.averageCost.toLocaleString("en-US", { maximumFractionDigits: 2 })}
+              Costo prom: <Amount value={metrics.averageCost} currency={currency} size="inherit" tone="inherit" />
             </span>
           </div>
         </div>

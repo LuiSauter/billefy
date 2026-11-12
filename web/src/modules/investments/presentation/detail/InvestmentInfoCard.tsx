@@ -4,6 +4,7 @@ import React from "react";
 import { Landmark, Wallet, Calendar, Target, FileText, Percent } from "lucide-react";
 import { Investment } from "../../domain/investment.types";
 import { InvestmentDetailMetrics } from "../../domain/investment-detail";
+import { Amount } from "@/shared/ui/amount";
 
 interface InvestmentInfoCardProps {
   investment: Investment;
@@ -77,8 +78,8 @@ export function InvestmentInfoCard({
             <Target className="w-3.5 h-3.5 text-teal-400" />
             <span>Inversión inicial</span>
           </div>
-          <span className="font-bold font-mono text-foreground">
-            {currency} {metrics.initialValue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          <span className="font-bold text-foreground">
+            <Amount value={metrics.initialValue} currency={currency} size="inherit" tone="inherit" />
           </span>
         </div>
 
@@ -88,8 +89,8 @@ export function InvestmentInfoCard({
             <FileText className="w-3.5 h-3.5 text-purple-400" />
             <span>Costo total</span>
           </div>
-          <span className="font-bold font-mono text-foreground">
-            {currency} {metrics.initialValue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          <span className="font-bold text-foreground">
+            <Amount value={metrics.initialValue} currency={currency} size="inherit" tone="inherit" />
           </span>
         </div>
 
@@ -99,8 +100,8 @@ export function InvestmentInfoCard({
             <Percent className="w-3.5 h-3.5 text-pink-400" />
             <span>Comisiones</span>
           </div>
-          <span className="font-bold font-mono text-foreground">
-            {currency} {fees.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          <span className="font-bold text-foreground">
+            <Amount value={fees} currency={currency} size="inherit" tone="inherit" />
           </span>
         </div>
       </div>

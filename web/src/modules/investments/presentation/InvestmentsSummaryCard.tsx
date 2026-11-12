@@ -4,7 +4,7 @@ import React from "react";
 import { TrendingUp } from "lucide-react";
 import { toBob } from "@/modules/ledger/domain/monthly-analytics";
 import { CategoryIconBadge } from "@/modules/ledger/presentation/CategoryIcon";
-import { useNumberFormat } from "@/shared/hooks/use-number-format";
+import { Amount } from "@/shared/ui/amount";
 import { ChangeBadge } from "@/modules/ledger/presentation/AccountsSummaryCard";
 import {
   Investment,
@@ -23,7 +23,6 @@ export function InvestmentsSummaryCard({
   p2pRate,
   onOpenInvestments,
 }: InvestmentsSummaryCardProps) {
-  const format = useNumberFormat();
   const totalValue = investments.reduce(
     (a, i) => a + toBob(i.currentValue, i.currency, p2pRate),
     0
@@ -60,8 +59,8 @@ export function InvestmentsSummaryCard({
       ) : (
         <>
           <div className="flex items-baseline justify-between">
-            <span className="text-xl font-black font-mono text-foreground">
-              Bs {format(totalValue)}
+            <span className="text-xl font-black text-foreground">
+              <Amount value={totalValue} currency="BOB" size="inherit" tone="inherit" />
             </span>
             <ChangeBadge pct={totalPct} />
           </div>
@@ -80,9 +79,8 @@ export function InvestmentsSummaryCard({
                   </div>
                 </div>
                 <div className="flex flex-col items-end shrink-0">
-                  <span className="text-sm font-extrabold font-mono text-foreground">
-                    {format(inv.currentValue)}{" "}
-                    {inv.currency}
+                  <span className="text-sm font-extrabold text-foreground">
+                    <Amount value={inv.currentValue} currency={inv.currency} size="inherit" tone="inherit" />
                   </span>
                   <ChangeBadge pct={investmentVariationPct(inv)} />
                 </div>

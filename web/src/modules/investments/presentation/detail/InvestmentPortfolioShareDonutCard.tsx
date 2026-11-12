@@ -3,6 +3,7 @@
 import React from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { Investment } from "../../domain/investment.types";
+import { Amount, Percentage } from "@/shared/ui/amount";
 
 interface InvestmentPortfolioShareDonutCardProps {
   currentInvestment: Investment;
@@ -58,8 +59,8 @@ export function InvestmentPortfolioShareDonutCard({
                     return (
                       <div className="rounded-xl bg-popover/95 backdrop-blur-md border border-border/80 px-3 py-2 shadow-xl">
                         <p className="text-[11px] font-semibold text-muted-foreground">{data.name}</p>
-                        <p className="text-xs font-bold text-foreground font-mono mt-0.5">
-                          {currency} {data.value.toLocaleString("en-US")} ({data.percentage}%)
+                        <p className="text-xs font-bold text-foreground mt-0.5">
+                          <Amount value={data.value} currency={currency} size="inherit" tone="inherit" /> (<Percentage value={data.percentage} sign="never" size="inherit" tone="inherit" />)
                         </p>
                       </div>
                     );
@@ -86,7 +87,7 @@ export function InvestmentPortfolioShareDonutCard({
           </ResponsiveContainer>
 
           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center px-2">
-            <span className="text-base font-black text-foreground font-mono tracking-tight leading-tight">
+            <span className="text-base font-black text-foreground tracking-tight leading-tight">
               {currentPct}%
             </span>
             <span className="text-[10px] font-semibold text-muted-foreground mt-0.5">
@@ -111,7 +112,7 @@ export function InvestmentPortfolioShareDonutCard({
                 <span className="truncate">{item.name}</span>
               </div>
               <span className="font-mono font-bold ml-2 text-foreground">
-                {item.percentage}%
+                <Percentage value={item.percentage} sign="never" size="inherit" tone="inherit" />
               </span>
             </div>
           ))}

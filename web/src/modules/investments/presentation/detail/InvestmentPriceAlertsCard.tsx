@@ -3,15 +3,16 @@
 import React, { useState } from "react";
 import { Bell, Plus, ArrowUpRight, ArrowDownRight, Trash2 } from "lucide-react";
 import { InvestmentAlert } from "../../domain/investment-detail";
+import { Amount } from "@/shared/ui/amount";
 
 interface InvestmentPriceAlertsCardProps {
   investmentId: string;
-  currencySymbol?: string;
+  currency?: string;
 }
 
 export function InvestmentPriceAlertsCard({
   investmentId,
-  currencySymbol = "$",
+  currency = "USD",
 }: InvestmentPriceAlertsCardProps) {
   const [alerts, setAlerts] = useState<InvestmentAlert[]>([]);
   const [isAdding, setIsAdding] = useState(false);
@@ -83,7 +84,7 @@ export function InvestmentPriceAlertsCard({
               value={newTarget}
               onChange={(e) => setNewTarget(e.target.value)}
               placeholder="70000"
-              className="h-8 px-3 rounded-lg bg-card border border-border text-xs font-mono font-bold text-foreground flex-1 outline-none"
+              className="h-8 px-3 rounded-lg bg-card border border-border text-xs font-bold text-foreground flex-1 outline-none"
               autoFocus
             />
           </div>
@@ -122,7 +123,7 @@ export function InvestmentPriceAlertsCard({
                 <span className="text-xs font-medium text-foreground truncate">
                   Si el precio {isAbove ? "sube" : "baja"} a{" "}
                   <strong className="font-mono font-bold">
-                    {currencySymbol} {alt.targetPrice.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    <Amount value={alt.targetPrice} currency={currency} size="inherit" tone="inherit" />
                   </strong>
                 </span>
               </div>

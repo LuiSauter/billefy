@@ -3,17 +3,18 @@
 import React from "react";
 import { ArrowDownLeft, ArrowUpRight, RefreshCw, MoreVertical, Coins } from "lucide-react";
 import { InvestmentOperation } from "../../domain/investment-detail";
+import { Amount, Quantity } from "@/shared/ui/amount";
 
 interface InvestmentOperationsTableProps {
   operations: InvestmentOperation[];
-  currencySymbol?: string;
+  currency?: string;
   assetTicker?: string;
   onViewAll?: () => void;
 }
 
 export function InvestmentOperationsTable({
   operations,
-  currencySymbol = "$",
+  currency = "USD",
   assetTicker = "u.",
   onViewAll,
 }: InvestmentOperationsTableProps) {
@@ -92,18 +93,18 @@ export function InvestmentOperationsTable({
                   </td>
 
                   {/* Cantidad */}
-                  <td className="py-3 px-3 font-mono font-medium text-foreground">
-                    {op.quantity.toLocaleString("en-US", { maximumFractionDigits: 8 })}
+                  <td className="py-3 px-3 font-medium text-foreground">
+                    <Quantity value={op.quantity} size="inherit" />
                   </td>
 
                   {/* Precio unitario */}
-                  <td className="py-3 px-3 font-mono text-muted-foreground">
-                    {currencySymbol} {op.unitPrice.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  <td className="py-3 px-3 text-muted-foreground">
+                    <Amount value={op.unitPrice} currency={currency} size="inherit" tone="inherit" />
                   </td>
 
                   {/* Monto */}
-                  <td className="py-3 px-3 font-mono font-bold text-foreground">
-                    {currencySymbol} {op.totalAmount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  <td className="py-3 px-3 font-bold text-foreground">
+                    <Amount value={op.totalAmount} currency={currency} size="inherit" tone="inherit" />
                   </td>
 
                   {/* Estado */}

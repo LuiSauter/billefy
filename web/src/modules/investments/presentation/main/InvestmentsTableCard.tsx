@@ -12,6 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/shared/ui/dropdown-menu";
+import { Amount, Percentage, Quantity } from "@/shared/ui/amount";
 
 interface InvestmentsTableCardProps {
   investments: Investment[];
@@ -136,7 +137,7 @@ export function InvestmentsTableCard({
                           {inv.name}
                         </span>
                         <span className="text-[10px] text-muted-foreground">
-                          {inv.quantity.toLocaleString("en-US")} u. • {inv.currency}
+                          <Quantity value={inv.quantity} size="inherit" /> u. • {inv.currency}
                         </span>
                       </div>
                     </div>
@@ -150,22 +151,22 @@ export function InvestmentsTableCard({
                   </td>
 
                   {/* Valor actual */}
-                  <td className="py-3.5 px-3 font-mono font-bold text-foreground text-xs sm:text-sm">
+                  <td className="py-3.5 px-3 font-bold text-foreground text-xs sm:text-sm">
                     {formatter
                       ? `${formatter(inv.currentValue)} ${inv.currency}`
-                      : `${currency} ${inv.currentValue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                      : <Amount value={inv.currentValue} currency={currency} size="inherit" tone="inherit" />}
                   </td>
 
                   {/* Aporte total */}
-                  <td className="py-3.5 px-3 font-mono text-muted-foreground">
-                    {currency} {inv.initialValue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  <td className="py-3.5 px-3 text-muted-foreground">
+                    <Amount value={inv.initialValue} currency={currency} size="inherit" tone="inherit" />
                   </td>
 
                   {/* Ganancia / Pérdida */}
-                  <td className="py-3.5 px-3 font-mono font-bold">
+                  <td className="py-3.5 px-3 font-bold">
                     <span className={isPositive ? "text-emerald-400" : "text-rose-400"}>
                       {isPositive ? "+ " : "- "}
-                      {currency} {Math.abs(gainLoss).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      <Amount value={Math.abs(gainLoss)} currency={currency} size="inherit" tone="inherit" />
                     </span>
                   </td>
 
@@ -178,7 +179,7 @@ export function InvestmentsTableCard({
                           : "bg-rose-500/15 text-rose-400 border-rose-500/30"
                       }`}
                     >
-                      {isPositive ? "+" : ""}{perfPct.toFixed(1)}%
+                      <Percentage value={perfPct} sign="always" size="inherit" tone="inherit" />
                     </span>
                   </td>
 

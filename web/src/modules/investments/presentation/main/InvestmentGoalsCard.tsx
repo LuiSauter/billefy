@@ -2,6 +2,7 @@
 
 import React from "react";
 import { Target, Plus } from "lucide-react";
+import { Amount } from "@/shared/ui/amount";
 
 export interface InvestmentGoalDisplayItem {
   id: string;
@@ -50,7 +51,7 @@ export function InvestmentGoalsCard({
             <div key={goal.id} className="flex flex-col gap-1.5">
               <div className="flex items-center justify-between text-xs font-semibold">
                 <span className="text-foreground">{goal.title}</span>
-                <span className="text-foreground font-mono font-bold">
+                <span className="text-foreground font-bold">
                   {goal.percentage}%
                 </span>
               </div>
@@ -66,9 +67,9 @@ export function InvestmentGoalsCard({
                 />
               </div>
 
-              <div className="text-[11px] font-mono text-muted-foreground flex justify-between">
+              <div className="text-[11px] text-muted-foreground flex justify-between">
                 <span>
-                  {currency} {goal.currentAmount.toLocaleString("en-US", { minimumFractionDigits: 2 })} / {currency} {goal.targetAmount.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                  <Amount value={goal.currentAmount} currency={currency} size="inherit" tone="inherit" /> / <Amount value={goal.targetAmount} currency={currency} size="inherit" tone="inherit" />
                 </span>
               </div>
             </div>

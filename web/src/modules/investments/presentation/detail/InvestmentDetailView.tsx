@@ -38,7 +38,7 @@ export function InvestmentDetailView({
   onOpenUpdatePrice,
   onOpenEditInvestment,
   onOpenOperation,
-  currency = "$",
+  currency = "USD",
 }: InvestmentDetailViewProps) {
   const [activeTab, setActiveTab] = useState<InvestmentDetailTabKey>("resumen");
   const [evolutionMonths, setEvolutionMonths] = useState(6);
@@ -111,7 +111,7 @@ export function InvestmentDetailView({
             {/* Recent Operations Table */}
             <InvestmentOperationsTable
               operations={operations.slice(0, 5)}
-              currencySymbol={currency}
+              currency={currency}
               assetTicker={investment.currency}
               onViewAll={() => setActiveTab("operaciones")}
             />
@@ -129,7 +129,7 @@ export function InvestmentDetailView({
 
             <InvestmentPriceAlertsCard
               investmentId={investment.id}
-              currencySymbol={currency}
+              currency={currency}
             />
           </div>
         </div>
@@ -158,7 +158,7 @@ export function InvestmentDetailView({
 
           <InvestmentOperationsTable
             operations={operations}
-            currencySymbol={currency}
+            currency={currency}
             assetTicker={investment.currency}
           />
         </div>
@@ -181,7 +181,7 @@ export function InvestmentDetailView({
         <div className="max-w-2xl">
           <InvestmentPriceAlertsCard
             investmentId={investment.id}
-            currencySymbol={currency}
+            currency={currency}
           />
         </div>
       )}

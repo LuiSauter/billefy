@@ -3,6 +3,7 @@
 import React from "react";
 import { Info, TrendingUp, Layers, Percent } from "lucide-react";
 import { PortfolioOverviewMetrics } from "../../domain/portfolio-analytics";
+import { Amount, Percentage } from "@/shared/ui/amount";
 
 interface InvestmentsKpiCardsProps {
   metrics: PortfolioOverviewMetrics;
@@ -54,8 +55,8 @@ export function InvestmentsKpiCards({
         </div>
 
         <div className="my-2 relative z-10">
-          <div className="text-2xl sm:text-3xl font-black text-white tracking-tight font-mono">
-            {currency} {metrics.totalValue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          <div className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+            <Amount value={metrics.totalValue} currency={currency} size="inherit" tone="inherit" />
           </div>
         </div>
 
@@ -69,8 +70,8 @@ export function InvestmentsKpiCards({
           >
             <TrendingUp className="w-3 h-3 stroke-[2.5]" />
             {metrics.previousPeriodChangePct !== null
-              ? `${metrics.previousPeriodChangePct >= 0 ? "+" : ""}${metrics.previousPeriodChangePct.toFixed(1)}%`
-              : "+0.0%"}
+              ? <Percentage value={metrics.previousPeriodChangePct} sign="always" size="inherit" tone="inherit" />
+              : <Percentage value={0} sign="always" size="inherit" tone="inherit" />}
           </span>
           <span className="text-[11px] font-medium text-purple-200/70">
             vs. período anterior
@@ -97,12 +98,12 @@ export function InvestmentsKpiCards({
 
         <div className="my-2">
           <div
-            className={`text-2xl font-black font-mono tracking-tight ${
+            className={`text-2xl font-black tracking-tight ${
               isPositiveGain ? "text-emerald-400" : "text-rose-400"
             }`}
           >
             {isPositiveGain ? "+ " : "- "}
-            {currency} {Math.abs(metrics.totalGainLoss).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            <Amount value={Math.abs(metrics.totalGainLoss)} currency={currency} size="inherit" tone="inherit" />
           </div>
         </div>
 
@@ -112,7 +113,7 @@ export function InvestmentsKpiCards({
               isPositiveGain ? "text-emerald-400" : "text-rose-400"
             }`}
           >
-            ({isPositiveGain ? "+" : ""}{metrics.totalGainLossPct.toFixed(1)}%)
+            (<Percentage value={metrics.totalGainLossPct} sign="always" size="inherit" tone="inherit" />)
           </span>
           <span className="text-[11px] text-muted-foreground">de rentabilidad</span>
         </div>
@@ -130,8 +131,8 @@ export function InvestmentsKpiCards({
         </div>
 
         <div className="my-2">
-          <div className="text-2xl font-black text-foreground font-mono tracking-tight">
-            {currency} {metrics.totalCost.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          <div className="text-2xl font-black text-foreground tracking-tight">
+            <Amount value={metrics.totalCost} currency={currency} size="inherit" tone="inherit" />
           </div>
         </div>
 
@@ -152,8 +153,8 @@ export function InvestmentsKpiCards({
         </div>
 
         <div className="my-2">
-          <div className="text-2xl font-black text-emerald-400 font-mono tracking-tight">
-            +{metrics.annualReturnYtdPct.toFixed(1)}%
+          <div className="text-2xl font-black text-emerald-400 tracking-tight">
+            <Percentage value={metrics.annualReturnYtdPct} sign="always" size="inherit" tone="inherit" />
           </div>
         </div>
 

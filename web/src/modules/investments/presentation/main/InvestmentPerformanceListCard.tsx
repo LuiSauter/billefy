@@ -4,6 +4,7 @@ import React from "react";
 import { InvestmentPerformanceItem } from "../../domain/portfolio-analytics";
 import { CategoryIconBadge } from "@/modules/ledger/presentation/CategoryIcon";
 import { CategoryColorKey, CategoryIconKey } from "@/modules/ledger/domain/category.types";
+import { Amount, Percentage } from "@/shared/ui/amount";
 
 interface InvestmentPerformanceListCardProps {
   items: InvestmentPerformanceItem[];
@@ -43,8 +44,8 @@ export function InvestmentPerformanceListCard({
               </div>
 
               <div className="flex items-center gap-2.5 shrink-0">
-                <span className="text-xs sm:text-sm font-bold font-mono text-foreground">
-                  {currency} {item.currentValue.toLocaleString("en-US", { maximumFractionDigits: 0 })}
+                <span className="text-xs sm:text-sm font-bold text-foreground">
+                  <Amount value={item.currentValue} currency={currency} size="inherit" tone="inherit" />
                 </span>
                 <span
                   className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold border ${
@@ -53,7 +54,7 @@ export function InvestmentPerformanceListCard({
                       : "bg-rose-500/15 text-rose-400 border-rose-500/30"
                   }`}
                 >
-                  {isPositive ? "+" : ""}{item.performancePct.toFixed(1)}%
+                  <Percentage value={item.performancePct} sign="always" size="inherit" tone="inherit" />
                 </span>
               </div>
             </div>

@@ -243,7 +243,7 @@ export function CreateLentLoanModal({ isOpen, onClose, accounts, selectedCurrenc
                 ["Plazo", Number.isSafeInteger(months) && months > 0 ? `${months} meses` : "—"],
                 [form.frequency === "Monthly" ? "Cuota mensual estimada" : "Cuota por período estimada",
                   schedule ? <Amount value={schedule.installments[0].total} currency={form.currency} size="sm" /> : "—"]].map(([label, value]) =>
-                <div key={label} className="flex flex-wrap justify-between gap-2 border-b border-border pb-2">
+                <div key={String(label)} className="flex flex-wrap justify-between gap-2 border-b border-border pb-2">
                   <dt className="text-muted-foreground">{label}</dt><dd className="font-semibold">{value}</dd>
                 </div>)}
             </dl>

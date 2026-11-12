@@ -10,6 +10,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { PortfolioEvolutionPoint } from "../../domain/portfolio-analytics";
+import { Amount } from "@/shared/ui/amount";
 
 interface PortfolioEvolutionChartProps {
   points: PortfolioEvolutionPoint[];
@@ -35,8 +36,8 @@ export function PortfolioEvolutionChart({
         <h3 className="text-base font-bold text-foreground tracking-tight">
           Evolución del portafolio
         </h3>
-        <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-black bg-purple-600 text-white shadow-xs font-mono">
-          {currency} {currentValue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-black bg-purple-600 text-white shadow-xs">
+          <Amount value={currentValue} currency={currency} size="inherit" tone="inherit" />
         </span>
       </div>
 
@@ -72,8 +73,8 @@ export function PortfolioEvolutionChart({
                   return (
                     <div className="rounded-xl bg-popover/95 backdrop-blur-md border border-border/80 px-3 py-2 shadow-xl">
                       <p className="text-[11px] font-semibold text-muted-foreground">{data.month}</p>
-                      <p className="text-xs font-bold text-foreground font-mono mt-0.5">
-                        {currency} {data.value.toLocaleString("en-US")}
+                      <p className="text-xs font-bold text-foreground mt-0.5">
+                        <Amount value={data.value} currency={currency} size="inherit" tone="inherit" />
                       </p>
                     </div>
                   );

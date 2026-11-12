@@ -42,7 +42,7 @@ describe("InvestmentDetailView", () => {
 
     // Hero card
     expect(html).toContain("Bitcoin (BTC)");
-    expect(html).toContain("67,420.00");
+    expect(html).toContain("67.420,00");
     expect(html).toContain("Rentabilidad (ROI)");
 
     // Tabs
