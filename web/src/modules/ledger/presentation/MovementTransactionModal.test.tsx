@@ -11,10 +11,10 @@ import { MovementActions } from "./MovementActions";
 
 const account = { id: "account-a", name: "Cash", type: "Cash", currency: "BOB", balance: 0, createdAt: "2026-01-01" } as unknown as AccountDto;
 const transfer = { id: "logical-transfer-id", kind: "Transfer", amount: "10", currency: "BOB", direction: "Expense", occurredAt: "2026-05-01T10:00:00Z", accountId: "account-a", accountName: "Cash", isReversal: false, legs: [{ id: "out-leg-id", accountId: "account-a", accountName: "Cash", amount: "10", currency: "BOB", direction: "Expense" }, { id: "in-leg-id", accountId: "account-b", accountName: "Bank", amount: "10", currency: "BOB", direction: "Income" }], allocations: [] } as unknown as Movement;
-function nodes(tree: unknown): Array<{ type?: unknown; props: Record<string, unknown> }> { if (Array.isArray(tree)) return tree.flatMap(nodes); if (!tree || typeof tree !== "object") return []; const element = tree as { type?: unknown; props?: Record<string, unknown> }; const props = element.props || {}; return [{ type: element.type, props }, ...nodes(props.children)]; }
-function text(tree: unknown): string { if (Array.isArray(tree)) return tree.map(text).join(" "); if (!tree || typeof tree !== "object") return String(tree ?? ""); return text((tree as { props?: { children?: unknown } }).props?.children); }
+function nodes(tree: unknown): Array<{ type?: unknown; props: Record<string, unknown> }> { if (Array.isArray(tree)) return tree.flatMap(nodes); if (!tree || typeof tree !== "object") return []; const element = tree as { type?: unknown; props?: Record<string, unknown> }; const props = element.props || {}; const children = typeof props.children === "function" ? (props.children as (control: Record<string, unknown>) => unknown)({ id: "test-field" }) : props.children; return [{ type: element.type, props }, ...nodes(children), ...nodes(props.footer)]; }
+function text(tree: unknown): string { if (Array.isArray(tree)) return tree.map(text).join(" "); if (!tree || typeof tree !== "object") return String(tree ?? ""); const props = (tree as { props?: { children?: unknown; title?: unknown; footer?: unknown } }).props; return `${text(props?.title)} ${text(props?.children)} ${text(props?.footer)}`; }
 function render(onComplete = vi.fn(async () => {}), movement: Movement = transfer, auditMode = false) { cursor = 0; refCursor = 0; return { tree: MovementActions({ http: {} as never, movement, accounts: [account], auditMode, onComplete }), onComplete }; }
-function click(tree: unknown, label: string) { const node = nodes(tree).find(n => text(n.props.children) === label); if (!node) throw new Error(`Missing button ${label}`); (node.props.onClick as () => void)(); }
+function click(tree: unknown, label: string) { const node = nodes(tree).find(n => text(n.props.children) === label); if (!node) throw new Error(`Missing button ${label}`); if (node.props.form === "movement-action-form") { const form = nodes(tree).find(n => n.props.id === node.props.form); (form?.props.onSubmit as (event: unknown) => void)({ preventDefault: () => {} }); } else (node.props.onClick as () => void)(); }
 const expense = { ...transfer, id: "ordinary-id", kind: "Expense", amount: "10", categoryId: "category-a", legs: [] } as unknown as Movement;
 beforeEach(() => { slots.splice(0); refs.splice(0); Object.values(api).forEach(fn => fn.mockReset()); });
 
@@ -26,7 +26,7 @@ describe("MovementActions", () => {
     // Supply the coordinated investment reversal handler through the component props.
     cursor = 0; refCursor = 0;
     view = { ...view, tree: MovementActions({ http: {} as never, movement: investment, accounts: [account], onComplete: view.onComplete, reverseInvestmentCash }) };
-    const available = nodes(view.tree).filter(n => n.type === "button").map(n => text(n.props.children));
+    const available = nodes(view.tree).filter(n => typeof n.props.onClick === "function").map(n => text(n.props.children));
     expect(available).toContain("Revertir aporte/retiro"); expect(available).not.toContain("Editar transacción"); expect(available).not.toContain("Duplicar");
     click(view.tree, "Revertir aporte/retiro"); cursor = 0; refCursor = 0; view = { ...view, tree: MovementActions({ http: {} as never, movement: investment, accounts: [account], onComplete: view.onComplete, reverseInvestmentCash }) };
     expect(reverseInvestmentCash).not.toHaveBeenCalled();
@@ -49,9 +49,9 @@ describe("MovementActions", () => {
   it("locks repeated clicks while an atomic transfer correction is pending", async () => {
     let resolve!: (value: unknown) => void; const pending = new Promise<unknown>(res=>{resolve=res}); api.correctTransfer.mockReturnValue(pending);
     let view = render(); click(view.tree, "Editar transacción"); view = render(view.onComplete);
-    const save = nodes(view.tree).find(n=>text(n.props.children) === "Guardar cambios"); const request = (save?.props.onClick as () => Promise<void>)();
-    view = render(view.onComplete); const pendingButton = nodes(view.tree).find(n=>text(n.props.children) === "Guardando…"); expect(pendingButton?.props.disabled).toBe(true);
-    (pendingButton?.props.onClick as () => Promise<void>)(); expect(api.correctTransfer).toHaveBeenCalledOnce();
+    const form = nodes(view.tree).find(n => n.props.id === "movement-action-form"); const request = (form?.props.onSubmit as (event: unknown) => Promise<void>)({ preventDefault: () => {} });
+    view = render(view.onComplete); const pendingButton = nodes(view.tree).find(n => text(n.props.children) === "Guardando…"); expect(pendingButton?.props.disabled).toBe(true);
+    (nodes(view.tree).find(n => n.props.id === "movement-action-form")?.props.onSubmit as (event: unknown) => Promise<void>)({ preventDefault: () => {} }); expect(api.correctTransfer).toHaveBeenCalledOnce();
     resolve({ outflowId: "new-out", inflowId: "new-in" }); await request; expect(view.onComplete).toHaveBeenCalledOnce();
   });
 
@@ -74,7 +74,7 @@ describe("MovementActions", () => {
 
   it("keeps audit history read-only except for creating a duplicate draft", () => {
     const view = render(vi.fn(async()=>{}), transfer, true);
-    const labels = nodes(view.tree).filter(n => n.type === "button").map(n => text(n.props.children));
+    const labels = nodes(view.tree).filter(n => typeof n.props.onClick === "function").map(n => text(n.props.children));
     expect(labels).toContain("Duplicar"); expect(labels).not.toContain("Editar transacción"); expect(labels).not.toContain("Revertir transacción");
   });
 });

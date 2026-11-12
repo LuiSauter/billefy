@@ -20,14 +20,13 @@ import { InvestmentGoalsCard } from "./main/InvestmentGoalsCard";
 import { InvestmentUpcomingEventsCard } from "./main/InvestmentUpcomingEventsCard";
 
 // Detail View
-import { getCurrencyMeta } from "@/shared/lib/currency";
 import { InvestmentDetailView } from "./detail/InvestmentDetailView";
 
 // Modals
 import { UpdatePriceModal } from "./modals/UpdatePriceModal";
 import { RegisterOperationModal } from "./modals/RegisterOperationModal";
 import { CreateInvestmentModal } from "./modals/CreateInvestmentModal";
-import { EditInvestmentModal } from "./modals/EditInvestmentModal";
+import { ArchiveInvestmentModal } from "./modals/ArchiveInvestmentModal";
 import { InvestmentCashModal } from "./InvestmentCashModal";
 
 interface InvestmentsViewProps {
@@ -226,7 +225,7 @@ export function InvestmentsView({
           isOpen={!!updatePriceInvestment}
           onClose={() => setUpdatePriceInvestment(null)}
           onUpdateValue={updateInvestmentValue}
-          currencySymbol={getCurrencyMeta(currency).symbol}
+          currency={currency}
         />
 
         <RegisterOperationModal
@@ -236,13 +235,14 @@ export function InvestmentsView({
           onClose={() => setOperationInvestment(null)}
           onConfirmOperation={handleConfirmOperation}
           onFetchStockQuote={controller.getStockQuote}
-          currencySymbol={getCurrencyMeta(currency).symbol}
+          currency={currency}
         />
 
-        <EditInvestmentModal
+        <ArchiveInvestmentModal
           investment={editInvestment}
           isOpen={!!editInvestment}
           onClose={() => setEditInvestment(null)}
+          currency={currency}
           onDelete={async (id) => {
             await deleteInvestment(id);
             setSelectedInvestmentId(null);
@@ -355,7 +355,7 @@ export function InvestmentsView({
         onClose={() => setCreateOpen(false)}
         onCreate={createInvestment}
         onFetchStockQuote={controller.getStockQuote}
-        currencySymbol={getCurrencyMeta(currency).symbol}
+        currency={currency}
       />
 
       <UpdatePriceModal
@@ -363,7 +363,7 @@ export function InvestmentsView({
         isOpen={!!updatePriceInvestment}
         onClose={() => setUpdatePriceInvestment(null)}
         onUpdateValue={updateInvestmentValue}
-        currencySymbol={getCurrencyMeta(currency).symbol}
+        currency={currency}
       />
 
       <RegisterOperationModal
@@ -373,13 +373,14 @@ export function InvestmentsView({
         onClose={() => setOperationInvestment(null)}
         onConfirmOperation={handleConfirmOperation}
         onFetchStockQuote={controller.getStockQuote}
-        currencySymbol={getCurrencyMeta(currency).symbol}
+        currency={currency}
       />
 
-      <EditInvestmentModal
+      <ArchiveInvestmentModal
         investment={editInvestment}
         isOpen={!!editInvestment}
         onClose={() => setEditInvestment(null)}
+        currency={currency}
         onDelete={deleteInvestment}
       />
 

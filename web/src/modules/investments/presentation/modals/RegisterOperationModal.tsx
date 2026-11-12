@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
+import Decimal from "decimal.js";
 import {
   ShoppingCart,
   TrendingDown,
@@ -8,7 +9,6 @@ import {
   Zap,
   TrendingUp,
   RefreshCw,
-  ArrowDownUp,
   SlidersHorizontal,
 } from "lucide-react";
 import { Investment } from "../../domain/investment.types";
@@ -24,8 +24,11 @@ import { fetchStockQuote, StockQuote } from "../../domain/stock-market.service";
 import { ResponsiveDrawer } from "@/shared/ui/responsive-drawer";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
+import { MoneyInput } from "@/shared/ui/money-input";
 import { FormField } from "@/shared/ui/form-field";
-import { cn } from "@/shared/lib/utils";
+import { SelectField } from "@/shared/ui/select-field";
+import { SegmentedControl } from "@/shared/ui/segmented-control";
+import { Amount, Percentage, Quantity } from "@/shared/ui/amount";
 
 interface RegisterOperationModalProps {
   investment: Investment | null;
@@ -44,16 +47,92 @@ interface RegisterOperationModalProps {
     linkedAccountId?: string;
   }) => Promise<void>;
   onFetchStockQuote?: (ticker: string) => Promise<StockQuote | null>;
-  currencySymbol?: string;
+  currency?: string;
 }
 
 const FORM_ID = "register-operation-form";
-
 const QUICK_BUY_AMOUNTS = [50, 100, 250, 500, 1000];
+// Preserve the existing input precision; rounding stays in the calculation handlers.
+const MAX_INPUT_DECIMALS = Number.MAX_SAFE_INTEGER;
 
 function toNumber(raw: string): number {
   const n = parseFloat(normalizeAmountString(raw.trim()) || "0");
   return Number.isFinite(n) ? n : 0;
+}
+
+function toDecimalString(value: number): string {
+  return new Decimal(value).toFixed();
+}
+
+function LiveQuote({
+  name,
+  source,
+  ticker,
+  exchangeName,
+  icon,
+  price,
+  changePercent,
+  loading,
+  currency,
+  onRefresh,
+}: {
+  name: string;
+  source: string;
+  ticker?: string;
+  exchangeName?: string | null;
+  icon: React.ReactNode;
+  price: number | null;
+  changePercent: number | null;
+  loading: boolean;
+  currency: string;
+  onRefresh?: () => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-muted/40 p-3.5">
+      <div className="flex min-w-0 items-center gap-3">
+        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+          {icon}
+        </div>
+        <div className="flex min-w-0 flex-col gap-1">
+          <span className="truncate text-sm font-semibold text-foreground">{name}</span>
+          <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+            {ticker && <span>{ticker}</span>}
+            <span className="rounded-md bg-primary/10 px-1.5 py-0.5 text-primary">{source}</span>
+            {exchangeName && <span>{exchangeName}</span>}
+          </div>
+        </div>
+      </div>
+      <div className="flex shrink-0 flex-col items-end">
+        <div className="flex items-center gap-1.5 text-base text-foreground">
+          {loading ? (
+            <RefreshCw className="size-4 animate-spin text-muted-foreground" />
+          ) : price ? (
+            <Amount value={price} currency={currency} size="inherit" tone="inherit" />
+          ) : (
+            <span>...</span>
+          )}
+          {onRefresh && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              onClick={onRefresh}
+              title="Refrescar cotización"
+              aria-label="Refrescar cotización"
+            >
+              <RefreshCw className={loading ? "animate-spin" : undefined} />
+            </Button>
+          )}
+        </div>
+        {changePercent !== null && (
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <Percentage value={changePercent} sign="always" size="inherit" tone="auto" />
+            <span>(24h)</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export function RegisterOperationModal({
@@ -63,7 +142,7 @@ export function RegisterOperationModal({
   onClose,
   onConfirmOperation,
   onFetchStockQuote,
-  currencySymbol = "$",
+  currency = "USD",
 }: RegisterOperationModalProps) {
   const [type, setType] = useState<"buy" | "sell" | "dividend">("buy");
   const [date, setDate] = useState(() => new Date().toISOString().split("T")[0]);
@@ -85,8 +164,6 @@ export function RegisterOperationModal({
     return extractCryptoSymbol(investment) || (investment.kind === "crypto" ? "monedas" : "unidades");
   }, [investment]);
 
-  const valuationCurrency = investment?.currency || "USDT";
-
   // Fetch live market price from Binance Spot
   const loadMarketPrice = useCallback(async (symbol: string) => {
     setLoadingLivePrice(true);
@@ -95,7 +172,7 @@ export function RegisterOperationModal({
       if (ticker && ticker.price > 0) {
         setLiveCryptoPrice(ticker.price);
         setPriceChangePercent(ticker.priceChangePercent);
-        setUnitPriceStr(String(ticker.price));
+        setUnitPriceStr(toDecimalString(ticker.price));
         return ticker.price;
       }
     } finally {
@@ -111,7 +188,7 @@ export function RegisterOperationModal({
       const quote = onFetchStockQuote ? await onFetchStockQuote(sym) : await fetchStockQuote(sym);
       if (quote && quote.price > 0) {
         setLiveStockQuote(quote);
-        setUnitPriceStr(String(quote.price));
+        setUnitPriceStr(toDecimalString(quote.price));
         setPriceChangePercent(quote.changePercent);
         return quote.price;
       }
@@ -142,7 +219,7 @@ export function RegisterOperationModal({
     } else {
       if (investment.quantity > 0 && investment.currentValue > 0) {
         const implied = Number((investment.currentValue / investment.quantity).toFixed(2));
-        setUnitPriceStr(String(implied));
+        setUnitPriceStr(toDecimalString(implied));
       } else {
         setUnitPriceStr("");
       }
@@ -156,7 +233,6 @@ export function RegisterOperationModal({
 
   const isDividend = type === "dividend";
   const isBuy = type === "buy";
-  const isSell = type === "sell";
 
   const currentPrice = toNumber(unitPriceStr) || liveCryptoPrice || 0;
   const qty = toNumber(quantityStr);
@@ -195,7 +271,7 @@ export function RegisterOperationModal({
     if (q > 0 && price > 0) {
       const gross = calculateCryptoUsdtValue(q, price);
       const tot = type === "buy" ? gross + fees : Math.max(0, gross - fees);
-      setDollarAmountStr(String(Number(tot.toFixed(2))));
+      setDollarAmountStr(toDecimalString(Number(tot.toFixed(2))));
     } else if (rawQty.trim() === "") {
       setDollarAmountStr("");
     }
@@ -215,7 +291,7 @@ export function RegisterOperationModal({
     } else if (q > 0 && price > 0) {
       const gross = calculateCryptoUsdtValue(q, price);
       const tot = type === "buy" ? gross + fees : Math.max(0, gross - fees);
-      setDollarAmountStr(String(Number(tot.toFixed(2))));
+      setDollarAmountStr(toDecimalString(Number(tot.toFixed(2))));
     }
   };
 
@@ -229,7 +305,7 @@ export function RegisterOperationModal({
     if (q > 0 && price > 0) {
       const gross = calculateCryptoUsdtValue(q, price);
       const tot = type === "buy" ? gross + f : Math.max(0, gross - f);
-      setDollarAmountStr(String(Number(tot.toFixed(2))));
+      setDollarAmountStr(toDecimalString(Number(tot.toFixed(2))));
     }
   };
 
@@ -243,14 +319,14 @@ export function RegisterOperationModal({
     if (q > 0 && price > 0) {
       const gross = calculateCryptoUsdtValue(q, price);
       const tot = nextType === "buy" ? gross + fees : Math.max(0, gross - fees);
-      setDollarAmountStr(String(Number(tot.toFixed(2))));
+      setDollarAmountStr(toDecimalString(Number(tot.toFixed(2))));
     }
   };
 
   // Quick chips
   const handleQuickAddDollar = (amount: number) => {
     const current = toNumber(dollarAmountStr);
-    handleDollarAmountChange(String(current + amount));
+    handleDollarAmountChange(toDecimalString(current + amount));
   };
 
   const handleSellAll = () => {
@@ -262,7 +338,7 @@ export function RegisterOperationModal({
   const handleApplyLivePrice = () => {
     const liveP = liveCryptoPrice || liveStockQuote?.price;
     if (liveP && liveP > 0) {
-      handleUnitPriceChange(String(liveP));
+      handleUnitPriceChange(toDecimalString(liveP));
     }
   };
 
@@ -289,6 +365,11 @@ export function RegisterOperationModal({
     }
   };
 
+  const accountOptions = accounts.map((account) => ({
+    value: account.id,
+    label: `${account.name} (${account.currency})`,
+  }));
+
   return (
     <ResponsiveDrawer
       open={isOpen}
@@ -302,23 +383,10 @@ export function RegisterOperationModal({
           ? `Comprar ${cryptoSymbol || investment.name}`
           : `Vender ${cryptoSymbol || investment.name}`
       }
-      description={
-        isDividend
-          ? "Registrá el ingreso de dinero líquido recibido sin alterar la tenencia de tu activo."
-          : isBuy
-          ? "Ingresá los dólares a invertir o la cantidad de títulos calculados con la cotización."
-          : "Ingresá la cantidad a vender o el monto a recibir calculado con el precio de mercado."
-      }
       size="md"
       footer={
-        <div className="flex w-full flex-col-reverse sm:flex-row sm:justify-end gap-2">
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={onClose}
-            disabled={submitting}
-            className="w-full sm:w-auto"
-          >
+        <div className="flex w-full flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <Button type="button" variant="ghost" onClick={onClose} disabled={submitting} className="w-full sm:w-auto">
             Cancelar
           </Button>
           <Button
@@ -326,14 +394,8 @@ export function RegisterOperationModal({
             form={FORM_ID}
             disabled={!valid || submitting}
             loading={submitting}
-            className={cn(
-              "w-full sm:w-auto font-bold text-white transition-all shadow-md",
-              isDividend
-                ? "bg-amber-600 hover:bg-amber-700 shadow-amber-600/20"
-                : isBuy
-                ? "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20"
-                : "bg-rose-600 hover:bg-rose-700 shadow-rose-600/20"
-            )}
+            variant={isDividend ? "default" : isBuy ? "success" : "destructive"}
+            className="w-full sm:w-auto"
           >
             {isDividend
               ? investment.kind === "realestate"
@@ -347,112 +409,48 @@ export function RegisterOperationModal({
       }
     >
       <form id={FORM_ID} onSubmit={handleSubmit} className="flex flex-col gap-4 py-1 text-xs">
-        {/* 1. Operation Switcher */}
-        <div
-          className={cn(
-            "grid gap-1.5 p-1 rounded-2xl bg-muted/60 border border-border",
-            investment.kind !== "crypto" ? "grid-cols-3" : "grid-cols-2"
-          )}
-        >
-          <button
-            type="button"
-            onClick={() => handleTypeChange("buy")}
-            className={cn(
-              "h-10 rounded-xl text-xs font-extrabold flex items-center justify-center gap-1.5 transition-all cursor-pointer",
-              isBuy
-                ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/20"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            <ShoppingCart className="w-3.5 h-3.5 stroke-[2.5]" />
-            <span>Comprar</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => handleTypeChange("sell")}
-            className={cn(
-              "h-10 rounded-xl text-xs font-extrabold flex items-center justify-center gap-1.5 transition-all cursor-pointer",
-              isSell
-                ? "bg-rose-600 text-white shadow-md shadow-rose-600/20"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            <TrendingDown className="w-3.5 h-3.5 stroke-[2.5]" />
-            <span>Vender</span>
-          </button>
-          {investment.kind !== "crypto" && (
-            <button
-              type="button"
-              onClick={() => handleTypeChange("dividend")}
-              className={cn(
-                "h-10 rounded-xl text-xs font-extrabold flex items-center justify-center gap-1.5 transition-all cursor-pointer",
-                isDividend
-                  ? "bg-amber-600 text-white shadow-md shadow-amber-600/20"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <Coins className="w-3.5 h-3.5 stroke-[2.5]" />
-              <span>{investment.kind === "realestate" ? "Renta" : "Dividendo"}</span>
-            </button>
-          )}
-        </div>
+        <SegmentedControl
+          aria-label="Tipo de operación"
+          value={type}
+          onChange={handleTypeChange}
+          fullWidth
+          options={[
+            { value: "buy", label: <><ShoppingCart className="size-3.5" />Comprar</>, tone: "income" },
+            { value: "sell", label: <><TrendingDown className="size-3.5" />Vender</>, tone: "expense" },
+            ...(investment.kind !== "crypto" ? [{
+              value: "dividend" as const,
+              label: <><Coins className="size-3.5" />{investment.kind === "realestate" ? "Renta" : "Dividendo"}</>,
+            }] : []),
+          ]}
+        />
 
-        {/* 2. Dividend / Rent Specific Form View */}
         {isDividend ? (
           <div className="flex flex-col gap-3">
-            <div className="p-4 rounded-2xl bg-card border border-border shadow-xs flex flex-col gap-2">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-bold text-foreground">
-                  {investment.kind === "realestate"
-                    ? "Monto cobrado por alquiler / renta"
-                    : "Monto cobrado en dividendos"}
-                </label>
-                <span className="text-[11px] font-mono font-bold text-muted-foreground uppercase">
-                  {valuationCurrency}
-                </span>
-              </div>
-
-              <div className="relative flex items-center">
-                <span className="absolute left-3.5 text-muted-foreground font-mono font-bold text-base pointer-events-none">
-                  {currencySymbol}
-                </span>
-                <Input
-                  type="text"
-                  inputMode="decimal"
+            <FormField label={investment.kind === "realestate" ? "Monto cobrado por alquiler / renta" : "Monto cobrado en dividendos"}>
+              {(control) => (
+                <MoneyInput
+                  {...control}
                   value={dollarAmountStr}
-                  onChange={(e) => setDollarAmountStr(e.target.value)}
+                  onValueChange={setDollarAmountStr}
+                  currency={currency}
+                  maxDecimals={MAX_INPUT_DECIMALS}
                   placeholder="250.00"
-                  className="pl-8 h-12 text-base font-mono font-extrabold bg-muted/30 focus:bg-background"
                   autoFocus
                 />
-              </div>
-
-              <span className="text-[11px] text-muted-foreground">
-                Este cobro se registra como dividendo/renta sin modificar la cantidad de títulos o metros cuadrados en cartera.
-              </span>
-            </div>
-
-            {/* Account to credit */}
+              )}
+            </FormField>
             {accounts.length > 0 && (
               <FormField label="Acreditar dinero en cuenta bancaria / billetera">
-                {() => (
-                  <select
+                {(control) => (
+                  <SelectField
+                    {...control}
                     value={linkedAccountId}
                     onChange={(e) => setLinkedAccountId(e.target.value)}
-                    className="w-full h-10 px-3 rounded-xl bg-background border border-border text-foreground text-xs font-semibold outline-none focus:border-amber-500 transition cursor-pointer"
-                  >
-                    <option value="">No acreditar en cuentas de efectivo</option>
-                    {accounts.map((acc) => (
-                      <option key={acc.id} value={acc.id}>
-                        {acc.name} ({acc.currency})
-                      </option>
-                    ))}
-                  </select>
+                    options={[{ value: "", label: "No acreditar en cuentas de efectivo" }, ...accountOptions]}
+                  />
                 )}
               </FormField>
             )}
-
-            {/* Notes */}
             <FormField label="Notas o período del cobro (opcional)">
               {(control) => (
                 <Input
@@ -460,382 +458,167 @@ export function RegisterOperationModal({
                   type="text"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  placeholder={
-                    investment.kind === "realestate"
-                      ? "Ej. Renta Noviembre 2026"
-                      : "Ej. Dividendo trimestral Q3"
-                  }
-                  className="text-xs"
+                  placeholder={investment.kind === "realestate" ? "Ej. Renta Noviembre 2026" : "Ej. Dividendo trimestral Q3"}
                 />
               )}
             </FormField>
-
-            {/* Date */}
             <FormField label="Fecha de cobro">
-              {(control) => (
-                <Input
-                  {...control}
-                  type="date"
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  className="font-mono text-xs"
-                />
-              )}
+              {(control) => <Input {...control} type="date" value={date} onChange={(e) => setDate(e.target.value)} />}
             </FormField>
           </div>
         ) : (
           <>
-            {/* Live Market Price Card for Crypto */}
             {investment.kind === "crypto" && (
-              <div className="p-3.5 rounded-2xl bg-gradient-to-r from-muted/60 via-muted/40 to-muted/20 border border-border flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-400 font-black text-sm flex items-center justify-center shrink-0">
-                    <Zap className="w-5 h-5" />
-                  </div>
-                  <div className="flex flex-col min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-extrabold text-foreground text-sm truncate">
-                        {investment.name}
-                      </span>
-                      <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">
-                        Binance Spot
-                      </span>
-                    </div>
-                    <span className="text-[11px] text-muted-foreground font-medium">
-                      Cotización en tiempo real usada para las conversiones
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex flex-col items-end shrink-0">
-                  <div className="flex items-center gap-1.5">
-                    {loadingLivePrice ? (
-                      <RefreshCw className="w-4 h-4 animate-spin text-muted-foreground" />
-                    ) : (
-                      <span className="font-mono font-black text-base text-foreground tracking-tight">
-                        $ {liveCryptoPrice ? liveCryptoPrice.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "..."}
-                      </span>
-                    )}
-                    {cryptoSymbol && (
-                      <button
-                        type="button"
-                        onClick={() => loadMarketPrice(cryptoSymbol)}
-                        title="Refrescar cotización"
-                        className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition"
-                      >
-                        <RefreshCw className={cn("w-3 h-3", loadingLivePrice && "animate-spin")} />
-                      </button>
-                    )}
-                  </div>
-                  {priceChangePercent !== null && (
-                    <span
-                      className={cn(
-                        "text-[10px] font-bold",
-                        priceChangePercent >= 0 ? "text-emerald-400" : "text-rose-400"
-                      )}
-                    >
-                      {priceChangePercent >= 0 ? "+" : ""}
-                      {priceChangePercent.toFixed(2)}% (24h)
-                    </span>
-                  )}
-                </div>
-              </div>
+              <LiveQuote
+                name={investment.name}
+                source="Binance Spot"
+                icon={<Zap className="size-5" />}
+                price={liveCryptoPrice}
+                changePercent={priceChangePercent}
+                loading={loadingLivePrice}
+                currency={currency}
+                onRefresh={cryptoSymbol ? () => loadMarketPrice(cryptoSymbol) : undefined}
+              />
             )}
-
-            {/* Live Stock / ETF Quote Card from Yahoo Finance */}
             {(investment.kind === "stocks" || investment.kind === "funds") && investment.ticker && (
-              <div className="p-3.5 rounded-2xl bg-gradient-to-r from-blue-500/10 via-muted/40 to-muted/20 border border-border flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-10 h-10 rounded-xl bg-blue-500/15 border border-blue-500/30 text-blue-400 font-black text-sm flex items-center justify-center shrink-0">
-                    <TrendingUp className="w-5 h-5" />
-                  </div>
-                  <div className="flex flex-col min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-extrabold text-foreground text-sm truncate">
-                        {investment.name}
-                      </span>
-                      <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-blue-500/15 text-blue-300 border border-blue-500/30 font-mono">
-                        {investment.ticker}
-                      </span>
-                      <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-blue-500/15 text-blue-300 border border-blue-500/30">
-                        Yahoo Finance
-                      </span>
-                    </div>
-                    <span className="text-[11px] text-muted-foreground font-medium truncate">
-                      {liveStockQuote?.exchangeName ? `${liveStockQuote.exchangeName} • ` : ""}Cotización en tiempo real
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex flex-col items-end shrink-0">
-                  <div className="flex items-center gap-1.5">
-                    {loadingLivePrice ? (
-                      <RefreshCw className="w-4 h-4 animate-spin text-muted-foreground" />
-                    ) : (
-                      <span className="font-mono font-black text-base text-foreground tracking-tight">
-                        $ {liveStockQuote ? liveStockQuote.price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "..."}
-                      </span>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => loadStockMarketPrice(investment.ticker!)}
-                      title="Refrescar cotización"
-                      className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition cursor-pointer"
-                    >
-                      <RefreshCw className={cn("w-3 h-3", loadingLivePrice && "animate-spin")} />
-                    </button>
-                  </div>
-                  {priceChangePercent !== null && (
-                    <span
-                      className={cn(
-                        "text-[10px] font-bold",
-                        priceChangePercent >= 0 ? "text-emerald-400" : "text-rose-400"
-                      )}
-                    >
-                      {priceChangePercent >= 0 ? "+" : ""}
-                      {priceChangePercent.toFixed(2)}% (24h)
-                    </span>
-                  )}
-                </div>
-              </div>
+              <LiveQuote
+                name={investment.name}
+                source="Yahoo Finance"
+                ticker={investment.ticker}
+                exchangeName={liveStockQuote?.exchangeName}
+                icon={<TrendingUp className="size-5" />}
+                price={liveStockQuote?.price ?? null}
+                changePercent={priceChangePercent}
+                loading={loadingLivePrice}
+                currency={currency}
+                onRefresh={() => loadStockMarketPrice(investment.ticker!)}
+              />
             )}
 
-            {/* DUAL CONVERSION INPUTS */}
-            <div className="flex flex-col gap-3">
-              {/* Input A: Monto en Dólares */}
-              <div className="p-4 rounded-2xl bg-card border border-border shadow-xs flex flex-col gap-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-foreground">
-                    {isBuy ? "Monto que vas a pagar" : "Monto en dólares que vas a recibir"}
-                  </label>
-                  <span className="text-[11px] font-mono font-bold text-muted-foreground uppercase">
-                    {valuationCurrency}
-                  </span>
-                </div>
-
-                <div className="relative flex items-center">
-                  <span className="absolute left-3.5 text-muted-foreground font-mono font-bold text-base pointer-events-none">
-                    {currencySymbol}
-                  </span>
-                  <Input
-                    type="text"
-                    inputMode="decimal"
-                    value={dollarAmountStr}
-                    onChange={(e) => handleDollarAmountChange(e.target.value)}
-                    placeholder="100.00"
-                    className="pl-8 h-12 text-base font-mono font-extrabold bg-muted/30 focus:bg-background"
-                    autoFocus={isBuy}
-                  />
-                </div>
-
-                {/* Quick Chips */}
-                <div className="flex items-center gap-1.5 flex-wrap pt-1">
-                  <span className="text-[11px] font-semibold text-muted-foreground mr-1">
-                    {isBuy ? "Sugeridos:" : "Rápido:"}
-                  </span>
-                  {isBuy ? (
-                    QUICK_BUY_AMOUNTS.map((amt) => (
-                      <button
-                        key={amt}
-                        type="button"
-                        onClick={() => handleQuickAddDollar(amt)}
-                        className="px-2.5 py-1 rounded-lg bg-muted/60 hover:bg-muted border border-border/80 text-[11px] font-mono font-bold text-foreground transition cursor-pointer"
-                      >
-                        +${amt}
-                      </button>
-                    ))
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={handleSellAll}
-                      disabled={investment.quantity <= 0}
-                      className="px-2.5 py-1 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-[11px] font-bold text-rose-300 transition cursor-pointer"
-                    >
-                      Vender todo ({investment.quantity} {cryptoSymbol})
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Visual Converter Bridge */}
-              <div className="flex items-center justify-center -my-1 z-10">
-                <div className="px-3 py-1 rounded-full bg-muted border border-border shadow-2xs flex items-center gap-1.5 text-[11px] font-bold text-purple-400">
-                  <ArrowDownUp className="w-3 h-3 text-purple-400" />
-                  <span>Conversión bidireccional automática</span>
-                </div>
-              </div>
-
-              {/* Input B: Cantidad de Activo */}
-              <div className="p-4 rounded-2xl bg-card border border-border shadow-xs flex flex-col gap-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-foreground">
-                    {isBuy ? `Cantidad de ${cryptoSymbol} comprada` : `Cantidad de ${cryptoSymbol} a vender`}
-                  </label>
-                  <span className="px-2 py-0.5 rounded-md bg-purple-500/15 border border-purple-500/30 text-purple-300 text-[11px] font-mono font-extrabold uppercase">
-                    {cryptoSymbol}
-                  </span>
-                </div>
-
-                <div className="relative flex items-center">
-                  <Input
-                    type="text"
-                    inputMode="decimal"
-                    value={quantityStr}
-                    onChange={(e) => handleQuantityChange(e.target.value)}
-                    placeholder="0.001317"
-                    className="h-12 text-base font-mono font-extrabold bg-muted/30 focus:bg-background"
-                    autoFocus={!isBuy}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-0.5">
-                  <span>
-                    {isBuy
-                      ? "Calculado dividiendo el monto por el precio unitario"
-                      : `Disponible en cartera: ${investment.quantity} ${cryptoSymbol}`}
-                  </span>
-                  {!isBuy && investment.quantity > 0 && (
-                    <button
-                      type="button"
-                      onClick={handleSellAll}
-                      className="text-purple-400 font-bold hover:underline cursor-pointer"
-                    >
-                      Usar máximo
-                    </button>
-                  )}
-                </div>
-              </div>
+            <FormField label={isBuy ? "Monto que vas a pagar" : "Monto en dólares que vas a recibir"}>
+              {(control) => (
+                <MoneyInput
+                  {...control}
+                  value={dollarAmountStr}
+                  onValueChange={handleDollarAmountChange}
+                  currency={currency}
+                  maxDecimals={MAX_INPUT_DECIMALS}
+                  placeholder="100.00"
+                  autoFocus={isBuy}
+                />
+              )}
+            </FormField>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {isBuy ? QUICK_BUY_AMOUNTS.map((amount) => (
+                <Button key={amount} type="button" variant="outline" size="xs" onClick={() => handleQuickAddDollar(amount)}>
+                  <Amount value={amount} currency={currency} sign="always" size="inherit" tone="inherit" />
+                </Button>
+              )) : (
+                <Button type="button" variant="destructive" size="sm" onClick={handleSellAll} disabled={investment.quantity <= 0}>
+                  Vender todo (<Quantity value={investment.quantity} unit={cryptoSymbol} size="inherit" />)
+                </Button>
+              )}
             </div>
 
-            {/* Advanced / Custom Price Options (Collapsible) */}
-            <div className="border border-border/70 rounded-2xl overflow-hidden bg-card/60">
-              <button
-                type="button"
-                onClick={() => setShowAdvanced(!showAdvanced)}
-                className="w-full p-3 flex items-center justify-between text-xs font-bold text-muted-foreground hover:text-foreground transition cursor-pointer"
-              >
-                <div className="flex items-center gap-2">
-                  <SlidersHorizontal className="w-3.5 h-3.5 text-purple-400" />
-                  <span>Ajustar precio unitario, comisiones, notas o cuenta</span>
-                </div>
-                <span className="text-[11px] text-purple-400">
-                  {showAdvanced ? "Ocultar" : "Personalizar"}
-                </span>
-              </button>
+            <FormField
+              label={isBuy ? `Cantidad de ${cryptoSymbol} comprada` : `Cantidad de ${cryptoSymbol} a vender`}
+              hint={!isBuy ? <>Disponible en cartera: <Quantity value={investment.quantity} unit={cryptoSymbol} size="inherit" /></> : undefined}
+            >
+              {(control) => (
+                <Input
+                  {...control}
+                  type="text"
+                  inputMode="decimal"
+                  value={quantityStr}
+                  onChange={(e) => handleQuantityChange(e.target.value)}
+                  placeholder="0.001317"
+                  autoFocus={!isBuy}
+                />
+              )}
+            </FormField>
+            {!isBuy && investment.quantity > 0 && (
+              <Button type="button" variant="link" size="sm" onClick={handleSellAll} className="self-end">
+                Usar máximo
+              </Button>
+            )}
 
+            <div className="overflow-hidden rounded-2xl border border-border bg-card">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setShowAdvanced(!showAdvanced)}
+                aria-expanded={showAdvanced}
+                aria-controls="register-operation-advanced"
+                className="h-auto w-full justify-start whitespace-normal p-3 text-left"
+              >
+                <SlidersHorizontal className="text-primary" />
+                Ajustar precio unitario, comisiones, notas o cuenta
+              </Button>
               {showAdvanced && (
-                <div className="p-3.5 border-t border-border/70 flex flex-col gap-3.5 bg-muted/20 animate-in fade-in duration-100">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {/* Unit Price Input */}
-                    <FormField label={`Precio unitario (${valuationCurrency})`}>
+                <div id="register-operation-advanced" className="flex flex-col gap-3.5 border-t border-border bg-muted/20 p-3.5">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <FormField label="Precio unitario">
                       {(control) => (
-                        <div className="relative flex items-center">
-                          <Input
-                            {...control}
-                            type="text"
-                            inputMode="decimal"
-                            value={unitPriceStr}
-                            onChange={(e) => handleUnitPriceChange(e.target.value)}
-                            placeholder="76,000.00"
-                            className="font-mono text-xs font-bold"
-                          />
-                          {liveCryptoPrice && currentPrice !== liveCryptoPrice && (
-                            <button
-                              type="button"
-                              onClick={handleApplyLivePrice}
-                              className="absolute right-2 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30"
-                            >
-                              Restaurar en vivo
-                            </button>
-                          )}
-                        </div>
+                        <MoneyInput
+                          {...control}
+                          value={unitPriceStr}
+                          onValueChange={handleUnitPriceChange}
+                          currency={currency}
+                          maxDecimals={MAX_INPUT_DECIMALS}
+                          placeholder="76000.00"
+                        />
                       )}
                     </FormField>
-
-                    {/* Fees Input */}
-                    <FormField label={`Comisiones / Tarifa (${currencySymbol})`}>
+                    <FormField label="Comisiones / Tarifa">
                       {(control) => (
-                        <Input
+                        <MoneyInput
                           {...control}
-                          type="text"
-                          inputMode="decimal"
                           value={feesStr}
-                          onChange={(e) => handleFeesChange(e.target.value)}
+                          onValueChange={handleFeesChange}
+                          currency={currency}
+                          maxDecimals={MAX_INPUT_DECIMALS}
                           placeholder="0.00"
-                          className="font-mono text-xs"
                         />
                       )}
                     </FormField>
                   </div>
-
-                  {/* Notes */}
+                  {liveCryptoPrice && currentPrice !== liveCryptoPrice && (
+                    <Button type="button" variant="outline" size="sm" onClick={handleApplyLivePrice} className="self-start">
+                      Restaurar en vivo
+                    </Button>
+                  )}
                   <FormField label="Notas de la operación (opcional)">
                     {(control) => (
-                      <Input
-                        {...control}
-                        type="text"
-                        value={notes}
-                        onChange={(e) => setNotes(e.target.value)}
-                        placeholder="Ej. Compra escalonada DCA"
-                        className="text-xs"
-                      />
+                      <Input {...control} type="text" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Ej. Compra escalonada DCA" />
                     )}
                   </FormField>
-
-                  {/* Linked Cash Account */}
                   {accounts.length > 0 && (
                     <FormField label="Pagar o recibir con cuenta bancaria/wallet (opcional)">
-                      {() => (
-                        <select
+                      {(control) => (
+                        <SelectField
+                          {...control}
                           value={linkedAccountId}
                           onChange={(e) => setLinkedAccountId(e.target.value)}
-                          className="w-full h-10 px-3 rounded-xl bg-background border border-border text-foreground text-xs font-semibold outline-none focus:border-purple-500 transition cursor-pointer"
-                        >
-                          <option value="">No vincular con cuentas de efectivo</option>
-                          {accounts.map((acc) => (
-                            <option key={acc.id} value={acc.id}>
-                              {acc.name} ({acc.currency})
-                            </option>
-                          ))}
-                        </select>
+                          options={[{ value: "", label: "No vincular con cuentas de efectivo" }, ...accountOptions]}
+                        />
                       )}
                     </FormField>
                   )}
-
-                  {/* Date */}
                   <FormField label="Fecha de la operación">
-                    {(control) => (
-                      <Input
-                        {...control}
-                        type="date"
-                        value={date}
-                        onChange={(e) => setDate(e.target.value)}
-                        className="font-mono text-xs"
-                      />
-                    )}
+                    {(control) => <Input {...control} type="date" value={date} onChange={(e) => setDate(e.target.value)} />}
                   </FormField>
                 </div>
               )}
             </div>
 
-            {/* Live Summary Banner */}
-            <div className="p-3.5 rounded-2xl bg-muted/40 border border-border flex items-center justify-between">
-              <div className="flex flex-col">
-                <span className="text-[11px] font-semibold text-muted-foreground">
-                  {isBuy ? "Total a desembolsar:" : "Total a recibir:"}
-                </span>
-                <span className="text-base font-black font-mono text-foreground">
-                  {currencySymbol} {finalTotalAmount > 0 ? finalTotalAmount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00"} {valuationCurrency}
-                </span>
+            <div className="flex items-center justify-between rounded-2xl border border-border bg-muted/40 p-3.5">
+              <div className="flex flex-col gap-1">
+                <span className="text-xs text-muted-foreground">{isBuy ? "Total a desembolsar:" : "Total a recibir:"}</span>
+                <Amount value={finalTotalAmount > 0 ? finalTotalAmount : 0} currency={currency} size="md" tone="inherit" />
               </div>
-
-              <div className="text-right flex flex-col items-end">
-                <span className="text-[11px] font-semibold text-muted-foreground">
-                  {isBuy ? "Vas a recibir:" : "Vas a entregar:"}
-                </span>
-                <span className="text-sm font-mono font-extrabold text-primary">
-                  {qty > 0 ? qty : "0"} {cryptoSymbol}
-                </span>
+              <div className="flex flex-col items-end gap-1 text-right">
+                <span className="text-xs text-muted-foreground">{isBuy ? "Vas a recibir:" : "Vas a entregar:"}</span>
+                <Quantity value={qty > 0 ? qty : 0} unit={cryptoSymbol} size="sm" className="text-primary" />
               </div>
             </div>
           </>

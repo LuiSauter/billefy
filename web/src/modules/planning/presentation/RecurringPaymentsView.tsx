@@ -53,6 +53,9 @@ import { ConfirmRecurringPaymentModal } from "./ConfirmRecurringPaymentModal";
 import { AccountDto } from "@/modules/ledger/domain/ledger.types";
 import { useUserCategories } from "@/modules/ledger/application/CategoriesContext";
 import { Input } from "@/shared/ui/input";
+import { Button } from "@/shared/ui/button";
+import { FormField } from "@/shared/ui/form-field";
+import { ResponsiveDrawer } from "@/shared/ui/responsive-drawer";
 import { Amount } from "@/shared/ui/amount";
 import { formatAmountText } from "@/shared/lib/amount-format";
 import { useNumberPreferences } from "@/shared/hooks/use-number-format";
@@ -1134,41 +1137,26 @@ export function RecurringPaymentsView({
         onConfirm={handleConfirmPayment}
       />
 
-      {/* Reschedule inline fallback modal */}
-      {reschedulingItem && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="w-full max-w-sm rounded-2xl bg-card border border-border p-5 flex flex-col gap-4 shadow-xl">
-            <h3 className="text-base font-bold text-foreground">
-              Reprogramar {reschedulingItem.name}
-            </h3>
-            <p className="text-xs text-muted-foreground">
-              Selecciona la nueva fecha de vencimiento para la próxima ocurrencia.
-            </p>
-            <input
-              type="date"
-              value={rescheduleDate}
-              onChange={(e) => setRescheduleDate(e.target.value)}
-              className="w-full h-10 px-3 rounded-xl bg-background border border-border text-xs text-foreground focus:outline-hidden"
-            />
-            <div className="flex gap-2 justify-end mt-2">
-              <button
-                type="button"
-                onClick={() => setReschedulingItem(null)}
-                className="h-9 px-4 rounded-xl border border-border bg-background hover:bg-muted text-xs font-semibold text-foreground transition"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveReschedule}
-                className="h-9 px-4 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold transition shadow-xs"
-              >
-                Guardar fecha
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ResponsiveDrawer
+        open={!!reschedulingItem}
+        onOpenChange={(open) => { if (!open) setReschedulingItem(null); }}
+        title={reschedulingItem ? `Reprogramar ${reschedulingItem.name}` : "Reprogramar"}
+        size="sm"
+        footer={
+          <>
+            <Button type="button" variant="outline" onClick={() => setReschedulingItem(null)}>Cancelar</Button>
+            <Button type="submit" form="reschedule-form">Guardar fecha</Button>
+          </>
+        }
+      >
+        <form id="reschedule-form" onSubmit={(e) => { e.preventDefault(); handleSaveReschedule(); }}>
+          <FormField label="Nueva fecha de vencimiento">
+            {(control) => (
+              <Input {...control} type="date" value={rescheduleDate} onChange={(e) => setRescheduleDate(e.target.value)} />
+            )}
+          </FormField>
+        </form>
+      </ResponsiveDrawer>
     </div>
   );
 }

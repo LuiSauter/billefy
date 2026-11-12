@@ -1,16 +1,24 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { X, TrendingUp, TrendingDown, RefreshCw } from "lucide-react";
+import { TrendingUp, TrendingDown } from "lucide-react";
 import { Investment } from "../../domain/investment.types";
 import { normalizeAmountString } from "@/shared/lib/keypad";
+import { Button } from "@/shared/ui/button";
+import { FormField } from "@/shared/ui/form-field";
+import { MoneyInput } from "@/shared/ui/money-input";
+import { Input } from "@/shared/ui/input";
+import { Amount, Percentage } from "@/shared/ui/amount";
+import { SegmentedControl } from "@/shared/ui/segmented-control";
+import { ResponsiveDrawer } from "@/shared/ui/responsive-drawer";
 
 interface UpdatePriceModalProps {
   investment: Investment | null;
   isOpen: boolean;
   onClose: () => void;
   onUpdateValue: (id: string, newValue: number, newQuantity?: number) => Promise<void>;
-  currencySymbol?: string;
+  /** ISO code of the valuation currency ("BOB" | "USD"). */
+  currency?: string;
 }
 
 function toNumber(raw: string): number {
@@ -23,7 +31,7 @@ export function UpdatePriceModal({
   isOpen,
   onClose,
   onUpdateValue,
-  currencySymbol = "$",
+  currency = "USD",
 }: UpdatePriceModalProps) {
   const [mode, setMode] = useState<"unitPrice" | "totalValue">("unitPrice");
   const [unitPriceStr, setUnitPriceStr] = useState("");
@@ -36,7 +44,7 @@ export function UpdatePriceModal({
       const qty = investment.quantity > 0 ? investment.quantity : 1;
       const initialUnitPrice = investment.currentValue / qty;
       setQuantityStr(String(investment.quantity));
-      setUnitPriceStr(initialUnitPrice.toFixed(2));
+      setUnitPriceStr(String(Number(initialUnitPrice.toFixed(2))));
       setTotalValueStr(String(investment.currentValue));
       setMode("unitPrice");
     }
@@ -77,183 +85,84 @@ export function UpdatePriceModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs animate-in fade-in duration-150">
-      <div className="w-full max-w-md rounded-2xl bg-card border border-border/80 shadow-2xl overflow-hidden flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-border/70">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-purple-500/15 text-purple-400 border border-purple-500/20">
-              <RefreshCw className="w-4 h-4" />
-            </div>
-            <div>
-              <h2 className="text-base font-bold text-foreground">
-                Actualizar precio / valuación
-              </h2>
-              <p className="text-xs text-muted-foreground">{investment.name}</p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition cursor-pointer"
+    <ResponsiveDrawer
+      open={isOpen}
+      onOpenChange={(open) => { if (!open && !submitting) onClose(); }}
+      title="Actualizar precio / valuación"
+      description={investment.name}
+      size="md"
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>
+            Cancelar
+          </Button>
+          <Button type="submit" form="update-price-form" disabled={computedTotal <= 0} loading={submitting}>
+            Guardar nuevo valor
+          </Button>
+        </>
+      }
+    >
+      <form id="update-price-form" onSubmit={handleSubmit} className="space-y-4">
+        <SegmentedControl
+          fullWidth
+          aria-label="Modo de actualización"
+          value={mode}
+          onChange={(next) => {
+            setMode(next);
+            if (next === "unitPrice") setUnitPriceStr(computedUnitPrice > 0 ? String(computedUnitPrice) : "");
+            else setTotalValueStr(computedTotal > 0 ? String(computedTotal) : "");
+          }}
+          options={[
+            { value: "unitPrice", label: "Por precio unitario" },
+            { value: "totalValue", label: "Por valor total" },
+          ]}
+        />
+
+        {mode === "unitPrice" ? (
+          <FormField
+            label="Nuevo precio unitario"
+            hint={<>Valor total resultante: <Amount value={computedTotal} currency={currency} size="inherit" /></>}
           >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+            {(control) => (
+              <MoneyInput {...control} currency={currency} value={unitPriceStr} onValueChange={setUnitPriceStr} autoFocus />
+            )}
+          </FormField>
+        ) : (
+          <FormField
+            label="Nuevo valor total de la posición"
+            hint={<>Precio unitario resultante: <Amount value={computedUnitPrice} currency={currency} size="inherit" /></>}
+          >
+            {(control) => (
+              <MoneyInput {...control} currency={currency} value={totalValueStr} onValueChange={setTotalValueStr} autoFocus />
+            )}
+          </FormField>
+        )}
 
-        {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-5 flex flex-col gap-4 text-xs">
-          {/* Mode Switcher */}
-          <div className="flex rounded-xl bg-muted/60 p-1 border border-border/70">
-            <button
-              type="button"
-              onClick={() => {
-                setMode("unitPrice");
-                setUnitPriceStr(computedUnitPrice > 0 ? String(computedUnitPrice) : "");
-              }}
-              className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer ${
-                mode === "unitPrice"
-                  ? "bg-purple-600 text-white shadow-xs"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              Por precio unitario
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setMode("totalValue");
-                setTotalValueStr(computedTotal > 0 ? String(computedTotal) : "");
-              }}
-              className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer ${
-                mode === "totalValue"
-                  ? "bg-purple-600 text-white shadow-xs"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              Por valor total
-            </button>
-          </div>
-
-          {/* Unit Price Field */}
-          {mode === "unitPrice" ? (
-            <div className="flex flex-col gap-1.5">
-              <label className="font-semibold text-foreground">
-                Nuevo precio unitario ({currencySymbol} por unidad)
-              </label>
-              <div className="relative">
-                <span className="absolute left-3 top-2.5 text-muted-foreground font-mono font-bold">
-                  {currencySymbol}
-                </span>
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={unitPriceStr}
-                  onChange={(e) => setUnitPriceStr(e.target.value)}
-                  placeholder="65,000.00"
-                  className="w-full h-10 pl-8 pr-3 rounded-xl bg-muted/40 border border-border text-foreground font-mono font-bold text-sm outline-none focus:border-purple-500 transition"
-                  autoFocus
-                />
-              </div>
-              <span className="text-[11px] text-muted-foreground">
-                Valor total resultante:{" "}
-                <strong className="text-foreground font-mono">
-                  {currencySymbol} {computedTotal.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </strong>
-              </span>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-1.5">
-              <label className="font-semibold text-foreground">
-                Nuevo valor total de la posición ({currencySymbol})
-              </label>
-              <div className="relative">
-                <span className="absolute left-3 top-2.5 text-muted-foreground font-mono font-bold">
-                  {currencySymbol}
-                </span>
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={totalValueStr}
-                  onChange={(e) => setTotalValueStr(e.target.value)}
-                  placeholder="28,500.00"
-                  className="w-full h-10 pl-8 pr-3 rounded-xl bg-muted/40 border border-border text-foreground font-mono font-bold text-sm outline-none focus:border-purple-500 transition"
-                  autoFocus
-                />
-              </div>
-              <span className="text-[11px] text-muted-foreground">
-                Precio unitario resultante:{" "}
-                <strong className="text-foreground font-mono">
-                  {currencySymbol} {computedUnitPrice.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </strong>
-              </span>
-            </div>
+        <FormField label={`Cantidad de unidades (${investment.currency})`}>
+          {(control) => (
+            <Input {...control} type="text" inputMode="decimal" value={quantityStr} onChange={(e) => setQuantityStr(e.target.value)} />
           )}
+        </FormField>
 
-          {/* Quantity */}
-          <div className="flex flex-col gap-1.5">
-            <label className="font-semibold text-foreground">
-              Cantidad de unidades ({investment.currency})
-            </label>
-            <input
-              type="text"
-              inputMode="decimal"
-              value={quantityStr}
-              onChange={(e) => setQuantityStr(e.target.value)}
-              className="w-full h-10 px-3 rounded-xl bg-muted/40 border border-border text-foreground font-mono text-sm outline-none focus:border-purple-500 transition"
-            />
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-muted/40 p-3.5">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold text-muted-foreground">Variación frente al valor anterior</p>
+            <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-sm">
+              <Amount value={currentVal} currency={currency} size="inherit" />
+              <span aria-hidden="true">→</span>
+              <Amount value={computedTotal} currency={currency} size="inherit" />
+            </p>
           </div>
-
-          {/* Real-time Preview Banner */}
-          <div className="p-3.5 rounded-xl bg-muted/40 border border-border flex items-center justify-between">
-            <div className="flex flex-col">
-              <span className="text-[11px] text-muted-foreground font-semibold">
-                Variación frente al valor anterior
-              </span>
-              <span className="font-mono text-xs text-foreground mt-0.5">
-                {currentVal.toLocaleString("en-US", { minimumFractionDigits: 2 })} →{" "}
-                <strong>{computedTotal.toLocaleString("en-US", { minimumFractionDigits: 2 })}</strong>
-              </span>
-            </div>
-
-            <span
-              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold border ${
-                isPositive
-                  ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
-                  : "bg-rose-500/15 text-rose-400 border-rose-500/30"
-              }`}
-            >
-              {isPositive ? (
-                <TrendingUp className="w-3.5 h-3.5 stroke-[2.5]" />
-              ) : (
-                <TrendingDown className="w-3.5 h-3.5 stroke-[2.5]" />
-              )}
-              <span>
-                {isPositive ? "+" : ""}{diffPct.toFixed(2)}%
-              </span>
-            </span>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-border/70 mt-1">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={submitting}
-              className="h-10 px-4 rounded-xl border border-border text-xs font-bold text-foreground hover:bg-muted transition cursor-pointer"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={computedTotal <= 0 || submitting}
-              className="h-10 px-5 rounded-xl bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white text-xs font-bold transition shadow-lg shadow-purple-600/20 cursor-pointer"
-            >
-              {submitting ? "Guardando..." : "Guardar nuevo valor"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+          <span
+            className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold ${
+              isPositive ? "border-success/30 bg-success/10 text-success" : "border-destructive/30 bg-destructive/10 text-destructive"
+            }`}
+          >
+            {isPositive ? <TrendingUp className="size-3.5" /> : <TrendingDown className="size-3.5" />}
+            <Percentage value={diffPct} sign="always" size="inherit" tone="inherit" />
+          </span>
+        </div>
+      </form>
+    </ResponsiveDrawer>
   );
 }

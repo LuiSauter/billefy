@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import { getCurrencyMeta } from "@/shared/lib/currency";
 import { usePatrimonio } from "../application/usePatrimonio";
 import { calculatePatrimonioOverview } from "../domain/net-worth-analytics";
 import { Investment } from "@/modules/investments/domain/investment.types";
@@ -19,8 +18,7 @@ import { PatrimonioCompositionBar } from "./PatrimonioCompositionBar";
 import { PatrimonioInsightsCard } from "./PatrimonioInsightsCard";
 
 // Modals
-import { AddAssetModal } from "./modals/AddAssetModal";
-import { AddLiabilityModal } from "./modals/AddLiabilityModal";
+import { AddFinancialItemModal } from "./modals/AddFinancialItemModal";
 
 interface PatrimonioViewProps {
   investments: Investment[];
@@ -163,19 +161,19 @@ export function PatrimonioView({
       </div>
 
       {/* Modals */}
-      <AddAssetModal
+      <AddFinancialItemModal
+        kind="asset"
         isOpen={addAssetOpen}
         onClose={() => setAddAssetOpen(false)}
         onAddAsset={addAsset}
-        currencySymbol={getCurrencyMeta(targetCurrency).symbol}
         defaultCurrency={targetCurrency}
       />
 
-      <AddLiabilityModal
+      <AddFinancialItemModal
+        kind="liability"
         isOpen={addLiabilityOpen}
         onClose={() => setAddLiabilityOpen(false)}
         onAddLiability={addLiability}
-        currencySymbol={getCurrencyMeta(targetCurrency).symbol}
         defaultCurrency={targetCurrency}
       />
     </div>

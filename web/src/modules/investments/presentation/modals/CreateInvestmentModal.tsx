@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { X, Plus, Search, TrendingUp, TrendingDown, RefreshCw, Zap } from "lucide-react";
+import { Search, TrendingUp, RefreshCw } from "lucide-react";
 import {
   INVESTMENT_KINDS,
   InvestmentKind,
@@ -31,13 +31,21 @@ import {
 } from "../../domain/stock-market.service";
 import { StockPicker } from "../StockPicker";
 import { cn } from "@/shared/lib/utils";
+import { Amount, Percentage } from "@/shared/ui/amount";
+import { Button } from "@/shared/ui/button";
+import { ChipRadioGroup } from "@/shared/ui/chip-radio-group";
+import { FormField } from "@/shared/ui/form-field";
+import { Input } from "@/shared/ui/input";
+import { MoneyInput } from "@/shared/ui/money-input";
+import { ResponsiveDrawer } from "@/shared/ui/responsive-drawer";
+import { SelectField } from "@/shared/ui/select-field";
 
 interface CreateInvestmentModalProps {
   isOpen: boolean;
   onClose: () => void;
   onCreate: (input: CreateInvestmentInput) => Promise<void>;
   onFetchStockQuote?: (ticker: string) => Promise<StockQuote | null>;
-  currencySymbol?: string;
+  currency?: string;
 }
 
 const CURRENCY_CHOICES = ["USDT", "USD", "BOB", "EUR"];
@@ -83,14 +91,69 @@ const REAL_ESTATE_PRESETS = [
   "Edificio en renta",
 ];
 
+function LiveQuoteRow({
+  icon,
+  title,
+  subtitle,
+  price,
+  changePercent,
+  loading,
+  emptyLabel = "...",
+  onRefresh,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  subtitle?: string;
+  price?: number;
+  changePercent?: number | null;
+  loading: boolean;
+  emptyLabel?: string;
+  onRefresh?: () => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card p-3">
+      <div className="flex min-w-0 items-center gap-3">
+        <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+          {icon}
+        </div>
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-foreground">{title}</p>
+          {subtitle && <p className="truncate text-xs text-muted-foreground">{subtitle}</p>}
+        </div>
+      </div>
+      <div className="flex shrink-0 flex-col items-end gap-1">
+        <div className="flex items-center gap-1.5">
+          {loading ? (
+            <RefreshCw className="size-3.5 animate-spin text-muted-foreground" aria-label="Cargando cotización" />
+          ) : price !== undefined ? (
+            <Amount value={price} currency="USD" size="sm" tone="inherit" />
+          ) : (
+            <span className="text-xs text-muted-foreground">{emptyLabel}</span>
+          )}
+          {onRefresh && (
+            <Button type="button" variant="ghost" size="icon-xs" aria-label="Refrescar cotización" onClick={onRefresh}>
+              <RefreshCw className={cn("size-3", loading && "animate-spin")} />
+            </Button>
+          )}
+        </div>
+        {changePercent !== null && changePercent !== undefined && (
+          <span className="flex items-center gap-1 text-xs text-muted-foreground">
+            <Percentage value={changePercent} sign="always" size="inherit" tone="auto" />
+            <span>(24h)</span>
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function CreateInvestmentModal({
   isOpen,
   onClose,
   onCreate,
   onFetchStockQuote,
-  currencySymbol = "$",
+  currency: defaultCurrency = "USD",
 }: CreateInvestmentModalProps) {
-  void currencySymbol;
   const [name, setName] = useState("");
   const [ticker, setTicker] = useState("");
   const [kind, setKind] = useState<InvestmentKind>("crypto");
@@ -318,229 +381,87 @@ export function CreateInvestmentModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs animate-in fade-in duration-150">
-      <div className="w-full max-w-lg rounded-2xl bg-card border border-border/80 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-        {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-border/70 shrink-0">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-purple-500/15 text-purple-400 border border-purple-500/20">
-              <Plus className="w-4 h-4 stroke-[2.5]" />
-            </div>
-            <div>
-              <h2 className="text-base font-bold text-foreground">
-                Registrar nueva inversión
-              </h2>
-              <p className="text-xs text-muted-foreground">
-                {kind === "crypto"
-                  ? "Selecciona tu criptomoneda y cotiza su valor en vivo desde Binance Spot."
-                  : "Agregá un activo a tu portafolio; la variación se calcula sola al actualizar su valor."}
-              </p>
-            </div>
+    <ResponsiveDrawer
+      open={isOpen}
+      onOpenChange={(open) => { if (!open) onClose(); }}
+      title="Registrar nueva inversión"
+      size="lg"
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>
+            Cancelar
+          </Button>
+          <Button type="submit" form="create-investment-form" disabled={!valid || submitting} loading={submitting}>
+            {submitting ? "Guardando..." : "Guardar activo"}
+          </Button>
+        </>
+      }
+    >
+      <form id="create-investment-form" onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <fieldset className="flex flex-col gap-2">
+          <legend className="mb-2 text-sm font-semibold">Tipo de activo</legend>
+          <ChipRadioGroup
+            label="Tipo de activo"
+            options={INVESTMENT_KINDS}
+            value={kind}
+            onChange={(next) => pickKind(next as InvestmentKind)}
+          />
+        </fieldset>
+
+        {kind === "crypto" ? (
+          <div className="flex flex-col gap-3 rounded-xl border border-border bg-muted/40 p-3.5">
+            <FormField label="Buscar criptomoneda">
+              {(control) => (
+                <div className="relative">
+                  <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    {...control}
+                    type="text"
+                    value={cryptoSearch}
+                    onChange={(e) => setCryptoSearch(e.target.value)}
+                    placeholder="Buscar Bitcoin, SOL, BNB, Ethereum..."
+                    className="pl-9"
+                  />
+                </div>
+              )}
+            </FormField>
+            <ChipRadioGroup
+              label="Seleccionar Criptomoneda"
+              options={filteredCryptos.slice(0, 10).map((crypto) => ({ value: crypto.symbol, label: `${crypto.iconText} ${crypto.symbol}` }))}
+              value={selectedCrypto.symbol}
+              onChange={(symbol) => {
+                const crypto = filteredCryptos.find((item) => item.symbol === symbol);
+                if (crypto) void selectCryptoAsset(crypto);
+              }}
+              scroll
+            />
+            <LiveQuoteRow
+              icon={selectedCrypto.iconText}
+              title={`${selectedCrypto.name} (${selectedCrypto.symbol})`}
+              subtitle={`Par: ${selectedCrypto.pair} · Binance Spot`}
+              price={liveTicker?.price}
+              changePercent={liveTicker?.priceChangePercent}
+              loading={loadingTicker}
+            />
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition cursor-pointer"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* Scrollable Form Body */}
-        <form onSubmit={handleSubmit} className="p-5 flex flex-col gap-4 text-xs overflow-y-auto">
-          {/* Tipo de activo */}
-          <div className="flex flex-col gap-2">
-            <label className="font-semibold text-foreground">Tipo de activo</label>
-            <div className="flex flex-wrap gap-2">
-              {INVESTMENT_KINDS.map((k) => (
-                <button
-                  key={k.value}
-                  type="button"
-                  onClick={() => pickKind(k.value)}
-                  className={`px-3 h-8 rounded-xl border text-xs font-semibold transition cursor-pointer ${
-                    kind === k.value
-                      ? "bg-purple-600/20 border-purple-500/60 text-purple-300 font-bold"
-                      : "bg-muted/40 border-border/70 text-muted-foreground hover:bg-muted hover:text-foreground"
-                  }`}
-                >
-                  {k.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Special Crypto Picker when kind === 'crypto' */}
-          {kind === "crypto" ? (
-            <div className="flex flex-col gap-3 p-3.5 rounded-xl bg-muted/40 border border-border">
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-foreground flex items-center gap-1.5">
-                  <Zap className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Seleccionar Criptomoneda</span>
-                </span>
-                <span className="text-[10px] text-muted-foreground font-semibold">
-                  Precios vía Binance Spot API
-                </span>
-              </div>
-
-              {/* Search input */}
-              <div className="relative">
-                <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-muted-foreground" />
-                <input
-                  type="text"
-                  value={cryptoSearch}
-                  onChange={(e) => setCryptoSearch(e.target.value)}
-                  placeholder="Buscar Bitcoin, SOL, BNB, Ethereum..."
-                  className="w-full h-8 pl-8 pr-3 rounded-lg bg-card border border-border text-foreground text-xs outline-none focus:border-purple-500 transition"
+        ) : (
+          <div className="flex flex-col gap-3">
+            {(kind === "stocks" || kind === "funds") && (
+              <>
+                <ChipRadioGroup
+                  label={kind === "stocks" ? "Acciones populares" : "ETFs / Fondos populares"}
+                  options={(kind === "stocks" ? POPULAR_STOCKS : POPULAR_FUNDS).map((item) => ({ value: item.symbol, label: item.symbol }))}
+                  value={ticker}
+                  onChange={(symbol) => {
+                    const item = (kind === "stocks" ? POPULAR_STOCKS : POPULAR_FUNDS).find((item) => item.symbol === symbol);
+                    if (item) (kind === "stocks" ? selectStockPreset : selectFundPreset)(item);
+                  }}
+                  scroll
                 />
-              </div>
-
-              {/* Curated Coins Carousel / Grid */}
-              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-                {filteredCryptos.slice(0, 10).map((crypto) => {
-                  const isSelected = selectedCrypto.symbol === crypto.symbol;
-                  return (
-                    <button
-                      key={crypto.symbol}
-                      type="button"
-                      onClick={() => selectCryptoAsset(crypto)}
-                      className={`h-9 px-3 rounded-xl border text-xs font-bold flex items-center gap-1.5 shrink-0 transition cursor-pointer ${
-                        isSelected
-                          ? "bg-purple-600 text-white border-purple-500 shadow-xs"
-                          : "bg-card border-border text-foreground hover:bg-muted"
-                      }`}
-                    >
-                      <span className="text-sm">{crypto.iconText}</span>
-                      <span>{crypto.symbol}</span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Live Ticker Card from Binance */}
-              <div className="p-3 rounded-xl bg-card border border-border flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div
-                    className="w-9 h-9 rounded-xl flex items-center justify-center text-white font-black text-sm shadow-xs"
-                    style={{ backgroundColor: selectedCrypto.color }}
-                  >
-                    {selectedCrypto.iconText}
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="font-bold text-foreground text-xs">
-                      {selectedCrypto.name} ({selectedCrypto.symbol})
-                    </span>
-                    <span className="text-[10px] text-muted-foreground">
-                      Par: {selectedCrypto.pair}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex flex-col items-end">
-                  <div className="flex items-center gap-1.5">
-                    {loadingTicker ? (
-                      <RefreshCw className="w-3.5 h-3.5 animate-spin text-muted-foreground" />
-                    ) : (
-                      <span className="font-mono font-bold text-sm text-foreground">
-                        $ {liveTicker ? liveTicker.price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "..."}
-                      </span>
-                    )}
-                  </div>
-                  {liveTicker && (
-                    <span
-                      className={`text-[10px] font-bold flex items-center gap-0.5 ${
-                        liveTicker.priceChangePercent >= 0
-                          ? "text-emerald-400"
-                          : "text-rose-400"
-                      }`}
-                    >
-                      {liveTicker.priceChangePercent >= 0 ? (
-                        <TrendingUp className="w-2.5 h-2.5" />
-                      ) : (
-                        <TrendingDown className="w-2.5 h-2.5" />
-                      )}
-                      {liveTicker.priceChangePercent >= 0 ? "+" : ""}
-                      {liveTicker.priceChangePercent.toFixed(2)}% (24h)
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-3">
-              {/* Specialized Stock / ETF / Real Estate Presets */}
-              {kind === "stocks" && (
-                <div className="flex flex-col gap-1.5 p-3 rounded-xl bg-muted/40 border border-border">
-                  <span className="text-[11px] font-bold text-foreground">Acciones populares:</span>
-                  <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-                    {POPULAR_STOCKS.map((item) => (
-                      <button
-                        key={item.symbol}
-                        type="button"
-                        onClick={() => selectStockPreset(item)}
-                        className={`px-2.5 py-1 rounded-lg border text-[11px] font-bold shrink-0 transition cursor-pointer ${
-                          ticker === item.symbol
-                            ? "bg-blue-600 text-white border-blue-500 shadow-xs"
-                            : "bg-card border-border text-foreground hover:bg-muted"
-                        }`}
-                      >
-                        {item.symbol}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {kind === "funds" && (
-                <div className="flex flex-col gap-1.5 p-3 rounded-xl bg-muted/40 border border-border">
-                  <span className="text-[11px] font-bold text-foreground">ETFs / Fondos populares:</span>
-                  <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-                    {POPULAR_FUNDS.map((item) => (
-                      <button
-                        key={item.symbol}
-                        type="button"
-                        onClick={() => selectFundPreset(item)}
-                        className={`px-2.5 py-1 rounded-lg border text-[11px] font-bold shrink-0 transition cursor-pointer ${
-                          ticker === item.symbol
-                            ? "bg-emerald-600 text-white border-emerald-500 shadow-xs"
-                            : "bg-card border-border text-foreground hover:bg-muted"
-                        }`}
-                      >
-                        {item.symbol}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {kind === "realestate" && (
-                <div className="flex flex-col gap-1.5 p-3 rounded-xl bg-muted/40 border border-border">
-                  <span className="text-[11px] font-bold text-foreground">Tipo de propiedad:</span>
-                  <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-                    {REAL_ESTATE_PRESETS.map((label) => (
-                      <button
-                        key={label}
-                        type="button"
-                        onClick={() => selectRealEstatePreset(label)}
-                        className="px-2.5 py-1 rounded-lg bg-card border border-border text-[11px] font-bold text-foreground hover:bg-muted shrink-0 transition cursor-pointer"
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Stock / ETF Search Picker with shadcn */}
-              {(kind === "stocks" || kind === "funds") && (
-                <div className="flex flex-col gap-1.5">
-                  <div className="flex items-center justify-between">
-                    <label className="font-semibold text-foreground">
-                      Buscar y seleccionar {kind === "stocks" ? "acción" : "fondo / ETF"}
-                    </label>
-                    <span className="text-[10px] text-muted-foreground font-semibold">
-                      Mercado bursátil en vivo
-                    </span>
-                  </div>
+                <fieldset>
+                  <legend className="mb-2 text-sm font-semibold">
+                    Buscar y seleccionar {kind === "stocks" ? "acción" : "fondo / ETF"}
+                  </legend>
                   <StockPicker
                     selectedTicker={ticker}
                     kind={kind}
@@ -569,91 +490,49 @@ export function CreateInvestmentModal({
                       });
                     }}
                   />
-                </div>
-              )}
+                </fieldset>
+                <FormField label="Símbolo o Ticker seleccionado">
+                  {(control) => (
+                    <Input
+                      {...control}
+                      type="text"
+                      value={ticker}
+                      onChange={(e) => setTicker(e.target.value.toUpperCase())}
+                      onBlur={() => {
+                        if (ticker.trim().length > 0) void loadStockQuote(ticker.trim());
+                      }}
+                      placeholder="Ej. NVDA, AAPL, SPY, VOO"
+                      className="uppercase"
+                    />
+                  )}
+                </FormField>
+                <LiveQuoteRow
+                  icon={<TrendingUp className="size-4" />}
+                  title={liveStockQuote?.ticker ?? (ticker || "Ticker")}
+                  subtitle={[liveStockQuote?.exchangeName, "Yahoo Finance"].filter(Boolean).join(" · ")}
+                  price={liveStockQuote?.price}
+                  changePercent={liveStockQuote?.changePercent}
+                  loading={loadingStockQuote}
+                  emptyLabel="Escribí un ticker"
+                  onRefresh={ticker ? () => { void loadStockQuote(ticker); } : undefined}
+                />
+              </>
+            )}
 
-              {/* Ticker Input for Stocks & Funds (custom edit) */}
-              {(kind === "stocks" || kind === "funds") && (
-                <div className="flex flex-col gap-1.5">
-                  <label className="font-semibold text-foreground">
-                    Símbolo o Ticker seleccionado
-                  </label>
-                  <input
-                    type="text"
-                    value={ticker}
-                    onChange={(e) => setTicker(e.target.value.toUpperCase())}
-                    onBlur={() => {
-                      if (ticker.trim().length > 0) void loadStockQuote(ticker.trim());
-                    }}
-                    placeholder="Ej. NVDA, AAPL, SPY, VOO"
-                    className="w-full h-10 px-3 rounded-xl bg-muted/40 border border-border text-foreground font-mono uppercase text-sm font-bold outline-none focus:border-purple-500 transition"
-                  />
-                </div>
-              )}
+            {kind === "realestate" && (
+              <ChipRadioGroup
+                label="Tipo de propiedad"
+                options={REAL_ESTATE_PRESETS.map((label) => ({ value: label, label }))}
+                value={REAL_ESTATE_PRESETS.find((label) => name.startsWith(`${label} `)) ?? ""}
+                onChange={selectRealEstatePreset}
+                scroll
+              />
+            )}
 
-              {/* Live Stock / ETF Quote Card from Yahoo Finance */}
-              {(kind === "stocks" || kind === "funds") && (
-                <div className="p-3 rounded-xl bg-card border border-border flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-blue-500/15 border border-blue-500/30 text-blue-400 flex items-center justify-center font-black text-sm shrink-0">
-                      <TrendingUp className="w-4 h-4" />
-                    </div>
-                    <div className="flex flex-col min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-bold text-foreground text-xs font-mono">
-                          {liveStockQuote ? liveStockQuote.ticker : ticker || "Ticker"}
-                        </span>
-                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-500/15 text-blue-300 border border-blue-500/30">
-                          Yahoo Finance
-                        </span>
-                      </div>
-                      <span className="text-[10px] text-muted-foreground truncate">
-                        {liveStockQuote?.exchangeName ? `${liveStockQuote.exchangeName} • ` : ""}Cotización en vivo
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col items-end shrink-0">
-                    <div className="flex items-center gap-1.5">
-                      {loadingStockQuote ? (
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin text-muted-foreground" />
-                      ) : (
-                        <span className="font-mono font-bold text-sm text-foreground">
-                          {liveStockQuote ? `$ ${liveStockQuote.price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "Escribí un ticker"}
-                        </span>
-                      )}
-                      {ticker && (
-                        <button
-                          type="button"
-                          onClick={() => loadStockQuote(ticker)}
-                          title="Refrescar cotización"
-                          className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition cursor-pointer"
-                        >
-                          <RefreshCw className={cn("w-3 h-3", loadingStockQuote && "animate-spin")} />
-                        </button>
-                      )}
-                    </div>
-                    {liveStockQuote?.changePercent !== null && liveStockQuote?.changePercent !== undefined && (
-                      <span
-                        className={cn(
-                          "text-[10px] font-bold flex items-center gap-0.5",
-                          liveStockQuote.changePercent >= 0 ? "text-emerald-400" : "text-rose-400"
-                        )}
-                      >
-                        {liveStockQuote.changePercent >= 0 ? "+" : ""}
-                        {liveStockQuote.changePercent.toFixed(2)}% (24h)
-                      </span>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Name Field */}
-              <div className="flex flex-col gap-1.5">
-                <label className="font-semibold text-foreground">
-                  {kind === "realestate" ? "Nombre o ubicación del inmueble" : "Nombre del activo"}
-                </label>
-                <input
+            <FormField label={kind === "realestate" ? "Nombre o ubicación del inmueble" : "Nombre del activo"}>
+              {(control) => (
+                <Input
+                  {...control}
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
@@ -662,144 +541,103 @@ export function CreateInvestmentModal({
                       ? "Ej. Depto. Equipetrol 3B, Local Av. Monseñor"
                       : "Ej. ETF S&P 500, Apple Inc."
                   }
-                  className="w-full h-10 px-3 rounded-xl bg-muted/40 border border-border text-foreground text-sm font-semibold outline-none focus:border-purple-500 transition"
                   autoFocus
                 />
-              </div>
-            </div>
-          )}
-
-          {/* Moneda */}
-          <div className="flex flex-col gap-1.5">
-            <label className="font-semibold text-foreground">Moneda de valuación</label>
-            <div className="grid grid-cols-4 gap-2">
-              {CURRENCY_CHOICES.map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  onClick={() => setCurrency(c)}
-                  className={`h-9 rounded-xl border text-xs font-bold transition cursor-pointer ${
-                    currency === c
-                      ? "bg-purple-600 text-white border-purple-500"
-                      : "bg-muted/40 border-border text-muted-foreground hover:bg-muted"
-                  }`}
-                >
-                  {c}
-                </button>
-              ))}
-            </div>
+              )}
+            </FormField>
           </div>
+        )}
 
-          <div className="grid grid-cols-2 gap-3">
-            {/* Cantidad */}
-            <div className="flex flex-col gap-1.5">
-              <label className="font-semibold text-foreground">
-                {kind === "crypto"
-                  ? `Cantidad de monedas (${selectedCrypto.symbol})`
-                  : kind === "stocks"
-                  ? "Cantidad de acciones o títulos"
-                  : kind === "funds"
-                  ? "Cantidad de cuotapartes"
-                  : kind === "realestate"
-                  ? "Superficie (m²) o Unidades"
-                  : "Cantidad (unidades)"}
-              </label>
-              <input
+        <FormField label="Moneda de valuación">
+          {(control) => (
+            <SelectField
+              {...control}
+              value={currency}
+              onChange={(e) => setCurrency(e.target.value)}
+              options={CURRENCY_CHOICES.map((code) => ({ value: code, label: code }))}
+            />
+          )}
+        </FormField>
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <FormField label={
+            kind === "crypto"
+              ? `Cantidad de monedas (${selectedCrypto.symbol})`
+              : kind === "stocks"
+              ? "Cantidad de acciones o títulos"
+              : kind === "funds"
+              ? "Cantidad de cuotapartes"
+              : kind === "realestate"
+              ? "Superficie (m²) o Unidades"
+              : "Cantidad (unidades)"
+          }>
+            {(control) => (
+              <Input
+                {...control}
                 type="text"
                 inputMode="decimal"
                 value={quantity}
                 onChange={(e) => handleQuantityChange(e.target.value)}
                 placeholder={kind === "crypto" ? "0.42" : "1"}
-                className="w-full h-10 px-3 rounded-xl bg-muted/40 border border-border text-foreground font-mono font-bold text-sm outline-none focus:border-purple-500 transition"
               />
-            </div>
-
-            {/* Valor actual total */}
-            <div className="flex flex-col gap-1.5">
-              <div className="flex items-center justify-between">
-                <label className="font-semibold text-foreground">
-                  Valor total ({currency})
-                </label>
-                {kind === "crypto" && (
-                  <span className="text-[10px] text-purple-400 font-semibold">
-                    Calculado en vivo
-                  </span>
-                )}
-              </div>
-              <input
-                type="text"
-                inputMode="decimal"
+            )}
+          </FormField>
+          <FormField label={`Valor total (${currency})`}>
+            {(control) => (
+              <MoneyInput
+                {...control}
+                currency={currency || defaultCurrency}
                 value={value}
-                onChange={(e) => handleValueChange(e.target.value)}
-                placeholder="6,200.00"
-                className="w-full h-10 px-3 rounded-xl bg-muted/40 border border-border text-foreground font-mono font-bold text-sm outline-none focus:border-purple-500 transition"
+                onValueChange={handleValueChange}
+                maxDecimals={Number.MAX_SAFE_INTEGER}
               />
-            </div>
-          </div>
+            )}
+          </FormField>
+        </div>
 
-          {/* Color & Icon Picker for non-crypto */}
-          {kind !== "crypto" && (
-            <div className="flex flex-col gap-2.5 pt-2 border-t border-border/60">
-              <div className="flex items-center justify-between">
-                <span className="font-semibold text-foreground">Color representativo</span>
-                <div className="flex items-center gap-1.5">
-                  {CATEGORY_COLOR_LIST.slice(0, 7).map((c) => (
-                    <button
-                      key={c.key}
-                      type="button"
-                      title={c.label}
-                      onClick={() => setColorKey(c.key)}
-                      className={`w-5 h-5 rounded-full transition cursor-pointer ${
-                        colorKey === c.key
-                          ? "ring-2 ring-offset-2 ring-offset-card ring-white scale-110"
-                          : "opacity-75 hover:opacity-100"
-                      }`}
-                      style={{ backgroundColor: c.swatchHex }}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-6 gap-2">
-                {EXTENDED_ICONS.map((item) => (
-                  <button
-                    key={item.key}
+        {kind !== "crypto" && (
+          <div className="flex flex-col gap-3 border-t border-border pt-3">
+            <fieldset>
+              <legend className="mb-2 text-sm font-semibold">Color representativo</legend>
+              <div className="flex flex-wrap gap-1.5">
+                {CATEGORY_COLOR_LIST.slice(0, 7).map((color) => (
+                  <Button
+                    key={color.key}
                     type="button"
-                    title={item.label}
-                    onClick={() => setIconKey(item.key)}
-                    className={`p-2 rounded-xl border flex items-center justify-center transition cursor-pointer ${
-                      iconKey === item.key
-                        ? "bg-purple-600/20 border-purple-500 text-purple-300 ring-1 ring-purple-500/40"
-                        : "bg-muted/40 border-border text-muted-foreground hover:bg-muted"
-                    }`}
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={color.label}
+                    aria-pressed={colorKey === color.key}
+                    onClick={() => setColorKey(color.key)}
+                    className={cn("rounded-full", colorKey === color.key && "ring-2 ring-primary")}
                   >
-                    <CategoryIcon iconKey={item.key} className="w-4 h-4" />
-                  </button>
+                    <span className="size-5 rounded-full" style={{ backgroundColor: color.swatchHex }} />
+                  </Button>
                 ))}
               </div>
-            </div>
-          )}
-
-          {/* Action Buttons */}
-          <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-border/70 mt-2 shrink-0">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={submitting}
-              className="h-10 px-4 rounded-xl border border-border text-xs font-bold text-foreground hover:bg-muted transition cursor-pointer"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={!valid || submitting}
-              className="h-10 px-5 rounded-xl bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white text-xs font-bold transition shadow-lg shadow-purple-600/20 cursor-pointer"
-            >
-              {submitting ? "Guardando..." : "Guardar activo"}
-            </button>
+            </fieldset>
+            <fieldset>
+              <legend className="mb-2 text-sm font-semibold">Ícono</legend>
+              <div className="grid grid-cols-6 gap-2">
+                {EXTENDED_ICONS.map((item) => (
+                  <Button
+                    key={item.key}
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    aria-label={item.label}
+                    aria-pressed={iconKey === item.key}
+                    onClick={() => setIconKey(item.key)}
+                    className={cn("w-full border-border text-muted-foreground", iconKey === item.key && "border-primary bg-primary/10 text-primary")}
+                  >
+                    <CategoryIcon iconKey={item.key} className="size-4" />
+                  </Button>
+                ))}
+              </div>
+            </fieldset>
           </div>
-        </form>
-      </div>
-    </div>
+        )}
+      </form>
+    </ResponsiveDrawer>
   );
 }
