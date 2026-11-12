@@ -12,6 +12,7 @@ The backup must cover the user's financial records; reset must remove those reco
 - T3 [S1-S2] Implement and verify authenticated export of financial records across owning modules; Route: backend/API + web export flow; Commit: pending.
 - T4 [S1-S2] Implement authenticated financial-data reset preserving identity/settings; Route: owning backend modules + API; Commit: pending.
 - T5 [S1-S2] Add reset Settings UI, destructive confirmation, tests, and relevant docs; Route: web Settings + backend tests/docs; Commit: pending.
+- T6 [S1-S2] Comprehensive financial reset audit & fix: include RecurringPayments, BinanceCredentials, draft events, explicit loan child entities, category resurrection prevention in frontend, and client storage cleanup; Route: backend modules + web frontend; Commit: pending (verified).
 
 ## Log
 - L1: En la page de settings, faltaria agregar la opcion de poder borrar todos los datos financieros y poder hacer un backup para descargar, porqu e eliminar? bueno para que el usuario pueda volver a empezar a registrar datos financieros nuevamente...
@@ -29,3 +30,15 @@ The backup must cover the user's financial records; reset must remove those reco
 - L13: Implemented four dedicated owner-scoped reset providers and a four-context relational transaction coordinator; `DELETE /v1/auth/financial-data` preserves Identity/FX and resets Planning, Lending, Ingestion, and Ledger in one transaction. Shared-connection SQLite integration suite passes 3/3: successful reset across four modules, preserved profile/preferences, other-user isolation, repeated reset, unauthenticated 401, and full rollback after an injected failure following Ledger deletion. No PostgreSQL integration run.
 - L14: Added separate Settings reset action/confirmation, API repository method, dashboard data refresh callback, privacy retention guidance, and OpenAPI entries (204/401). Web focused tests pass 4/4, ESLint passes, OpenAPI contract test passes 1/1, and reset integration tests pass 3/3 using built project outputs. `dotnet build Api.csproj --no-restore --no-dependencies` passed with 0 warnings/errors; a fresh dependency build fails in pre-existing modified `Ledger.Infrastructure/Repositories/UnitOfWork.cs` (`BeginTransactionAsync` overload), which was not edited. `gentle_review` assess reports `changedPaths: 0` due undeclared untracked files; independent `gentle-ai-verify` was unavailable for lack of provider API key. High-risk slices remain uncommitted and T3/T4/T5 blocked pending review/build proof.
 - L15: User reported verbatim: `DELETE http://localhost:5267/api/v1/auth/financial-data\nStatus code\n404 Not Found`. Source `AuthEndpoints.cs` maps the reset operation under both `/api/v1/auth` and `/v1/auth`; an exact-path WebApplicationFactory integration test was added. Its invocation timed out after 30 seconds with no test result and was not retried. No local server was run. Runtime cause remains unconfirmed; the current source mapping exists, so check whether the process on port 5267 loaded the new API build before changing route code.
+- L16: User reported that financial data reset does not delete everything ("deberia borrar absolutamente todo menos mi cuenta, y no esta borrando todo"). Audited all backend contexts and frontend state: Planning omitted RecurringPayments, Ingestion omitted BinanceCredentials and DraftEvents, Lending relied on DB cascades for payment allocations, and Web CategoriesContext resurrected deleted categories by re-uploading from localStorage cache. Patrimonio manual assets and transaction drafts in localStorage were also left intact. Expanding reset across all 4 financial modules and client state.
+- L17: Fix completed:
+  1. Planning: added RecurringPayments to PlanningFinancialDataReset and PlanningFinancialDataExport.
+  2. Ingestion: added BinanceCredentials and DraftEvents to IngestionFinancialDataReset and IngestionFinancialDataExport.
+  3. Lending: explicitly wipe PaymentAllocations -> Payments -> Installments -> Loans -> Counterparties.
+  4. Backend tests: updated FinancialDataResetIntegrationTests with recurring payment creation and assertions across all collections. 4/4 integration tests pass.
+  5. Web CategoriesContext: exposed resetCategories to clean state and localStorage, preventing resurrection.
+  6. Web SettingsView: clearClientFinancialStorage purges patrimonial assets/liabilities, transaction form drafts, and workspace expense drafts; calls resetCategories.
+  7. Web app/page.tsx: onFinancialDataReset refreshes dashboard, investments, and distribution plan.
+  8. Web tests: 815 passed, ESLint clean, Next.js build passes.
+
+
