@@ -17,7 +17,7 @@ No backend changes, no i18n layer, no visual rebrand, no business-logic/financia
 - [x] T3 Same migration for planning, lending, investments.
 - [x] T4 Same migration for patrimonio, reports, workspaces, identity/auth FX displays.
 - [ ] T5 shared/ui consolidation: segmented-control + chip-radio-group on `RadioGroup`; select-field composes native-select; Select/Tabs/MonthPicker/chart tooltip overflow hardening; `Alert` for page error banner; month-picker theme tokens.
-- [ ] T6 Replace hand-built overlays with `ResponsiveDrawer`: patrimonio Add Asset/Liability (merge into one), investments Create/Edit/UpdatePrice, ledger MovementTransferModal/MovementActions.
+- [x] T6 Replace hand-built overlays with `ResponsiveDrawer`: patrimonio Add Asset/Liability (merge into one), investments Create/Edit/UpdatePrice, ledger MovementTransferModal/MovementActions.
 - [ ] T7 Extract duplicates: shared transaction amount/account fields (Register/Edit), DraftRow, KPI card (lending), donut card, appearance picker, category disclosure + item row, SettingSwitchRow; raw `<button>/<input>/<select>/<table>` → shadcn (`Button`, `Input`, `SelectField`, `Switch`, `Checkbox`, `Table`, `Card`).
 - [ ] T8 Responsive fixes: MovimientosView 6-col filters, Topbar tablet, WelcomeHeader min-w-0, MobileWalletCard, Drafts rows, WorkspaceHubCard grid-cols-3, WhatsApp bubbles, lending schedules (scroll), PriceAlerts card, Hero card, Settings label/select rows.
 - [ ] T9 Copy cleanup: remove filler paragraphs/tooltips/decorative "healthy configuration" card, misleading Google-only security text; keep sole accessible names (add aria-label before removing title).
@@ -28,3 +28,4 @@ No backend changes, no i18n layer, no visual rebrand, no business-logic/financia
 ## Evidence log
 T1 ad1f086; T2 b64c66a + follow-up commits (ledger movements, account-detail, dashboard/fx/ingestion); T3 1112bb9, cfadd5e, 94c3e63, 493286c, 240abef, 32e7b32 (added `Percentage`, `Quantity` to shared/ui/amount; investments modals deferred to T6)
 T4 1e4f304 (patrimonio, reports, workspaces, identity P2P text; MoneyInput now takes ISO codes)
+T6 604c10e (merged patrimonio add-item into AddFinancialItemModal, replaced EditInvestmentModal with ArchiveInvestmentModal, converted UpdatePriceModal, CreateInvestmentModal, RegisterOperationModal, MovementTransferModal, MovementActions, and RecurringPayments reschedule modal to ResponsiveDrawer; all modals now unified on ResponsiveDrawer)
