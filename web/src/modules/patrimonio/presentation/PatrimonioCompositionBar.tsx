@@ -49,10 +49,10 @@ export function PatrimonioCompositionBar({
             <span className="font-semibold text-muted-foreground">Activos</span>
           </div>
           <div className="flex items-center gap-3">
-            <span className="font-mono font-bold text-foreground">
+            <span className="font-bold text-foreground">
               <Amount value={totalAssets} currency={currency} size="inherit" tone="inherit" />
             </span>
-            <span className="font-mono text-muted-foreground font-semibold w-12 text-right">
+            <span className="text-muted-foreground font-semibold w-12 text-right">
               {assetsPct}%
             </span>
           </div>
@@ -65,10 +65,10 @@ export function PatrimonioCompositionBar({
             <span className="font-semibold text-muted-foreground">Pasivos</span>
           </div>
           <div className="flex items-center gap-3">
-            <span className="font-mono font-bold text-foreground">
+            <span className="font-bold text-foreground">
               <Amount value={totalLiabilities} currency={currency} size="inherit" tone="inherit" />
             </span>
-            <span className="font-mono text-muted-foreground font-semibold w-12 text-right">
+            <span className="text-muted-foreground font-semibold w-12 text-right">
               {liabilitiesPct}%
             </span>
           </div>
@@ -81,10 +81,10 @@ export function PatrimonioCompositionBar({
             <span className="font-bold text-purple-200">Patrimonio neto</span>
           </div>
           <div className="flex items-center gap-3">
-            <span className="font-mono font-black text-white text-sm">
+            <span className="font-black text-white text-sm">
               <Amount value={netWorth} currency={currency} size="inherit" tone="inherit" />
             </span>
-            <span className="font-mono text-purple-300 font-bold w-12 text-right">
+            <span className="text-purple-300 font-bold w-12 text-right">
               100%
             </span>
           </div>

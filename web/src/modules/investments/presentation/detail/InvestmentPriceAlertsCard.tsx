@@ -122,7 +122,7 @@ export function InvestmentPriceAlertsCard({
                 )}
                 <span className="text-xs font-medium text-foreground truncate">
                   Si el precio {isAbove ? "sube" : "baja"} a{" "}
-                  <strong className="font-mono font-bold">
+                  <strong className="font-bold">
                     <Amount value={alt.targetPrice} currency={currency} size="inherit" tone="inherit" />
                   </strong>
                 </span>

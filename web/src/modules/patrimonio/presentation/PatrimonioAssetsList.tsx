@@ -110,7 +110,7 @@ export function PatrimonioAssetsList({
                         <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground truncate">
                           {item.notes && <span>{item.notes}</span>}
                           {item.originalValue !== undefined && item.currency && item.currency !== currency && (
-                            <span className="font-mono text-purple-400">
+                            <span className="text-purple-400">
                               • Orig: <Amount value={item.originalValue} currency={item.currency} size="inherit" tone="inherit" />
                             </span>
                           )}
@@ -118,7 +118,7 @@ export function PatrimonioAssetsList({
                       </div>
 
                       <div className="flex items-center gap-2.5 shrink-0">
-                        <span className="font-mono font-bold text-foreground">
+                        <span className="font-bold text-foreground">
                           <Amount value={item.value} currency={currency} size="inherit" tone="inherit" />
                         </span>
 

@@ -111,7 +111,7 @@ export function InvestmentPortfolioShareDonutCard({
                 />
                 <span className="truncate">{item.name}</span>
               </div>
-              <span className="font-mono font-bold ml-2 text-foreground">
+              <span className="font-bold ml-2 text-foreground">
                 <Percentage value={item.percentage} sign="never" size="inherit" tone="inherit" />
               </span>
             </div>

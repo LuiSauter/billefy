@@ -467,7 +467,7 @@ export function RecurringPaymentsView({
               <RotateCcw className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-2xl sm:text-3xl font-black font-mono text-foreground">
+          <div className="text-2xl sm:text-3xl font-black text-foreground">
             {summary?.activeCount ?? filteredPayments.filter((p) => p.status === "Active").length}
           </div>
         </div>
@@ -507,7 +507,7 @@ export function RecurringPaymentsView({
             </div>
           </div>
           <div className="flex items-baseline gap-2">
-            <span className="text-2xl sm:text-3xl font-black font-mono text-foreground">
+            <span className="text-2xl sm:text-3xl font-black text-foreground">
               {summary?.upcoming7DaysCount ?? upcomingPayments.length}
             </span>
             {(summary?.upcoming7DaysTotal ?? 0) > 0 && (
@@ -527,7 +527,7 @@ export function RecurringPaymentsView({
             </div>
           </div>
           <div className="flex items-baseline gap-2">
-            <span className="text-2xl sm:text-3xl font-black font-mono text-foreground">
+            <span className="text-2xl sm:text-3xl font-black text-foreground">
               {summary?.overdueCount ?? 0}
             </span>
             {(summary?.overdueCount ?? 0) > 0 && (
@@ -917,7 +917,7 @@ export function RecurringPaymentsView({
                           : "bg-muted/10 border-transparent text-muted-foreground/40"
                       } ${hasEvents ? "border-purple-500/40 bg-purple-500/5" : ""}`}
                     >
-                      <span className="font-mono text-[11px] font-bold">{cell.day}</span>
+                      <span className="text-[11px] font-bold">{cell.day}</span>
                       <div className="flex flex-col gap-1 mt-1">
                         {itemsOnDay.map(({ payment: ev }) => (
                           <button
@@ -959,7 +959,7 @@ export function RecurringPaymentsView({
                 >
                   <ChevronLeft className="w-3.5 h-3.5" />
                 </button>
-                <span className="text-xs font-bold text-foreground font-mono">
+                <span className="text-xs font-bold text-foreground">
                   {monthInfo.monthName} {monthInfo.year}
                 </span>
                 <button
