@@ -4,6 +4,7 @@ import React from "react";
 import { AccountDto } from "@/modules/ledger/domain/ledger.types";
 import { DraftDto } from "@/modules/ingestion/domain/ingestion.types";
 import { Check, Sparkles } from "lucide-react";
+import { Button } from "@/shared/ui/button";
 import { Amount } from "@/shared/ui/amount";
 
 interface DraftsInboxProps {
@@ -66,12 +67,13 @@ export function DraftsInbox({
         <h2 className="text-[15px] font-extrabold text-foreground tracking-tight">
           Borradores Detectados ({drafts.length})
         </h2>
-        <button
+        <Button
+          variant="link"
+          size="xs"
           onClick={handleConfirmAll}
-          className="text-sm font-bold text-indigo-400 hover:underline transition"
         >
-          Aprobar Todo 1-Tap
-        </button>
+          Aprobar todo
+        </Button>
       </div>
 
       {/* Rows (OpenPencil ItRow_0, ItRow_1, ItRow_2) */}
@@ -98,13 +100,14 @@ export function DraftsInbox({
                   size="sm"
                 />
 
-                <button
+                <Button
+                  size="icon-xs"
+                  variant="success"
+                  aria-label={`Aprobar borrador ${getAccountLabel(draft)}`}
                   onClick={() => onConfirmDraft(draft, resolveAccountId(draft))}
-                  title="Aprobar en 1-Tap"
-                  className="w-[22px] h-[22px] rounded-[4px] bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-white flex items-center justify-center transition shadow-2xs"
                 >
-                  <Check className="w-[12px] h-[12px] stroke-[2.5]" />
-                </button>
+                  <Check className="size-3 stroke-[2.5]" />
+                </Button>
               </div>
             </div>
           );

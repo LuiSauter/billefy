@@ -32,6 +32,7 @@ import { CategoryPickerField } from "./CategoryPickerField";
 import { CategoryCreatorView } from "./CategoryCreatorView";
 import { CategoryIconBadge } from "./CategoryIcon";
 import { Button } from "@/shared/ui/button";
+import { Checkbox } from "@/shared/ui/checkbox";
 import { FormField } from "@/shared/ui/form-field";
 import { Input } from "@/shared/ui/input";
 import { MoneyInput } from "@/shared/ui/money-input";
@@ -400,14 +401,17 @@ export function RegisterTransactionModal({
                 </div>
 
                 {hasUnsavedChanges && (
-                  <button
+                  <Button
                     type="button"
+                    variant="outline"
+                    size="icon-xs"
                     onClick={clearDraft}
+                    aria-label="Reiniciar formulario"
                     title="Reiniciar formulario"
-                    className="p-2 rounded-xl border border-border bg-card text-muted-foreground hover:text-rose-500 hover:border-rose-500/40 transition shrink-0"
+                    className="shrink-0 text-muted-foreground hover:text-destructive hover:border-destructive/40"
                   >
-                    <RotateCcw className="w-4 h-4" />
-                  </button>
+                    <RotateCcw className="size-4" />
+                  </Button>
                 )}
               </div>
 
@@ -631,30 +635,22 @@ export function RegisterTransactionModal({
                   <div className="flex flex-col gap-3 p-3.5 rounded-2xl bg-muted/30 border border-border">
                     <label className="flex items-center justify-between gap-3 cursor-pointer select-none">
                       <div className="flex items-center gap-2.5">
-                        <input
-                          type="checkbox"
+                        <Checkbox
                           checked={useNow}
-                          onChange={(e) => {
-                            const checked = e.target.checked;
+                          onCheckedChange={(checked) => {
                             const now = new Date();
                             updateDraft({
-                              useNow: checked,
+                              useNow: Boolean(checked),
                               customDate:
                                 customDate || getLocalDateString(now),
                               customTime:
                                 customTime || getLocalTimeString(now),
                             });
                           }}
-                          className="w-4 h-4 rounded border-border text-primary focus:ring-primary accent-blue-600"
                         />
-                        <div className="flex flex-col">
-                          <span className="text-xs font-extrabold text-foreground">
-                            Hoy (guardar con fecha y hora actual)
-                          </span>
-                          <span className="text-[11px] text-muted-foreground">
-                            Desmarcá esta opción si el movimiento ocurrió en otra fecha u hora.
-                          </span>
-                        </div>
+                        <span className="text-xs font-bold text-foreground">
+                          Hoy (guardar con fecha y hora actual)
+                        </span>
                       </div>
                     </label>
 

@@ -1,3 +1,4 @@
+import { Button } from "@/shared/ui/button";
 import dynamic from "next/dynamic";
 import { LoanSummaryDto } from "@/modules/lending/domain/lending.types";
 import { Amount } from "@/shared/ui/amount";
@@ -42,12 +43,9 @@ export function LoansList({
             </h2>
             <p className="text-xs text-muted-foreground">Amortización exacta, cuotas y TEA</p>
           </div>
-          <button
-            onClick={onOpenCreateLoanModal}
-            className="h-[34px] px-3.5 rounded-[8px] bg-primary hover:bg-blue-600 text-white text-sm font-bold transition"
-          >
+          <Button size="sm" onClick={onOpenCreateLoanModal}>
             + Simular / Crear
-          </button>
+          </Button>
         </div>
         <div className="p-0 divide-y divide-border">
           {loans.length === 0 && !loading ? (
@@ -88,19 +86,21 @@ export function LoansList({
                       <Amount value={loan.remainingPrincipal} currency={loan.currency} size="md" />
                     </div>
                     <div className="flex gap-2">
-                      <button
+                      <Button
+                        variant="outline"
+                        size="xs"
                         onClick={() => onOpenLoanDetails(loan.id)}
-                        className="h-[32px] px-2.5 rounded-[8px] border border-border bg-secondary/50 hover:bg-muted text-foreground text-xs font-semibold transition"
                       >
                         Ver Cuotas
-                      </button>
+                      </Button>
                       {loan.status !== "Paid" && loan.status !== "Cancelled" && (
-                        <button
+                        <Button
+                          variant="success"
+                          size="xs"
                           onClick={() => onOpenPaymentModal(loan.id)}
-                          className="h-[32px] px-3 rounded-[8px] bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-extrabold transition shadow-2xs"
                         >
                           Registrar Pago
-                        </button>
+                        </Button>
                       )}
                     </div>
                   </div>
