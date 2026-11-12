@@ -3,6 +3,9 @@
 import React from "react";
 import { TrendingUp, Layers, ArrowUpRight, Percent } from "lucide-react";
 import { InvestmentDetailMetrics } from "../../domain/investment-detail";
+import { Amount } from "@/shared/ui/amount";
+import { useNumberPreferences } from "@/shared/hooks/use-number-format";
+import { formatPercent } from "@/shared/lib/amount-format";
 
 interface InvestmentDetailKpisProps {
   metrics: InvestmentDetailMetrics;
@@ -11,9 +14,10 @@ interface InvestmentDetailKpisProps {
 
 export function InvestmentDetailKpis({
   metrics,
-  currency = "$",
+  currency = "USD",
 }: InvestmentDetailKpisProps) {
   const isPositiveGain = metrics.gainLoss >= 0;
+  const preferences = useNumberPreferences();
 
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
@@ -26,9 +30,7 @@ export function InvestmentDetailKpis({
           <span className="text-[11px] font-semibold text-muted-foreground truncate">
             Inversión total
           </span>
-          <span className="text-base sm:text-lg font-black font-mono text-foreground truncate">
-            {currency} {metrics.initialValue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </span>
+          <Amount value={metrics.initialValue} currency={currency} size="lg" className="min-w-0 truncate" />
         </div>
       </div>
 
@@ -41,9 +43,7 @@ export function InvestmentDetailKpis({
           <span className="text-[11px] font-semibold text-muted-foreground truncate">
             Valor actual
           </span>
-          <span className="text-base sm:text-lg font-black font-mono text-foreground truncate">
-            {currency} {metrics.currentValue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </span>
+          <Amount value={metrics.currentValue} currency={currency} size="lg" className="min-w-0 truncate" />
         </div>
       </div>
 
@@ -62,14 +62,7 @@ export function InvestmentDetailKpis({
           <span className="text-[11px] font-semibold text-muted-foreground truncate">
             Ganancia / Pérdida
           </span>
-          <span
-            className={`text-base sm:text-lg font-black font-mono truncate ${
-              isPositiveGain ? "text-emerald-400" : "text-rose-400"
-            }`}
-          >
-            {isPositiveGain ? "+ " : "- "}
-            {currency} {Math.abs(metrics.gainLoss).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </span>
+          <Amount value={metrics.gainLoss} currency={currency} sign="always" tone={isPositiveGain ? "income" : "expense"} size="lg" className="min-w-0 truncate" />
         </div>
       </div>
 
@@ -82,8 +75,8 @@ export function InvestmentDetailKpis({
           <span className="text-[11px] font-semibold text-muted-foreground truncate">
             ROI
           </span>
-          <span className="text-base sm:text-lg font-black font-mono text-emerald-400 truncate">
-            +{metrics.roiPct.toFixed(2)}%
+          <span className="text-base sm:text-lg font-semibold text-emerald-400 truncate">
+            +{formatPercent(metrics.roiPct, preferences)}
           </span>
         </div>
       </div>
