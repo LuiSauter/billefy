@@ -6,21 +6,23 @@ import { BudgetDto, getBudgetCategoryEmoji } from "../domain/planning.types";
 import { useUserCategories } from "@/modules/ledger/application/CategoriesContext";
 import { CategoryIconBadge } from "@/modules/ledger/presentation/CategoryIcon";
 import { Button } from "@/shared/ui/button";
+import { Amount } from "@/shared/ui/amount";
+import { formatPercent } from "@/shared/lib/amount-format";
+import { useNumberPreferences } from "@/shared/hooks/use-number-format";
 
 interface CategoryExpensesCardProps {
   budgets: BudgetDto[];
   onOpenCreateBudgetModal: () => void;
   onEditBudget: (budget: BudgetDto) => void;
-  formatMoney: (amount: number) => string;
 }
 
 export function CategoryExpensesCard({
   budgets,
   onOpenCreateBudgetModal,
   onEditBudget,
-  formatMoney,
 }: CategoryExpensesCardProps) {
   const { findCategory } = useUserCategories();
+  const numberPreferences = useNumberPreferences();
 
   return (
     <div className="p-5 sm:p-6 rounded-2xl bg-card border border-border shadow-2xs flex flex-col gap-5">
@@ -110,13 +112,13 @@ export function CategoryExpensesCard({
                     </td>
 
                     {/* Presupuesto */}
-                    <td className="py-3 px-2 text-right font-mono font-medium text-foreground whitespace-nowrap">
-                      {formatMoney(limit)}
+                    <td className="py-3 px-2 text-right text-foreground whitespace-nowrap">
+                      <Amount value={limit} currency={b.currency} size="xs" />
                     </td>
 
                     {/* Gastado */}
-                    <td className="py-3 px-2 text-right font-mono font-bold text-foreground whitespace-nowrap">
-                      {formatMoney(spent)}
+                    <td className="py-3 px-2 text-right text-foreground whitespace-nowrap">
+                      <Amount value={spent} currency={b.currency} size="xs" />
                     </td>
 
                     {/* Progreso */}
@@ -128,8 +130,8 @@ export function CategoryExpensesCard({
                             style={{ width: `${Math.min(100, percentage)}%` }}
                           />
                         </div>
-                        <span className="font-mono text-xs font-bold text-foreground w-9 text-right shrink-0">
-                          {percentage}%
+                        <span className="text-xs font-bold text-foreground w-9 text-right shrink-0">
+                          {formatPercent(percentage, numberPreferences)}
                         </span>
                       </div>
                     </td>

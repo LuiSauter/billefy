@@ -2,20 +2,24 @@
 
 import React from "react";
 import { CheckCircle2, AlertTriangle, AlertCircle } from "lucide-react";
+import { Amount } from "@/shared/ui/amount";
+import { formatPercent } from "@/shared/lib/amount-format";
+import { useNumberPreferences } from "@/shared/hooks/use-number-format";
 
 interface BudgetProgressCardProps {
   totalSpent: number;
   totalLimit: number;
   availableAmount: number;
-  formatMoney: (amount: number) => string;
+  currency: string;
 }
 
 export function BudgetProgressCard({
   totalSpent,
   totalLimit,
   availableAmount,
-  formatMoney,
+  currency,
 }: BudgetProgressCardProps) {
+  const numberPreferences = useNumberPreferences();
   const percentage = totalLimit > 0 ? Math.round((totalSpent / totalLimit) * 100) : 0;
   const isOver = percentage > 100;
   const isAlert = percentage >= 80 && percentage <= 100;
@@ -31,15 +35,15 @@ export function BudgetProgressCard({
           Progreso del presupuesto
         </h2>
         <div className="flex items-center gap-2">
-          <span className="font-mono text-xs sm:text-sm font-semibold text-muted-foreground">
-            {formatMoney(totalSpent)} / {formatMoney(totalLimit)}
+          <span className="text-xs sm:text-sm font-semibold text-muted-foreground">
+            <Amount value={totalSpent} currency={currency} size="xs" /> / <Amount value={totalLimit} currency={currency} size="xs" />
           </span>
           <span
-            className={`font-mono text-xs sm:text-sm font-black ${
+            className={`text-xs sm:text-sm font-black ${
               isOver ? "text-rose-400" : isAlert ? "text-amber-400" : "text-emerald-400"
             }`}
           >
-            {percentage}%
+            {formatPercent(percentage, numberPreferences)}
           </span>
         </div>
       </div>
@@ -67,8 +71,8 @@ export function BudgetProgressCard({
               Vas bien
             </span>
             <span className="text-xs text-muted-foreground">
-              Has usado el {percentage}% de tu presupuesto mensual. Aún tienes{" "}
-              <strong className="text-foreground font-mono">{formatMoney(availableAmount)}</strong>{" "}
+              Has usado el {formatPercent(percentage, numberPreferences)} de tu presupuesto mensual. Aún tienes{" "}
+              <strong className="text-foreground"><Amount value={availableAmount} currency={currency} size="xs" /></strong>{" "}
               disponibles.
             </span>
           </div>
@@ -83,8 +87,8 @@ export function BudgetProgressCard({
               Cuidado con el ritmo
             </span>
             <span className="text-xs text-muted-foreground">
-              Has usado el {percentage}% de tu presupuesto. Te quedan{" "}
-              <strong className="text-foreground font-mono">{formatMoney(availableAmount)}</strong>{" "}
+              Has usado el {formatPercent(percentage, numberPreferences)} de tu presupuesto. Te quedan{" "}
+              <strong className="text-foreground"><Amount value={availableAmount} currency={currency} size="xs" /></strong>{" "}
               para el resto del mes.
             </span>
           </div>
@@ -100,8 +104,8 @@ export function BudgetProgressCard({
             </span>
             <span className="text-xs text-muted-foreground">
               Has superado tu presupuesto mensual en{" "}
-              <strong className="text-rose-400 font-mono">
-                {formatMoney(totalSpent - totalLimit)}
+              <strong className="text-rose-400">
+                <Amount value={totalSpent - totalLimit} currency={currency} tone="expense" size="xs" />
               </strong>
               . Podés ajustar gastos no esenciales o reasignar límites.
             </span>

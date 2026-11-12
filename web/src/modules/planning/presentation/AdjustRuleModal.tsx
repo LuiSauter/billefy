@@ -16,6 +16,8 @@ import { useUserCategories } from "@/modules/ledger/application/CategoriesContex
 import { ResponsiveDrawer } from "@/shared/ui/responsive-drawer";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
+import { formatPercent } from "@/shared/lib/amount-format";
+import { useNumberPreferences } from "@/shared/hooks/use-number-format";
 
 interface AdjustRuleModalProps {
   isOpen: boolean;
@@ -58,6 +60,7 @@ export function AdjustRuleModal({
     }
   }, [isOpen, plan]);
 
+  const numberPreferences = useNumberPreferences();
   const currentTotal = totalPercent(localBuckets);
   const validationErrors = useMemo(
     () => validatePlan(localBuckets, expenseCategoryIds),
@@ -131,14 +134,14 @@ export function AdjustRuleModal({
       size="lg"
       footer={
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 w-full">
-          <div className="flex items-center gap-2 text-xs font-mono font-bold">
+          <div className="flex items-center gap-2 text-xs font-bold">
             <span className="text-muted-foreground">Total:</span>
             <span
               className={
                 currentTotal === 100 ? "text-emerald-400" : "text-rose-400 font-black"
               }
             >
-              {currentTotal}% / 100%
+              {formatPercent(currentTotal, numberPreferences)} / {formatPercent(100, numberPreferences)}
             </span>
           </div>
           <div className="flex items-center gap-2 w-full sm:w-auto">
@@ -228,7 +231,7 @@ export function AdjustRuleModal({
                           percent: Number(e.target.value.replace(",", ".")) || 0,
                         })
                       }
-                      className="w-16 h-8 text-right font-mono text-xs font-bold"
+                      className="w-16 h-8 text-right text-xs font-bold"
                     />
                     <span className="text-xs font-bold text-muted-foreground">%</span>
                   </div>

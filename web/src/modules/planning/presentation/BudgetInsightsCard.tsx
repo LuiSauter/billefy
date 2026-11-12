@@ -6,13 +6,16 @@ import { BudgetDto } from "../domain/planning.types";
 import { DistributionPlan } from "../domain/distribution-plan";
 import { calculateBudgetDistributionMetrics } from "../domain/budget-distribution-metrics";
 import { useUserCategories } from "@/modules/ledger/application/CategoriesContext";
+import { Amount } from "@/shared/ui/amount";
+import { formatPercent } from "@/shared/lib/amount-format";
+import { useNumberPreferences } from "@/shared/hooks/use-number-format";
 
 interface BudgetInsightsCardProps {
   plan?: DistributionPlan;
   budgets: BudgetDto[];
   monthlyIncome: number;
   monthlyExpenses: number;
-  formatMoney: (amount: number) => string;
+  currency: string;
 }
 
 export function BudgetInsightsCard({
@@ -20,9 +23,10 @@ export function BudgetInsightsCard({
   budgets,
   monthlyIncome,
   monthlyExpenses,
-  formatMoney,
+  currency,
 }: BudgetInsightsCardProps) {
   const { findCategory } = useUserCategories();
+  const numberPreferences = useNumberPreferences();
 
   const insights = useMemo(() => {
     const list: { id: string; icon: "check" | "trend"; text: React.ReactNode }[] = [];
@@ -43,7 +47,7 @@ export function BudgetInsightsCard({
           text: (
             <span>
               Tus presupuestos en <strong>“{overGroup.name}”</strong> superan la regla por{" "}
-              {formatMoney(overGroup.overBudgetedAmount)}. Podés moderar topes o ajustar el porcentaje.
+              <Amount value={overGroup.overBudgetedAmount} currency={currency} size="xs" tone="expense" />. Podés moderar topes o ajustar el porcentaje.
             </span>
           ),
         });
@@ -105,7 +109,7 @@ export function BudgetInsightsCard({
         icon: "check",
         text: (
           <span>
-            Puedes reducir {formatMoney(potentialReduction)} en <strong>“{name}”</strong> (revisar consumos no esenciales).
+            Puedes reducir <Amount value={potentialReduction} currency={currency} size="xs" /> en <strong>“{name}”</strong> (revisar consumos no esenciales).
           </span>
         ),
       });
@@ -119,19 +123,19 @@ export function BudgetInsightsCard({
 
     // 3. Projected savings rate
     const savings = Math.max(0, monthlyIncome - monthlyExpenses);
-    const savingsRate = monthlyIncome > 0 ? ((savings / monthlyIncome) * 100).toFixed(1) : "0.0";
+    const savingsRate = monthlyIncome > 0 ? (savings / monthlyIncome) * 100 : 0;
     list.push({
       id: "savings-rate",
       icon: "trend",
       text: (
         <span>
-          Si mantienes el ritmo, cerrarás el mes con un ahorro del <strong>{savingsRate}%</strong>.
+          Si mantienes el ritmo, cerrarás el mes con un ahorro del <strong>{formatPercent(savingsRate, numberPreferences)}</strong>.
         </span>
       ),
     });
 
     return list;
-  }, [plan, budgets, monthlyIncome, monthlyExpenses, findCategory, formatMoney]);
+  }, [plan, budgets, monthlyIncome, monthlyExpenses, findCategory, currency, numberPreferences]);
 
   return (
     <div className="p-5 sm:p-6 rounded-2xl bg-card border border-border shadow-2xs flex flex-col gap-4">

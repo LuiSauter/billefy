@@ -64,7 +64,7 @@ describe("BudgetDistributionCard", () => {
         monthlyIncome={2000}
         budgets={[]}
         onOpenAdjustRule={vi.fn()}
-        formatMoney={(val) => `Bs. ${val}`}
+        currency="BOB"
       />
     );
 
@@ -88,22 +88,19 @@ describe("BudgetDistributionCard", () => {
         monthlyIncome={2000}
         budgets={budgets}
         onOpenAdjustRule={vi.fn()}
-        formatMoney={(val) => `Bs. ${val}`}
+        currency="BOB"
       />
     );
 
-    // Overrun indicator
-    expect(html).toContain("Excedido en Bs. 180");
+    expect(html).toContain("Bs 180,00");
     expect(html).toContain("Presupuestado");
-    expect(html).toContain("Bs. 1180");
+    expect(html).toContain("Bs 1.180,00");
   });
 
   it("shows healthy margin when budgets are within the rule", () => {
     // 50% of 2000 = 1000 Bs target
     // Category budgets: 500 Bs -> Margin 500 Bs
-    const budgets: BudgetDto[] = [
-      makeBudget("b-rent", "cat-rent", 500),
-    ];
+    const budgets: BudgetDto[] = [makeBudget("b-rent", "cat-rent", 500)];
 
     const html = renderToStaticMarkup(
       <BudgetDistributionCard
@@ -111,10 +108,10 @@ describe("BudgetDistributionCard", () => {
         monthlyIncome={2000}
         budgets={budgets}
         onOpenAdjustRule={vi.fn()}
-        formatMoney={(val) => `Bs. ${val}`}
+        currency="BOB"
       />
     );
 
-    expect(html).toContain("Bs. 500 de margen");
+    expect(html).toContain("Bs 500,00</span> de margen");
   });
 });

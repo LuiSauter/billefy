@@ -2,6 +2,9 @@
 
 import React from "react";
 import { Wallet, ArrowUpRight, Layers, Scale } from "lucide-react";
+import { Amount } from "@/shared/ui/amount";
+import { formatPercent } from "@/shared/lib/amount-format";
+import { useNumberPreferences } from "@/shared/hooks/use-number-format";
 
 interface BudgetKpiCardsProps {
   monthlyIncome: number;
@@ -9,7 +12,7 @@ interface BudgetKpiCardsProps {
   savingsTargetAmount: number;
   availableAmount: number;
   availablePercentage: number;
-  formatMoney: (amount: number) => string;
+  currency: string;
 }
 
 export function BudgetKpiCards({
@@ -18,8 +21,9 @@ export function BudgetKpiCards({
   savingsTargetAmount,
   availableAmount,
   availablePercentage,
-  formatMoney,
+  currency,
 }: BudgetKpiCardsProps) {
+  const numberPreferences = useNumberPreferences();
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       {/* 1. Ingreso mensual */}
@@ -31,9 +35,7 @@ export function BudgetKpiCards({
           <span className="text-xs font-semibold text-muted-foreground truncate">
             Ingreso mensual
           </span>
-          <span className="text-md sm:text-lg font-black text-foreground font-mono truncate">
-            {formatMoney(monthlyIncome)}
-          </span>
+          <Amount value={monthlyIncome} currency={currency} size="lg" className="min-w-0 truncate" />
         </div>
       </div>
 
@@ -46,9 +48,7 @@ export function BudgetKpiCards({
           <span className="text-xs font-semibold text-muted-foreground truncate">
             Gasto mensual
           </span>
-          <span className="text-md sm:text-lg font-black text-foreground font-mono truncate">
-            {formatMoney(monthlyExpenses)}
-          </span>
+          <Amount value={monthlyExpenses} currency={currency} size="lg" className="min-w-0 truncate" />
         </div>
       </div>
 
@@ -61,9 +61,7 @@ export function BudgetKpiCards({
           <span className="text-xs font-semibold text-muted-foreground truncate">
             Ahorro / Inversión
           </span>
-          <span className="text-md sm:text-lg font-black text-foreground font-mono truncate">
-            {formatMoney(savingsTargetAmount)}
-          </span>
+          <Amount value={savingsTargetAmount} currency={currency} size="lg" className="min-w-0 truncate" />
         </div>
       </div>
 
@@ -77,13 +75,11 @@ export function BudgetKpiCards({
             <span className="text-xs font-semibold text-muted-foreground truncate">
               Disponible
             </span>
-            <span className="text-md sm:text-lg font-black text-foreground font-mono truncate">
-              {formatMoney(availableAmount)}
-            </span>
+            <Amount value={availableAmount} currency={currency} size="lg" className="min-w-0 truncate" />
           </div>
         </div>
-        <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-bold shrink-0 font-mono">
-          {availablePercentage.toFixed(1)}%
+        <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-bold shrink-0">
+          {formatPercent(availablePercentage, numberPreferences)}
         </span>
       </div>
     </div>

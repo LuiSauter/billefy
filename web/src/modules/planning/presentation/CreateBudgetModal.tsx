@@ -12,6 +12,8 @@ import { FormField } from "@/shared/ui/form-field";
 import { MoneyInput } from "@/shared/ui/money-input";
 import { ResponsiveDrawer } from "@/shared/ui/responsive-drawer";
 import { SegmentedControl } from "@/shared/ui/segmented-control";
+import { Amount } from "@/shared/ui/amount";
+import { formatCurrencyLabel } from "@/shared/lib/currency";
 
 interface CreateBudgetModalProps {
   isOpen: boolean;
@@ -38,8 +40,8 @@ export function CreateBudgetModal({ isOpen, onClose, onSubmit }: CreateBudgetMod
   }, [isOpen]);
 
   const limitNum = parseFloat(limit) || 0;
-  const alert80 = (limitNum * 0.8).toFixed(2);
-  const safeDaily = (limitNum / 30).toFixed(2);
+  const alert80 = limitNum * 0.8;
+  const safeDaily = limitNum / 30;
   const isValid = limitNum > 0 && (budgetType === "global" || !!selectedCategory);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -168,7 +170,7 @@ export function CreateBudgetModal({ isOpen, onClose, onSubmit }: CreateBudgetMod
               <MoneyInput
                 {...control}
                 size="lg"
-                currency="Bs"
+                currency={formatCurrencyLabel(currency)}
                 value={limit}
                 onValueChange={setLimit}
               />
@@ -177,8 +179,8 @@ export function CreateBudgetModal({ isOpen, onClose, onSubmit }: CreateBudgetMod
 
           {limitNum > 0 && (
             <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex flex-col gap-1 text-xs font-semibold text-emerald-500">
-              <div>• Disparo de alerta temprana (80%): <strong className="tabular-nums">Bs. {alert80}</strong></div>
-              <div>• Ritmo de gasto seguro: <strong className="tabular-nums">Bs. {safeDaily}</strong> / día</div>
+              <div>• Disparo de alerta temprana (80%): <strong><Amount value={alert80} currency={currency} size="xs" /></strong></div>
+              <div>• Ritmo de gasto seguro: <strong><Amount value={safeDaily} currency={currency} size="xs" /></strong> / día</div>
             </div>
           )}
         </form>

@@ -12,6 +12,8 @@ import { FormField } from "@/shared/ui/form-field";
 import { Input } from "@/shared/ui/input";
 import { MoneyInput } from "@/shared/ui/money-input";
 import { ResponsiveDrawer } from "@/shared/ui/responsive-drawer";
+import { Amount } from "@/shared/ui/amount";
+import { formatCurrencyLabel } from "@/shared/lib/currency";
 
 interface ConfirmRecurringPaymentModalProps {
   isOpen: boolean;
@@ -90,8 +92,7 @@ export function ConfirmRecurringPaymentModal({
     }
   };
 
-  const currencySymbol = item.currency === "BOB" ? "Bs" : item.currency === "USD" ? "$" : item.currency;
-  const formattedAmount = `${currencySymbol} ${parsedDecimal.toFixed(2)}`;
+  const currencyLabel = formatCurrencyLabel(item.currency);
 
   return (
     <ResponsiveDrawer
@@ -111,7 +112,7 @@ export function ConfirmRecurringPaymentModal({
             className="order-1 w-full md:order-2 md:flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold"
           >
             <Check className="w-4 h-4 mr-1.5" />
-            <span>Confirmar pago {formattedAmount} (1-Clic)</span>
+            <span>Confirmar pago <Amount value={parsedDecimal} currency={item.currency} size="sm" className="text-primary-foreground" /> (1-Clic)</span>
           </Button>
           <Button
             type="button"
@@ -188,9 +189,9 @@ export function ConfirmRecurringPaymentModal({
                     <span className="text-xs font-extrabold truncate">{acc.name}</span>
                     {isSelected && <Check className="w-3.5 h-3.5 text-emerald-400" />}
                   </div>
-                  <div className="flex items-center justify-between text-[11px] font-mono text-muted-foreground">
+                  <div className="flex items-center justify-between text-[11px] text-muted-foreground">
                     <span>{acc.currency}</span>
-                    <span className="font-semibold text-foreground">{acc.balance.toFixed(2)}</span>
+                    <Amount value={acc.balance} currency={acc.currency} size="xs" />
                   </div>
                 </button>
               );
@@ -208,7 +209,7 @@ export function ConfirmRecurringPaymentModal({
             <MoneyInput
               {...control}
               size="lg"
-              currency={currencySymbol}
+              currency={currencyLabel}
               value={amount}
               onValueChange={setAmount}
             />

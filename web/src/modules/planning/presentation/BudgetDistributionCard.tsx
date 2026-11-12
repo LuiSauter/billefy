@@ -8,6 +8,9 @@ import { BudgetDto } from "../domain/planning.types";
 import { calculateBudgetDistributionMetrics } from "../domain/budget-distribution-metrics";
 import { useUserCategories } from "@/modules/ledger/application/CategoriesContext";
 import { Button } from "@/shared/ui/button";
+import { Amount } from "@/shared/ui/amount";
+import { formatAmountText, formatPercent } from "@/shared/lib/amount-format";
+import { useNumberPreferences } from "@/shared/hooks/use-number-format";
 import {
   ChartConfig,
   ChartContainer,
@@ -20,7 +23,7 @@ export interface BudgetDistributionCardProps {
   monthlyIncome: number;
   budgets?: BudgetDto[];
   onOpenAdjustRule: () => void;
-  formatMoney: (amount: number) => string;
+  currency: string;
 }
 
 const BUCKET_PALETTE = ["#10B981", "#06B6D4", "#A855F7", "#F59E0B", "#F43F5E", "#3B82F6", "#8B5CF6", "#EC4899"];
@@ -41,9 +44,11 @@ export function BudgetDistributionCard({
   monthlyIncome,
   budgets = [],
   onOpenAdjustRule,
-  formatMoney,
+  currency,
 }: BudgetDistributionCardProps) {
   const { findCategory } = useUserCategories();
+  const numberPreferences = useNumberPreferences();
+  const formatChartAmount = (amount: number) => formatAmountText(amount, currency, numberPreferences);
   const [viewMode, setViewMode] = useState<"comparison" | "donut">("comparison");
 
   const metrics = useMemo(() => {
@@ -95,7 +100,7 @@ export function BudgetDistributionCard({
             {metrics.hasAnyOverrun && (
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-rose-500/10 border border-rose-500/30 text-rose-500 text-xs font-bold shrink-0">
                 <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                Excedido en {formatMoney(metrics.totalOverrunAmount)}
+                Excedido en <Amount value={metrics.totalOverrunAmount} currency={currency} size="xs" tone="expense" />
               </span>
             )}
           </div>
@@ -179,9 +184,10 @@ export function BudgetDistributionCard({
               <YAxis
                 tickLine={false}
                 axisLine={false}
+                tickFormatter={(value: number) => formatChartAmount(value)}
                 tick={{ fill: "var(--muted-foreground)", fontSize: 11 }}
               />
-              <ChartTooltip content={<ChartTooltipContent />} />
+              <ChartTooltip content={<ChartTooltipContent formatter={(value) => formatChartAmount(Number(value))} />} />
               <Bar dataKey="cupo" name="Cupo regla" fill="var(--primary)" opacity={0.4} radius={[5, 5, 0, 0]} />
               <Bar dataKey="presupuestado" name="Presupuestado" radius={[5, 5, 0, 0]}>
                 {barChartData.map((entry, index) => (
@@ -213,7 +219,7 @@ export function BudgetDistributionCard({
                     ))}
                   </Pie>
                   <Tooltip
-                    formatter={(val: unknown) => `${val}%`}
+                    formatter={(val: unknown) => formatPercent(Number(val), numberPreferences)}
                     contentStyle={{
                       backgroundColor: "var(--popover)",
                       borderColor: "var(--border)",
@@ -230,9 +236,7 @@ export function BudgetDistributionCard({
 
               {/* Center Label */}
               <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none select-none">
-                <span className="text-lg font-black text-foreground font-mono tracking-tight leading-tight">
-                  {formatMoney(monthlyIncome)}
-                </span>
+                <Amount value={monthlyIncome} currency={currency} size="lg" className="tracking-tight leading-tight" />
                 <span className="text-[11px] font-semibold text-muted-foreground mt-0.5">
                   Ingreso mensual
                 </span>
@@ -252,14 +256,12 @@ export function BudgetDistributionCard({
                     className="w-2.5 h-2.5 rounded-full shrink-0"
                     style={{ backgroundColor: b.color }}
                   />
-                  <span className="font-bold text-foreground shrink-0 font-mono w-9">
-                    {b.value}%
+                  <span className="font-bold text-foreground shrink-0 w-9">
+                    {formatPercent(b.value, numberPreferences)}
                   </span>
                   <span className="text-muted-foreground truncate">{b.name}</span>
                 </div>
-                <span className="font-mono font-bold text-foreground shrink-0">
-                  {formatMoney(b.amount)}
-                </span>
+                <Amount value={b.amount} currency={currency} size="sm" className="shrink-0" />
               </div>
             ))}
           </div>
@@ -298,8 +300,8 @@ export function BudgetDistributionCard({
                       {g.name}
                     </span>
                   </div>
-                  <span className="font-mono text-xs font-bold text-muted-foreground shrink-0">
-                    {g.percent}%
+                  <span className="text-xs font-bold text-muted-foreground shrink-0">
+                    {formatPercent(g.percent, numberPreferences)}
                   </span>
                 </div>
 
@@ -307,21 +309,13 @@ export function BudgetDistributionCard({
                 <div className="flex flex-col gap-1 text-xs">
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">Cupo asignado:</span>
-                    <span className="font-mono font-bold text-foreground">
-                      {formatMoney(g.targetAmount)}
-                    </span>
+                    <Amount value={g.targetAmount} currency={currency} size="xs" />
                   </div>
 
                   {!isTargetOnly && (
                     <div className="flex items-center justify-between">
                       <span className="text-muted-foreground">Presupuestado:</span>
-                      <span
-                        className={`font-mono font-bold ${
-                          g.isOverBudgeted ? "text-rose-500" : "text-foreground"
-                        }`}
-                      >
-                        {formatMoney(g.budgetedAmount)}
-                      </span>
+                      <Amount value={g.budgetedAmount} currency={currency} size="xs" tone={g.isOverBudgeted ? "expense" : "neutral"} />
                     </div>
                   )}
                 </div>
@@ -347,12 +341,12 @@ export function BudgetDistributionCard({
                   ) : g.isOverBudgeted ? (
                     <span className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-500">
                       <AlertTriangle className="w-3 h-3 shrink-0" />
-                      Excedido en {formatMoney(g.overBudgetedAmount)} ({Math.round(g.budgetedRatio)}%)
+                      Excedido en <Amount value={g.overBudgetedAmount} currency={currency} size="xs" tone="expense" /> ({formatPercent(Math.round(g.budgetedRatio), numberPreferences)})
                     </span>
                   ) : g.budgetedAmount > 0 ? (
                     <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-500">
                       <CheckCircle2 className="w-3 h-3 shrink-0" />
-                      {formatMoney(g.targetAmount - g.budgetedAmount)} de margen ({Math.round(g.budgetedRatio)}% asignado)
+                      <Amount value={g.targetAmount - g.budgetedAmount} currency={currency} size="xs" tone="income" /> de margen ({formatPercent(Math.round(g.budgetedRatio), numberPreferences)} asignado)
                     </span>
                   ) : (
                     <span className="text-[11px] text-muted-foreground">
@@ -370,7 +364,7 @@ export function BudgetDistributionCard({
                         className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-muted/50 border border-border/60 text-[10px] sm:text-[11px] text-foreground font-medium"
                       >
                         <span className="truncate max-w-[90px]">{cb.categoryName}:</span>
-                        <strong className="font-mono">{formatMoney(cb.limitAmount)}</strong>
+                        <Amount value={cb.limitAmount} currency={currency} size="xs" />
                       </span>
                     ))}
                   </div>
@@ -386,8 +380,8 @@ export function BudgetDistributionCard({
             <span className="text-muted-foreground">
               Tenés presupuestos en categorías fuera de la regla ({metrics.unassignedCategoryBudgets.map((c) => c.categoryName).join(", ")})
             </span>
-            <span className="font-mono font-bold text-foreground shrink-0">
-              Total no asignado: {formatMoney(metrics.unassignedTotalLimit)}
+            <span className="font-bold text-foreground shrink-0">
+              Total no asignado: <Amount value={metrics.unassignedTotalLimit} currency={currency} size="xs" />
             </span>
           </div>
         )}

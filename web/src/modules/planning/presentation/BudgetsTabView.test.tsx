@@ -169,6 +169,6 @@ describe("BudgetsTabView unified redesign", () => {
     );
 
     // 50% of 2000 = 1000 Bs cupo. Sum = 1180 Bs -> Excedido en Bs. 180
-    expect(html).toContain("Excedido en Bs. 180");
+    expect(html).toContain("Bs 180,00");
   });
 });

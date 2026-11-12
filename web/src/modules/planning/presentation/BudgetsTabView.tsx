@@ -17,7 +17,8 @@ import {
   monthLabel,
   sumMonthlyFlow,
 } from "@/modules/ledger/domain/monthly-analytics";
-import { formatNumber } from "@/shared/lib/number-format";
+import { formatAmountText } from "@/shared/lib/amount-format";
+import { useNumberPreferences } from "@/shared/hooks/use-number-format";
 import { Button } from "@/shared/ui/button";
 
 // New Redesign Presentation Components
@@ -151,6 +152,7 @@ export function BudgetsTabView({
   void onOpenAccounts;
   const [editingBudget, setEditingBudget] = useState<BudgetDto | null>(null);
   const [isAdjustRuleOpen, setIsAdjustRuleOpen] = useState(false);
+  const numberPreferences = useNumberPreferences();
 
   // Month selection (defaults to current month)
   const currentMonth = useMemo(() => monthKey(new Date()), []);
@@ -163,15 +165,10 @@ export function BudgetsTabView({
   const loadState = resolveBudgetsLoadState(budgets.length, budgetsLoading, budgetsError);
   const hasBudgetData = loadState !== "loading" && loadState !== "error";
 
-  // Currency Formatter
+  // Text formatter retained for the out-of-scope projection chart's SVG labels/tooltips.
   const formatMoney = useCallback(
-    (amount: number) => {
-      const isUsd = selectedCurrency === "USD";
-      const convention = isUsd ? "en-US" : "es-BO";
-      const formatted = formatNumber(amount, convention, 2);
-      return isUsd ? `$ ${formatted}` : `Bs. ${formatted}`;
-    },
-    [selectedCurrency]
+    (amount: number) => formatAmountText(amount, selectedCurrency, numberPreferences),
+    [selectedCurrency, numberPreferences]
   );
 
   // Financial calculations for the selected month
@@ -318,7 +315,7 @@ export function BudgetsTabView({
             savingsTargetAmount={savingsTargetAmount}
             availableAmount={availableAmount}
             availablePercentage={availablePercentage}
-            formatMoney={formatMoney}
+            currency={selectedCurrency}
           />
 
           {/* 2. Main Two-Column Grid */}
@@ -331,7 +328,7 @@ export function BudgetsTabView({
                 monthlyIncome={effectiveIncome}
                 budgets={budgets}
                 onOpenAdjustRule={() => setIsAdjustRuleOpen(true)}
-                formatMoney={formatMoney}
+                currency={selectedCurrency}
               />
 
               {/* Card 2: Gastos por categoría */}
@@ -339,7 +336,6 @@ export function BudgetsTabView({
                 budgets={budgets}
                 onOpenCreateBudgetModal={onOpenCreateBudgetModal}
                 onEditBudget={setEditingBudget}
-                formatMoney={formatMoney}
               />
             </div>
 
@@ -350,7 +346,7 @@ export function BudgetsTabView({
                 totalSpent={totalSpent > 0 ? totalSpent : monthlyExpenses}
                 totalLimit={totalLimit > 0 ? totalLimit : effectiveIncome}
                 availableAmount={availableAmount}
-                formatMoney={formatMoney}
+                currency={selectedCurrency}
               />
 
               {/* Card 2: Proyección del mes */}
@@ -370,7 +366,7 @@ export function BudgetsTabView({
                 budgets={budgets}
                 monthlyIncome={effectiveIncome}
                 monthlyExpenses={monthlyExpenses > 0 ? monthlyExpenses : totalSpent}
-                formatMoney={formatMoney}
+                currency={selectedCurrency}
               />
             </div>
           </div>
