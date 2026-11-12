@@ -191,16 +191,32 @@ export function BudgetsTabView({
     return raw;
   }, [transactions, selectedMonth, p2pRate, selectedCurrency]);
 
-  // Total planned limit and spent from category budgets
+  // Total planned limit and spent from category budgets converted to selectedCurrency
   const { totalLimit, totalSpent } = useMemo(() => {
     let limit = 0;
     let spent = 0;
+    const rate = p2pRate > 0 ? p2pRate : 9.85;
     for (const b of budgets) {
-      limit += Number(b.limitAmount) || 0;
-      spent += Number(b.spentAmount) || 0;
+      const rawLimit = Number(b.limitAmount) || 0;
+      const rawSpent = Number(b.spentAmount) || 0;
+      const bCurr = (b.currency || "BOB").toUpperCase();
+      const isDollar = bCurr === "USD" || bCurr === "USDT" || bCurr === "USDC";
+
+      let convLimit = rawLimit;
+      let convSpent = rawSpent;
+      if (selectedCurrency === "BOB" && isDollar) {
+        convLimit = rawLimit * rate;
+        convSpent = rawSpent * rate;
+      } else if (selectedCurrency === "USD" && !isDollar) {
+        convLimit = rawLimit / rate;
+        convSpent = rawSpent / rate;
+      }
+
+      limit += convLimit;
+      spent += convSpent;
     }
     return { totalLimit: limit, totalSpent: spent };
-  }, [budgets]);
+  }, [budgets, selectedCurrency, p2pRate]);
 
   // Effective income for reference
   const effectiveIncome = monthlyIncome > 0 ? monthlyIncome : totalLimit;

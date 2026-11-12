@@ -38,6 +38,10 @@ public sealed record MonthlyLedgerMetricsDto(
     decimal TotalLiquidBalance,
     Dictionary<Guid, decimal> ExpensesByCategory);
 
+public sealed record LoanPaymentPostingRequestDto(Guid UserId, Guid AccountId, decimal Amount, string Currency,
+    string Direction, DateTime OccurredAt, string? Description, Guid LoanId, string? Reference);
+public sealed record LoanPaymentPostingResultDto(Guid? TransactionId, string? ErrorCode);
+
 public sealed record LoanDisbursementReversalResultDto(Guid? ReversalTransactionId, string? ErrorCode);
 
 public sealed record InvestmentCashTransactionRequestDto(Guid UserId, Guid InvestmentId, Guid AccountId, decimal Amount,
@@ -86,6 +90,10 @@ public interface ILedgerModule
 
     Task<Guid> CreateTransactionFromDraftAsync(
         CreateTransactionFromDraftDto dto,
+        CancellationToken cancellationToken = default);
+
+    Task<LoanPaymentPostingResultDto> RegisterLoanPaymentAsync(
+        LoanPaymentPostingRequestDto request,
         CancellationToken cancellationToken = default);
 
     Task<Guid> RegisterRecurringTransactionAsync(

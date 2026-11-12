@@ -60,21 +60,23 @@ describe("calculateFinancialReport", () => {
     expect(result.cashFlowEvolution).toEqual([{ month: "Oct", monthKey: "2026-10", income: 1000.3, expenses: 0.300003, net: 999.999997 }]);
   });
 
-  it.each(["BOB", "USD"])("converts transactions, accounts, loans and budgets to %s", (selectedCurrency) => {
+  it.each(["BOB", "USD"])("converts transactions, accounts, loans and budgets to %s including USDC", (selectedCurrency) => {
     const result = report([
       transaction("salary", "100", { direction: "Income", currency: "USD" }),
       transaction("bonus", "100", { direction: "Income" }),
-      transaction("expense", "10", { currency: "USDT" }), transaction("expense-bob", "50"),
+      transaction("expense", "10", { currency: "USDT" }),
+      transaction("expense-usdc", "10", { currency: "USDC" }),
+      transaction("expense-bob", "50"),
     ], { periodMonths: 1, selectedCurrency, p2pRate: 10,
-      accounts: [account("1000"), account("100", { id: "usd", currency: "USD" })],
-      loans: [loan("20", { currency: "USD" })], budgets: [budget(20, { currency: "USD" })] });
+      accounts: [account("1000"), account("100", { id: "usd", currency: "USD" }), account("50", { id: "usdc", currency: "USDC" })],
+      loans: [loan("20", { currency: "USD" })], budgets: [budget(20, { currency: "USD", period: "mensual" })] });
     const inBob = selectedCurrency === "BOB";
     expect(result.kpis.totalIncome).toBe(inBob ? 1100 : 110);
-    expect(result.kpis.totalExpenses).toBe(inBob ? 150 : 15);
-    expect(result.kpis.netBalance).toBe(inBob ? 950 : 95);
-    expect(result.netWorthEvolution[0].netWorth).toBe(inBob ? 1800 : 180);
-    expect(result.periodSummary.debtRatio).toBe(10);
-    expect(result.periodSummary.budgetCompliance).toBe(75);
+    expect(result.kpis.totalExpenses).toBe(inBob ? 250 : 25);
+    expect(result.kpis.netBalance).toBe(inBob ? 850 : 85);
+    expect(result.netWorthEvolution[0].netWorth).toBe(inBob ? 2300 : 230);
+    expect(result.periodSummary.debtRatio).toBe(8);
+    expect(result.periodSummary.budgetCompliance).toBe(125);
   });
 
   it("compares equal calendar-month windows, including year rollover and negative net baselines", () => {
@@ -281,6 +283,21 @@ describe("calculateFinancialReport", () => {
     expect(exceeded.periodSummary.budgetCompliance).toBe(200);
     expect(exceeded.conclusion.healthStatus).toBe("warning");
     expect(exceeded.conclusion.narrative).toContain("revisa los excesos");
+  });
+
+  it("safely handles budgets with untyped period and transactions with null or whitespace currency", () => {
+    const transactions = [
+      transaction("income-safe", "100", { direction: "Income", currency: " BOB " }),
+      transaction("expense-safe", "50", { currency: "BOB" }),
+    ];
+    const budgets = [
+      budget(100, { period: "unknown_period" }),
+      budget(50, { period: "anual" }),
+    ];
+    const result = report(transactions, { periodMonths: 1, budgets });
+    expect(result.kpis.totalIncome).toBe(100);
+    expect(result.kpis.totalExpenses).toBe(50);
+    expect(result.periodSummary.budgetCompliance).toBeGreaterThan(0);
   });
 
   it("does not mutate the provided DTOs or depend on global Decimal precision", () => {

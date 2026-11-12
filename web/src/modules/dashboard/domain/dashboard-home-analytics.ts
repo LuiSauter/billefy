@@ -6,6 +6,7 @@ import { PatrimonialAsset, PatrimonialLiability } from "@/modules/patrimonio/dom
 import { calculatePatrimonioOverview, convertPatrimonioAmount } from "@/modules/patrimonio/domain/net-worth-analytics";
 import { DistributionPlan } from "@/modules/planning/domain/distribution-plan";
 import { CategoryColorKey } from "@/modules/ledger/domain/category.types";
+import { getActiveFlowTransactions } from "@/modules/ledger/domain/monthly-analytics";
 
 export interface DashboardHeroKpis {
   netWorth: number;
@@ -202,22 +203,19 @@ export function calculateDashboardHomeAnalytics({
     },
   ];
 
-  // 3. Real Monthly Cash Flow from transactions
+  // 3. Real Monthly Cash Flow from transactions (operating flows only, excluding transfers and adjustments)
   const startStr = `${year}-${String(month + 1).padStart(2, "0")}-01`;
   const endOfMonth = new Date(year, month + 1, 0);
   const endStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(endOfMonth.getDate()).padStart(2, "0")}`;
 
-  const reversedSet = new Set<string>();
-  for (const tx of transactions) {
-    if (tx.reversesId) reversedSet.add(tx.reversesId);
-  }
+  const flowTransactions = getActiveFlowTransactions(transactions);
 
   let monthlyIncome = new Decimal(0);
   let monthlyExpenses = new Decimal(0);
   const expensesByCategoryMap = new Map<string, Decimal>();
 
-  for (const tx of transactions) {
-    if (!tx.occurredAt || tx.reversesId || reversedSet.has(tx.id)) continue;
+  for (const tx of flowTransactions) {
+    if (!tx.occurredAt) continue;
     const txDate = tx.occurredAt.slice(0, 10);
     if (txDate >= startStr && txDate <= endStr) {
       const amtNum = Number(tx.amount.toString()) || 0;
@@ -228,9 +226,20 @@ export function calculateDashboardHomeAnalytics({
         monthlyIncome = monthlyIncome.plus(decAmt);
       } else if (tx.direction === "Expense") {
         monthlyExpenses = monthlyExpenses.plus(decAmt);
-        const catId = tx.categoryId || tx.description || "uncategorized";
-        const current = expensesByCategoryMap.get(catId) || new Decimal(0);
-        expensesByCategoryMap.set(catId, current.plus(decAmt));
+
+        if (tx.allocations && tx.allocations.length > 0) {
+          for (const alloc of tx.allocations) {
+            const allocNum = Number(alloc.amount?.toString() || 0);
+            const convertedAlloc = convertPatrimonioAmount(allocNum, tx.currency, targetCurrency, effectiveP2pRate);
+            const catId = alloc.categoryId || "uncategorized";
+            const current = expensesByCategoryMap.get(catId) || new Decimal(0);
+            expensesByCategoryMap.set(catId, current.plus(convertedAlloc));
+          }
+        } else {
+          const catId = tx.categoryId || tx.description || "uncategorized";
+          const current = expensesByCategoryMap.get(catId) || new Decimal(0);
+          expensesByCategoryMap.set(catId, current.plus(decAmt));
+        }
       }
     }
   }

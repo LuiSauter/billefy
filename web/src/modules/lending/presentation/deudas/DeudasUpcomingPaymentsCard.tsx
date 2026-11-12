@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader } from "@/shared/ui/card";
 
 export function DeudasUpcomingPaymentsCard({ payments, onOpenPayment }: {
   payments: UpcomingLoanPayment[];
-  onOpenPayment: (loanId: string) => void;
+  onOpenPayment: (loanId: string, installmentNumber?: number) => void;
 }) {
   const format = useNumberFormat();
   const [showAll, setShowAll] = useState(false);
@@ -35,7 +35,7 @@ export function DeudasUpcomingPaymentsCard({ payments, onOpenPayment }: {
                 </div>
                 <div className="shrink-0 text-right">
                   <p className="text-xs font-semibold tabular-nums">{format(payment.amount)} {payment.currency}</p>
-                  <Button size="xs" variant="ghost" aria-label={`Pagar ${payment.name}`} onClick={() => onOpenPayment(payment.loanId)}>Pagar</Button>
+                  <Button size="xs" variant="ghost" aria-label={`Pagar ${payment.name}`} onClick={() => onOpenPayment(payment.loanId, payment.installmentNumber)}>Pagar</Button>
                 </div>
               </li>
             ))}

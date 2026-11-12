@@ -236,6 +236,28 @@ describe("currency conversion and decimal safety", () => {
     expect(result.amortizationProjection[0].balance).toBe(0);
   });
 
+  it("uses authoritative dynamic balances and late interest from detail when available", () => {
+    const summary = loan({ totalInstallments: 1 });
+    const result = calculateDebtMetrics([summary], 1000, "USD", 1, [detail(summary, [
+      installment({
+        expectedPrincipal: d(100),
+        remainingPrincipal: d(100),
+        expectedInterest: d(10),
+        expectedTotal: d(110),
+        outstandingPrincipal: d(80),
+        outstandingInterest: d(5),
+        outstandingLateInterest: d(3),
+        totalOutstanding: d(88),
+      }),
+    ])]);
+    expect(result.upcomingPayments[0]).toMatchObject({
+      amount: 88,
+      principal: 80,
+      interest: 8,
+      currency: "USD",
+    });
+  });
+
   it.each([Number.NaN, Number.POSITIVE_INFINITY, -1])("rejects invalid monetary inputs %s", (value) => {
     expect(() => calculateDebtMetrics([loan({ remainingPrincipal: d(value) })], 1000)).toThrow(RangeError);
   });

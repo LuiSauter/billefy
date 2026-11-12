@@ -70,6 +70,7 @@ export function DineroPrestadoTableCard({ rows, currency, onOpenPayment, onOpenL
                 <TableCell><Badge variant={variants[row.status]} className={row.status === "Con atraso" ? "border-amber-500/30 bg-amber-500/15 text-amber-500" : undefined}>{row.status}</Badge></TableCell>
                 <TableCell className={`text-xs ${row.status === "Con atraso" ? "text-destructive" : ""}`}><CollectionDate date={row.dueDate} /></TableCell>
                 <TableCell>
+                  {row.status !== "Finalizado" && <Button size="xs" variant="outline" aria-label={`Registrar cobro de ${row.name}`} onClick={() => onOpenPayment(row.id)}>Cobrar</Button>}
                   {(onOpenLoanDetails || row.status !== "Finalizado") && <DropdownMenu>
                     <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" aria-label={`Acciones de ${row.name}`}><MoreVertical aria-hidden="true" /></Button>} />
                     <DropdownMenuContent align="end">

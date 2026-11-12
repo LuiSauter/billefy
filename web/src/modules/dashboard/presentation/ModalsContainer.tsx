@@ -18,7 +18,9 @@ import {
 import {
   CreateLoanRequest,
   LoanCancellationResultDto,
+  LoanPaymentQuoteDto,
   LoanScheduleDto,
+  LoanSummaryDto,
   RegisterLoanPaymentRequest,
   SimulateLoanRequest,
 } from "@/modules/lending/domain/lending.types";
@@ -32,6 +34,8 @@ import { LinkWhatsAppResponse } from "@/modules/messaging/domain/messaging.types
 import { UserDto } from "@/modules/identity/domain/identity.types";
 import { DashboardModalsController } from "@/modules/dashboard/application/useDashboardModals";
 import { notify } from "@/shared/lib/notify";
+import { Button } from "@/shared/ui/button";
+import { ResponsiveDrawer } from "@/shared/ui/responsive-drawer";
 
 const FxTransferModal = dynamic(() =>
   import("@/modules/ledger/presentation/FxTransferModal").then((m) => m.FxTransferModal)
@@ -75,9 +79,6 @@ const RegisterLoanPaymentModal = dynamic(() =>
 const LoanDetailModal = dynamic(() =>
   import("@/modules/lending/presentation/LoanDetailModal").then((m) => m.LoanDetailModal)
 );
-const LoanPaymentModal = dynamic(() =>
-  import("@/modules/lending/presentation/LoanPaymentModal").then((m) => m.LoanPaymentModal)
-);
 const CreateBudgetModal = dynamic(() =>
   import("@/modules/planning/presentation/CreateBudgetModal").then((m) => m.CreateBudgetModal)
 );
@@ -115,6 +116,16 @@ const SettingsModal = dynamic(() =>
   import("@/modules/identity/presentation/SettingsModal").then((m) => m.SettingsModal)
 );
 
+export function openLoanPaymentFromDetail(
+  loanId: string,
+  closeDetail: () => void,
+  openPayment: (loanId: string, allLoans?: LoanSummaryDto[], installmentNumber?: number) => unknown,
+  installmentNumber?: number
+) {
+  closeDetail();
+  return installmentNumber === undefined ? openPayment(loanId) : openPayment(loanId, undefined, installmentNumber);
+}
+
 interface ModalsContainerProps {
   modals: DashboardModalsController;
   user?: UserDto | null;
@@ -128,6 +139,7 @@ interface ModalsContainerProps {
   onOpenSettings?: () => void;
   planEnabled?: boolean;
   onTogglePlan?: (enabled: boolean) => void;
+  monthlyIncome?: number;
   actions: {
     createAccount: (req: CreateAccountRequest) => Promise<void>;
     registerTransaction: (req: RegisterTransactionRequest) => Promise<void>;
@@ -146,6 +158,7 @@ interface ModalsContainerProps {
     reconcileAccount: (accountId: string, realBalance: number, notes?: string) => Promise<void>;
     simulateLoan: (req: SimulateLoanRequest) => Promise<LoanScheduleDto>;
     createLoan: (req: CreateLoanRequest) => Promise<void>;
+    getPaymentQuote: (loanId: string, paymentDate?: string, amount?: string | number) => Promise<LoanPaymentQuoteDto>;
     registerLoanPayment: (loanId: string, req: RegisterLoanPaymentRequest) => Promise<unknown>;
     cancelLoan: (loanId: string) => Promise<LoanCancellationResultDto>;
     createBudget: (req: CreateBudgetRequest) => Promise<void>;
@@ -180,6 +193,7 @@ export function ModalsContainer({
   onOpenSettings,
   planEnabled,
   onTogglePlan,
+  monthlyIncome,
   actions,
 }: ModalsContainerProps) {
   const handleOpenCreateAccount = () => modals.setIsAccountModalOpen(true);
@@ -300,6 +314,7 @@ export function ModalsContainer({
         <CreateDebtModal
           isOpen={modals.isCreateDebtModalOpen}
           accounts={accounts}
+          monthlyIncome={monthlyIncome}
           selectedCurrency={selectedCurrency}
           p2pRate={p2pRate}
           onClose={() => modals.setIsCreateDebtModalOpen(false)}
@@ -323,38 +338,43 @@ export function ModalsContainer({
         <LoanDetailModal
           isOpen={modals.isLoanDetailModalOpen}
           loan={modals.selectedLoanDetail}
-          onClose={() => modals.setIsLoanDetailModalOpen(false)}
+          onClose={modals.closeLoanDetail}
+          onOpenPayment={(loanId, installmentNumber) => { void openLoanPaymentFromDetail(loanId, modals.closeLoanDetail, modals.openLoanPayment, installmentNumber); }}
           onCancelLoan={async (loanId) => {
             const result = await actions.cancelLoan(loanId);
-            modals.setIsLoanDetailModalOpen(false);
+            modals.closeLoanDetail();
             return result;
           }}
         />
       )}
 
-      {modals.isLoanPaymentModalOpen && modals.selectedLoanForPayment ? (
+      {modals.isLoanPaymentModalOpen && (modals.paymentLoading || modals.paymentError) && (
+        <ResponsiveDrawer open onOpenChange={(open) => { if (!open) modals.closeLoanPayment(); }} size="md"
+          title="Registrar pago o cobro" description="Consultando los datos actuales del préstamo"
+          footer={<>
+            <Button type="button" variant="outline" onClick={modals.closeLoanPayment}>Cerrar</Button>
+            {modals.paymentError && <Button type="button" onClick={modals.retryLoanPayment}>Reintentar</Button>}
+          </>}>
+          {modals.paymentLoading && <p role="status" aria-live="polite">Cargando información actual del préstamo…</p>}
+          {modals.paymentError && <p role="alert" className="text-sm text-destructive">{modals.paymentError}</p>}
+        </ResponsiveDrawer>
+      )}
+      {modals.isLoanPaymentModalOpen && modals.selectedLoanForPayment && (
         <RegisterLoanPaymentModal
           isOpen={modals.isLoanPaymentModalOpen}
           loan={modals.selectedLoanForPayment}
+          installmentNumber={modals.selectedInstallmentNumber}
+          onGetQuote={actions.getPaymentQuote}
           accounts={accounts}
           onClose={() => {
-            modals.setIsLoanPaymentModalOpen(false);
-            modals.setSelectedLoanForPayment(null);
+            modals.closeLoanPayment();
           }}
           onSubmit={async (loanId, req) => {
             await actions.registerLoanPayment(loanId, req);
+            await modals.refreshSelectedLoanDetail(loanId);
           }}
         />
-      ) : modals.isLoanPaymentModalOpen ? (
-        <LoanPaymentModal
-          isOpen={modals.isLoanPaymentModalOpen}
-          accounts={accounts}
-          onClose={() => modals.setIsLoanPaymentModalOpen(false)}
-          onSubmit={async (req) => {
-            await actions.registerLoanPayment(modals.selectedLoanId, req);
-          }}
-        />
-      ) : null}
+      )}
 
       {modals.isBudgetModalOpen && (
         <CreateBudgetModal

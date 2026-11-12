@@ -4,10 +4,14 @@ using System.Text.Json;
 using FluentAssertions;
 using Ledger.Application.Accounts.Services;
 using Ledger.Infrastructure;
+using Lending.Application.Abstractions;
 using Lending.Contracts;
+using Lending.Domain.Engine.DynamicPayments;
 using Lending.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using BuildingBlocks.Time;
 
 namespace Api.Tests;
 
@@ -242,10 +246,197 @@ public sealed class LoanCancellationIntegrationTests
         (await scopeAfter.ServiceProvider.GetRequiredService<Lending.Contracts.ILendingModule>().GetTotalDebtLiabilitiesAsync(userId)).Should().Be(0m);
     }
 
-    private static async Task<Guid> CreateAccount(HttpClient client, Guid userId)
+    [Fact]
+    public async Task RegisterPayment_RawDateOnlyWithAccountPersistsUtcLinkedIncome()
+    {
+        using var factory = new CustomWebApplicationFactory();
+        using var client = factory.CreateClient();
+        var userId = Guid.NewGuid();
+        var accountId = await CreateAccount(client, userId);
+        var loanId = await CreateLoan(client, userId, "Lent", null);
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"/v1/loans/{loanId}/payments")
+        {
+            Content = new StringContent($"{{\"amount\":25,\"paymentDate\":\"2026-11-11\",\"accountId\":\"{accountId}\"}}", System.Text.Encoding.UTF8, "application/json")
+        };
+        request.Headers.Add("X-User-Id", userId.ToString());
+        using var response = await client.SendAsync(request);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        using var scope = factory.Services.CreateScope();
+        var ledger = scope.ServiceProvider.GetRequiredService<LedgerDbContext>();
+        var lending = scope.ServiceProvider.GetRequiredService<LendingDbContext>();
+        var posted = await ledger.Transactions.IgnoreQueryFilters().SingleAsync();
+        posted.Direction.ToString().Should().Be("Income");
+        posted.AccountId.Should().Be(accountId);
+        posted.OccurredAt.Should().Be(new DateTime(2026, 11, 11, 0, 0, 0));
+        var payment = await lending.Payments.IgnoreQueryFilters().SingleAsync();
+        payment.PaymentDate.Should().Be(new DateTime(2026, 11, 11, 0, 0, 0));
+        payment.LedgerTransactionId.Should().Be(posted.Id);
+    }
+
+    [Theory]
+    [InlineData("{\"amount\":25}", "2026-11-11")]
+    [InlineData("{\"amount\":25,\"paymentDate\":\"2026-11-11T00:00:00Z\"}", "2026-11-11")]
+    [InlineData("{\"amount\":25,\"paymentDate\":\"2026-11-11T03:00:00+03:00\"}", "2026-11-11")]
+    public async Task RegisterPayment_DateVariantsWithoutAccountPersistCalendarDate(string json, string expectedDate)
+    {
+        using var factory = new CustomWebApplicationFactory(configureServices: services =>
+            services.Replace(ServiceDescriptor.Singleton<IClock>(new FixedClock(new DateTime(2026, 11, 11, 0, 0, 0, DateTimeKind.Utc)))));
+        using var client = factory.CreateClient();
+        var userId = Guid.NewGuid();
+        var loanId = await CreateLoan(client, userId, "Lent", null);
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"/v1/loans/{loanId}/payments")
+        {
+            Content = new StringContent(json, System.Text.Encoding.UTF8, "application/json")
+        };
+        request.Headers.Add("X-User-Id", userId.ToString());
+        using var response = await client.SendAsync(request);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        using var scope = factory.Services.CreateScope();
+        var payment = await scope.ServiceProvider.GetRequiredService<LendingDbContext>().Payments.IgnoreQueryFilters().SingleAsync();
+        payment.AccountId.Should().BeNull();
+        payment.PaymentDate.Date.Should().Be(DateTime.Parse(expectedDate).Date);
+        (await scope.ServiceProvider.GetRequiredService<LedgerDbContext>().Transactions.IgnoreQueryFilters().CountAsync()).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task RegisterPayment_RejectsForeignCurrencyMismatchAndArchivedAccountsWithoutPosting()
+    {
+        using var factory = new CustomWebApplicationFactory();
+        using var client = factory.CreateClient();
+        var ownerId = Guid.NewGuid();
+        var foreignUserId = Guid.NewGuid();
+        var loanId = await CreateLoan(client, ownerId, "Lent", null);
+        var foreignAccountId = await CreateAccount(client, foreignUserId);
+        var mismatchedAccountId = await CreateAccount(client, ownerId, "BOB");
+        var archivedAccountId = await CreateAccount(client, ownerId);
+        using (var seed = await SendJson(client, HttpMethod.Post, "/v1/transactions",
+            new { AccountId = archivedAccountId, Amount = 1m, Direction = "Expense", Description = "Archive account" }, ownerId))
+            seed.StatusCode.Should().Be(HttpStatusCode.Created);
+        using (var archive = await Send(client, HttpMethod.Delete, $"/v1/accounts/{archivedAccountId}", ownerId))
+            archive.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        foreach (var accountId in new[] { foreignAccountId, mismatchedAccountId, archivedAccountId })
+        {
+            using var response = await SendJson(client, HttpMethod.Post, $"/v1/loans/{loanId}/payments",
+                new RegisterLoanPaymentRequest(10m, AccountId: accountId), ownerId);
+            response.StatusCode.Should().BeOneOf(HttpStatusCode.NotFound, HttpStatusCode.BadRequest, HttpStatusCode.Conflict);
+        }
+        using var scope = factory.Services.CreateScope();
+        var ledger = scope.ServiceProvider.GetRequiredService<LedgerDbContext>();
+        var lending = scope.ServiceProvider.GetRequiredService<LendingDbContext>();
+        (await ledger.Transactions.IgnoreQueryFilters().CountAsync()).Should().Be(1);
+        (await lending.Payments.IgnoreQueryFilters().CountAsync()).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task CreateLoan_MismatchedDisbursementAccountCurrency_ReturnsBadRequest()
+    {
+        using var factory = new CustomWebApplicationFactory();
+        using var client = factory.CreateClient();
+        var userId = Guid.NewGuid();
+        var bobAccountId = await CreateAccount(client, userId, "BOB");
+
+        using var response = await SendJson(client, HttpMethod.Post, "/v1/loans",
+            new CreateLoanRequest("Disbursement mismatch counterparty", "Lent", "NoInterest", 100m, "USD", 0m,
+                TotalInstallments: 1, DisbursementDate: new DateOnly(2026, 1, 1), DisbursementAccountId: bobAccountId), userId);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var problem = await response.Content.ReadAsStringAsync();
+        problem.Should().Contain("Account.CurrencyMismatch");
+    }
+
+    [Fact]
+    public async Task RegisterPayment_OverpaymentWithAccountRollsBackLedgerAndRetrySucceeds()
+    {
+        using var factory = new CustomWebApplicationFactory();
+        using var client = factory.CreateClient();
+        var userId = Guid.NewGuid();
+        var accountId = await CreateAccount(client, userId);
+        var loanId = await CreateLoan(client, userId, "Lent", null);
+        using var rejected = await SendJson(client, HttpMethod.Post, $"/v1/loans/{loanId}/payments",
+            new RegisterLoanPaymentRequest(101m, AccountId: accountId), userId);
+        rejected.StatusCode.Should().BeOneOf(HttpStatusCode.BadRequest, HttpStatusCode.UnprocessableEntity);
+        using (var scope = factory.Services.CreateScope())
+        {
+            var ledger = scope.ServiceProvider.GetRequiredService<LedgerDbContext>();
+            var lending = scope.ServiceProvider.GetRequiredService<LendingDbContext>();
+            (await ledger.Transactions.IgnoreQueryFilters().CountAsync()).Should().Be(0);
+            var loan = await lending.Loans.IgnoreQueryFilters().Include(l => l.Installments).SingleAsync(l => l.Id == loanId);
+            loan.Payments.Should().BeEmpty();
+            loan.Installments.Single().PaidPrincipal.Should().Be(0m);
+        }
+        using var retry = await SendJson(client, HttpMethod.Post, $"/v1/loans/{loanId}/payments",
+            new RegisterLoanPaymentRequest(25m, AccountId: accountId), userId);
+        retry.StatusCode.Should().Be(HttpStatusCode.OK);
+        using var finalScope = factory.Services.CreateScope();
+        (await finalScope.ServiceProvider.GetRequiredService<LedgerDbContext>().Transactions.IgnoreQueryFilters().CountAsync()).Should().Be(1);
+        (await finalScope.ServiceProvider.GetRequiredService<LendingDbContext>().Payments.IgnoreQueryFilters().CountAsync()).Should().Be(1);
+    }
+
+    [Theory]
+    [InlineData(1.0000001, null)]
+    [InlineData(1, "501")]
+    public async Task RegisterPayment_RejectsInvalidPrecisionAndLongNotes(decimal amount, string? noteLength)
+    {
+        using var factory = new CustomWebApplicationFactory();
+        using var client = factory.CreateClient();
+        var userId = Guid.NewGuid();
+        var loanId = await CreateLoan(client, userId, "Lent", null);
+        var note = noteLength is null ? null : new string('x', int.Parse(noteLength));
+        using var response = await SendJson(client, HttpMethod.Post, $"/v1/loans/{loanId}/payments",
+            new RegisterLoanPaymentRequest(amount, Note: note), userId);
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        using var scope = factory.Services.CreateScope();
+        (await scope.ServiceProvider.GetRequiredService<LendingDbContext>().Payments.IgnoreQueryFilters().CountAsync()).Should().Be(0);
+    }
+
+    [Theory]
+    [InlineData("Lent", "Income")]
+    [InlineData("Borrowed", "Expense")]
+    public async Task RegisterPayment_ReplaysPersistedHistoryAndListLoaderIncludesAllocations(string type, string direction)
+    {
+        using var factory = new CustomWebApplicationFactory();
+        using var client = factory.CreateClient();
+        var userId = Guid.NewGuid();
+        var accountId = await CreateAccount(client, userId);
+        var loanId = await CreateLoan(client, userId, type, null);
+        var firstDate = new DateTime(2026, 2, 11, 0, 0, 0, DateTimeKind.Utc);
+        using var first = await SendJson(client, HttpMethod.Post, $"/v1/loans/{loanId}/payments",
+            new RegisterLoanPaymentRequest(25m, firstDate, accountId), userId);
+        first.StatusCode.Should().Be(HttpStatusCode.OK);
+        using var rejected = await SendJson(client, HttpMethod.Post, $"/v1/loans/{loanId}/payments",
+            new RegisterLoanPaymentRequest(25m, firstDate.AddDays(-1), accountId), userId);
+        rejected.StatusCode.Should().BeOneOf(HttpStatusCode.BadRequest, HttpStatusCode.UnprocessableEntity);
+        using var payoff = await SendJson(client, HttpMethod.Post, $"/v1/loans/{loanId}/payments",
+            new RegisterLoanPaymentRequest(75m, firstDate.AddDays(1), accountId), userId);
+        payoff.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        using var scope = factory.Services.CreateScope();
+        var loans = await scope.ServiceProvider.GetRequiredService<ILoanRepository>().GetByUserIdAsync(userId);
+        var loan = loans.Should().ContainSingle().Subject;
+        loan.Id.Should().Be(loanId);
+        var payments = loan.Payments.OrderBy(p => p.RecordSequence).ToArray();
+        payments.Select(p => p.RecordSequence).Should().Equal(1L, 2L);
+        payments.Should().OnlyContain(p => p.CalculationVersion == 1
+            && p.EarlyPrincipalAmount == null && p.EarlyPrincipalEffectiveDate == null);
+        payments.Select(p => p.Allocations.Single().ToPrincipal).Should().Equal(25m, 75m);
+        loan.Status.ToString().Should().Be("Paid");
+        loan.RemainingPrincipal.Should().Be(0m);
+        loan.ClosedAt.Should().Be(firstDate.AddDays(1));
+        var replay = LoanPaymentCalculationAdapter.Calculate(loan, new DateOnly(2026, 2, 12));
+        replay.TotalPayoff.Should().Be(0m);
+        replay.HistoricalSnapshots.Select(s => s.RemainingTotal).Should().Equal(75m, 0m);
+        var transactions = await scope.ServiceProvider.GetRequiredService<LedgerDbContext>()
+            .Transactions.IgnoreQueryFilters().ToListAsync();
+        transactions.Should().HaveCount(2).And.OnlyContain(t => t.Direction.ToString() == direction);
+        transactions.Select(t => t.Id).Should().BeEquivalentTo(payments.Select(p => p.LedgerTransactionId!.Value));
+    }
+
+    private static async Task<Guid> CreateAccount(HttpClient client, Guid userId, string currency = "USD")
     {
         using var response = await SendJson(client, HttpMethod.Post, "/v1/accounts",
-            new CreateAccountRequest("Cancellation test", Ledger.Domain.Accounts.AccountType.Bank, "USD"), userId);
+            new CreateAccountRequest("Cancellation test", Ledger.Domain.Accounts.AccountType.Bank, currency), userId);
         response.StatusCode.Should().Be(HttpStatusCode.Created);
         using var body = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync());
         return body.RootElement.GetProperty("id").GetGuid();
@@ -270,5 +461,11 @@ public sealed class LoanCancellationIntegrationTests
         if (content is not null) request.Content = JsonContent.Create(content);
         request.Headers.Add("X-User-Id", userId.ToString());
         return client.SendAsync(request);
+    }
+
+    private sealed class FixedClock(DateTime utcNow) : IClock
+    {
+        public DateTime UtcNow => utcNow;
+        public DateOnly TodayUtc => DateOnly.FromDateTime(utcNow);
     }
 }

@@ -21,6 +21,10 @@ internal sealed class LoanPaymentConfiguration : IEntityTypeConfiguration<LoanPa
         builder.Property(p => p.PaymentDate).HasColumnName("payment_date").IsRequired();
         builder.Property(p => p.Note).HasColumnName("note").HasMaxLength(500);
         builder.Property(p => p.CreatedAt).HasColumnName("created_at").IsRequired();
+        builder.Property(p => p.RecordSequence).HasColumnName("record_sequence");
+        builder.Property(p => p.CalculationVersion).HasColumnName("calculation_version");
+        builder.Property(p => p.EarlyPrincipalAmount).HasColumnName("early_principal_amount").HasPrecision(20, 6);
+        builder.Property(p => p.EarlyPrincipalEffectiveDate).HasColumnName("early_principal_effective_date");
 
         // ComplexProperty Amount
         builder.ComplexProperty(p => p.Amount, moneyBuilder =>
@@ -42,6 +46,8 @@ internal sealed class LoanPaymentConfiguration : IEntityTypeConfiguration<LoanPa
             .HasForeignKey(a => a.PaymentId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        builder.HasIndex(p => p.LoanId);
         builder.HasIndex(p => new { p.UserId, p.LoanId });
+        builder.HasIndex(p => new { p.LoanId, p.RecordSequence }).IsUnique();
     }
 }

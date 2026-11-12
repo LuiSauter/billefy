@@ -58,6 +58,12 @@ public sealed class LedgerModule : ILedgerModule
         var account = await _accountRepository.GetByIdForUserAsync(dto.UserId, dto.AccountId, cancellationToken)
             ?? throw new InvalidOperationException($"Account {dto.AccountId} does not exist or does not belong to the user.");
 
+        if (!string.IsNullOrWhiteSpace(dto.Currency) &&
+            !StringComparer.Ordinal.Equals(dto.Currency, account.Currency.Code))
+        {
+            throw new InvalidOperationException($"Currency mismatch: transaction currency '{dto.Currency}' does not match account currency '{account.Currency.Code}'.");
+        }
+
         var direction = Enum.TryParse<TransactionDirection>(dto.Direction, ignoreCase: true, out var parsedDir)
             ? parsedDir
             : TransactionDirection.Expense;
@@ -103,6 +109,38 @@ public sealed class LedgerModule : ILedgerModule
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return transaction.Id;
+    }
+
+    public async Task<LoanPaymentPostingResultDto> RegisterLoanPaymentAsync(
+        LoanPaymentPostingRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        if (request.Amount <= 0) return new(null, "Payment.InvalidAmount");
+        if (request.Amount > 99_999_999_999_999.999999m || request.Amount != decimal.Round(request.Amount, 6))
+            return new(null, "Payment.InvalidPrecision");
+        if (request.Description?.Trim().Length > 500) return new(null, "Payment.InvalidNote");
+        var account = await _accountRepository.GetByIdForUserAsync(request.UserId, request.AccountId, cancellationToken);
+        if (account is null) return new(null, "Account.NotFound");
+        if (account.IsArchived) return new(null, "Account.Archived");
+        if (!StringComparer.Ordinal.Equals(request.Currency, account.Currency.Code))
+            return new(null, "Account.CurrencyMismatch");
+        if (request.Amount != decimal.Round(request.Amount, account.Currency.DecimalPlaces))
+            return new(null, "Payment.InvalidPrecision");
+
+        decimal? appliedRate = null;
+        string? rateSource = null;
+        if (_rateSnapshotProvider is not null)
+        {
+            var snapshot = await _rateSnapshotProvider.GetSnapshotAsync(account.Currency.Code,
+                account.Currency.Code == "USD" ? "BOB" : "USD", request.UserId, cancellationToken);
+            if (snapshot is not null) { appliedRate = snapshot.AppliedRate; rateSource = snapshot.RateSource; }
+        }
+        var transaction = Transaction.Create(request.UserId, account.Id, Money.Of(request.Amount, account.Currency),
+            Enum.Parse<TransactionDirection>(request.Direction, true), null, request.OccurredAt,
+            request.Description, appliedRate, rateSource, _clock.UtcNow);
+        await _transactionRepository.AddAsync(transaction, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        return new(transaction.Id, null);
     }
 
     public async Task<Guid> RegisterRecurringTransactionAsync(

@@ -1,6 +1,7 @@
 using BuildingBlocks.Common;
 using BuildingBlocks.ValueObjects;
 using Lending.Domain.Engine;
+using Lending.Domain.Engine.DynamicPayments;
 using Lending.Domain.Engine.Schemes;
 using Lending.Domain.Enums;
 
@@ -209,38 +210,12 @@ public sealed class Loan : Entity
             throw new InvalidOperationException($"Cannot apply payment to a loan with status '{Status}'.");
 
         var paymentDate = DateOnly.FromDateTime(paymentDateTime);
-        var states = new List<InstallmentPaymentState>();
+        var calculation = LoanPaymentCalculationAdapter.Calculate(this, paymentDate, paymentAmount);
+        var maxSeq = _payments.Select(p => p.RecordSequence).Max();
+        var nextSeq = (maxSeq ?? 0L) + 1L;
+        var earlyAmount = calculation.ProposedEarlyPrincipalAmount > 0m ? calculation.ProposedEarlyPrincipalAmount : (decimal?)null;
+        var earlyDate = calculation.ProposedEarlyPrincipalAmount > 0m ? calculation.ProposedEarlyPrincipalEffectiveDate : null;
 
-        // 1. Prepare payment states with late interest
-        foreach (var inst in _installments.OrderBy(i => i.DueDate))
-        {
-            var calculatedLate = LateInterestCalculator.Calculate(
-                inst.RemainingPrincipal,
-                LateRate,
-                RateUnit,
-                DayCount,
-                inst.DueDate,
-                paymentDate,
-                GraceDays);
-
-            states.Add(new InstallmentPaymentState
-            {
-                Id = inst.Id,
-                Number = inst.Number,
-                DueDate = inst.DueDate,
-                ExpectedPrincipal = inst.ExpectedPrincipal,
-                ExpectedInterest = inst.ExpectedInterest,
-                PaidPrincipal = inst.PaidPrincipal,
-                PaidInterest = inst.PaidInterest,
-                PaidLateInterest = inst.PaidLateInterest,
-                CalculatedLateInterest = calculatedLate
-            });
-        }
-
-        // 2. Allocate payment
-        var result = PaymentAllocator.Allocate(paymentAmount, states, AllocationOrder);
-
-        // 3. Create LoanPayment record
         var money = Money.Of(paymentAmount, Principal.Currency);
         var payment = new LoanPayment(
             Guid.NewGuid(),
@@ -251,42 +226,28 @@ public sealed class Loan : Entity
             money,
             paymentDateTime,
             note,
-            DateTime.UtcNow);
+            DateTime.UtcNow,
+            nextSeq,
+            LoanPaymentCalculationAdapter.CurrentCalculationVersion,
+            earlyAmount,
+            earlyDate);
 
-        decimal totalPrincipalPaidInThisTransaction = decimal.Zero;
-
-        foreach (var alloc in result.Allocations)
+        foreach (var alloc in calculation.ProposedAllocations)
         {
             var targetInstallment = _installments.First(i => i.Id == alloc.InstallmentId);
             targetInstallment.ApplyPayment(alloc.ToLateInterest, alloc.ToInterest, alloc.ToPrincipal);
             payment.AddAllocation(alloc.InstallmentId, alloc.ToLateInterest, alloc.ToInterest, alloc.ToPrincipal);
-            totalPrincipalPaidInThisTransaction += alloc.ToPrincipal;
         }
 
         _payments.Add(payment);
-
-        // 4. Update Remaining Principal
-        RemainingPrincipal = Math.Max(decimal.Zero, RemainingPrincipal - totalPrincipalPaidInThisTransaction);
-
-        // 5. Update Loan Status
-        var anyOverdue = _installments.Any(i => i.Status == InstallmentStatus.Overdue);
-        var allPaid = _installments.All(i => i.Status == InstallmentStatus.Paid || i.Status == InstallmentStatus.Forgiven);
-
-        if (allPaid || RemainingPrincipal <= decimal.Zero)
+        RemainingPrincipal = calculation.ResultingPrincipal;
+        Status = calculation.ResultingState;
+        if (Status == LoanStatus.Paid && ClosedAt is null)
         {
-            Status = LoanStatus.Paid;
             ClosedAt = paymentDateTime;
         }
-        else if (anyOverdue)
-        {
-            Status = LoanStatus.InArrears;
-        }
-        else
-        {
-            Status = LoanStatus.Active;
-        }
 
-        return result;
+        return new PaymentAllocationResult(calculation.ProposedAllocations, decimal.Zero);
     }
 
     public void Forgive(DateTime forgivenAt)

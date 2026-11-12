@@ -280,9 +280,22 @@ namespace Lending.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("account_id");
 
+                    b.Property<int?>("CalculationVersion")
+                        .HasColumnType("integer")
+                        .HasColumnName("calculation_version");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
+
+                    b.Property<decimal?>("EarlyPrincipalAmount")
+                        .HasPrecision(20, 6)
+                        .HasColumnType("numeric(20,6)")
+                        .HasColumnName("early_principal_amount");
+
+                    b.Property<DateOnly?>("EarlyPrincipalEffectiveDate")
+                        .HasColumnType("date")
+                        .HasColumnName("early_principal_effective_date");
 
                     b.Property<Guid?>("LedgerTransactionId")
                         .HasColumnType("uuid")
@@ -300,6 +313,10 @@ namespace Lending.Infrastructure.Migrations
                     b.Property<DateTime>("PaymentDate")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("payment_date");
+
+                    b.Property<long?>("RecordSequence")
+                        .HasColumnType("bigint")
+                        .HasColumnName("record_sequence");
 
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid")
@@ -324,6 +341,9 @@ namespace Lending.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("LoanId");
+
+                    b.HasIndex("LoanId", "RecordSequence")
+                        .IsUnique();
 
                     b.HasIndex("UserId", "LoanId");
 

@@ -22,7 +22,7 @@ export interface DineroPrestadoViewProps {
   selectedCurrency?: string;
   p2pRate?: number;
   onOpenCreateLent: () => void;
-  onOpenPayment: (loanId: string) => void;
+  onOpenPayment: (loanId: string, installmentNumber?: number) => void;
   onOpenLoanDetails?: (loanId: string) => void;
 }
 
@@ -67,7 +67,6 @@ export function DineroPrestadoView({ loans, loanDetails, loading = false, select
     </Card></section>;
   }
 
-  const collectionLoanId = metrics.upcomingCollections[0]?.loanId ?? rows.find((row) => row.status !== "Finalizado")?.id;
   return (
     <section className="flex w-full min-w-0 flex-col gap-5">
       {header}
@@ -78,7 +77,7 @@ export function DineroPrestadoView({ loans, loanDetails, loading = false, select
         <DineroPrestadoHealthDonutCard metrics={metrics} />
         <DineroPrestadoUpcomingCollectionsCard collections={metrics.upcomingCollections} onOpenPayment={onOpenPayment} />
         <DineroPrestadoTableCard rows={rows} currency={metrics.currency} onOpenPayment={onOpenPayment} onOpenLoanDetails={onOpenLoanDetails} />
-        <DineroPrestadoSideSummaryCard metrics={metrics} collectionLoanId={collectionLoanId} onOpenCreateLent={onOpenCreateLent} onOpenPayment={onOpenPayment} />
+        <DineroPrestadoSideSummaryCard metrics={metrics} payableLoans={lent.filter((loan) => ["Active", "InArrears"].includes(loan.status) && Number(loan.remainingPrincipal) > 0).map((loan) => ({ id: loan.id, counterpartyName: loan.counterpartyName }))} onOpenCreateLent={onOpenCreateLent} onOpenPayment={(id) => onOpenPayment(id)} />
       </div>
     </section>
   );

@@ -6,7 +6,17 @@ import type { BudgetDto } from "@/modules/planning/domain/planning.types";
 
 const D = Decimal.clone({ precision: 40, rounding: Decimal.ROUND_HALF_UP });
 const MONTHS = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
-const BUDGET_MONTHS: Record<string, number | undefined> = { monthly: 1, quarterly: 3, yearly: 12, annual: 12 };
+const BUDGET_MONTHS: Record<string, number | undefined> = {
+  monthly: 1,
+  mensual: 1,
+  quarterly: 3,
+  trimestral: 3,
+  semiannual: 6,
+  semestral: 6,
+  yearly: 12,
+  anual: 12,
+  annual: 12,
+};
 
 export interface FinancialReportParams {
   transactions: TransactionDto[];
@@ -78,14 +88,15 @@ function monthInfo(value: Date) {
   return { month: MONTHS[value.getUTCMonth()], monthKey: `${value.getUTCFullYear()}-${String(value.getUTCMonth() + 1).padStart(2, "0")}` };
 }
 function converter(selectedCurrency: string, p2pRate?: number) {
-  const normalize = (currency: string) => currency.trim().toUpperCase().replace(/^USDT$/, "USD");
+  const normalize = (currency: string | undefined | null) =>
+    (currency || "").trim().toUpperCase().replace(/^(USDT|USDC)$/, "USD");
   const target = normalize(selectedCurrency);
-  return (value: Decimal.Value, currency: string): Decimal => {
+  return (value: Decimal.Value, currency: string | undefined | null): Decimal => {
     const parsed = amount(value);
     const from = normalize(currency);
     if (from === target || parsed.isZero()) return parsed;
     if (!((from === "BOB" && target === "USD") || (from === "USD" && target === "BOB"))) {
-      throw new RangeError("Unsupported cross-currency conversion; only BOB and USD/USDT are supported.");
+      throw new RangeError("Unsupported cross-currency conversion; only BOB and USD/USDT/USDC are supported.");
     }
     if (p2pRate === undefined || !Number.isFinite(p2pRate) || p2pRate <= 0) {
       throw new RangeError("A finite positive BOB-per-USD P2P rate is required for conversion.");
@@ -212,8 +223,8 @@ export function calculateFinancialReport({
   const planned = sum(budgets.filter((item) => item.isActive).map((item) => {
     const created = date(item.createdAt);
     if (!created || created > reference) return new D(0);
-    const divisor = BUDGET_MONTHS[item.period.trim().toLowerCase()];
-    if (!divisor) throw new RangeError("Unsupported budget period.");
+    const periodKey = (item.period || "monthly").trim().toLowerCase();
+    const divisor = BUDGET_MONTHS[periodKey] ?? 1;
     const eligibleMonths = months.filter((month, index) => index === months.length - 1
       ? created <= reference : created < monthStart(month, 1)).length;
     return D.max(0, convert(item.limitAmount, item.currency)).div(divisor).times(eligibleMonths);

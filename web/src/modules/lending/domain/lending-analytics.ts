@@ -205,10 +205,15 @@ function detailedInstallments(detail: LoanDetailDto): OutstandingInstallment[] {
   return detail.installments.flatMap((item) => {
     const date = day(item.dueDate);
     if (!date || item.status === "Paid" || item.status === "Forgiven") return [];
-    const principal = amount(item.remainingPrincipal);
-    const interest = D.max(0, amount(item.expectedInterest).minus(amount(item.paidInterest)));
-    // Late interest is not part of expectedTotal and is not guessed here.
-    const total = D.max(0, amount(item.expectedTotal).minus(amount(item.paidPrincipal)).minus(amount(item.paidInterest)));
+    const principal = item.outstandingPrincipal != null ? amount(item.outstandingPrincipal) : amount(item.remainingPrincipal);
+    const regularInterest = item.outstandingInterest != null
+      ? amount(item.outstandingInterest)
+      : D.max(0, amount(item.expectedInterest).minus(amount(item.paidInterest)));
+    const lateInterest = item.outstandingLateInterest != null ? amount(item.outstandingLateInterest) : new D(0);
+    const interest = regularInterest.plus(lateInterest);
+    const total = item.totalOutstanding != null
+      ? amount(item.totalOutstanding)
+      : D.max(0, amount(item.expectedTotal).minus(amount(item.paidPrincipal)).minus(amount(item.paidInterest)));
     return total.gt(0) ? [{ number: item.number, date, principal, interest, total }] : [];
   });
 }

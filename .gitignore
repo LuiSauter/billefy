@@ -50,3 +50,4 @@ skills-lock.json
 .pi/*
 !.pi/mcp.json
 *.log
+binance-spot-api-docs/

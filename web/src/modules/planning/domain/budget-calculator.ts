@@ -84,18 +84,29 @@ export function getRemainingDaysInMonth(referenceDate: Date = new Date()): numbe
 
 export function calculateBudgetMetrics(
   budgets: BudgetDto[],
-  remainingDays: number = getRemainingDaysInMonth()
+  remainingDays: number = getRemainingDaysInMonth(),
+  p2pRate: number = 9.85
 ): BudgetMetrics {
   const safeDays = Math.max(1, remainingDays);
+  const rate = toDecimal(p2pRate > 0 ? p2pRate : 9.85);
 
-  const totalLimit = budgets.reduce(
-    (acc, b) => acc.plus(toDecimal(b.limitAmount)),
-    new Decimal(0)
-  );
-  const totalSpent = budgets.reduce(
-    (acc, b) => acc.plus(toDecimal(b.spentAmount)),
-    new Decimal(0)
-  );
+  const totalLimit = budgets.reduce((acc, b) => {
+    const raw = toDecimal(b.limitAmount);
+    const converted =
+      b.currency === "USD" || b.currency === "USDT" || b.currency === "USDC"
+        ? raw.times(rate)
+        : raw;
+    return acc.plus(converted);
+  }, new Decimal(0));
+
+  const totalSpent = budgets.reduce((acc, b) => {
+    const raw = toDecimal(b.spentAmount);
+    const converted =
+      b.currency === "USD" || b.currency === "USDT" || b.currency === "USDC"
+        ? raw.times(rate)
+        : raw;
+    return acc.plus(converted);
+  }, new Decimal(0));
 
   const spentRatio = totalLimit.gt(0)
     ? totalSpent.div(totalLimit).times(100).toNumber()

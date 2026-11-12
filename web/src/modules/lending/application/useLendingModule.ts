@@ -5,11 +5,13 @@ import { IHttpClient } from "@/shared/application/http-client.contract";
 import {
   CreateLoanRequest,
   LoanCancellationResultDto,
+  LoanPaymentQuoteDto,
   LoanSummaryDto,
   RegisterLoanPaymentRequest,
   SimulateLoanRequest,
 } from "../domain/lending.types";
 import { LendingApiRepository } from "../infrastructure/lending-api.repository";
+import { notify } from "@/shared/lib/notify";
 
 export function useLendingModule(
   http: IHttpClient | null,
@@ -53,6 +55,14 @@ export function useLendingModule(
     [repo]
   );
 
+  const getPaymentQuote = useCallback(
+    async (loanId: string, paymentDate?: string, amount?: string | number): Promise<LoanPaymentQuoteDto> => {
+      if (!repo) throw new Error("Cliente no inicializado");
+      return repo.getPaymentQuote(loanId, paymentDate, amount);
+    },
+    [repo]
+  );
+
   const cancelLoan = useCallback(
     async (loanId: string): Promise<LoanCancellationResultDto> => {
       if (!repo) throw new Error("Cliente no inicializado");
@@ -66,9 +76,21 @@ export function useLendingModule(
 
   const registerLoanPayment = useCallback(
     async (loanId: string, req: RegisterLoanPaymentRequest) => {
-      if (!repo) return;
+      if (!repo) throw new Error("Cliente no inicializado");
+      // The write is authoritative. A failed read refresh must never make the
+      // form report an unsaved payment or invite a duplicate POST.
       const res = await repo.registerLoanPayment(loanId, req);
-      await Promise.all([refreshLoans(), onLedgerImpacted?.()]);
+      const safelyRefresh = async (refresh: (() => Promise<void>) | undefined) => {
+        if (!refresh) return true;
+        try { await refresh(); return true; } catch { return false; }
+      };
+      const refreshes = await Promise.all([
+        safelyRefresh(refreshLoans),
+        safelyRefresh(onLedgerImpacted),
+      ]);
+      if (refreshes.some((succeeded) => !succeeded)) {
+        notify.error("Cobro guardado", "No se pudieron actualizar todos los datos. Actualiza la vista para ver el estado reciente.");
+      }
       return res;
     },
     [repo, refreshLoans, onLedgerImpacted]
@@ -81,6 +103,7 @@ export function useLendingModule(
     simulateLoan,
     createLoan,
     getLoanById,
+    getPaymentQuote,
     registerLoanPayment,
     cancelLoan,
   };

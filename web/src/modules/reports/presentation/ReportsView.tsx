@@ -25,6 +25,7 @@ interface ReportsViewProps {
   loans?: LoanSummaryDto[];
   budgets?: BudgetDto[];
   selectedCurrency?: string;
+  onToggleCurrency?: () => void;
   p2pRate?: number;
   loading?: boolean;
   onNavigateToTab?: (tab: string) => void;
@@ -55,7 +56,7 @@ function ReportSection({ label, highlighted, children }: {
 }
 
 export function ReportsView({
-  transactions, accounts, loans, budgets, selectedCurrency = "BOB", p2pRate,
+  transactions, accounts, loans, budgets, selectedCurrency = "BOB", onToggleCurrency, p2pRate,
   loading = false, onNavigateToTab,
 }: ReportsViewProps) {
   const [periodMonths, setPeriodMonths] = useState<ReportsPeriodMonths>(6);
@@ -66,7 +67,8 @@ export function ReportsView({
     if (loading || transactions.length === 0) return null;
     try {
       return calculateFinancialReport({ transactions, accounts, loans, budgets, periodMonths, selectedCurrency, p2pRate });
-    } catch {
+    } catch (err) {
+      console.error("[ReportsView] calculateFinancialReport failed:", err);
       // Missing FX rates or invalid financial inputs must not become invented totals.
       return null;
     }
@@ -89,7 +91,14 @@ export function ReportsView({
 
   return (
     <div className="flex min-w-0 flex-col gap-5" aria-busy={loading}>
-      <ReportsHeader periodMonths={periodMonths} onPeriodChange={changePeriod} onExport={report ? exportSummary : undefined} />
+      <ReportsHeader
+        periodMonths={periodMonths}
+        onPeriodChange={changePeriod}
+        onExport={report ? exportSummary : undefined}
+        selectedCurrency={selectedCurrency}
+        onToggleCurrency={onToggleCurrency}
+        p2pRate={p2pRate}
+      />
       <ReportsNavTabs activeTab={navTabs[activeReportTab]} onTabChange={(tab) => {
         const entry = Object.entries(navTabs).find(([, value]) => value === tab);
         if (entry) setActiveReportTab(entry[0] as ActiveReportTab);
@@ -120,6 +129,11 @@ export function ReportsView({
       ) : (
         <>
           {exportError && <p role="alert" className="text-sm text-destructive">No se pudo exportar el reporte. Intenta de nuevo.</p>}
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/80 bg-card/60 px-4 py-2.5 text-xs text-muted-foreground shadow-2xs">
+            <span>
+              Valores unificados en <strong className="text-foreground">{selectedCurrency === "USD" ? "Dólares ($)" : "Bolivianos (Bs.)"}</strong> (≈ aprox. P2P {p2pRate ? `Bs. ${Number(p2pRate).toFixed(2)}` : "9.85"}). Cada cuenta conserva su saldo en su moneda original.
+            </span>
+          </div>
           {selectedPopularReport && <p role="status" className="text-sm text-muted-foreground">
             Reporte seleccionado: {popularReports[selectedPopularReport]?.label}. Las secciones relacionadas están resaltadas.
           </p>}

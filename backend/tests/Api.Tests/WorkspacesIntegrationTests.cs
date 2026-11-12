@@ -1364,6 +1364,8 @@ public sealed class WorkspacesIntegrationTests : IDisposable
 
     private sealed class WorkspaceTestIdentity : IIdentityModule
     {
+        public Task<Result<AuthResponseDto>> RegisterWithPasswordAsync(RegisterWithPasswordRequest request, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<Result<AuthResponseDto>> LoginWithPasswordAsync(LoginWithPasswordRequest request, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<Result<UserDto>> GetCurrentUserAsync(Guid userId, CancellationToken ct = default) =>
             Task.FromResult(Result.Success(new UserDto(userId, $"{userId:N}@example.test", "Test member", null,
                 "USD", new DateTime(2026, 1, 1), "Western", 2)));

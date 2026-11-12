@@ -14,6 +14,6 @@ export function useFinancialMetrics({ accounts, loans, budgets, bobTotal, usdTot
   bobTotal: Decimal; usdTotal: Decimal; consolidatedUsd: Decimal; p2pRate: number;
 }) {
   const balanceMetrics = useMemo(() => calculateBalanceMetrics({ accounts, loans, bobTotal, usdTotal, consolidatedUsd, p2pRate }), [accounts, loans, bobTotal, usdTotal, consolidatedUsd, p2pRate]);
-  const budgetMetrics = useMemo(() => calculateBudgetMetrics(budgets), [budgets]);
+  const budgetMetrics = useMemo(() => calculateBudgetMetrics(budgets, undefined, p2pRate), [budgets, p2pRate]);
   return { balanceMetrics, budgetMetrics };
 }

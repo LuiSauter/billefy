@@ -21,8 +21,9 @@ public sealed class IngestionFinancialDataExport(IngestionDbContext db) : IInges
             .Where(x => db.Drafts.Any(draft => draft.Id == x.DraftId && draft.UserId == userId))
             .ToListAsync(cancellationToken);
         var financialSources = await db.FinancialSources.AsNoTracking().Where(x => x.UserId == userId).ToListAsync(cancellationToken);
+        var binanceCredentials = await db.BinanceCredentials.AsNoTracking().Where(x => x.UserId == userId).ToListAsync(cancellationToken);
         var imports = await db.Imports.AsNoTracking().Where(x => x.UserId == userId).ToListAsync(cancellationToken);
 
-        return JsonSerializer.SerializeToElement(new { rawEvents, drafts, draftEvents, financialSources, imports }, JsonOptions);
+        return JsonSerializer.SerializeToElement(new { rawEvents, drafts, draftEvents, financialSources, binanceCredentials, imports }, JsonOptions);
     }
 }

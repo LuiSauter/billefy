@@ -7,7 +7,9 @@ using Ledger.Contracts;
 using Lending.Application.Abstractions;
 using Lending.Contracts;
 using Lending.Domain.Entities;
+using Lending.Domain.Engine.DynamicPayments;
 using Lending.Domain.Enums;
+using System.Diagnostics;
 
 namespace Lending.Application.Services;
 
@@ -39,6 +41,32 @@ public sealed class LoanService(
             return Result.Failure<Guid>(Error.Validation("Loan.InvalidCounterparty", "Counterparty name or ID is required."));
         }
 
+        if (!Enum.TryParse<LoanTemplate>(request.Template, ignoreCase: true, out var template) || !Enum.IsDefined(template))
+            return Result.Failure<Guid>(Error.Validation("Loan.InvalidTemplate", $"Unknown template '{request.Template}'."));
+        if (!Enum.TryParse<EarlyPaymentPolicy>(request.EarlyPaymentPolicy ?? nameof(EarlyPaymentPolicy.AdvanceInstallments), ignoreCase: true, out var earlyPolicy)
+            || !Enum.IsDefined(earlyPolicy))
+            return Result.Failure<Guid>(Error.Validation("Loan.InvalidEarlyPaymentPolicy", $"Unknown early payment policy '{request.EarlyPaymentPolicy}'."));
+        if (!Enum.TryParse<PaymentAllocationOrder>(request.AllocationOrder ?? nameof(PaymentAllocationOrder.LateInterestInterestPrincipal), ignoreCase: true, out var allocOrder)
+            || !Enum.IsDefined(allocOrder))
+            return Result.Failure<Guid>(Error.Validation("Loan.InvalidAllocationOrder", $"Unknown allocation order '{request.AllocationOrder}'."));
+        if (!DynamicLoanPaymentCalculator.IsCompatible(template, earlyPolicy))
+            return Result.Failure<Guid>(Error.Validation("Loan.IncompatiblePolicy", $"Policy '{earlyPolicy}' is incompatible with template '{template}'."));
+
+        if (request.DisbursementAccountId.HasValue)
+        {
+            var userAccounts = await ledgerModule.GetAccountsByUserIdAsync(userId, cancellationToken);
+            var disbursementAccount = userAccounts.FirstOrDefault(a => a.Id == request.DisbursementAccountId.Value);
+            if (disbursementAccount is null)
+            {
+                return Result.Failure<Guid>(Error.NotFound("Account.NotFound", "Disbursement account was not found."));
+            }
+
+            if (!StringComparer.Ordinal.Equals(disbursementAccount.Currency, request.Currency))
+            {
+                return Result.Failure<Guid>(Error.Validation("Account.CurrencyMismatch", "Disbursement account currency must match the loan currency."));
+            }
+        }
+
         Guid? createdLoanId = null;
         var counterpartyNotFound = false;
         try
@@ -65,7 +93,6 @@ public sealed class LoanService(
                 }
 
                 Enum.TryParse<LoanType>(request.Type, ignoreCase: true, out var loanType);
-                Enum.TryParse<LoanTemplate>(request.Template, ignoreCase: true, out var template);
                 Enum.TryParse<RateUnit>(request.RateUnit, ignoreCase: true, out var rateUnit);
                 Enum.TryParse<DayCount>(request.DayCount, ignoreCase: true, out var dayCount);
                 Enum.TryParse<PaymentFrequency>(request.Frequency, ignoreCase: true, out var frequency);
@@ -98,6 +125,8 @@ public sealed class LoanService(
                     compounding,
                     request.CompoundingPeriods,
                     request.MaturityDate,
+                    allocationOrder: allocOrder,
+                    earlyPaymentPolicy: earlyPolicy,
                     activateImmediately: true,
                     createdAt: clock.UtcNow);
 
@@ -148,6 +177,13 @@ public sealed class LoanService(
             : Result.Failure<Guid>(Error.Failure("Loan.CreationFailed", "Loan could not be created."));
     }
 
+    private static DateTime NormalizePaymentDate(DateTime value) => value.Kind switch
+    {
+        DateTimeKind.Utc => value,
+        DateTimeKind.Local => value.ToUniversalTime(),
+        _ => DateTime.SpecifyKind(value, DateTimeKind.Utc)
+    };
+
     private sealed class InvalidLoanDisbursementException : Exception { }
 
     public async Task<Result<List<LoanSummaryDto>>> GetLoansAsync(string? type = null, string? status = null, CancellationToken cancellationToken = default)
@@ -192,7 +228,11 @@ public sealed class LoanService(
                 loan.FirstDueDate,
                 loan.TotalInstallments,
                 loan.CreatedAt,
-                await GetCancellationEligibilityAsync(loan, cancellationToken)));
+                await GetCancellationEligibilityAsync(loan, cancellationToken),
+                loan.EarlyPaymentPolicy.ToString(),
+                loan.LateRate,
+                loan.GraceDays,
+                loan.AllocationOrder.ToString()));
         }
 
         return Result.Success(dtos);
@@ -212,6 +252,11 @@ public sealed class LoanService(
         }
 
         var cp = await counterpartyRepository.GetByIdAsync(loan.CounterpartyId, cancellationToken);
+        var lastPaymentDate = LastPaymentDate(loan);
+        var asOfDate = clock.TodayUtc > lastPaymentDate ? clock.TodayUtc : lastPaymentDate;
+        var calculation = LoanPaymentCalculationAdapter.Calculate(loan, asOfDate);
+        var balances = calculation.Installments.ToDictionary(i => i.InstallmentId);
+        var snapshots = calculation.HistoricalSnapshots.ToDictionary(s => s.PaymentId!.Value);
 
         var summary = new LoanSummaryDto(
             loan.Id,
@@ -219,17 +264,23 @@ public sealed class LoanService(
             cp?.Name ?? "Desconocido",
             loan.Type.ToString(),
             loan.Template.ToString(),
-            loan.Status.ToString(),
+            loan.Status is LoanStatus.Active or LoanStatus.InArrears ? calculation.ResultingState.ToString() : loan.Status.ToString(),
             loan.Principal.Amount,
             loan.Principal.Currency.Code,
             loan.InterestRate,
             loan.AnnualEffectiveRate,
-            loan.RemainingPrincipal,
+            calculation.ResultingPrincipal,
             loan.DisbursementDate,
             loan.FirstDueDate,
             loan.TotalInstallments,
             loan.CreatedAt,
-            await GetCancellationEligibilityAsync(loan, cancellationToken));
+            await GetCancellationEligibilityAsync(loan, cancellationToken),
+            loan.EarlyPaymentPolicy.ToString(),
+            loan.LateRate,
+            loan.GraceDays,
+            loan.AllocationOrder.ToString(),
+            calculation.TotalPayoff,
+            calculation.SuggestedAmount);
 
         var installmentDtos = loan.Installments.OrderBy(i => i.Number).Select(i => new LoanInstallmentDto(
             i.Id,
@@ -242,9 +293,14 @@ public sealed class LoanService(
             i.PaidInterest,
             i.PaidLateInterest,
             i.RemainingPrincipal,
-            i.Status.ToString())).ToList();
+            i.Status.ToString(),
+            balances[i.Id].OutstandingPrincipal,
+            balances[i.Id].OutstandingRegularInterest,
+            balances[i.Id].OutstandingLateInterest,
+            balances[i.Id].TotalOutstanding)).ToList();
 
-        var paymentDtos = loan.Payments.OrderByDescending(p => p.PaymentDate).Select(p => new LoanPaymentDto(
+        var paymentDtos = loan.Payments.OrderByDescending(p => p.PaymentDate)
+            .ThenByDescending(p => p.RecordSequence).ThenByDescending(p => p.CreatedAt).Select(p => new LoanPaymentDto(
             p.Id,
             p.Amount.Amount,
             p.Amount.Currency.Code,
@@ -260,10 +316,74 @@ public sealed class LoanService(
                     a.ToInterest,
                     a.ToPrincipal,
                     inst?.RemainingPrincipal ?? 0m);
-            }).ToList())).ToList();
+            }).ToList(),
+            p.RecordSequence,
+            p.CalculationVersion,
+            p.EarlyPrincipalAmount,
+            p.EarlyPrincipalEffectiveDate,
+            snapshots[p.Id].RemainingTotal,
+            snapshots[p.Id].IsAmbiguous)).ToList();
 
         return Result.Success(new LoanDetailDto(summary, installmentDtos, paymentDtos));
     }
+
+    private static DateOnly LastPaymentDate(Loan loan) => loan.Payments
+        .Select(p => DateOnly.FromDateTime(p.PaymentDate)).DefaultIfEmpty(DateOnly.MinValue).Max();
+
+    public async Task<Result<LoanPaymentQuoteDto>> GetPaymentQuoteAsync(
+        Guid loanId,
+        DateOnly? paymentDate = null,
+        decimal? amount = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (!userContext.IsAuthenticated)
+            return Result.Failure<LoanPaymentQuoteDto>(Error.Unauthorized("Auth.Unauthorized", "User is not authenticated."));
+
+        var loan = await loanRepository.GetByIdAsync(loanId, cancellationToken);
+        if (loan is null || loan.UserId != userContext.UserId!.Value)
+            return Result.Failure<LoanPaymentQuoteDto>(Error.NotFound("Loan.NotFound", "Loan not found."));
+        if (loan.Status is not (LoanStatus.Active or LoanStatus.InArrears))
+            return Result.Failure<LoanPaymentQuoteDto>(Error.Validation("Payment.InvalidOperation", $"Cannot apply payment to a loan with status '{loan.Status}'."));
+        if (paymentDate.HasValue && paymentDate.Value < LastPaymentDate(loan))
+            return Result.Failure<LoanPaymentQuoteDto>(Error.Validation("Payment.InvalidDate", "Payment date cannot precede the last recorded payment."));
+        if (amount is <= 0m)
+            return Result.Failure<LoanPaymentQuoteDto>(Error.Validation("Payment.InvalidAmount", "Payment amount must be positive."));
+        if (amount.HasValue && (amount.Value > 99_999_999_999_999.999999m || amount.Value != decimal.Round(amount.Value, 6)))
+            return Result.Failure<LoanPaymentQuoteDto>(Error.Validation("Payment.InvalidPrecision", "Payment amount exceeds supported precision."));
+
+        var asOfDate = paymentDate ?? clock.TodayUtc;
+        try
+        {
+            var calculation = LoanPaymentCalculationAdapter.Calculate(loan, asOfDate, amount);
+            return Result.Success(new LoanPaymentQuoteDto(
+                loan.Id,
+                loan.Principal.Currency.Code,
+                asOfDate,
+                calculation.TotalPayoff,
+                calculation.SuggestedAmount,
+                calculation.Installments.Sum(i => i.OutstandingPrincipal),
+                loan.Status.ToString(),
+                loan.EarlyPaymentPolicy.ToString(),
+                calculation.Installments.Select(ToBalanceDto).ToList(),
+                calculation.ProjectedInstallments.Select(ToBalanceDto).ToList(),
+                calculation.ProposedAllocations.Select(a => new PaymentAllocationDto(
+                    a.InstallmentId, a.InstallmentNumber, a.ToLateInterest, a.ToInterest, a.ToPrincipal, a.RemainingBalanceAfter)).ToList(),
+                calculation.ProposedEarlyPrincipalAmount,
+                calculation.ProposedEarlyPrincipalEffectiveDate,
+                calculation.ResultingPrincipal,
+                calculation.ResultingState.ToString(),
+                calculation.HistoricalSnapshots.Select(s => new LoanHistoricalSnapshotDto(
+                    s.PaymentDate, s.CreatedAt, s.RecordSequence, s.RemainingTotal, s.IsAmbiguous, s.PaymentId)).ToList()));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Result.Failure<LoanPaymentQuoteDto>(Error.Validation("Payment.InvalidOperation", ex.Message));
+        }
+    }
+
+    private static LoanInstallmentBalanceDto ToBalanceDto(DynamicLoanInstallmentBalance balance) => new(
+        balance.InstallmentId, balance.Number, balance.DueDate, balance.OutstandingPrincipal,
+        balance.OutstandingRegularInterest, balance.OutstandingLateInterest, balance.TotalOutstanding);
 
     public async Task<Result<LoanCancellationResultDto>> CancelLoanAsync(Guid id, CancellationToken cancellationToken = default)
     {
@@ -382,9 +502,13 @@ public sealed class LoanService(
             return Result.Failure<LoanPaymentResultDto>(Error.Unauthorized("Auth.Unauthorized", "User is not authenticated."));
         if (request.Amount <= decimal.Zero)
             return Result.Failure<LoanPaymentResultDto>(Error.Validation("Payment.InvalidAmount", "Payment amount must be positive."));
+        if (request.Amount > 99_999_999_999_999.999999m || request.Amount != decimal.Round(request.Amount, 6))
+            return Result.Failure<LoanPaymentResultDto>(Error.Validation("Payment.InvalidPrecision", "Payment amount exceeds supported precision."));
+        if (request.Note?.Trim().Length > 500)
+            return Result.Failure<LoanPaymentResultDto>(Error.Validation("Payment.InvalidNote", "Payment note must be 500 characters or fewer."));
 
         var userId = userContext.UserId!.Value;
-        var paymentDate = request.PaymentDate ?? clock.UtcNow;
+        var paymentDate = NormalizePaymentDate(request.PaymentDate ?? clock.UtcNow);
         LoanPaymentResultDto? paymentResult = null;
         Error? operationError = null;
         try
@@ -411,18 +535,23 @@ public sealed class LoanService(
                     var description = loan.Type == LoanType.Lent
                         ? $"Loan repayment collected (Loan #{loan.Id.ToString()[..8]})"
                         : $"Loan payment made (Loan #{loan.Id.ToString()[..8]})";
-                    try
+                    var posting = await ledgerModule.RegisterLoanPaymentAsync(new LoanPaymentPostingRequestDto(
+                        userId, request.AccountId.Value, request.Amount, loan.Principal.Currency.Code,
+                        ledgerDirection, paymentDate, description, loan.Id,
+                        Reference: $"PAY-{loan.Id.ToString()[..8]}"), token);
+                    if (posting.ErrorCode is not null || !posting.TransactionId.HasValue)
                     {
-                        ledgerTxnId = await ledgerModule.CreateTransactionFromDraftAsync(new CreateTransactionFromDraftDto(
-                            userId, request.AccountId.Value, request.Amount, loan.Principal.Currency.Code,
-                            ledgerDirection, null, paymentDate, description, loan.Id,
-                            Reference: $"PAY-{loan.Id.ToString()[..8]}"), token);
-                    }
-                    catch (InvalidOperationException)
-                    {
-                        operationError = Error.NotFound("Account.NotFound", "Payment account was not found.");
+                        operationError = posting.ErrorCode switch
+                        {
+                            "Account.NotFound" => Error.NotFound("Account.NotFound", "Payment account was not found."),
+                            "Account.Archived" => Error.Validation("Account.Archived", "Archived accounts cannot receive payments."),
+                            "Account.CurrencyMismatch" => Error.Validation("Account.CurrencyMismatch", "Payment account must use the loan currency."),
+                            "Payment.InvalidNote" => Error.Validation("Payment.InvalidNote", "Payment note must be 500 characters or fewer."),
+                            _ => Error.Validation(posting.ErrorCode ?? "Payment.InvalidAccount", "Payment account or amount is invalid.")
+                        };
                         return;
                     }
+                    ledgerTxnId = posting.TransactionId.Value;
                 }
 
                 var allocation = loan.RecordPayment(request.Amount, paymentDate, request.AccountId, ledgerTxnId, request.Note);
@@ -435,12 +564,14 @@ public sealed class LoanService(
                 paymentResult = new LoanPaymentResultDto(payment.Id, request.Amount, loan.RemainingPrincipal, loan.Status.ToString(), allocations);
             }, cancellationToken);
         }
-        catch (InvalidOperationException ex) when (!cancellationToken.IsCancellationRequested)
+        catch (InvalidOperationException) when (!cancellationToken.IsCancellationRequested)
         {
-            operationError = Error.Validation("Payment.InvalidOperation", ex.Message);
+            operationError = Error.Validation("Payment.InvalidOperation", "Payment cannot be applied to this loan or exceeds its outstanding scheduled balance.");
         }
-        catch (Exception) when (!cancellationToken.IsCancellationRequested)
+        catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
         {
+            Trace.TraceError("LoanPaymentFailure ExceptionType={0} Category={1} TraceId={2}",
+                ex.GetType().Name, "UnexpectedPaymentFailure", Activity.Current?.TraceId.ToString());
             operationError = Error.Failure("Payment.Failed", "An unexpected error occurred while processing the loan payment.");
         }
 

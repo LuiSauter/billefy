@@ -1986,6 +1986,88 @@
         }
       }
     },
+    "/v1/loans/{id}/quote": {
+      "get": {
+        "tags": [
+          "Loans"
+        ],
+        "summary": "Get authoritative dated payment quote, payoff amount, suggested installment amount, and preview allocations.",
+        "operationId": "GetLoanPaymentQuote",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "paymentDate",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "amount",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+              "type": [
+                "number",
+                "string"
+              ],
+              "format": "double"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoanPaymentQuoteDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/loans/{id}/cancel": {
       "post": {
         "tags": [
@@ -6567,6 +6649,18 @@
               "string"
             ],
             "format": "date"
+          },
+          "earlyPaymentPolicy": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "allocationOrder": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -7874,6 +7968,117 @@
           }
         }
       },
+      "LoanHistoricalSnapshotDto": {
+        "required": [
+          "paymentDate",
+          "createdAt",
+          "recordSequence",
+          "remainingTotal",
+          "isAmbiguous",
+          "paymentId"
+        ],
+        "type": "object",
+        "properties": {
+          "paymentDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "recordSequence": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "remainingTotal": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "isAmbiguous": {
+            "type": "boolean"
+          },
+          "paymentId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "LoanInstallmentBalanceDto": {
+        "required": [
+          "installmentId",
+          "number",
+          "dueDate",
+          "outstandingPrincipal",
+          "outstandingRegularInterest",
+          "outstandingLateInterest",
+          "totalOutstanding"
+        ],
+        "type": "object",
+        "properties": {
+          "installmentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "number": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "dueDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "outstandingPrincipal": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "outstandingRegularInterest": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "outstandingLateInterest": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "totalOutstanding": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          }
+        }
+      },
       "LoanInstallmentDto": {
         "required": [
           "id",
@@ -7964,6 +8169,42 @@
           },
           "status": {
             "type": "string"
+          },
+          "outstandingPrincipal": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "outstandingInterest": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "outstandingLateInterest": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "totalOutstanding": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
           }
         }
       },
@@ -8007,6 +8248,168 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/PaymentAllocationDto"
+            }
+          },
+          "recordSequence": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "calculationVersion": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "earlyPrincipalAmount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "earlyPrincipalEffectiveDate": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "remainingBalanceAfter": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "isAmbiguous": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
+      "LoanPaymentQuoteDto": {
+        "required": [
+          "loanId",
+          "currency",
+          "asOfDate",
+          "totalPayoff",
+          "suggestedAmount",
+          "remainingPrincipal",
+          "loanStatus",
+          "earlyPaymentPolicy",
+          "installments",
+          "projectedInstallments",
+          "proposedAllocations",
+          "proposedEarlyPrincipalAmount",
+          "proposedEarlyPrincipalEffectiveDate",
+          "resultingPrincipal",
+          "resultingState",
+          "historicalSnapshots"
+        ],
+        "type": "object",
+        "properties": {
+          "loanId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "asOfDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "totalPayoff": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "suggestedAmount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "remainingPrincipal": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "loanStatus": {
+            "type": "string"
+          },
+          "earlyPaymentPolicy": {
+            "type": "string"
+          },
+          "installments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LoanInstallmentBalanceDto"
+            }
+          },
+          "projectedInstallments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LoanInstallmentBalanceDto"
+            }
+          },
+          "proposedAllocations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PaymentAllocationDto"
+            }
+          },
+          "proposedEarlyPrincipalAmount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "proposedEarlyPrincipalEffectiveDate": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "resultingPrincipal": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "resultingState": {
+            "type": "string"
+          },
+          "historicalSnapshots": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LoanHistoricalSnapshotDto"
             }
           }
         }
@@ -8200,6 +8603,52 @@
           },
           "cancellationEligibility": {
             "$ref": "#/components/schemas/LoanCancellationEligibilityDto"
+          },
+          "earlyPaymentPolicy": {
+            "type": "string",
+            "default": "AdvanceInstallments"
+          },
+          "lateRate": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "graceDays": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32",
+            "default": 0
+          },
+          "allocationOrder": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "totalPayoff": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double",
+            "default": 0
+          },
+          "suggestedAmount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
           }
         }
       },
@@ -9864,6 +10313,18 @@
               "string"
             ],
             "format": "date"
+          },
+          "earlyPaymentPolicy": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "allocationOrder": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },

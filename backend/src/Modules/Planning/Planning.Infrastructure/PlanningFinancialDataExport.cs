@@ -22,8 +22,10 @@ public sealed class PlanningFinancialDataExport(PlanningDbContext db) : IPlannin
             .Where(x => x.UserId == userId).ToListAsync(cancellationToken);
         var distributionPlans = await db.DistributionPlans.AsNoTracking()
             .Where(x => x.UserId == userId).ToListAsync(cancellationToken);
+        var recurringPayments = await db.RecurringPayments.AsNoTracking()
+            .Where(x => x.UserId == userId).ToListAsync(cancellationToken);
 
         return JsonSerializer.SerializeToElement(
-            new { budgets, goals, investments, investmentCashLinks, distributionPlans }, JsonOptions);
+            new { budgets, goals, investments, investmentCashLinks, distributionPlans, recurringPayments }, JsonOptions);
     }
 }

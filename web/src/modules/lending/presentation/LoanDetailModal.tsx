@@ -10,12 +10,15 @@ interface LoanDetailModalProps {
   loan: LoanDetailDto | null;
   onClose: () => void;
   onCancelLoan?: (loanId: string) => Promise<LoanCancellationResultDto>;
+  onOpenPayment?: (loanId: string, installmentNumber?: number) => void;
 }
 
 export function LoanDetailModal(props: LoanDetailModalProps) {
-  const { isOpen, loan, onClose } = props;
+  const { isOpen, loan, onClose, onOpenPayment } = props;
   if (!isOpen || !loan) return null;
 
+  const canPay = ["Active", "InArrears"].includes(loan.summary.status) && Boolean(onOpenPayment);
+  const isCollection = loan.summary.type === "Lent";
   const principal = Number(loan.summary.principal) || 1;
   const remaining = Number(loan.summary.remainingPrincipal) || 0;
   const paid = Math.max(0, principal - remaining);
@@ -31,6 +34,9 @@ export function LoanDetailModal(props: LoanDetailModalProps) {
         loan.summary.type === "Lent" ? "Dinero que presté" : "Deuda a pagar"
       } · ${loan.summary.template} · TEA: ${(loan.summary.annualEffectiveRate * 100).toFixed(2)}%`}
       footer={
+        <>
+        {canPay &&
+          <Button type="button" size="lg" onClick={() => onOpenPayment?.(loan.summary.id)}>{isCollection ? "Registrar cobro" : "Registrar pago"}</Button>}
         <Button
           type="button"
           variant="outline"
@@ -40,12 +46,13 @@ export function LoanDetailModal(props: LoanDetailModalProps) {
         >
           Cerrar
         </Button>
+        </>
       }
     >
       <div className="flex flex-col gap-5">
         {/* KPI Card */}
         <div className="p-4 rounded-2xl bg-muted/60 border border-border flex flex-col gap-3">
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
             <div>
               <span className="text-xs text-muted-foreground block">Capital inicial</span>
               <strong className="text-base font-extrabold text-foreground tabular-nums">
@@ -53,17 +60,41 @@ export function LoanDetailModal(props: LoanDetailModalProps) {
               </strong>
             </div>
             <div>
-              <span className="text-xs text-muted-foreground block">Saldo pendiente</span>
+              <span className="text-xs text-muted-foreground block">Saldo de capital</span>
               <strong className="text-base font-extrabold text-amber-600 tabular-nums">
                 {loan.summary.remainingPrincipal.toFixed(2)} {loan.summary.currency}
               </strong>
             </div>
-            <div className="col-span-2 sm:col-span-1">
+            {loan.summary.totalPayoff !== undefined && (
+              <div>
+                <span className="text-xs text-muted-foreground block">Total para cancelar</span>
+                <strong className="text-base font-extrabold text-foreground tabular-nums">
+                  {loan.summary.totalPayoff.toFixed(2)} {loan.summary.currency}
+                </strong>
+              </div>
+            )}
+            <div>
               <span className="text-xs text-muted-foreground block">Cuotas totales</span>
               <strong className="text-base font-extrabold text-foreground">
                 {loan.summary.totalInstallments}
               </strong>
             </div>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-border/50 text-xs">
+            <div className="flex items-center gap-1.5">
+              <span className="text-muted-foreground">Política de prepago:</span>
+              <span className="font-semibold px-2 py-0.5 rounded-full bg-background border border-border">
+                {loan.summary.earlyPaymentPolicy === "ReduceInstallment"
+                  ? "Abono a capital (reducir cuota)"
+                  : loan.summary.earlyPaymentPolicy === "ReduceTerm"
+                  ? "Abono a capital (reducir plazo)"
+                  : "Adelanto de cuotas futuras"}
+              </span>
+            </div>
+            <span className="text-muted-foreground">
+              TEA: {(loan.summary.annualEffectiveRate * 100).toFixed(2)}%
+            </span>
           </div>
 
           <div className="flex flex-col gap-1.5 pt-1">
@@ -79,34 +110,58 @@ export function LoanDetailModal(props: LoanDetailModalProps) {
         <div className="flex flex-col gap-2">
           <h4 className="text-sm font-bold text-foreground">Cronograma de cuotas</h4>
           <div className="max-h-64 overflow-y-auto border border-border rounded-2xl divide-y divide-border text-xs">
-            <div className="grid grid-cols-6 font-bold py-2.5 px-3 bg-muted text-muted-foreground sticky top-0">
+            <div className="grid grid-cols-7 font-bold py-2.5 px-3 bg-muted text-muted-foreground sticky top-0 text-[11px]">
               <span>#</span>
               <span>Vence</span>
               <span>Esperado</span>
               <span>Cap. Pagado</span>
               <span>Int. Pagado</span>
+              <span>Pendiente</span>
               <span>Estado</span>
             </div>
-            {loan.installments.map((inst) => (
-              <div key={inst.id} className="grid grid-cols-6 py-2.5 px-3 items-center hover:bg-muted/40">
-                <span className="font-semibold text-foreground">Cuota {inst.number}</span>
-                <span className="text-muted-foreground">{inst.dueDate}</span>
-                <span className="font-mono text-foreground">{inst.expectedTotal.toFixed(2)}</span>
-                <span className="font-mono text-foreground">{inst.paidPrincipal.toFixed(2)}</span>
-                <span className="font-mono text-foreground">{inst.paidInterest.toFixed(2)}</span>
-                <span
-                  className={`px-2 py-0.5 rounded-md text-xs w-fit font-semibold ${
-                    inst.status === "Paid"
-                      ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
-                      : inst.status === "Overdue"
-                      ? "bg-rose-500/15 text-rose-300 border border-rose-500/30"
-                      : "bg-muted text-muted-foreground"
-                  }`}
-                >
-                  {inst.status}
-                </span>
-              </div>
-            ))}
+            {loan.installments.map((inst) => {
+              const pending = inst.totalOutstanding != null
+                ? (typeof inst.totalOutstanding === "number" ? inst.totalOutstanding : inst.totalOutstanding.toNumber())
+                : inst.status === "Paid" ? 0 : (typeof inst.expectedTotal === "number" ? inst.expectedTotal : inst.expectedTotal.toNumber());
+              return (
+                <div key={inst.id} className="grid grid-cols-7 py-2.5 px-3 items-center hover:bg-muted/40">
+                  <span className="font-semibold text-foreground">Cuota {inst.number}</span>
+                  <span className="text-muted-foreground">{inst.dueDate}</span>
+                  <span className="font-mono text-foreground">{inst.expectedTotal.toFixed(2)}</span>
+                  <span className="font-mono text-foreground">{inst.paidPrincipal.toFixed(2)}</span>
+                  <span className="font-mono text-foreground">{inst.paidInterest.toFixed(2)}</span>
+                  <span className={`font-mono font-bold ${pending > 0 ? "text-amber-500" : "text-emerald-500"}`}>
+                    {pending.toFixed(2)}
+                  </span>
+                  <div className="flex flex-col items-start gap-1">
+                    <span
+                      className={`px-2 py-0.5 rounded-md text-xs w-fit font-semibold ${
+                        inst.status === "Paid"
+                          ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
+                          : inst.status === "Overdue"
+                          ? "bg-rose-500/15 text-rose-300 border border-rose-500/30"
+                          : inst.status === "PartiallyPaid"
+                          ? "bg-amber-500/15 text-amber-300 border border-amber-500/30"
+                          : "bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      {inst.status === "PartiallyPaid" ? "Parcial" : inst.status === "Paid" ? "Pagada" : inst.status === "Overdue" ? "En mora" : "Pendiente"}
+                    </span>
+                    {canPay && !["Paid", "Forgiven"].includes(inst.status) && (inst.totalOutstanding == null || (typeof inst.totalOutstanding === "number" ? inst.totalOutstanding > 0 : inst.totalOutstanding.gt(0))) && (
+                      <Button
+                        type="button"
+                        size="xs"
+                        variant="ghost"
+                        aria-label={`${isCollection ? "Cobrar" : "Pagar"} cuota ${inst.number}`}
+                        onClick={() => onOpenPayment?.(loan.summary.id, inst.number)}
+                      >
+                        {isCollection ? "Cobrar" : "Pagar"}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
 

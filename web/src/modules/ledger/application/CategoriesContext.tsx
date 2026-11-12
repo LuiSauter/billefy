@@ -24,6 +24,7 @@ interface CategoriesContextValue {
   findCategory: (idOrName?: string) => UserCategory | undefined;
   createCategory: (input: CreateUserCategoryInput) => UserCategory;
   deleteCategory: (id: string) => void;
+  resetCategories: () => void;
 }
 
 const CategoriesContext = createContext<CategoriesContextValue>({
@@ -34,6 +35,7 @@ const CategoriesContext = createContext<CategoriesContextValue>({
     throw new Error("CategoriesProvider not mounted");
   },
   deleteCategory: () => {},
+  resetCategories: () => {},
 });
 
 const UUID_REGEX =
@@ -288,6 +290,16 @@ export function CategoriesProvider({ children }: { children: React.ReactNode }) 
     [saveToLocalStorage, isAuthenticated, httpClient]
   );
 
+  const resetCategories = useCallback(() => {
+    setCategories([]);
+    try {
+      localStorage.removeItem(storageKey);
+      localStorage.removeItem(legacyKey);
+    } catch {
+      // Ignore storage errors
+    }
+  }, [storageKey, legacyKey]);
+
   return (
     <CategoriesContext.Provider
       value={{
@@ -296,6 +308,7 @@ export function CategoriesProvider({ children }: { children: React.ReactNode }) 
         findCategory,
         createCategory,
         deleteCategory,
+        resetCategories,
       }}
     >
       {children}

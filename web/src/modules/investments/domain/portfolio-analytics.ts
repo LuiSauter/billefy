@@ -56,11 +56,43 @@ const MONTH_NAMES_ES = [
   "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"
 ];
 
-export function calculatePortfolioOverview(investments: Investment[]): PortfolioOverviewMetrics {
+export function convertInvestmentAmount(
+  amount: number,
+  fromCurrency: string | undefined,
+  targetCurrency: "USD" | "BOB" = "USD",
+  p2pRate: number = 9.85
+): number {
+  if (!amount || amount === 0) return 0;
+  const rate = p2pRate > 0 ? p2pRate : 9.85;
+  const from = (fromCurrency || targetCurrency).toUpperCase();
+
+  if (targetCurrency === "BOB") {
+    if (from === "BOB") return amount;
+    if (from === "USD" || from === "USDT" || from === "USDC") return amount * rate;
+    return amount * rate;
+  } else {
+    // targetCurrency === "USD"
+    if (from === "USD" || from === "USDT" || from === "USDC") return amount;
+    if (from === "BOB") return amount / rate;
+    return amount;
+  }
+}
+
+export function calculatePortfolioOverview(
+  investments: Investment[],
+  targetCurrency: "USD" | "BOB" = "USD",
+  p2pRate: number = 9.85
+): PortfolioOverviewMetrics {
   const activeInvestments = investments.filter((i) => i.currentValue > 0 || i.initialValue > 0);
 
-  const totalValue = activeInvestments.reduce((acc, i) => acc + (i.currentValue || 0), 0);
-  const totalCost = activeInvestments.reduce((acc, i) => acc + (i.initialValue || 0), 0);
+  const totalValue = activeInvestments.reduce(
+    (acc, i) => acc + convertInvestmentAmount(i.currentValue || 0, i.currency, targetCurrency, p2pRate),
+    0
+  );
+  const totalCost = activeInvestments.reduce(
+    (acc, i) => acc + convertInvestmentAmount(i.initialValue || 0, i.currency, targetCurrency, p2pRate),
+    0
+  );
   const totalGainLoss = totalValue - totalCost;
   const totalGainLossPct = totalCost > 0 ? (totalGainLoss / totalCost) * 100 : 0;
 
@@ -69,10 +101,11 @@ export function calculatePortfolioOverview(investments: Investment[]): Portfolio
 
   // Previous period variation
   const prevTotalValue = activeInvestments.reduce((acc, i) => {
+    let raw = i.initialValue || i.currentValue;
     if (i.history && i.history.length >= 2) {
-      return acc + (i.history[i.history.length - 2].value || i.currentValue);
+      raw = i.history[i.history.length - 2].value || i.currentValue;
     }
-    return acc + (i.initialValue || i.currentValue);
+    return acc + convertInvestmentAmount(raw, i.currency, targetCurrency, p2pRate);
   }, 0);
 
   const previousPeriodChangePct =
@@ -85,7 +118,8 @@ export function calculatePortfolioOverview(investments: Investment[]): Portfolio
     if (!kindGroups[k]) {
       kindGroups[k] = { totalValue: 0, count: 0 };
     }
-    kindGroups[k]!.totalValue += inv.currentValue;
+    const convertedVal = convertInvestmentAmount(inv.currentValue || 0, inv.currency, targetCurrency, p2pRate);
+    kindGroups[k]!.totalValue += convertedVal;
     kindGroups[k]!.count += 1;
   }
 
@@ -152,7 +186,7 @@ export function calculatePortfolioOverview(investments: Investment[]): Portfolio
     }
   }
 
-  const evolutionPoints = calculatePortfolioEvolutionPoints(activeInvestments, 6);
+  const evolutionPoints = calculatePortfolioEvolutionPoints(activeInvestments, 6, targetCurrency, p2pRate);
 
   return {
     totalValue,
@@ -179,7 +213,9 @@ export function filterInvestmentsByKind(
 
 export function calculatePortfolioEvolutionPoints(
   investments: Investment[],
-  monthsCount: number = 6
+  monthsCount: number = 6,
+  targetCurrency: "USD" | "BOB" = "USD",
+  p2pRate: number = 9.85
 ): PortfolioEvolutionPoint[] {
   const points: PortfolioEvolutionPoint[] = [];
   const now = new Date();
@@ -192,13 +228,16 @@ export function calculatePortfolioEvolutionPoints(
         date: d.toISOString().split("T")[0],
         month: MONTH_NAMES_ES[d.getMonth()],
         value: 0,
-        formattedValue: "$ 0",
+        formattedValue: `${targetCurrency === "BOB" ? "Bs." : "$"} 0`,
       });
     }
     return points;
   }
 
-  const currentTotal = investments.reduce((acc, i) => acc + (i.currentValue || 0), 0);
+  const currentTotal = investments.reduce(
+    (acc, i) => acc + convertInvestmentAmount(i.currentValue || 0, i.currency, targetCurrency, p2pRate),
+    0
+  );
 
   // Generate smooth historical curve between initial and current values based on history or interpolation
   for (let i = monthsCount - 1; i >= 0; i--) {
@@ -215,15 +254,16 @@ export function calculatePortfolioEvolutionPoints(
         if (!inv.history || inv.history.length === 0) {
           // Linear interpolation between initial and current
           const ratio = (monthsCount - 1 - i) / (monthsCount - 1);
-          agg += inv.initialValue + (inv.currentValue - inv.initialValue) * ratio;
+          const raw = inv.initialValue + (inv.currentValue - inv.initialValue) * ratio;
+          agg += convertInvestmentAmount(raw, inv.currency, targetCurrency, p2pRate);
         } else {
           // Find the last history point on or before d
           const targetTime = d.getTime();
           const pastPoints = inv.history.filter((p) => new Date(p.at).getTime() <= targetTime);
           if (pastPoints.length > 0) {
-            agg += pastPoints[pastPoints.length - 1].value;
+            agg += convertInvestmentAmount(pastPoints[pastPoints.length - 1].value, inv.currency, targetCurrency, p2pRate);
           } else {
-            agg += inv.initialValue;
+            agg += convertInvestmentAmount(inv.initialValue, inv.currency, targetCurrency, p2pRate);
           }
         }
       }
@@ -234,7 +274,7 @@ export function calculatePortfolioEvolutionPoints(
       date: d.toISOString().split("T")[0],
       month: monthLabel,
       value: monthValue,
-      formattedValue: `$ ${monthValue.toLocaleString("en-US")}`,
+      formattedValue: `${targetCurrency === "BOB" ? "Bs." : "$"} ${monthValue.toLocaleString("en-US")}`,
     });
   }
 

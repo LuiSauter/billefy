@@ -1,6 +1,9 @@
 using Api.Common;
+using BuildingBlocks.Common;
 using Lending.Application.Services;
 using Lending.Contracts;
+using Lending.Domain.Engine.DynamicPayments;
+using Lending.Domain.Enums;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Api.Endpoints;
@@ -17,6 +20,17 @@ public static class LoanEndpoints
             [FromBody] SimulateLoanRequest request,
             ILoanSimulationService simulationService) =>
         {
+            if (!Enum.TryParse<LoanTemplate>(request.Template, ignoreCase: true, out var template) || !Enum.IsDefined(template))
+                return ResultExtensions.ToProblem(Error.Validation("Loan.InvalidTemplate", $"Unknown template '{request.Template}'."));
+            if (!Enum.TryParse<EarlyPaymentPolicy>(request.EarlyPaymentPolicy ?? nameof(EarlyPaymentPolicy.AdvanceInstallments), ignoreCase: true, out var earlyPolicy)
+                || !Enum.IsDefined(earlyPolicy))
+                return ResultExtensions.ToProblem(Error.Validation("Loan.InvalidEarlyPaymentPolicy", $"Unknown early payment policy '{request.EarlyPaymentPolicy}'."));
+            if (!Enum.TryParse<PaymentAllocationOrder>(request.AllocationOrder ?? nameof(PaymentAllocationOrder.LateInterestInterestPrincipal), ignoreCase: true, out var allocOrder)
+                || !Enum.IsDefined(allocOrder))
+                return ResultExtensions.ToProblem(Error.Validation("Loan.InvalidAllocationOrder", $"Unknown allocation order '{request.AllocationOrder}'."));
+            if (!DynamicLoanPaymentCalculator.IsCompatible(template, earlyPolicy))
+                return ResultExtensions.ToProblem(Error.Validation("Loan.IncompatiblePolicy", $"Policy '{earlyPolicy}' is incompatible with template '{template}'."));
+
             var result = simulationService.Simulate(request);
             return result.ToHttpResult();
         })
@@ -66,6 +80,23 @@ public static class LoanEndpoints
         .WithName("GetLoanById")
         .WithSummary("Get loan details including complete installments schedule and payment history.")
         .Produces<LoanDetailDto>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status404NotFound);
+
+        group.MapGet("/{id:guid}/quote", async (
+            [FromRoute] Guid id,
+            [FromQuery] DateOnly? paymentDate,
+            [FromQuery] decimal? amount,
+            ILoanService loanService,
+            CancellationToken ct) =>
+        {
+            var result = await loanService.GetPaymentQuoteAsync(id, paymentDate, amount, ct);
+            return result.ToHttpResult();
+        })
+        .WithName("GetLoanPaymentQuote")
+        .WithSummary("Get authoritative dated payment quote, payoff amount, suggested installment amount, and preview allocations.")
+        .Produces<LoanPaymentQuoteDto>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status404NotFound);
 

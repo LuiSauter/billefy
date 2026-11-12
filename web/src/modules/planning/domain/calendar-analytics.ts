@@ -108,8 +108,12 @@ function convertCurrency(
   p2pRate: number
 ): number {
   const decAmount = new Decimal(amount.toString());
-  const from = fromCurrency.toUpperCase();
-  const to = toCurrency.toUpperCase();
+  const normalize = (c: string) => {
+    const upper = (c || "").toUpperCase();
+    return upper === "USDT" || upper === "USDC" ? "USD" : upper;
+  };
+  const from = normalize(fromCurrency);
+  const to = normalize(toCurrency);
 
   if (from === to) return decAmount.toNumber();
 

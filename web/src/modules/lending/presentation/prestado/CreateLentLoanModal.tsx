@@ -4,7 +4,8 @@ import React, { useEffect, useRef, useState } from "react";
 import Decimal from "decimal.js";
 import { CalendarDays, HandCoins, UserRound } from "lucide-react";
 import type { AccountDto } from "@/modules/ledger/domain/ledger.types";
-import type { CreateLoanRequest, LoanScheduleDto, SimulateLoanRequest } from "../../domain/lending.types";
+import type { CreateLoanRequest, EarlyPaymentPolicy, LoanScheduleDto, SimulateLoanRequest } from "../../domain/lending.types";
+import { EARLY_PAYMENT_POLICY_OPTIONS, getCompatibleEarlyPaymentPolicies } from "../../domain/lending.types";
 import { Button } from "@/shared/ui/button";
 import { Card } from "@/shared/ui/card";
 import { FormField, FormGrid } from "@/shared/ui/form-field";
@@ -35,7 +36,8 @@ type Frequency = "Monthly" | "Biweekly" | "Weekly";
 function initialForm(currency = "BOB") {
   return { person: "", relationship: "Amigo", account: "", principal: "", currency,
     date: new Date().toISOString().slice(0, 10), agreement: "interest" as "interest" | "none",
-    rate: "10", frequency: "Monthly" as Frequency, term: "6", notes: "", plan: "automatic" as "automatic" | "manual" };
+    rate: "10", frequency: "Monthly" as Frequency, term: "6", notes: "", plan: "automatic" as "automatic" | "manual",
+    earlyPaymentPolicy: "AdvanceInstallments" as EarlyPaymentPolicy };
 }
 function decimal(value: string | number): Decimal | null {
   try {
@@ -153,7 +155,8 @@ export function CreateLentLoanModal({ isOpen, onClose, accounts, selectedCurrenc
     try {
       await onSubmit({ type: "Lent", counterpartyName: form.person.trim(), principal: principal!.toNumber(), currency: form.currency,
         interestRate: rate!.toNumber(), rateUnit: "Annual", dayCount: "Thirty360", frequency: form.frequency, template,
-        totalInstallments: count, disbursementDate: form.date, disbursementAccountId: account!.id, counterpartyNotes });
+        totalInstallments: count, disbursementDate: form.date, disbursementAccountId: account!.id, counterpartyNotes,
+        earlyPaymentPolicy: form.earlyPaymentPolicy });
     } catch {
       if (session.current === activeSession) {
         setError("No se pudo registrar el préstamo. Tus datos se conservaron; inténtalo de nuevo.");
@@ -221,6 +224,18 @@ export function CreateLentLoanModal({ isOpen, onClose, accounts, selectedCurrenc
             <p className="text-sm text-muted-foreground">{form.plan === "manual"
               ? "En modo manual registrarás los pagos a medida que los recibas. El servidor controla el saldo mediante el cronograma de amortización estándar; esta preferencia no lo elimina."
               : "Genera las cuotas según el monto, el interés y el plazo. Los cobros se confirman al recibirlos; no se registran automáticamente."}</p>
+            <FormField htmlFor="lent-early-policy" label="Política ante cobros mayores o anticipados"
+              hint={EARLY_PAYMENT_POLICY_OPTIONS.find(p => p.value === form.earlyPaymentPolicy)?.description}>
+              {control => (
+                <SelectField
+                  {...control}
+                  id="lent-early-policy"
+                  value={form.earlyPaymentPolicy}
+                  options={getCompatibleEarlyPaymentPolicies(template).map(p => ({ value: p.value, label: p.label }))}
+                  onChange={e => patch({ earlyPaymentPolicy: e.target.value as EarlyPaymentPolicy })}
+                />
+              )}
+            </FormField>
           </Panel>
         </div>
         <div className="min-w-0 space-y-4" aria-live="polite">

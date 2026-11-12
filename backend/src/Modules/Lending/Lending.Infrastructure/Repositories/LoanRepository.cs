@@ -54,6 +54,7 @@ internal sealed class LoanRepository(LendingDbContext context) : ILoanRepository
             .AsNoTracking()
             .Include(l => l.Installments)
             .Include(l => l.Payments)
+                .ThenInclude(p => p.Allocations)
             .Where(l => l.UserId == userId);
 
         if (type.HasValue)

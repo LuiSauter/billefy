@@ -253,4 +253,30 @@ describe("Calendar Analytics & Event Engine", () => {
     expect(filterCalendarEvents(events, { search: "net" })).toHaveLength(1);
     expect(filterCalendarEvents(events, { search: "non-existent" })).toHaveLength(0);
   });
+
+  it("normalizes USDT and USDC recurring occurrences using p2pRate when viewing in BOB", () => {
+    const result = calculateCalendarAnalytics({
+      recurringOccurrences: [
+        {
+          recurringId: "rec-usdt",
+          name: "Servidor Cloud",
+          flowType: "Expense",
+          amount: 50,
+          currency: "USDT",
+          date: "2026-10-10",
+          isOverdue: false,
+          isDueSoon: false,
+        },
+      ],
+      year: 2026,
+      month: 9, // Oct
+      selectedCurrency: "BOB",
+      p2pRate: 10,
+    });
+
+    // 50 USDT * 10 P2P rate = 500 BOB
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].amountInSelectedCurrency).toBe(500);
+    expect(result.events[0].currency).toBe("USDT");
+  });
 });

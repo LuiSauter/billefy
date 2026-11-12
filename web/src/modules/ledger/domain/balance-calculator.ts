@@ -74,7 +74,11 @@ export function calculateBalanceMetrics({
   const totalBob = bobTotal.plus(usdTotal.times(rateDecimal));
 
   const netLoans = loans.reduce((acc, l) => {
-    const bal = toDecimal(l.remainingPrincipal);
+    const rawBal = toDecimal(l.remainingPrincipal);
+    const bal =
+      l.currency === "USD" || l.currency === "USDT" || l.currency === "USDC"
+        ? rawBal.times(rateDecimal)
+        : rawBal;
     return l.type === "Lent" ? acc.plus(bal) : acc.minus(bal);
   }, new Decimal(0));
 

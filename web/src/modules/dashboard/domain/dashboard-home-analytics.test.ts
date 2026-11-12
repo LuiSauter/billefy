@@ -281,4 +281,96 @@ describe("Dashboard Home Analytics Engine (100% Authentic Data)", () => {
       colorKey: "amber",
     });
   });
+
+  it("excludes internal transfers and reconciliations from cash flow and respects split allocations", () => {
+    const transactionsWithTransfersAndSplits: TransactionDto[] = [
+      {
+        id: "tx-inc-1",
+        accountId: "acc-bcp",
+        direction: "Income",
+        amount: new Decimal(5000),
+        currency: "USD",
+        occurredAt: "2026-10-01T10:00:00Z",
+        description: "Salario",
+        categoryId: "cat-salario",
+        createdAt: "2026-10-01T10:00:00Z",
+      },
+      // Transfer out and transfer in (internal movements)
+      {
+        id: "tx-trans-out",
+        accountId: "acc-bcp",
+        direction: "Expense",
+        amount: new Decimal(2000),
+        currency: "USD",
+        occurredAt: "2026-10-02T10:00:00Z",
+        description: "Transfer to MP",
+        transferId: "transfer-1",
+        createdAt: "2026-10-02T10:00:00Z",
+      },
+      {
+        id: "tx-trans-in",
+        accountId: "acc-mp",
+        direction: "Income",
+        amount: new Decimal(2000),
+        currency: "USD",
+        occurredAt: "2026-10-02T10:00:00Z",
+        description: "Transfer from BCP",
+        transferId: "transfer-1",
+        createdAt: "2026-10-02T10:00:00Z",
+      },
+      // Reconciliation adjustment
+      {
+        id: "tx-adj",
+        accountId: "acc-bcp",
+        direction: "Expense",
+        amount: new Decimal(50),
+        currency: "USD",
+        occurredAt: "2026-10-03T10:00:00Z",
+        description: "Ajuste saldo",
+        isReconciliationAdjustment: true,
+        createdAt: "2026-10-03T10:00:00Z",
+      },
+      // Split transaction
+      {
+        id: "tx-split",
+        accountId: "acc-mp",
+        direction: "Expense",
+        amount: new Decimal(300),
+        currency: "USD",
+        occurredAt: "2026-10-04T10:00:00Z",
+        description: "Supermercado compra dividida",
+        allocations: [
+          { categoryId: "cat-alimentacion", amount: new Decimal(200) },
+          { categoryId: "cat-limpieza", amount: new Decimal(100) },
+        ],
+        createdAt: "2026-10-04T10:00:00Z",
+      },
+    ];
+
+    const result = calculateDashboardHomeAnalytics({
+      accounts: mockAccounts,
+      transactions: transactionsWithTransfersAndSplits,
+      categoryNamesMap: new Map([
+        ["cat-salario", "Salario"],
+        ["cat-alimentacion", "Alimentación"],
+        ["cat-limpieza", "Limpieza"],
+      ]),
+      selectedCurrency: "USD",
+      p2pRate: 10,
+      year: 2026,
+      month: 9, // Oct
+    });
+
+    // Operating income should be 5000 (excluding 2000 transfer in)
+    expect(result.monthlyCashFlow.income).toBe(5000);
+    // Operating expenses should be 300 (excluding 2000 transfer out and 50 reconciliation)
+    expect(result.monthlyCashFlow.expenses).toBe(300);
+    expect(result.monthlyCashFlow.savings).toBe(4700);
+
+    // Split allocations should be categorized separately
+    const food = result.categoryExpenses.find((c) => c.name === "Alimentación");
+    const cleaning = result.categoryExpenses.find((c) => c.name === "Limpieza");
+    expect(food?.amount).toBe(200);
+    expect(cleaning?.amount).toBe(100);
+  });
 });

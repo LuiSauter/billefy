@@ -3,15 +3,18 @@ import { CalendarDays, ChartNoAxesCombined, ChevronRight, HandCoins, Plus, Trian
 import type { LentMetrics } from "../../domain/lending-analytics";
 import { useNumberFormat } from "@/shared/hooks/use-number-format";
 import { Button } from "@/shared/ui/button";
+import { SelectField } from "@/shared/ui/select-field";
+import { useState } from "react";
 import { Card, CardContent, CardHeader } from "@/shared/ui/card";
 
-export function DineroPrestadoSideSummaryCard({ metrics, collectionLoanId, onOpenCreateLent, onOpenPayment }: {
+export function DineroPrestadoSideSummaryCard({ metrics, payableLoans, onOpenCreateLent, onOpenPayment }: {
   metrics: LentMetrics;
-  collectionLoanId?: string;
+  payableLoans: { id: string; counterpartyName: string }[];
   onOpenCreateLent: () => void;
   onOpenPayment: (loanId: string) => void;
 }) {
   const format = useNumberFormat();
+  const [collectionLoanId, setCollectionLoanId] = useState("");
   const items = [
     { label: "Cobrado este mes", value: metrics.monthSummary.collectedThisMonth, icon: HandCoins, tone: "text-emerald-500" },
     { label: "Por cobrar este mes", value: metrics.monthSummary.pendingThisMonth, icon: CalendarDays, tone: "text-amber-500" },
@@ -37,8 +40,10 @@ export function DineroPrestadoSideSummaryCard({ metrics, collectionLoanId, onOpe
         <CardHeader><h2 className="flex items-center gap-2 text-lg font-semibold"><Zap className="size-5 text-violet-500" aria-hidden="true" />Acciones rápidas</h2></CardHeader>
         <CardContent className="flex flex-col gap-2">
           <Button variant="outline" className="justify-start" aria-label="Registrar préstamo" onClick={onOpenCreateLent}><Plus aria-hidden="true" />Registrar préstamo<ChevronRight className="ml-auto" aria-hidden="true" /></Button>
-          <Button variant="outline" className="justify-start" aria-label="Registrar cobro" disabled={!collectionLoanId} onClick={() => { if (collectionLoanId) onOpenPayment(collectionLoanId); }}><HandCoins aria-hidden="true" />Registrar cobro<ChevronRight className="ml-auto" aria-hidden="true" /></Button>
-          {!collectionLoanId && <p className="text-xs text-muted-foreground">No hay préstamos pendientes de cobro.</p>}
+          {payableLoans.length > 0 ? <>
+            <SelectField aria-label="Préstamo a cobrar" value={collectionLoanId} onChange={(event) => setCollectionLoanId(event.target.value)} options={[{ value: "", label: "Seleccioná un préstamo" }, ...payableLoans.map((loan) => ({ value: loan.id, label: loan.counterpartyName }))]} />
+            <Button variant="outline" className="justify-start" aria-label="Registrar cobro" disabled={!collectionLoanId} onClick={() => { if (collectionLoanId) onOpenPayment(collectionLoanId); }}><HandCoins aria-hidden="true" />Registrar cobro<ChevronRight className="ml-auto" aria-hidden="true" /></Button>
+          </> : <p className="text-xs text-muted-foreground">No hay préstamos pendientes de cobro.</p>}
         </CardContent>
       </Card>
     </aside>

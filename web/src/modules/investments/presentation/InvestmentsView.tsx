@@ -42,6 +42,7 @@ interface InvestmentsViewProps {
 
 export function InvestmentsView({
   controller,
+  p2pRate = 9.85,
   accounts,
   goals = [],
   onCashComplete,
@@ -122,9 +123,10 @@ export function InvestmentsView({
   };
 
   // Portfolio Overview calculations
+  const targetCurrency: "USD" | "BOB" = currencySymbol === "Bs." ? "BOB" : "USD";
   const overview = useMemo(() => {
-    return calculatePortfolioOverview(investments);
-  }, [investments]);
+    return calculatePortfolioOverview(investments, targetCurrency, p2pRate);
+  }, [investments, targetCurrency, p2pRate]);
 
   // Selected Investment
   const selectedInvestment = useMemo(() => {

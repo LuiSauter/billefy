@@ -181,6 +181,16 @@ describe("DineroPrestadoView", () => {
     expect(html).not.toContain('dateTime="');
   });
 
+  it("passes upcoming installment context without using its displayed amount as payment input", () => {
+    const onOpenPayment = vi.fn();
+    const html = render({ onOpenPayment });
+    const upcomingAction = harness.actions.find((action) => action.label === "Registrar cobro de Persona Uno");
+    expect(upcomingAction).toBeDefined();
+    upcomingAction?.onClick?.();
+    expect(onOpenPayment).toHaveBeenCalledWith("current", expect.any(Number));
+    expect(html).toContain("Seleccioná un préstamo");
+    expect(harness.actions.find((action) => action.label === "Registrar cobro")?.disabled).toBe(true);
+  });
   it("wires create, collection, details and quick actions to the correct loan", () => {
     const callbacks = props();
     renderToStaticMarkup(<DineroPrestadoView {...callbacks} />);
@@ -198,7 +208,7 @@ describe("DineroPrestadoView", () => {
   it("keeps collections available without optional details and disables them for finished loans", () => {
     const html = render({ loans: [paid], onOpenLoanDetails: undefined });
     expect(html).not.toContain("Ver detalles de");
-    expect(harness.actions.find((action) => action.label === "Registrar cobro")?.disabled).toBe(true);
+    expect(harness.actions.find((action) => action.label === "Registrar cobro")?.disabled).not.toBe(false);
     expect(html).not.toContain('aria-label="Registrar cobro de Persona Cinco"');
     expect(html).toContain('data-status="Finalizado"');
   });
@@ -207,8 +217,8 @@ describe("DineroPrestadoView", () => {
     const callbacks = props({ loans: [loan({ firstDueDate: "", disbursementDate: "" })], onOpenLoanDetails: undefined });
     const html = renderToStaticMarkup(<DineroPrestadoView {...callbacks} />);
     expect(html).not.toContain("Ver detalles de");
-    harness.actions.find((action) => action.label === "Registrar cobro")!.onClick!();
-    expect(callbacks.onOpenPayment).toHaveBeenCalledWith("current");
+    expect(callbacks.onOpenPayment).not.toHaveBeenCalledWith("current");
+    expect(html).toContain("Seleccioná un préstamo");
   });
 
   it("shows empty and loading states without zero-valued financial claims", () => {

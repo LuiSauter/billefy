@@ -4,7 +4,16 @@ import React, { useEffect, useRef, useState } from "react";
 import Decimal from "decimal.js";
 import { BarChart3, Calculator, Car, Coins, CreditCard, FileText, House, Layers, Sparkles, Users } from "lucide-react";
 import type { AccountDto } from "@/modules/ledger/domain/ledger.types";
-import { LOAN_TEMPLATE_OPTIONS, type CreateLoanRequest, type LoanScheduleDto, type LoanTemplate, type SimulateLoanRequest } from "../../domain/lending.types";
+import {
+  EARLY_PAYMENT_POLICY_OPTIONS,
+  type EarlyPaymentPolicy,
+  getCompatibleEarlyPaymentPolicies,
+  LOAN_TEMPLATE_OPTIONS,
+  type CreateLoanRequest,
+  type LoanScheduleDto,
+  type LoanTemplate,
+  type SimulateLoanRequest,
+} from "../../domain/lending.types";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
 import { Card } from "@/shared/ui/card";
@@ -44,7 +53,7 @@ const QUICK_TEMPLATES = [
 function initialForm() {
   return { reference: "", creditor: "", account: "", currency: "BOB", principal: "", rate: "18", term: "24",
     date: new Date().toISOString().slice(0, 10), method: "FixedInstallment" as LoanTemplate,
-    category: "Personal" as Category, description: "" };
+    category: "Personal" as Category, description: "", earlyPaymentPolicy: "AdvanceInstallments" as EarlyPaymentPolicy };
 }
 function decimal(value: string | number): Decimal | null {
   try {
@@ -161,7 +170,7 @@ export function CreateDebtModal({ isOpen, onClose, accounts, monthlyIncome, sele
       await onSubmit({ type: "Borrowed", counterpartyName: form.creditor.trim(), principal: principal!.toNumber(),
         currency: form.currency, interestRate: rate!.toNumber(), rateUnit: "Annual", frequency: "Monthly",
         template: form.method, totalInstallments: term, disbursementDate: form.date,
-        disbursementAccountId: account!.id, counterpartyNotes });
+        disbursementAccountId: account!.id, counterpartyNotes, earlyPaymentPolicy: form.earlyPaymentPolicy });
     } catch {
       setError("No se pudo crear la deuda. Tus datos se conservaron; inténtalo de nuevo.");
       submitLock.current = false; setSubmitting(false);
@@ -219,6 +228,11 @@ export function CreateDebtModal({ isOpen, onClose, accounts, monthlyIncome, sele
               <FormField htmlFor="debt-method" label="Método de cálculo">{control =>
                 <SelectField {...control} value={form.method} options={LOAN_TEMPLATE_OPTIONS}
                   onChange={e => patch({ method: e.target.value as LoanTemplate })} />}</FormField>
+              <FormField htmlFor="debt-early-policy" label="Pagos mayores o anticipados"
+                hint={EARLY_PAYMENT_POLICY_OPTIONS.find(p => p.value === form.earlyPaymentPolicy)?.description}>{control =>
+                <SelectField {...control} id="debt-early-policy" value={form.earlyPaymentPolicy}
+                  options={getCompatibleEarlyPaymentPolicies(form.method).map(p => ({ value: p.value, label: p.label }))}
+                  onChange={e => patch({ earlyPaymentPolicy: e.target.value as EarlyPaymentPolicy })} />}</FormField>
             </FormGrid>
             {accounts.filter(item => item.currency === form.currency).length === 0 &&
               <p role="status" className="text-sm text-muted-foreground">No hay cuentas en {form.currency}. Crea una cuenta compatible antes de registrar la deuda.</p>}

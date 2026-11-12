@@ -148,8 +148,17 @@ describe("CreateLentLoanModal", () => {
     expect(props.onSubmit).toHaveBeenCalledExactlyOnceWith({ type: "Lent", counterpartyName: "Contacto de prueba", principal: 1000,
       currency: "BOB", interestRate: 0.24, rateUnit: "Annual", dayCount: "Thirty360", frequency: "Monthly", template: "FixedInstallment",
       totalInstallments: 3, disbursementDate: "2026-01-31", disbursementAccountId: "bob",
-      counterpartyNotes: "[Plan: Automático]\nRelación: Familia\nDescripción: Compra de equipo" });
+      counterpartyNotes: "[Plan: Automático]\nRelación: Familia\nDescripción: Compra de equipo",
+      earlyPaymentPolicy: "AdvanceInstallments" });
     expect(props.onClose).toHaveBeenCalledOnce();
+  });
+
+  it("submits configured earlyPaymentPolicy when changed by user", async () => {
+    let tree = fill();
+    control(tree, "lent-early-policy").props.onChange({ target: { value: "ReduceInstallment" } });
+    tree = render();
+    await submit(tree);
+    expect(props.onSubmit).toHaveBeenCalledWith(expect.objectContaining({ earlyPaymentPolicy: "ReduceInstallment" }));
   });
 
   it("switches to zero interest, shows server-calculated rounding and dates, and restores the entered rate", async () => {

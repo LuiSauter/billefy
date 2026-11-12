@@ -13,7 +13,9 @@ public sealed record SimulateLoanRequest(
     decimal? LateRate = null,
     string? Compounding = null,
     int CompoundingPeriods = 1,
-    DateOnly? MaturityDate = null);
+    DateOnly? MaturityDate = null,
+    string? EarlyPaymentPolicy = null,
+    string? AllocationOrder = null);
 
 public sealed record InstallmentScheduleDto(
     int Number,
@@ -49,7 +51,9 @@ public sealed record CreateLoanRequest(
     decimal? LateRate = null,
     string? Compounding = null,
     int CompoundingPeriods = 1,
-    DateOnly? MaturityDate = null);
+    DateOnly? MaturityDate = null,
+    string? EarlyPaymentPolicy = null,
+    string? AllocationOrder = null);
 
 public sealed record LoanCancellationEligibilityDto(bool CanCancel, string? ReasonCode);
 
@@ -71,7 +75,13 @@ public sealed record LoanSummaryDto(
     DateOnly FirstDueDate,
     int TotalInstallments,
     DateTime CreatedAt,
-    LoanCancellationEligibilityDto CancellationEligibility);
+    LoanCancellationEligibilityDto CancellationEligibility,
+    string EarlyPaymentPolicy = "AdvanceInstallments",
+    decimal? LateRate = null,
+    int GraceDays = 0,
+    string? AllocationOrder = null,
+    decimal TotalPayoff = 0m,
+    decimal? SuggestedAmount = null);
 
 public sealed record LoanInstallmentDto(
     Guid Id,
@@ -84,7 +94,11 @@ public sealed record LoanInstallmentDto(
     decimal PaidInterest,
     decimal PaidLateInterest,
     decimal RemainingPrincipal,
-    string Status);
+    string Status,
+    decimal? OutstandingPrincipal = null,
+    decimal? OutstandingInterest = null,
+    decimal? OutstandingLateInterest = null,
+    decimal? TotalOutstanding = null);
 
 public sealed record PaymentAllocationDto(
     Guid InstallmentId,
@@ -100,7 +114,48 @@ public sealed record LoanPaymentDto(
     string Currency,
     DateTime PaymentDate,
     string? Note,
-    List<PaymentAllocationDto> Allocations);
+    List<PaymentAllocationDto> Allocations,
+    long? RecordSequence = null,
+    int? CalculationVersion = null,
+    decimal? EarlyPrincipalAmount = null,
+    DateOnly? EarlyPrincipalEffectiveDate = null,
+    decimal? RemainingBalanceAfter = null,
+    bool IsAmbiguous = false);
+
+public sealed record LoanInstallmentBalanceDto(
+    Guid InstallmentId,
+    int Number,
+    DateOnly DueDate,
+    decimal OutstandingPrincipal,
+    decimal OutstandingRegularInterest,
+    decimal OutstandingLateInterest,
+    decimal TotalOutstanding);
+
+public sealed record LoanHistoricalSnapshotDto(
+    DateOnly PaymentDate,
+    DateTime CreatedAt,
+    long? RecordSequence,
+    decimal? RemainingTotal,
+    bool IsAmbiguous,
+    Guid? PaymentId);
+
+public sealed record LoanPaymentQuoteDto(
+    Guid LoanId,
+    string Currency,
+    DateOnly AsOfDate,
+    decimal TotalPayoff,
+    decimal? SuggestedAmount,
+    decimal RemainingPrincipal,
+    string LoanStatus,
+    string EarlyPaymentPolicy,
+    List<LoanInstallmentBalanceDto> Installments,
+    List<LoanInstallmentBalanceDto> ProjectedInstallments,
+    List<PaymentAllocationDto> ProposedAllocations,
+    decimal ProposedEarlyPrincipalAmount,
+    DateOnly? ProposedEarlyPrincipalEffectiveDate,
+    decimal ResultingPrincipal,
+    string ResultingState,
+    List<LoanHistoricalSnapshotDto> HistoricalSnapshots);
 
 public sealed record LoanDetailDto(
     LoanSummaryDto Summary,

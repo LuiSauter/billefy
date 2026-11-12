@@ -308,6 +308,20 @@ describe("ReportsView", () => {
     expect(html).not.toContain("Sin movimientos para analizar");
   });
 
+  it("renders approximate currency consolidation indicator and forwards currency toggle", () => {
+    const onToggleCurrency = vi.fn();
+    const tree = render({ ...defaultProps, selectedCurrency: "BOB", p2pRate: 9.85, onToggleCurrency });
+    const headerProps = componentProps(tree, ReportsHeader);
+    expect(headerProps.selectedCurrency).toBe("BOB");
+    expect(headerProps.p2pRate).toBe(9.85);
+    expect(headerProps.onToggleCurrency).toBe(onToggleCurrency);
+    const html = renderToStaticMarkup(tree);
+    expect(html).toContain("Valores unificados en");
+    expect(html).toContain("Bolivianos (Bs.)");
+    expect(html).toContain("≈ aprox. P2P Bs. 9.85");
+    expect(html).toContain("Cada cuenta conserva su saldo en su moneda original");
+  });
+
   it("does not fabricate converted values when FX is missing and recovers with a valid rate", () => {
     const props = { ...defaultProps, selectedCurrency: "USD" };
     const tree = render(props);

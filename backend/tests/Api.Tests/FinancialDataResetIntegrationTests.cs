@@ -125,6 +125,11 @@ public sealed class FinancialDataResetIntegrationTests
             new CreateBudgetRequest(100m, "BOB"), userId))
             response.StatusCode.Should().Be(HttpStatusCode.Created);
 
+        using (var response = await SendJsonAsUserAsync(client, HttpMethod.Post, "/v1/planning/recurring",
+            new CreateRecurringPaymentRequest("Streaming", "Monthly sub", "Expense", 50m, "BOB", "Monthly",
+                DateOnly.FromDateTime(DateTime.UtcNow)), userId))
+            response.StatusCode.Should().Be(HttpStatusCode.Created);
+
         using (var response = await SendJsonAsUserAsync(client, HttpMethod.Post, "/v1/loans",
             new CreateLoanRequest("Reset verification", "Lent", "SimpleOnBalance", 100m, "BOB", 0.05m,
                 TotalInstallments: 1, DisbursementDate: DateOnly.FromDateTime(DateTime.UtcNow)), userId))
@@ -158,14 +163,15 @@ public sealed class FinancialDataResetIntegrationTests
         financialData.GetProperty("ingestion").GetProperty("rawEvents").GetArrayLength().Should().BePositive();
         financialData.GetProperty("lending").GetProperty("loans").GetArrayLength().Should().BePositive();
         financialData.GetProperty("planning").GetProperty("budgets").GetArrayLength().Should().BePositive();
+        financialData.GetProperty("planning").GetProperty("recurringPayments").GetArrayLength().Should().BePositive();
     }
 
     private static void AssertFinancialCollectionsEmpty(JsonElement financialData)
     {
         AssertEmpty(financialData.GetProperty("ledger"), "accounts", "categories", "transactions", "allocations");
-        AssertEmpty(financialData.GetProperty("ingestion"), "rawEvents", "drafts", "draftEvents", "financialSources", "imports");
+        AssertEmpty(financialData.GetProperty("ingestion"), "rawEvents", "drafts", "draftEvents", "financialSources", "binanceCredentials", "imports");
         AssertEmpty(financialData.GetProperty("lending"), "loans", "installments", "payments", "paymentAllocations", "counterparties");
-        AssertEmpty(financialData.GetProperty("planning"), "budgets", "goals", "investments", "investmentCashLinks", "distributionPlans");
+        AssertEmpty(financialData.GetProperty("planning"), "budgets", "goals", "investments", "investmentCashLinks", "distributionPlans", "recurringPayments");
     }
 
     private static void AssertEmpty(JsonElement module, params string[] collectionNames)

@@ -11,6 +11,9 @@ interface ReportsHeaderProps {
   periodMonths: ReportsPeriodMonths;
   onPeriodChange: (periodMonths: ReportsPeriodMonths) => void;
   onExport?: () => void;
+  selectedCurrency?: string;
+  onToggleCurrency?: () => void;
+  p2pRate?: number;
 }
 
 const periods = [
@@ -20,7 +23,14 @@ const periods = [
   { months: 12, label: "Último año" },
 ] satisfies { months: ReportsPeriodMonths; label: string }[];
 
-export function ReportsHeader({ periodMonths, onPeriodChange, onExport }: ReportsHeaderProps) {
+export function ReportsHeader({
+  periodMonths,
+  onPeriodChange,
+  onExport,
+  selectedCurrency = "BOB",
+  onToggleCurrency,
+  p2pRate = 9.85,
+}: ReportsHeaderProps) {
   return (
     <header className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
       <div>
@@ -30,6 +40,22 @@ export function ReportsHeader({ periodMonths, onPeriodChange, onExport }: Report
         </p>
       </div>
       <div className="flex flex-wrap items-center gap-3">
+        {onToggleCurrency && (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onToggleCurrency}
+            title={`Alternar moneda del reporte (${selectedCurrency === "BOB" ? "Ver en USD" : "Ver en BOB"}). Tasa P2P: Bs. ${Number(p2pRate).toFixed(2)}`}
+            className="flex items-center gap-1.5 font-bold shadow-2xs"
+          >
+            <span className="text-purple-400 font-extrabold">
+              {selectedCurrency === "USD" ? "USD ($)" : "BOB (Bs.)"}
+            </span>
+            <span className="text-[10px] text-muted-foreground font-mono hidden sm:inline">
+              ≈ P2P {Number(p2pRate).toFixed(2)}
+            </span>
+          </Button>
+        )}
         <div className="relative min-w-48 flex-1 sm:flex-none">
           <CalendarDays aria-hidden="true" className="pointer-events-none absolute top-1/2 left-3 z-10 size-4 -translate-y-1/2 text-muted-foreground" />
           <SelectField

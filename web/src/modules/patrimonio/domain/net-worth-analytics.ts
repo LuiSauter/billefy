@@ -198,6 +198,30 @@ export function calculatePatrimonioOverview({
     });
   }
 
+  // Add active loans receivable (Dinero prestado) from Lending module
+  for (const loan of loans) {
+    if (loan.type === "Lent" && loan.status === "Active") {
+      const remaining = typeof loan.remainingPrincipal === "number"
+        ? loan.remainingPrincipal
+        : Number(loan.remainingPrincipal?.toString() || 0);
+
+      if (remaining > 0) {
+        const val = convertPatrimonioAmount(remaining, loan.currency, targetCurrency, p2pRate);
+        assetMap.other.total += val;
+        assetMap.other.items.push({
+          id: loan.id,
+          name: loan.counterpartyName ? `Préstamo a ${loan.counterpartyName}` : "Dinero prestado",
+          value: val,
+          originalValue: remaining,
+          category: "other",
+          currency: loan.currency,
+          notes: `Tasa: ${(loan.interestRate * 100).toFixed(1)}% • Saldo pendiente`,
+          isFromModule: true,
+        });
+      }
+    }
+  }
+
   // Sort sub-items inside each category descending by value
   for (const cat of Object.keys(assetMap) as AssetCategory[]) {
     assetMap[cat].items.sort((a, b) => b.value - a.value);
@@ -312,20 +336,29 @@ export function calculatePatrimonioOverview({
     .filter((a) => new Date(a.createdAt).getTime() < startOfThisMonth.getTime())
     .reduce((acc, a) => acc + convertPatrimonioAmount(a.value, a.currency, targetCurrency, p2pRate), 0);
 
-  const previousTotalAssets =
-    previousInvestmentsVal + previousAccountsVal + previousManualAssetsVal;
-
   const previousManualLiabVal = manualLiabilities
     .filter((l) => new Date(l.createdAt).getTime() < startOfThisMonth.getTime())
     .reduce((acc, l) => acc + convertPatrimonioAmount(l.amount, l.currency, targetCurrency, p2pRate), 0);
 
   // Approximate previous loans
-  const previousLoansVal = loans.reduce((acc, l) => {
-    const rem = typeof l.remainingPrincipal === "number" ? l.remainingPrincipal : Number(l.remainingPrincipal?.toString() || 0);
-    return acc + convertPatrimonioAmount(rem, l.currency, targetCurrency, p2pRate);
-  }, 0);
+  const previousBorrowedLoansVal = loans
+    .filter((l) => l.type === "Borrowed" && l.status === "Active")
+    .reduce((acc, l) => {
+      const rem = typeof l.remainingPrincipal === "number" ? l.remainingPrincipal : Number(l.remainingPrincipal?.toString() || 0);
+      return acc + convertPatrimonioAmount(rem, l.currency, targetCurrency, p2pRate);
+    }, 0);
 
-  const previousTotalLiabilities = previousLoansVal + previousManualLiabVal;
+  const previousLentLoansVal = loans
+    .filter((l) => l.type === "Lent" && l.status === "Active")
+    .reduce((acc, l) => {
+      const rem = typeof l.remainingPrincipal === "number" ? l.remainingPrincipal : Number(l.remainingPrincipal?.toString() || 0);
+      return acc + convertPatrimonioAmount(rem, l.currency, targetCurrency, p2pRate);
+    }, 0);
+
+  const previousTotalAssets =
+    previousInvestmentsVal + previousAccountsVal + previousManualAssetsVal + previousLentLoansVal;
+
+  const previousTotalLiabilities = previousBorrowedLoansVal + previousManualLiabVal;
   const previousNetWorth = previousTotalAssets - previousTotalLiabilities;
 
   let previousNetWorthChangePct: number | null = null;

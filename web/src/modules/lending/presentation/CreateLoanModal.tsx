@@ -4,10 +4,12 @@ import React, { useState } from "react";
 import { AccountDto } from "@/modules/ledger/domain/ledger.types";
 import {
   CreateLoanRequest,
+  EarlyPaymentPolicy,
   LOAN_TEMPLATE_OPTIONS,
   LoanScheduleDto,
   LoanTemplate,
   SimulateLoanRequest,
+  getCompatibleEarlyPaymentPolicies,
 } from "@/modules/lending/domain/lending.types";
 import { LoanSchedulePreview } from "@/modules/lending/presentation/LoanSchedulePreview";
 import { Button } from "@/shared/ui/button";
@@ -39,6 +41,7 @@ export function CreateLoanModal({
   const [counterparty, setCounterparty] = useState("");
   const [type, setType] = useState<"Lent" | "Borrowed">("Lent");
   const [template, setTemplate] = useState<LoanTemplate>("FixedInstallment");
+  const [earlyPaymentPolicy, setEarlyPaymentPolicy] = useState<EarlyPaymentPolicy>("AdvanceInstallments");
   const [principal, setPrincipal] = useState("");
   const [currency, setCurrency] = useState("BOB");
   const [rate, setRate] = useState("0.02");
@@ -52,6 +55,13 @@ export function CreateLoanModal({
   const rateNum = parseFloat(rate) || 0;
   const installmentsNum = parseInt(installments, 10) || 0;
   const isValid = counterparty.trim().length > 0 && principalNum > 0 && installmentsNum >= 1;
+  const compatiblePolicies = getCompatibleEarlyPaymentPolicies(template);
+
+  React.useEffect(() => {
+    if (!compatiblePolicies.some((p) => p.value === earlyPaymentPolicy)) {
+      setEarlyPaymentPolicy(compatiblePolicies[0].value);
+    }
+  }, [compatiblePolicies, earlyPaymentPolicy]);
 
   const handleSimulate = async () => {
     if (principalNum <= 0 || installmentsNum < 1) return;
@@ -93,6 +103,7 @@ export function CreateLoanModal({
         totalInstallments: installmentsNum,
         frequency: "Monthly",
         disbursementAccountId: disbursementAcc || undefined,
+        earlyPaymentPolicy,
       });
       notify.success("Préstamo registrado", `Registrado para ${counterparty.trim()}`);
       setPrincipal("");
@@ -189,6 +200,20 @@ export function CreateLoanModal({
             )}
           </FormField>
         </FormGrid>
+
+        <FormField
+          label="Política ante pagos anticipados o mayores"
+          hint={compatiblePolicies.find((p) => p.value === earlyPaymentPolicy)?.description}
+        >
+          {(control) => (
+            <SelectField
+              {...control}
+              value={earlyPaymentPolicy}
+              onChange={(e) => setEarlyPaymentPolicy(e.target.value as EarlyPaymentPolicy)}
+              options={compatiblePolicies.map((p) => ({ value: p.value, label: p.label }))}
+            />
+          )}
+        </FormField>
 
         <FormGrid>
           <FormField label="Capital principal" required>

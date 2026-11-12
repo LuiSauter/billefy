@@ -15,6 +15,7 @@ import { useInvestments } from "@/modules/investments/application/useInvestments
 import { useDistributionPlan } from "@/modules/planning/application/useDistributionPlan";
 import { FetchHttpClient } from "@/shared/infrastructure/fetch-http.client";
 import { defaultTokenStorage } from "@/shared/infrastructure/local-storage-token.adapter";
+import { monthKey, sumMonthlyFlow } from "@/modules/ledger/domain/monthly-analytics";
 import { Loader2, Wallet } from "lucide-react";
 import type { WorkspaceSubtab } from "@/modules/workspaces/presentation/WorkspaceDashboardView";
 import { WorkspacesApiRepository } from "@/modules/workspaces/infrastructure/workspaces-api.repository";
@@ -123,6 +124,15 @@ export default function DashboardPage() {
 
   const p2pRate = dashboard.rate?.appliedRate || 9.85;
 
+  const monthlyIncome = useMemo(() => {
+    const currentMonth = monthKey(new Date());
+    const raw = sumMonthlyFlow(dashboard.transactions, currentMonth, "Income", p2pRate).toNumber();
+    if (selectedCurrency === "USD" && p2pRate > 0) {
+      return raw / p2pRate;
+    }
+    return raw;
+  }, [dashboard.transactions, p2pRate, selectedCurrency]);
+
   const { balanceMetrics, budgetMetrics } = useFinancialMetrics({
     accounts: dashboard.accounts,
     loans: dashboard.loans,
@@ -149,11 +159,19 @@ export default function DashboardPage() {
 
   const handleConfirmAllDrafts = async () => {
     for (const draft of dashboard.pendingDrafts) {
-      const accId =
-        draft.suggestedAccountId ||
-        dashboard.accounts.find((a) => a.currency === draft.currency)?.id ||
-        dashboard.accounts[0]?.id ||
-        "";
+      const draftCurrency = draft.currency?.toUpperCase();
+      const matchingAccount = dashboard.accounts.find(
+        (a) => a.currency.toUpperCase() === draftCurrency
+      );
+      const suggestedMatch = draft.suggestedAccountId
+        ? dashboard.accounts.find(
+            (a) =>
+              a.id === draft.suggestedAccountId &&
+              a.currency.toUpperCase() === draftCurrency
+          )
+        : undefined;
+
+      const accId = suggestedMatch?.id || matchingAccount?.id;
       if (accId) {
         await dashboard.confirmDraft(draft.id, {
           accountId: accId,
@@ -319,6 +337,9 @@ export default function DashboardPage() {
               loans={dashboard.loans}
               budgets={dashboard.budgets}
               selectedCurrency={selectedCurrency}
+              onToggleCurrency={() =>
+                setSelectedCurrency((prev) => (prev === "BOB" ? "USD" : "BOB"))
+              }
               p2pRate={p2pRate}
               loading={dashboard.loading}
               onNavigateToTab={(tab) => setActiveTab(tab as NavigationTab)}
@@ -363,8 +384,9 @@ export default function DashboardPage() {
               loading={dashboard.loading}
               selectedCurrency={selectedCurrency}
               p2pRate={p2pRate}
+              monthlyIncome={monthlyIncome}
               onOpenCreateDebt={() => modals.setIsCreateDebtModalOpen(true)}
-              onOpenPayment={(loanId) => modals.openLoanPayment(loanId, dashboard.loans)}
+              onOpenPayment={(loanId, installmentNumber?: number) => void modals.openLoanPayment(loanId, dashboard.loans, installmentNumber)}
               onOpenLoanDetails={modals.openLoanDetail}
             />
           )}
@@ -376,7 +398,7 @@ export default function DashboardPage() {
               selectedCurrency={selectedCurrency}
               p2pRate={p2pRate}
               onOpenCreateLent={() => modals.setIsCreateLentModalOpen(true)}
-              onOpenPayment={(loanId) => modals.openLoanPayment(loanId, dashboard.loans)}
+              onOpenPayment={(loanId, installmentNumber) => void modals.openLoanPayment(loanId, dashboard.loans, installmentNumber)}
               onOpenLoanDetails={modals.openLoanDetail}
             />
           )}
@@ -500,7 +522,13 @@ export default function DashboardPage() {
               onOpenWhatsApp={() => modals.setIsWhatsAppModalOpen(true)}
               onOpenFxTransfer={() => modals.setIsFxTransferOpen(true)}
               onLogout={logout}
-              onFinancialDataReset={dashboard.refreshFinancialData}
+              onFinancialDataReset={async () => {
+                await Promise.allSettled([
+                  dashboard.refreshFinancialData(),
+                  investmentsCtl.refreshAfterCash(),
+                  planCtl.reloadPlan(),
+                ]);
+              }}
             />
           )}
         </main>
@@ -527,6 +555,7 @@ export default function DashboardPage() {
         selectedCurrency={selectedCurrency}
         onSelectCurrency={setSelectedCurrency}
         onLogout={logout}
+        monthlyIncome={monthlyIncome}
         planEnabled={planCtl.plan.enabled}
         onTogglePlan={(enabled) => {
           const accepted = planCtl.setEnabled(enabled);
@@ -545,6 +574,7 @@ export default function DashboardPage() {
           reconcileAccount: dashboard.reconcileAccount,
           simulateLoan: dashboard.simulateLoan,
           createLoan: dashboard.createLoan,
+          getPaymentQuote: dashboard.getPaymentQuote,
           registerLoanPayment: dashboard.registerLoanPayment,
           cancelLoan: dashboard.cancelLoan,
           createBudget: dashboard.createBudget,

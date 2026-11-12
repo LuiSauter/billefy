@@ -9,7 +9,7 @@ import { BorrowerAvatar, CollectionDate } from "./DineroPrestadoTableCard";
 
 export function DineroPrestadoUpcomingCollectionsCard({ collections, onOpenPayment }: {
   collections: UpcomingLoanPayment[];
-  onOpenPayment: (loanId: string) => void;
+  onOpenPayment: (loanId: string, installmentNumber: number) => void;
 }) {
   const format = useNumberFormat();
   const [showAll, setShowAll] = useState(false);
@@ -30,7 +30,7 @@ export function DineroPrestadoUpcomingCollectionsCard({ collections, onOpenPayme
             </div>
             <div className="shrink-0 text-right">
               <p className="rounded-full bg-emerald-500/15 px-2 py-1 text-xs font-semibold tabular-nums text-emerald-500">{format(collection.amount)} {collection.currency}</p>
-              <Button size="xs" variant="ghost" aria-label={`Registrar cobro de ${collection.name}`} onClick={() => onOpenPayment(collection.loanId)}>Cobrar</Button>
+              <Button size="xs" variant="ghost" aria-label={`Registrar cobro de ${collection.name}`} onClick={() => onOpenPayment(collection.loanId, collection.installmentNumber)}>Cobrar</Button>
             </div>
           </li>)}
         </ul>}

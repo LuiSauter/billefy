@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import Decimal from "decimal.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AccountDto } from "@/modules/ledger/domain/ledger.types";
-import type { LoanSummaryDto } from "../../domain/lending.types";
+import type { LoanPaymentQuoteDto, LoanSummaryDto } from "../../domain/lending.types";
 
 // The repository uses a Node-only Vitest runner; mirror the neighboring modal
 // handler/effect tests while exercising the real field markup through SSR.
@@ -79,6 +79,21 @@ const accounts: AccountDto[] = [
   { id: "bob", name: "Cuenta BOB", currency: "BOB", balance: new Decimal(0), type: "Savings", createdAt: "2026-01-01" },
   { id: "usd", name: "Cuenta USD", currency: "USD", balance: new Decimal(0), type: "Savings", createdAt: "2026-01-01" },
 ];
+const quote = (overrides: Partial<LoanPaymentQuoteDto> = {}): LoanPaymentQuoteDto => ({
+  loanId: loan.id, currency: loan.currency, asOfDate: "2026-02-01", totalPayoff: new Decimal("123.456789"),
+  suggestedAmount: new Decimal("40.30"), remainingPrincipal: loan.remainingPrincipal, loanStatus: "Active",
+  earlyPaymentPolicy: "AdvanceInstallments", installments: [
+    { installmentId: "i2", number: 2, dueDate: "2026-01-01", outstandingPrincipal: new Decimal(20),
+      outstandingRegularInterest: new Decimal(2), outstandingLateInterest: new Decimal("1.123456"), totalOutstanding: new Decimal("23.123456") },
+  ], projectedInstallments: [], proposedAllocations: [], proposedEarlyPrincipalAmount: new Decimal(0),
+  proposedEarlyPrincipalEffectiveDate: null, resultingPrincipal: loan.remainingPrincipal, resultingState: "Active", historicalSnapshots: [],
+  ...overrides,
+});
+function click(tree: unknown, label: string) {
+  const button = nodes(tree).find(item => item.props.type === "button" && text(item.props.children).trim() === label);
+  if (!button) throw new Error(`Missing button ${label}`);
+  (button.props.onClick as () => void)();
+}
 let props: RegisterLoanPaymentModalProps;
 function render(overrides: Partial<RegisterLoanPaymentModalProps> = {}) {
   props = { ...props, ...overrides }; hooks.cursor = 0;
@@ -94,12 +109,12 @@ afterEach(() => {
 });
 
 describe("RegisterLoanPaymentModal", () => {
-  it.each([["Lent", "Registrar cobro"], ["Borrowed", "Registrar pago de deuda"]] as const)("renders %s with the correct title and remaining-principal default", (type, title) => {
+  it.each([["Lent", "Registrar cobro"], ["Borrowed", "Registrar pago de deuda"]] as const)("renders %s with a blank amount and deliberate account choice", (type, title) => {
     const tree = render({ loan: { ...loan, type } });
     expect(tree?.type).toBe(ResponsiveDrawer); expect(tree?.props.title).toBe(title);
-    expect(text(tree)).toContain("Contacto de prueba"); expect(control(tree, "payment-amount").props.value).toBe("100.30");
+    expect(text(tree)).toContain("Contacto de prueba"); expect(control(tree, "payment-amount").props.value).toBe("");
     expect(control(tree, "payment-date").props.value).toBe("2026-02-01");
-    for (const label of ["Cuenta", "Fecha del pago", "Nota", "Capital restante antes", "Capital restante después (estimado)", "Cancelar"])
+    for (const label of [type === "Lent" ? "Cuenta de destino" : "Cuenta de origen", type === "Lent" ? "Fecha del cobro" : "Fecha del pago", "Nota", "Capital pendiente", "Cancelar"])
       expect(text(tree)).toContain(label);
   });
 
@@ -110,40 +125,74 @@ describe("RegisterLoanPaymentModal", () => {
     expect(html).toContain('form="register-loan-payment-form"'); expect(html).toContain('type="date"');
   });
 
-  it("updates decimal balance estimates and submits the selected loan, account, date and trimmed note", async () => {
+  it("keeps capital unchanged in the preview and submits the entered amount, account, date and trimmed note", async () => {
     let tree = render(); change(tree, "payment-amount", "0.10"); change(tree, "payment-account", "bob");
     change(tree, "payment-date", "2026-01-31"); change(tree, "payment-note", "  Recibo de prueba  "); tree = render();
-    expect(text(tree)).toContain("100,20 BOB");
+    expect(text(tree)).toContain("100,30 BOB");
     await submit(tree);
-    expect(props.onSubmit).toHaveBeenCalledExactlyOnceWith("loan-1", { amount: 0.1, accountId: "bob", paymentDate: "2026-01-31", note: "Recibo de prueba" });
+    expect(props.onSubmit).toHaveBeenCalledExactlyOnceWith("loan-1", { amount: "0.1", accountId: "bob", paymentDate: "2026-01-31", note: "Recibo de prueba" });
     expect(props.onClose).toHaveBeenCalledOnce();
   });
 
-  it("allows no ledger account and omits an empty optional note", async () => {
-    let tree = render(); change(tree, "payment-note", "   "); tree = render(); await submit(tree);
-    expect(props.onSubmit).toHaveBeenCalledWith("loan-1", { amount: 100.3, paymentDate: "2026-02-01", accountId: undefined, note: undefined });
+  it("allows a deliberate no-account collection and omits an empty optional note", async () => {
+    let tree = render(); change(tree, "payment-amount", "100.30"); change(tree, "payment-account", "none"); change(tree, "payment-note", "   "); tree = render(); await submit(tree);
+    expect(props.onSubmit).toHaveBeenCalledWith("loan-1", { amount: "100.3", paymentDate: "2026-02-01", accountId: undefined, note: undefined });
   });
 
   it("filters account currency and rejects incompatible selections", async () => {
     let tree = render(); expect(control(tree, "payment-account").props.options).toEqual([
-      { value: "", label: "Sin movimiento en cuenta" }, { value: "bob", label: "Cuenta BOB" },
+      { value: "", label: "Seleccioná una opción" }, { value: "none", label: "(Sin movimiento en cuenta bancaria)" }, { value: "bob", label: "Cuenta BOB" },
     ]);
     change(tree, "payment-account", "usd"); tree = render(); await submit(tree); expect(props.onSubmit).not.toHaveBeenCalled();
     tree = render({ loan: { ...loan, id: "usd-loan", currency: "USD" } }); tree = render();
     expect(control(tree, "payment-account").props.value).toBe(""); expect(control(tree, "payment-amount").props.currency).toBe("$");
   });
 
+  it("uses the local calendar day across a UTC date boundary", () => {
+    const previousTimezone = process.env.TZ;
+    process.env.TZ = "America/Los_Angeles";
+    vi.setSystemTime(new Date("2026-02-01T02:00:00Z"));
+    expect(control(render(), "payment-date").props.value).toBe("2026-01-31");
+    if (previousTimezone === undefined) delete process.env.TZ; else process.env.TZ = previousTimezone;
+  });
+
+  it("allows six decimals without account movement but enforces account currency precision and numeric bounds", async () => {
+    let tree = render(); change(tree, "payment-amount", "1.123456"); change(tree, "payment-account", "none"); tree = render();
+    await submit(tree);
+    expect(props.onSubmit).toHaveBeenCalledWith("loan-1", expect.objectContaining({ amount: "1.123456", accountId: undefined }));
+    tree = render(); change(tree, "payment-amount", "1.123"); change(tree, "payment-account", "bob"); tree = render(); await submit(tree);
+    expect(props.onSubmit).toHaveBeenCalledOnce();
+    expect(text(tree)).toContain("Ingresá un monto positivo");
+  });
+
+  it("preserves valid numeric(20,6) precision and normalizes the submitted decimal string", async () => {
+    let tree = render(); change(tree, "payment-amount", "99999999999999.999999"); change(tree, "payment-account", "none"); tree = render();
+    await submit(tree);
+    expect(props.onSubmit).toHaveBeenCalledWith("loan-1", expect.objectContaining({ amount: "99999999999999.999999", accountId: undefined }));
+  });
+
+  it("normalizes trailing decimal zeros in the submitted amount", async () => {
+    let tree = render(); change(tree, "payment-amount", "200.000000"); change(tree, "payment-account", "none"); tree = render();
+    await submit(tree);
+    expect(props.onSubmit).toHaveBeenCalledWith("loan-1", expect.objectContaining({ amount: "200", accountId: undefined }));
+  });
+
+  it("rejects amounts beyond numeric(20,6)", async () => {
+    let tree = render(); change(tree, "payment-amount", "999999999999999"); change(tree, "payment-account", "none"); tree = render(); await submit(tree);
+    expect(props.onSubmit).not.toHaveBeenCalled();
+  });
+
   it.each([["payment-amount", "0"], ["payment-amount", "-1"], ["payment-amount", ""], ["payment-amount", "NaN"],
     ["payment-amount", "Infinity"], ["payment-amount", "0.001"], ["payment-date", ""], ["payment-date", "2026-02-30"]])("rejects invalid %s=%s", async (id, value) => {
-    let tree = render(); change(tree, id, value); tree = render(); await submit(tree); expect(props.onSubmit).not.toHaveBeenCalled();
+    let tree = render(); change(tree, "payment-account", "bob"); change(tree, id, value); tree = render(); await submit(tree); expect(props.onSubmit).not.toHaveBeenCalled();
     expect(nodes(tree).find(item => item.props.type === "submit")!.props.disabled).toBe(true);
   });
 
-  it("does not cap payments at principal when interest may be owed and labels the allocation estimate honestly", async () => {
+  it("allows a partial/interest-inclusive amount without predicting capital allocation", async () => {
     let tree = render({ loan: { ...loan, template: "FixedInstallment", interestRate: 0.12 } });
     change(tree, "payment-amount", "110.30"); tree = render();
-    expect(text(tree)).toContain("0,00 BOB"); expect(text(tree)).toContain("mora e intereses"); expect(text(tree)).toContain("servidor");
-    await submit(tree); expect(props.onSubmit).toHaveBeenCalledWith("loan-1", expect.objectContaining({ amount: 110.3 }));
+    expect(text(tree)).toContain("100,30 BOB"); expect(text(tree)).toContain("mora"); expect(text(tree)).not.toContain("Capital restante después");
+    change(tree, "payment-account", "none"); tree = render(); await submit(tree); expect(props.onSubmit).toHaveBeenCalledWith("loan-1", expect.objectContaining({ amount: "110.3" }));
   });
 
   it("renders nothing without a loan and disables payments for settled or inactive loans", async () => {
@@ -156,7 +205,7 @@ describe("RegisterLoanPaymentModal", () => {
   it("prevents duplicate writes, blocks dismissal while pending, and preserves input after a safe failure", async () => {
     let reject!: (reason: unknown) => void;
     props.onSubmit = vi.fn().mockImplementationOnce(() => new Promise((_, fail) => { reject = fail; })).mockResolvedValue({});
-    let tree = render(); change(tree, "payment-amount", "25.50"); tree = render(); const first = submit(tree); await submit(tree);
+    let tree = render(); change(tree, "payment-amount", "25.50"); change(tree, "payment-account", "none"); tree = render(); const first = submit(tree); await submit(tree);
     expect(props.onSubmit).toHaveBeenCalledOnce(); tree = render();
     tree!.props.onOpenChange(false); expect(props.onClose).not.toHaveBeenCalled();
     reject(new Error("private account details")); await first; tree = render();
@@ -168,16 +217,127 @@ describe("RegisterLoanPaymentModal", () => {
   it("resets input on close/reopen and when switching loans", () => {
     let tree = render(); change(tree, "payment-amount", "20"); change(tree, "payment-note", "old note");
     render({ isOpen: false }); tree = render({ isOpen: true });
-    expect(control(tree, "payment-amount").props.value).toBe("100.30"); expect(control(tree, "payment-note").props.value).toBe("");
+    expect(control(tree, "payment-amount").props.value).toBe(""); expect(control(tree, "payment-account").props.value).toBe(""); expect(control(tree, "payment-note").props.value).toBe("");
     change(tree, "payment-amount", "10"); tree = render({ loan: { ...loan, id: "loan-2", remainingPrincipal: new Decimal("55.25") } }); tree = render();
-    expect(control(tree, "payment-amount").props.value).toBe("55.25"); expect(control(tree, "payment-account").props.value).toBe("");
+    expect(control(tree, "payment-amount").props.value).toBe(""); expect(control(tree, "payment-account").props.value).toBe("");
   });
 
   it("does not close a newly selected loan when an earlier loan's payment completes", async () => {
     let resolve!: (value: unknown) => void;
     props.onSubmit = vi.fn(() => new Promise(done => { resolve = done; }));
-    const pending = submit(render()); render({ loan: { ...loan, id: "loan-2" } });
+    let tree = render(); change(tree, "payment-amount", "1"); change(tree, "payment-account", "none"); tree = render();
+    const pending = submit(tree); render({ loan: { ...loan, id: "loan-2" } });
     resolve({}); await pending; expect(props.onClose).not.toHaveBeenCalled();
+  });
+
+  it("prefills the selected installment's exact dated outstanding amount, including late interest", async () => {
+    const onGetQuote = vi.fn().mockResolvedValue(quote());
+    render({ onGetQuote, installmentNumber: 2 }); await Promise.resolve(); const tree = render();
+    expect(onGetQuote).toHaveBeenCalledExactlyOnceWith("loan-1", "2026-02-01");
+    expect(control(tree, "payment-amount").props.value).toBe("23.123456");
+    expect(text(tree)).toContain("23,123456 BOB"); expect(text(tree)).toContain("Incluye intereses de mora");
+    expect(text(tree)).toContain("Saldo total para cancelar:"); expect(text(tree)).toContain("123,456789 BOB");
+    expect(text(tree)).toContain("pendientes más antiguas");
+  });
+
+  it("uses the suggested oldest installment and offers explicit suggested/payoff chips", async () => {
+    const onGetQuote = vi.fn().mockResolvedValue(quote());
+    render({ onGetQuote }); await Promise.resolve(); let tree = render();
+    expect(control(tree, "payment-amount").props.value).toBe("40.3");
+    click(tree, "Cancelar total"); tree = render();
+    expect(control(tree, "payment-amount").props.value).toBe("123.456789");
+    change(tree, "payment-account", "none"); tree = render(); await submit(tree);
+    expect(props.onSubmit).toHaveBeenCalledWith("loan-1", expect.objectContaining({ amount: "123.456789" }));
+    click(tree, "Cuota sugerida"); tree = render();
+    expect(control(tree, "payment-amount").props.value).toBe("40.3");
+  });
+
+  it("renders live distribution preview when amount is entered (e.g. 100 BOB on 89.12 BOB installment)", async () => {
+    const multiInstallmentQuote = quote({
+      installments: [
+        { installmentId: "i1", number: 1, dueDate: "2026-02-01", outstandingPrincipal: new Decimal("70"),
+          outstandingRegularInterest: new Decimal("19.12"), outstandingLateInterest: new Decimal(0), totalOutstanding: new Decimal("89.12") },
+        { installmentId: "i2", number: 2, dueDate: "2026-03-01", outstandingPrincipal: new Decimal("71.12"),
+          outstandingRegularInterest: new Decimal("18"), outstandingLateInterest: new Decimal(0), totalOutstanding: new Decimal("89.12") },
+      ],
+      earlyPaymentPolicy: "AdvanceInstallments",
+    });
+    render({ onGetQuote: vi.fn().mockResolvedValue(multiInstallmentQuote) });
+    await Promise.resolve();
+    let tree = render();
+    change(tree, "payment-amount", "100.00");
+    tree = render();
+    expect(text(tree)).toContain("Distribución prevista del monto");
+    expect(text(tree)).toContain("Cancelada 100%");
+    expect(text(tree)).toContain("Abono parcial");
+    expect(text(tree)).toContain("Falta 78,24 BOB");
+  });
+
+  it.each([null, new Decimal(0)])("falls back to total payoff when suggestion is %s and the selected installment is missing", async suggestedAmount => {
+    render({ installmentNumber: 99, onGetQuote: vi.fn().mockResolvedValue(quote({ suggestedAmount })) });
+    await Promise.resolve(); const tree = render();
+    expect(control(tree, "payment-amount").props.value).toBe("123.456789");
+    expect(text(tree)).not.toContain("Cuota sugerida");
+  });
+
+  it("updates an automatic amount on date change but preserves manual edits and deliberate clearing", async () => {
+    const onGetQuote = vi.fn().mockResolvedValueOnce(quote()).mockResolvedValue(quote({ suggestedAmount: new Decimal(50) }));
+    render({ onGetQuote }); await Promise.resolve(); let tree = render();
+    change(tree, "payment-date", "2026-02-02"); render(); await Promise.resolve(); tree = render();
+    expect(onGetQuote).toHaveBeenLastCalledWith("loan-1", "2026-02-02");
+    expect(control(tree, "payment-amount").props.value).toBe("50");
+    change(tree, "payment-amount", "12.345600"); change(tree, "payment-date", "2026-02-03"); render(); await Promise.resolve(); tree = render();
+    expect(control(tree, "payment-amount").props.value).toBe("12.345600");
+    change(tree, "payment-amount", ""); change(tree, "payment-date", "2026-02-04"); render(); await Promise.resolve(); tree = render();
+    expect(control(tree, "payment-amount").props.value).toBe("");
+  });
+
+  it("preserves an amount typed while the initial quote is pending", async () => {
+    let resolve!: (value: LoanPaymentQuoteDto) => void;
+    let tree = render({ onGetQuote: vi.fn(() => new Promise(done => { resolve = done; })) });
+    change(tree, "payment-amount", "17.50"); resolve(quote()); await Promise.resolve(); tree = render();
+    expect(control(tree, "payment-amount").props.value).toBe("17.50");
+  });
+
+  it("ignores stale quotes after date changes, loan switches and close/reopen", async () => {
+    const resolvers: ((value: LoanPaymentQuoteDto) => void)[] = [];
+    const onGetQuote = vi.fn(() => new Promise<LoanPaymentQuoteDto>(done => resolvers.push(done)));
+    let tree = render({ onGetQuote }); change(tree, "payment-date", "2026-02-02"); render();
+    resolvers[1](quote({ suggestedAmount: new Decimal(50) })); await Promise.resolve();
+    resolvers[0](quote()); await Promise.resolve(); tree = render();
+    expect(control(tree, "payment-amount").props.value).toBe("50");
+    tree = render({ loan: { ...loan, id: "loan-2" } }); render({ isOpen: false }); render({ isOpen: true });
+    resolvers[2](quote({ loanId: "loan-2", suggestedAmount: new Decimal(99) })); await Promise.resolve(); tree = render();
+    expect(control(tree, "payment-amount").props.value).toBe("");
+    resolvers[3](quote({ loanId: "loan-2", suggestedAmount: new Decimal(60) })); await Promise.resolve(); tree = render();
+    expect(control(tree, "payment-amount").props.value).toBe("60");
+  });
+
+  it("shows a safe quote error, blocks submission and supports retry without losing input", async () => {
+    const onGetQuote = vi.fn().mockRejectedValueOnce(new Error("private data")).mockResolvedValue(quote());
+    let tree = render({ onGetQuote }); change(tree, "payment-amount", "15"); change(tree, "payment-account", "none");
+    await Promise.resolve(); tree = render(); await submit(tree);
+    expect(props.onSubmit).not.toHaveBeenCalled(); expect(text(tree)).toContain("No se pudo consultar el saldo");
+    expect(text(tree)).not.toContain("private data");
+    click(tree, "Reintentar cotización"); render(); await Promise.resolve(); tree = render();
+    expect(control(tree, "payment-amount").props.value).toBe("15");
+    await submit(tree); expect(props.onSubmit).toHaveBeenCalledOnce();
+  });
+
+  it("allows interest-only outstanding debt even when remaining principal is zero", async () => {
+    render({ loan: { ...loan, type: "Borrowed", remainingPrincipal: new Decimal(0) },
+      onGetQuote: vi.fn().mockResolvedValue(quote({ totalPayoff: new Decimal(30), suggestedAmount: new Decimal(30), remainingPrincipal: new Decimal(0) })) });
+    await Promise.resolve(); let tree = render(); change(tree, "payment-account", "bob"); tree = render();
+    expect(text(tree)).toContain("Resumen del pago"); expect(text(tree)).not.toContain("Monto cobrado");
+    await submit(tree); expect(props.onSubmit).toHaveBeenCalledWith("loan-1", expect.objectContaining({ amount: "30", accountId: "bob" }));
+  });
+
+  it("does not request a quote for a closed modal or invalid date", async () => {
+    const onGetQuote = vi.fn().mockResolvedValue(quote());
+    render({ isOpen: false, onGetQuote }); expect(onGetQuote).not.toHaveBeenCalled();
+    let tree = render({ isOpen: true }); await Promise.resolve(); tree = render();
+    change(tree, "payment-date", "2026-02-30"); render(); await Promise.resolve();
+    expect(onGetQuote).toHaveBeenCalledOnce();
   });
 
   it("cancels without writing", () => {

@@ -300,4 +300,45 @@ describe("net-worth-analytics domain (100% authentic, zero mock hardcodes)", () 
     expect(overview.assetsByCategory).toEqual([]);
     expect(overview.liabilitiesByCategory).toEqual([]);
   });
+
+  it("incorporates active Lent loans as assets so lending money preserves net worth", () => {
+    const lentLoan: LoanSummaryDto = {
+      id: "lent-1",
+      counterpartyId: "cp-1",
+      counterpartyName: "Amigo Juan",
+      type: "Lent",
+      template: "Standard",
+      principal: new Decimal(3000),
+      interestRate: 0.1,
+      annualEffectiveRate: 0.1,
+      remainingPrincipal: new Decimal(3000),
+      disbursementDate: "2026-01-01",
+      firstDueDate: "2026-02-01",
+      totalInstallments: 12,
+      createdAt: "2026-01-01",
+      status: "Active",
+      currency: "USD",
+    };
+
+    const overview = calculatePatrimonioOverview({
+      accounts: [{
+        id: "acc-1",
+        name: "Banco BCP",
+        type: "Savings",
+        currency: "USD",
+        balance: new Decimal(2000),
+        createdAt: "2026-01-01T00:00:00Z",
+      }],
+      loans: [lentLoan],
+    });
+
+    // Total Assets: Cash 2,000 + Lent Loan 3,000 = 5,000 USD
+    expect(overview.totalAssets).toBe(5000);
+    expect(overview.totalLiabilities).toBe(0);
+    expect(overview.netWorth).toBe(5000);
+
+    const otherCategory = overview.assetsByCategory.find((c) => c.category === "other");
+    expect(otherCategory).toBeDefined();
+    expect(otherCategory!.items.some((i) => i.id === "lent-1" && i.value === 3000)).toBe(true);
+  });
 });

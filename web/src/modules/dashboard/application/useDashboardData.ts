@@ -130,6 +130,7 @@ export function useDashboardData(authToken?: string | null, authUserId?: string 
     simulateLoan: lending.simulateLoan,
     createLoan: lending.createLoan,
     getLoanById: lending.getLoanById,
+    getPaymentQuote: lending.getPaymentQuote,
     registerLoanPayment: lending.registerLoanPayment,
     cancelLoan: lending.cancelLoan,
     createBudget: planning.createBudget,

@@ -160,4 +160,51 @@ describe("portfolio-analytics", () => {
     expect(overview.performanceRanking).toEqual([]);
     expect(overview.categoryDistribution).toEqual([]);
   });
+
+  it("normalizes multi-currency investments using p2pRate and targetCurrency", () => {
+    const multiInvestments: Investment[] = [
+      {
+        id: "inv-usd",
+        name: "Apple Stock",
+        kind: "stocks",
+        currency: "USD",
+        initialValue: 1000,
+        currentValue: 1500,
+        quantity: 10,
+        iconKey: "sparkles",
+        colorKey: "blue",
+        createdAt: "2026-01-01",
+      },
+      {
+        id: "inv-bob",
+        name: "Fondo Mutuo BOB",
+        kind: "funds",
+        currency: "BOB",
+        initialValue: 10000,
+        currentValue: 10000,
+        quantity: 1,
+        iconKey: "sparkles",
+        colorKey: "blue",
+        createdAt: "2026-01-01",
+      },
+    ];
+
+    // Valued in USD with p2pRate = 10:
+    // Apple = $1,500 USD
+    // Fondo BOB = 10,000 / 10 = $1,000 USD
+    // Total Value in USD = $2,500 USD
+    const usdOverview = calculatePortfolioOverview(multiInvestments, "USD", 10);
+    expect(usdOverview.totalValue).toBe(2500);
+    expect(usdOverview.totalCost).toBe(2000); // 1000 USD + (10000/10) = 2000
+    expect(usdOverview.totalGainLoss).toBe(500);
+
+    // Valued in BOB with p2pRate = 10:
+    // Apple = 1,500 * 10 = 15,000 BOB
+    // Fondo BOB = 10,000 BOB
+    // Total Value in BOB = 25,000 BOB
+    const bobOverview = calculatePortfolioOverview(multiInvestments, "BOB", 10);
+    expect(bobOverview.totalValue).toBe(25000);
+    expect(bobOverview.totalCost).toBe(20000);
+    expect(bobOverview.totalGainLoss).toBe(5000);
+  });
 });

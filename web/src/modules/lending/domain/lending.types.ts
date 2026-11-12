@@ -9,6 +9,48 @@ export type LoanTemplate =
   | "InterestOnly"
   | "SinglePaymentCompound";
 
+export type EarlyPaymentPolicy =
+  | "AdvanceInstallments"
+  | "ReduceInstallment"
+  | "ReduceTerm";
+
+export const EARLY_PAYMENT_POLICY_OPTIONS: {
+  value: EarlyPaymentPolicy;
+  label: string;
+  description: string;
+}[] = [
+  {
+    value: "AdvanceInstallments",
+    label: "Adelantar cuotas futuras",
+    description: "El excedente cubre las próximas cuotas pactadas sin alterar el cronograma original.",
+  },
+  {
+    value: "ReduceInstallment",
+    label: "Abonar a capital (reducir cuota)",
+    description: "El excedente reduce el capital y recalcula cuotas mensuales más bajas manteniendo el plazo.",
+  },
+  {
+    value: "ReduceTerm",
+    label: "Abonar a capital (reducir plazo)",
+    description: "El excedente reduce el capital manteniendo el monto de cuota y acortando el plazo.",
+  },
+];
+
+export function getCompatibleEarlyPaymentPolicies(template: LoanTemplate): typeof EARLY_PAYMENT_POLICY_OPTIONS {
+  switch (template) {
+    case "FixedInstallment":
+    case "SimpleOnBalance":
+    case "NoInterest":
+      return EARLY_PAYMENT_POLICY_OPTIONS;
+    case "InterestOnly":
+      return EARLY_PAYMENT_POLICY_OPTIONS.filter((o) => o.value !== "ReduceTerm");
+    case "FlatOnInitialCapital":
+    case "SinglePaymentCompound":
+    default:
+      return EARLY_PAYMENT_POLICY_OPTIONS.filter((o) => o.value === "AdvanceInstallments");
+  }
+}
+
 export const LOAN_TEMPLATE_OPTIONS: { value: LoanTemplate; label: string }[] = [
   { value: "FixedInstallment", label: "Francés (Cuota Fija)" },
   { value: "SimpleOnBalance", label: "Alemán / Sobre Saldo (Capital Fijo)" },
@@ -64,6 +106,7 @@ export interface CreateLoanRequest {
   counterpartyNotes?: string;
   graceDays?: number;
   lateRate?: number;
+  earlyPaymentPolicy?: EarlyPaymentPolicy | string;
 }
 
 export interface LoanCancellationEligibilityDto {
@@ -93,6 +136,11 @@ export interface LoanSummaryDto {
   totalInstallments: number;
   createdAt: string;
   cancellationEligibility?: LoanCancellationEligibilityDto;
+  earlyPaymentPolicy?: EarlyPaymentPolicy | string;
+  lateRate?: number | null;
+  graceDays?: number;
+  totalPayoff?: Decimal;
+  suggestedAmount?: Decimal | null;
 }
 
 export interface PaymentAllocationDto {
@@ -102,6 +150,44 @@ export interface PaymentAllocationDto {
   toInterest: number;
   toPrincipal: number;
   remainingBalanceAfter: number;
+}
+
+export interface LoanInstallmentBalanceDto {
+  installmentId: string;
+  number: number;
+  dueDate: string;
+  outstandingPrincipal: Decimal;
+  outstandingRegularInterest: Decimal;
+  outstandingLateInterest: Decimal;
+  totalOutstanding: Decimal;
+}
+
+export interface LoanHistoricalSnapshotDto {
+  paymentDate: string;
+  createdAt: string;
+  recordSequence: number | null;
+  remainingTotal: Decimal | null;
+  isAmbiguous: boolean;
+  paymentId: string | null;
+}
+
+export interface LoanPaymentQuoteDto {
+  loanId: string;
+  currency: string;
+  asOfDate: string;
+  totalPayoff: Decimal;
+  suggestedAmount: Decimal | null;
+  remainingPrincipal: Decimal;
+  loanStatus: string;
+  earlyPaymentPolicy: EarlyPaymentPolicy | string;
+  installments: LoanInstallmentBalanceDto[];
+  projectedInstallments: LoanInstallmentBalanceDto[];
+  proposedAllocations: PaymentAllocationDto[];
+  proposedEarlyPrincipalAmount: Decimal;
+  proposedEarlyPrincipalEffectiveDate: string | null;
+  resultingPrincipal: Decimal;
+  resultingState: string;
+  historicalSnapshots: LoanHistoricalSnapshotDto[];
 }
 
 export interface LoanDetailDto {
@@ -117,6 +203,10 @@ export interface LoanDetailDto {
     paidInterest: Decimal;
     paidLateInterest: Decimal;
     remainingPrincipal: Decimal;
+    outstandingPrincipal?: Decimal | null;
+    outstandingInterest?: Decimal | null;
+    outstandingLateInterest?: Decimal | null;
+    totalOutstanding?: Decimal | null;
     status: string;
   }[];
   payments: {
@@ -126,11 +216,17 @@ export interface LoanDetailDto {
     paymentDate: string;
     note?: string;
     allocations: PaymentAllocationDto[];
+    recordSequence?: number | null;
+    calculationVersion?: number | null;
+    earlyPrincipalAmount?: Decimal | null;
+    earlyPrincipalEffectiveDate?: string | null;
+    remainingBalanceAfter?: Decimal | null;
+    isAmbiguous?: boolean;
   }[];
 }
 
 export interface RegisterLoanPaymentRequest {
-  amount: number;
+  amount: string | number;
   paymentDate?: string;
   accountId?: string;
   note?: string;
@@ -149,6 +245,7 @@ export interface ILendingRepository {
   createLoan(req: CreateLoanRequest): Promise<{ id: string }>;
   getLoans(type?: LoanType, status?: string): Promise<LoanSummaryDto[]>;
   getLoanById(id: string): Promise<LoanDetailDto>;
+  getPaymentQuote(loanId: string, paymentDate?: string, amount?: string | number): Promise<LoanPaymentQuoteDto>;
   registerLoanPayment(loanId: string, req: RegisterLoanPaymentRequest): Promise<LoanPaymentResultDto>;
   cancelLoan(loanId: string): Promise<LoanCancellationResultDto>;
 }

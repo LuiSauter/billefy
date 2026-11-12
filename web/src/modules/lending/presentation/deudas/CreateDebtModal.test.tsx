@@ -196,8 +196,17 @@ describe("CreateDebtModal", () => {
       interestRate: 0.18, rateUnit: "Annual", frequency: "Monthly", template: "FixedInstallment",
       totalInstallments: 24, disbursementDate: "2026-10-01", disbursementAccountId: "bob-account",
       counterpartyNotes: "Referencia: Crédito personal\nCategoría: Personal\nDescripción: Condiciones acordadas",
+      earlyPaymentPolicy: "AdvanceInstallments",
     });
     expect(props.onClose).toHaveBeenCalledOnce();
+  });
+
+  it("submits configured earlyPaymentPolicy when changed by user", async () => {
+    let tree = fill();
+    control(tree, "debt-early-policy").props.onChange({ target: { value: "ReduceTerm" } });
+    tree = render();
+    await submit(tree);
+    expect(props.onSubmit).toHaveBeenCalledWith(expect.objectContaining({ earlyPaymentPolicy: "ReduceTerm" }));
   });
 
   it("debounces live simulation and sends annual percentage as a fraction with the selected method", async () => {

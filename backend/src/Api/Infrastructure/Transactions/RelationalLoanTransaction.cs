@@ -24,13 +24,21 @@ public sealed class RelationalLoanTransaction(
 
         var lendingConnection = lendingDb.Database.GetDbConnection();
         var ledgerConnection = ledgerDb.Database.GetDbConnection();
-        if (lendingConnection.State != ledgerConnection.State ||
-            (!ReferenceEquals(lendingConnection, ledgerConnection) &&
-             lendingConnection.State != System.Data.ConnectionState.Closed) ||
-            lendingDb.Database.CurrentTransaction is not null ||
+
+        if (lendingDb.Database.CurrentTransaction is not null ||
             ledgerDb.Database.CurrentTransaction is not null)
         {
             throw new InvalidOperationException("Atomic loan operations require closed connections without active transactions.");
+        }
+
+        if (lendingConnection.State != System.Data.ConnectionState.Closed)
+        {
+            await lendingDb.Database.CloseConnectionAsync();
+        }
+
+        if (ledgerConnection.State != System.Data.ConnectionState.Closed)
+        {
+            await ledgerDb.Database.CloseConnectionAsync();
         }
 
         DbConnection? previousLendingConnection = null;
