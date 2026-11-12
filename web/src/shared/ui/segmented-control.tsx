@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { cn } from "@/shared/lib/utils"
+import { useRovingRadio } from "@/shared/hooks/use-roving-radio"
 
 type SegmentedTone = "default" | "income" | "expense"
 
@@ -38,41 +39,7 @@ function SegmentedControl<T extends string>({
   className,
   ...aria
 }: SegmentedControlProps<T>) {
-  const refs = React.useRef<(HTMLButtonElement | null)[]>([])
-  const selectedIndex = options.findIndex((option) => option.value === value)
-  const tabbableIndex = selectedIndex === -1 ? 0 : selectedIndex
-
-  function select(index: number) {
-    const option = options[index]
-    if (!option) return
-    onChange(option.value)
-    refs.current[index]?.focus()
-  }
-
-  function onKeyDown(event: React.KeyboardEvent, index: number) {
-    const last = options.length - 1
-    let next: number | null = null
-    switch (event.key) {
-      case "ArrowRight":
-      case "ArrowDown":
-        next = index === last ? 0 : index + 1
-        break
-      case "ArrowLeft":
-      case "ArrowUp":
-        next = index === 0 ? last : index - 1
-        break
-      case "Home":
-        next = 0
-        break
-      case "End":
-        next = last
-        break
-    }
-    if (next !== null) {
-      event.preventDefault()
-      select(next)
-    }
-  }
+  const { tabbableIndex, onKeyDown, setRef } = useRovingRadio(options, value, onChange)
 
   return (
     <div
@@ -90,9 +57,7 @@ function SegmentedControl<T extends string>({
         return (
           <button
             key={option.value}
-            ref={(node) => {
-              refs.current[index] = node
-            }}
+            ref={setRef(index)}
             type="button"
             role="radio"
             aria-checked={active}

@@ -43,7 +43,7 @@ export function MonthPicker({ value, onChange, className }: MonthPickerProps) {
   const selectedMonth = (value || "").split("-")[1]
 
   return (
-    <div className={cn("w-64 p-3 space-y-3", className)}>
+    <div className={cn("w-full max-w-64 p-3 space-y-3", className)}>
       <div className="flex items-center justify-between px-1">
         <Button
           variant="ghost"
@@ -80,7 +80,7 @@ export function MonthPicker({ value, onChange, className }: MonthPickerProps) {
               className={cn(
                 "h-9 rounded-xl text-xs font-semibold transition-colors",
                 isSelected
-                  ? "bg-[#7c3aed] text-white hover:bg-[#6d28d9]"
+                  ? "bg-primary text-primary-foreground hover:bg-primary/90"
                   : "hover:bg-muted text-foreground"
               )}
             >

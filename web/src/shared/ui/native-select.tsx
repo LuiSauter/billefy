@@ -4,19 +4,23 @@ import { ChevronDownIcon } from "lucide-react"
 
 function NativeSelect({
   className,
+  wrapperClassName,
   size = "default",
   ...props
-}: Omit<React.ComponentProps<"select">, "size"> & { size?: "sm" | "default" }) {
+}: Omit<React.ComponentProps<"select">, "size"> & {
+  size?: "sm" | "default" | "lg"
+  wrapperClassName?: string
+}) {
   return (
     <div
-      className="group/native-select relative w-full has-[select:disabled]:opacity-50"
+      className={cn("group/native-select relative w-full has-[select:disabled]:opacity-50", wrapperClassName)}
       data-slot="native-select-wrapper"
     >
       <select
         data-slot="native-select"
         data-size={size}
         className={cn(
-          "h-10 w-full min-w-0 appearance-none rounded-xl border border-input bg-card px-3 py-2 pr-9 text-sm shadow-2xs transition-[color,box-shadow] outline-none selection:bg-primary selection:text-primary-foreground placeholder:text-muted-foreground disabled:pointer-events-none disabled:cursor-not-allowed data-[size=sm]:h-8 data-[size=sm]:py-1 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20 aria-invalid:border-destructive aria-invalid:ring-2 aria-invalid:ring-destructive/20",
+          "h-10 w-full min-w-0 appearance-none rounded-xl border border-input bg-card px-3 py-2 pr-9 text-sm shadow-2xs transition-[color,box-shadow] outline-none selection:bg-primary selection:text-primary-foreground placeholder:text-muted-foreground disabled:pointer-events-none disabled:cursor-not-allowed data-[size=sm]:h-8 data-[size=sm]:py-1 data-[size=lg]:h-12 data-[size=lg]:text-base data-[size=lg]:font-medium md:data-[size=lg]:h-11 md:data-[size=lg]:text-[15px] focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20 aria-invalid:border-destructive aria-invalid:ring-2 aria-invalid:ring-destructive/20",
           className
         )}
         {...props}
