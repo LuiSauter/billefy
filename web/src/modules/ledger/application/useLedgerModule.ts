@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useCallback } from "react";
 import { notify } from "@/shared/lib/notify";
+import { formatUserNumber } from "@/shared/lib/number-format";
 import { IHttpClient } from "@/shared/application/http-client.contract";
 import {
   AccountDto,
@@ -114,7 +115,7 @@ export function useLedgerModule(http: IHttpClient | null) {
       } else {
         notify.success(
           "Conciliación exitosa",
-          `Ajuste aplicado: ${res.difference > 0 ? "+" : ""}${res.difference.toFixed(2)}.`
+          `Ajuste aplicado: ${res.difference > 0 ? "+" : ""}${formatUserNumber(res.difference)}.`
         );
       }
       await refreshLedger();

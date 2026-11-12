@@ -14,8 +14,8 @@ No backend changes, no i18n layer, no visual rebrand, no business-logic/financia
 ## Phases / Tasks
 - [x] T1 Number foundation: reactive preferences store (`useSyncExternalStore`), single engine in `shared/lib/number-format.ts`, currency metadata, `<Amount>/<Money>` (Inter, tabular-nums, semibold, sign/tone, compact), retire `format.ts` money paths, `formatMoney` en-US, chart tooltip, `workspaceMoney`; tests.
 - [x] T2 Migrate all numeric display to `<Amount>`/`useNumberFormat` in ledger, dashboard, ingestion, fx (incl. Drafts currency mislabel bug, percentages, counts).
-- [ ] T3 Same migration for planning, lending, investments.
-- [ ] T4 Same migration for patrimonio, reports, workspaces, identity/auth FX displays.
+- [x] T3 Same migration for planning, lending, investments.
+- [x] T4 Same migration for patrimonio, reports, workspaces, identity/auth FX displays.
 - [ ] T5 shared/ui consolidation: segmented-control + chip-radio-group on `RadioGroup`; select-field composes native-select; Select/Tabs/MonthPicker/chart tooltip overflow hardening; `Alert` for page error banner; month-picker theme tokens.
 - [ ] T6 Replace hand-built overlays with `ResponsiveDrawer`: patrimonio Add Asset/Liability (merge into one), investments Create/Edit/UpdatePrice, ledger MovementTransferModal/MovementActions.
 - [ ] T7 Extract duplicates: shared transaction amount/account fields (Register/Edit), DraftRow, KPI card (lending), donut card, appearance picker, category disclosure + item row, SettingSwitchRow; raw `<button>/<input>/<select>/<table>` → shadcn (`Button`, `Input`, `SelectField`, `Switch`, `Checkbox`, `Table`, `Card`).
@@ -26,4 +26,5 @@ No backend changes, no i18n layer, no visual rebrand, no business-logic/financia
 - [ ] T12 Final verification: `pnpm --dir web lint && test && build`; fixed-format grep guards (no `toLocaleString`/`toFixed` for money outside number-format).
 
 ## Evidence log
-T1 ad1f086; T2 b64c66a + follow-up commits (ledger movements, account-detail, dashboard/fx/ingestion)
+T1 ad1f086; T2 b64c66a + follow-up commits (ledger movements, account-detail, dashboard/fx/ingestion); T3 1112bb9, cfadd5e, 94c3e63, 493286c, 240abef, 32e7b32 (added `Percentage`, `Quantity` to shared/ui/amount; investments modals deferred to T6)
+T4 1e4f304 (patrimonio, reports, workspaces, identity P2P text; MoneyInput now takes ISO codes)
