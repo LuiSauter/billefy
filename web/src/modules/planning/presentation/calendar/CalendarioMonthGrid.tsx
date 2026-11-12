@@ -2,7 +2,9 @@
 
 import React from "react";
 import { Tag } from "lucide-react";
-import { useNumberFormat } from "@/shared/hooks/use-number-format";
+import { Amount } from "@/shared/ui/amount";
+import { useNumberPreferences } from "@/shared/hooks/use-number-format";
+import { formatAmountText } from "@/shared/lib/amount-format";
 import type {
   CalendarMonthCell,
   CalendarEvent,
@@ -25,8 +27,7 @@ export function CalendarioMonthGrid({
   onSelectEvent,
   selectedCurrency,
 }: CalendarioMonthGridProps) {
-  const format = useNumberFormat();
-  const currencySymbol = selectedCurrency === "USD" ? "$" : "Bs";
+  const numberPreferences = useNumberPreferences();
 
   return (
     <div className="rounded-2xl border border-border/80 bg-card/60 backdrop-blur-xs overflow-hidden shadow-xs flex flex-col">
@@ -99,13 +100,16 @@ export function CalendarioMonthGrid({
                       className={`px-1.5 py-1 rounded-md text-[10px] sm:text-[11px] border flex flex-col gap-0.5 transition-all truncate hover:brightness-110 ${getEventBadgeStyle(
                         ev
                       )}`}
-                      title={`${ev.title}: ${currencySymbol} ${format(ev.amountInSelectedCurrency)}`}
+                      title={`${ev.title}: ${formatAmountText(ev.isExpense ? -ev.amountInSelectedCurrency : ev.amountInSelectedCurrency, selectedCurrency, numberPreferences)}`}
                     >
                       {/* Amount with sign */}
-                      <div className="font-extrabold tracking-tight tabular-nums flex items-center gap-1 leading-none truncate">
-                        <span className="truncate">
-                          {ev.isExpense ? "-" : "+"} {currencySymbol} {format(ev.amountInSelectedCurrency)}
-                        </span>
+                      <div className="font-extrabold tracking-tight flex items-center gap-1 leading-none truncate">
+                        <Amount
+                          value={ev.isExpense ? -ev.amountInSelectedCurrency : ev.amountInSelectedCurrency}
+                          currency={selectedCurrency}
+                          size="xs"
+                          className="min-w-0 truncate"
+                        />
                       </div>
                       {/* Name / Category (shown on sm+ or when space permits) */}
                       <div className="text-[9px] opacity-80 truncate hidden sm:flex items-center gap-1 leading-none">

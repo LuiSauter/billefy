@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { Card, CardContent } from "@/shared/ui/card";
 import { Badge } from "@/shared/ui/badge";
-import { useNumberFormat } from "@/shared/hooks/use-number-format";
+import { Amount } from "@/shared/ui/amount";
 import type { CalendarEvent } from "../../domain/calendar-analytics";
 
 interface CalendarioDayViewProps {
@@ -25,9 +25,6 @@ export function CalendarioDayView({
   onSelectEvent,
   selectedCurrency,
 }: CalendarioDayViewProps) {
-  const format = useNumberFormat();
-  const currencySymbol = selectedCurrency === "USD" ? "$" : "Bs";
-
   const parts = selectedDate.split("-").map(Number);
   const dateObj = new Date(parts[0], parts[1] - 1, parts[2]);
 
@@ -63,11 +60,11 @@ export function CalendarioDayView({
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold">
             <ArrowUpRight className="w-3.5 h-3.5" />
-            <span>+ {currencySymbol} {format(dayIncome)}</span>
+            <Amount value={dayIncome} currency={selectedCurrency} sign="always" size="xs" className="text-emerald-400" />
           </div>
           <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-bold">
             <ArrowDownLeft className="w-3.5 h-3.5" />
-            <span>- {currencySymbol} {format(dayExpenses)}</span>
+            <Amount value={-dayExpenses} currency={selectedCurrency} size="xs" className="text-rose-400" />
           </div>
         </div>
       </div>
@@ -128,13 +125,12 @@ export function CalendarioDayView({
                   </div>
 
                   <div className="flex flex-col items-end gap-1 shrink-0">
-                    <span
-                      className={`font-extrabold text-base tabular-nums ${
-                        !ev.isExpense ? "text-emerald-400" : "text-rose-400"
-                      }`}
-                    >
-                      {ev.isExpense ? "-" : "+"} {currencySymbol} {format(ev.amountInSelectedCurrency)}
-                    </span>
+                    <Amount
+                      value={ev.isExpense ? -ev.amountInSelectedCurrency : ev.amountInSelectedCurrency}
+                      currency={selectedCurrency}
+                      size="md"
+                      className={!ev.isExpense ? "text-emerald-400" : "text-rose-400"}
+                    />
                     <Badge
                       variant="outline"
                       className="text-[10px] font-semibold uppercase tracking-wider"

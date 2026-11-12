@@ -23,7 +23,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/shared/ui/select";
-import { useNumberFormat } from "@/shared/hooks/use-number-format";
+import { Amount } from "@/shared/ui/amount";
+import { useNumberPreferences } from "@/shared/hooks/use-number-format";
+import { formatPercent } from "@/shared/lib/amount-format";
 import { getRelativeEventDateLabel } from "../../domain/calendar-analytics";
 import type { CalendarEvent, CalendarFilters } from "../../domain/calendar-analytics";
 import type { AccountDto } from "@/modules/ledger/domain/ledger.types";
@@ -64,8 +66,7 @@ export function CalendarioSidePanel({
   onViewAllUpcoming,
   selectedCurrency,
 }: CalendarioSidePanelProps) {
-  const format = useNumberFormat();
-  const currencySymbol = selectedCurrency === "USD" ? "$" : "Bs";
+  const numberPreferences = useNumberPreferences();
 
   // Filter accounts/types/categories helpers
   const handleAccountChange = (val: string | null) => {
@@ -196,9 +197,7 @@ export function CalendarioSidePanel({
                 Ingresos
               </span>
             </div>
-            <span className="text-sm font-extrabold text-emerald-400 tabular-nums">
-              {currencySymbol} {format(periodSummary.ingresos)}
-            </span>
+            <Amount value={periodSummary.ingresos} currency={selectedCurrency} size="sm" className="text-emerald-400" />
           </div>
 
           {/* Gastos */}
@@ -211,9 +210,7 @@ export function CalendarioSidePanel({
                 Gastos
               </span>
             </div>
-            <span className="text-sm font-extrabold text-foreground tabular-nums">
-              {currencySymbol} {format(periodSummary.gastos)}
-            </span>
+            <Amount value={periodSummary.gastos} currency={selectedCurrency} size="sm" />
           </div>
 
           {/* Ahorro */}
@@ -226,9 +223,7 @@ export function CalendarioSidePanel({
                 Ahorro
               </span>
             </div>
-            <span className="text-sm font-extrabold text-purple-400 tabular-nums">
-              {currencySymbol} {format(periodSummary.ahorro)}
-            </span>
+            <Amount value={periodSummary.ahorro} currency={selectedCurrency} size="sm" className="text-purple-400" />
           </div>
 
           {/* Savings Rate Progress */}
@@ -240,7 +235,7 @@ export function CalendarioSidePanel({
               />
             </div>
             <span className="text-xs font-bold text-muted-foreground tabular-nums shrink-0">
-              {periodSummary.savingsRate.toFixed(1)}%
+              {formatPercent(periodSummary.savingsRate, numberPreferences)}
             </span>
           </div>
         </CardContent>
@@ -311,13 +306,12 @@ export function CalendarioSidePanel({
                     </div>
                   </div>
 
-                  <span
-                    className={`text-xs font-extrabold tabular-nums shrink-0 ${
-                      !ev.isExpense ? "text-emerald-400" : "text-foreground"
-                    }`}
-                  >
-                    {ev.isExpense ? "-" : "+"} {currencySymbol} {format(ev.amountInSelectedCurrency)}
-                  </span>
+                  <Amount
+                    value={ev.isExpense ? -ev.amountInSelectedCurrency : ev.amountInSelectedCurrency}
+                    currency={selectedCurrency}
+                    size="xs"
+                    className={!ev.isExpense ? "text-emerald-400" : "text-foreground"}
+                  />
                 </div>
               );
             })

@@ -115,14 +115,14 @@ describe("actionable budget list", () => {
   it("shows currency, exceeded amount, configured threshold and a priority summary", () => {
     findCategory.mockReturnValue(category);
     const html = renderMany([row({ id: "a", currency: "USD", spentAmount: 130 }), row({ id: "b", spentAmount: 76, alertThreshold: 0.75 })]);
-    expect(html).toContain("USD 130.00");
+    expect(html).toContain("$ 130,00");
     expect(html).toContain("Excedido");
-    expect(html).toContain("USD 30.00");
+    expect(html).toContain("$ 30,00");
     expect(html).toContain("Alerta al 75%");
     expect(html).toContain("1 excedido");
     expect(html).toContain("1 cerca del límite");
     expect(html).not.toContain("Bs 130");
-    expect(html.indexOf("USD 130.00")).toBeLessThan(html.indexOf("BOB 76.00"));
+    expect(html.indexOf("$ 130,00")).toBeLessThan(html.indexOf("Bs 76,00"));
   });
 
   it("does not claim fixed 80% alerts or a single currency in its description", () => {

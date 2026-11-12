@@ -2,8 +2,12 @@
 
 import React from "react";
 import { IncomeDistributionProposal } from "@/modules/planning/domain/planning.types";
+import { Amount } from "@/shared/ui/amount";
+import { formatPercent } from "@/shared/lib/amount-format";
+import { useNumberPreferences } from "@/shared/hooks/use-number-format";
 
 export function ProposalBreakdown({ proposal }: { proposal: IncomeDistributionProposal }) {
+  const numberPreferences = useNumberPreferences();
   const buckets = [
     {
       key: "needs",
@@ -62,12 +66,10 @@ export function ProposalBreakdown({ proposal }: { proposal: IncomeDistributionPr
               <span className="text-sm font-semibold text-foreground">
                 {b.label}{" "}
                 <span className="font-medium text-muted-foreground tabular-nums">
-                  ({b.percentage}%)
+                  ({formatPercent(b.percentage, numberPreferences)})
                 </span>
               </span>
-              <span className="text-sm font-bold text-foreground tabular-nums">
-                {b.amount.toFixed(2)} {proposal.currency}
-              </span>
+              <Amount value={b.amount} currency={proposal.currency} size="sm" />
             </div>
             <div aria-hidden="true" className="h-2 w-full overflow-hidden rounded-full bg-muted">
               <div

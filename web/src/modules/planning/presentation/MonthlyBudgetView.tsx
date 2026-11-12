@@ -3,6 +3,9 @@
 import React from "react";
 import { AlertTriangle, Pencil, PieChart, Plus } from "lucide-react";
 import { Button } from "@/shared/ui/button";
+import { Amount } from "@/shared/ui/amount";
+import { formatPercent } from "@/shared/lib/amount-format";
+import { useNumberPreferences } from "@/shared/hooks/use-number-format";
 import { useUserCategories } from "@/modules/ledger/application/CategoriesContext";
 import {
   BudgetDto,
@@ -29,6 +32,7 @@ export function MonthlyBudgetView({
   onEditBudget,
 }: MonthlyBudgetViewProps) {
   const { findCategory } = useUserCategories();
+  const numberPreferences = useNumberPreferences();
   const rows = buildBudgetRows(budgets);
 
   const exceededCount = rows.filter((r) => r.status === "exceeded").length;
@@ -103,9 +107,7 @@ export function MonthlyBudgetView({
             <span className="text-[11px] sm:text-xs font-bold text-muted-foreground">Tope Total</span>
             <span className="text-[10px] sm:text-xs font-extrabold text-primary uppercase tracking-wide">Asignado</span>
           </div>
-          <div className="text-xl sm:text-[22px] font-black text-foreground font-mono">
-            Bs. {metrics.totalLimitBob}
-          </div>
+          <Amount value={metrics.totalLimitBob} currency="BOB" size="lg" />
         </div>
 
         <div className="p-3.5 sm:p-4 rounded-[14px] bg-background border border-border flex flex-col gap-1 shadow-2xs">
@@ -127,11 +129,9 @@ export function MonthlyBudgetView({
                 : "Normal"}
             </span>
           </div>
-          <div className="text-xl sm:text-[22px] font-black text-foreground font-mono">
-            Bs. {metrics.totalSpentBob}
-          </div>
+          <Amount value={metrics.totalSpentBob} currency="BOB" size="lg" />
           <p className="text-[11px] text-muted-foreground">
-            {metrics.spentRatioPercentage.toFixed(1)}% del tope
+            {formatPercent(metrics.spentRatioPercentage, numberPreferences)} del tope
           </p>
         </div>
 
@@ -140,9 +140,7 @@ export function MonthlyBudgetView({
             <span className="text-[11px] sm:text-xs font-bold text-muted-foreground">Ritmo Diario</span>
             <span className="text-[10px] sm:text-xs font-extrabold text-emerald-400 uppercase tracking-wide">Seguro</span>
           </div>
-          <div className="text-xl sm:text-[22px] font-black text-foreground font-mono">
-            Bs. {metrics.safeDailyRhythmBob}
-          </div>
+          <Amount value={metrics.safeDailyRhythmBob} currency="BOB" size="lg" />
           <p className="text-[11px] text-muted-foreground">
             {daysRemainingInMonth} días restantes
           </p>
@@ -211,12 +209,13 @@ export function MonthlyBudgetView({
 
                   {/* Progress bar + spent / limit */}
                   <div className="flex-1 flex flex-col gap-1.5 min-w-0">
-                    <div className="flex items-baseline justify-between gap-2 text-xs font-mono">
-                      <span className="font-extrabold text-foreground truncate">
-                        {r.spent}{" "}
-                        <span className="text-muted-foreground font-semibold">/ {r.limit}</span>
+                    <div className="flex items-baseline justify-between gap-2 text-xs">
+                      <span className="flex min-w-0 items-baseline gap-1 truncate">
+                        <Amount value={b.spentAmount} currency={b.currency} size="sm" className="truncate" />
+                        <span className="text-muted-foreground font-semibold shrink-0">/</span>
+                        <Amount value={b.limitAmount} currency={b.currency} size="sm" className="text-muted-foreground truncate" />
                       </span>
-                      <span className="font-bold text-muted-foreground shrink-0">{r.usedPercent}%</span>
+                      <span className="font-bold text-muted-foreground shrink-0">{formatPercent(r.usedPercent, numberPreferences)}</span>
                     </div>
                     <div className="h-[6px] rounded-full bg-muted overflow-hidden">
                       <div
@@ -233,13 +232,12 @@ export function MonthlyBudgetView({
                       <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground sm:mb-0.5">
                         {r.balanceLabel}
                       </span>
-                      <span
-                        className={`text-sm font-extrabold font-mono ${
-                          r.balanceLabel === "Excedido" ? "text-rose-400" : "text-emerald-400"
-                        }`}
-                      >
-                        {r.balance}
-                      </span>
+                      <Amount
+                        value={r.balance.slice(b.currency.length).trim()}
+                        currency={b.currency}
+                        size="sm"
+                        tone={r.balanceLabel === "Excedido" ? "expense" : "income"}
+                      />
                     </div>
                   </div>
                 </div>

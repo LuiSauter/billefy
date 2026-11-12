@@ -11,7 +11,9 @@ import {
 } from "lucide-react";
 import { Card, CardContent } from "@/shared/ui/card";
 import { Progress } from "@/shared/ui/progress";
-import { useNumberFormat } from "@/shared/hooks/use-number-format";
+import { Amount } from "@/shared/ui/amount";
+import { useNumberPreferences } from "@/shared/hooks/use-number-format";
+import { formatPercent } from "@/shared/lib/amount-format";
 import type { CalendarKpis } from "../../domain/calendar-analytics";
 
 interface CalendarioKpiCardsProps {
@@ -23,8 +25,7 @@ export function CalendarioKpiCards({
   kpis,
   selectedCurrency,
 }: CalendarioKpiCardsProps) {
-  const format = useNumberFormat();
-  const currencySymbol = selectedCurrency === "USD" ? "$" : "Bs";
+  const numberPreferences = useNumberPreferences();
 
   const cards = [
     {
@@ -100,9 +101,7 @@ export function CalendarioKpiCards({
                   <span className="text-[11px] font-semibold text-muted-foreground truncate">
                     {card.title}
                   </span>
-                  <span className="text-base sm:text-[17px] font-extrabold text-foreground tracking-tight tabular-nums truncate">
-                    {currencySymbol} {format(card.amount)}
-                  </span>
+                  <Amount value={card.amount} currency={selectedCurrency} size="md" className="min-w-0 truncate" />
                 </div>
               </div>
 
@@ -110,7 +109,7 @@ export function CalendarioKpiCards({
               {card.isProgress ? (
                 <div className="flex flex-col gap-1.5 mt-auto">
                   <span className="text-[11px] text-muted-foreground font-medium">
-                    {card.trend.toFixed(1)}% de tus ingresos
+                    {formatPercent(card.trend, numberPreferences)} de tus ingresos
                   </span>
                   <Progress
                     value={Math.min(Math.max(card.trend, 0), 100)}
@@ -124,7 +123,7 @@ export function CalendarioKpiCards({
                   </span>
                   <div className={`flex items-center gap-0.5 font-bold ${card.trendColor}`}>
                     <ArrowUp className="w-3 h-3 stroke-[2.5]" />
-                    <span>+{card.trend.toFixed(1)}% vs. mes anterior</span>
+                    <span>+{formatPercent(card.trend, numberPreferences)} vs. mes anterior</span>
                   </div>
                 </div>
               )}

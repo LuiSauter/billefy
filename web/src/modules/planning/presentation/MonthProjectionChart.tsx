@@ -15,6 +15,9 @@ import {
 import { TransactionDto } from "@/modules/ledger/domain/ledger.types";
 import { getActiveFlowTransactions, monthKey } from "@/modules/ledger/domain/monthly-analytics";
 import { BudgetDto } from "../domain/planning.types";
+import { Amount } from "@/shared/ui/amount";
+import { formatAmountText } from "@/shared/lib/amount-format";
+import { useNumberPreferences } from "@/shared/hooks/use-number-format";
 
 interface MonthProjectionChartProps {
   transactions?: TransactionDto[];
@@ -35,6 +38,8 @@ export function MonthProjectionChart({
   totalSpent = 0,
   formatMoney,
 }: MonthProjectionChartProps) {
+  const numberPreferences = useNumberPreferences();
+  void formatMoney;
   const [yearStr, monthStr] = month.split("-");
   const year = parseInt(yearStr, 10) || new Date().getFullYear();
   const monthNum = parseInt(monthStr, 10) || new Date().getMonth() + 1;
@@ -220,9 +225,7 @@ export function MonthProjectionChart({
             <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
               Proyección:
             </span>
-            <span className="text-xs sm:text-sm font-black font-mono text-purple-600 dark:text-purple-300">
-              {formatMoney(projectedEnd)}
-            </span>
+            <Amount value={projectedEnd} currency="BOB" size="sm" className="text-purple-600 dark:text-purple-300" />
           </div>
 
           <ResponsiveContainer width="100%" height="100%">
@@ -251,9 +254,8 @@ export function MonthProjectionChart({
                 tick={{
                   fontSize: 11,
                   fill: "var(--muted-foreground)",
-                  fontFamily: "monospace",
                 }}
-                tickFormatter={(v: number) => (v >= 1000 ? `${Math.round(v / 1000)}K` : `${v}`)}
+                tickFormatter={(v: number) => formatAmountText(v, "BOB", numberPreferences, { currencyDisplay: "none", compact: true })}
               />
               <Tooltip
                 content={({ active, payload }) => {
@@ -263,13 +265,13 @@ export function MonthProjectionChart({
                     <div className="rounded-xl border border-border bg-popover text-popover-foreground p-2.5 text-xs font-sans shadow-xl flex flex-col gap-1">
                       <span className="font-bold text-foreground">{d?.label}</span>
                       {d?.realSpent !== null && (
-                        <span className="text-purple-600 dark:text-purple-400 font-mono font-bold">
-                          Gasto real: {formatMoney(d.realSpent)}
+                        <span className="text-purple-600 dark:text-purple-400 font-bold">
+                          Gasto real: {formatAmountText(d.realSpent, "BOB", numberPreferences)}
                         </span>
                       )}
                       {d?.projectedSpent !== null && (
-                        <span className="text-purple-700 dark:text-purple-300 font-mono font-semibold">
-                          Gasto proyectado: {formatMoney(d.projectedSpent)}
+                        <span className="text-purple-700 dark:text-purple-300 font-semibold">
+                          Gasto proyectado: {formatAmountText(d.projectedSpent, "BOB", numberPreferences)}
                         </span>
                       )}
                     </div>

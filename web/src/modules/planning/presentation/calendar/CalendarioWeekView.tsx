@@ -2,7 +2,7 @@
 
 import React from "react";
 import { Tag } from "lucide-react";
-import { useNumberFormat } from "@/shared/hooks/use-number-format";
+import { Amount } from "@/shared/ui/amount";
 import type { CalendarMonthCell, CalendarEvent } from "../../domain/calendar-analytics";
 
 interface CalendarioWeekViewProps {
@@ -22,8 +22,7 @@ export function CalendarioWeekView({
   onSelectEvent,
   selectedCurrency,
 }: CalendarioWeekViewProps) {
-  const format = useNumberFormat();
-  const currencySymbol = selectedCurrency === "USD" ? "$" : "Bs";
+
 
   return (
     <div className="rounded-2xl border border-border/80 bg-card/60 backdrop-blur-xs overflow-hidden shadow-xs flex flex-col">
@@ -79,9 +78,11 @@ export function CalendarioWeekView({
                       )}`}
                     >
                       <div className="flex items-center justify-between gap-1">
-                        <span className="font-extrabold text-xs tabular-nums">
-                          {ev.isExpense ? "-" : "+"} {currencySymbol} {format(ev.amountInSelectedCurrency)}
-                        </span>
+                        <Amount
+                          value={ev.isExpense ? -ev.amountInSelectedCurrency : ev.amountInSelectedCurrency}
+                          currency={selectedCurrency}
+                          size="xs"
+                        />
                       </div>
                       <div className="flex items-center gap-1 text-[11px] opacity-90 truncate">
                         <Tag className="w-3 h-3 shrink-0" />

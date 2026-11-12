@@ -5,6 +5,7 @@ import { Check } from "lucide-react";
 import { RecurringItem } from "@/modules/planning/presentation/RecurringPaymentsView";
 import { Button } from "@/shared/ui/button";
 import { ResponsiveDrawer } from "@/shared/ui/responsive-drawer";
+import { Amount } from "@/shared/ui/amount";
 
 interface ReschedulePaymentModalProps {
   isOpen: boolean;
@@ -44,9 +45,6 @@ export function ReschedulePaymentModal({
     onClose();
   };
 
-  const formattedAmount =
-    item.currency === "BOB" ? `Bs. ${item.amount.toFixed(2)}` : `${item.amount} ${item.currency}`;
-
   return (
     <ResponsiveDrawer
       open={isOpen}
@@ -63,7 +61,7 @@ export function ReschedulePaymentModal({
             className="order-1 w-full md:order-2 md:flex-1"
           >
             <Check className="w-4 h-4 mr-1.5" />
-            <span>Confirmar pago {formattedAmount} (1-Clic)</span>
+            <span className="flex items-center gap-1">Confirmar pago <Amount value={item.amount} currency={item.currency} size="sm" className="text-primary-foreground" /> (1-Clic)</span>
           </Button>
           <Button
             type="button"
@@ -89,9 +87,7 @@ export function ReschedulePaymentModal({
             </span>
           </div>
 
-          <div className="text-3xl font-extrabold text-foreground tabular-nums my-1">
-            {formattedAmount}
-          </div>
+          <Amount value={item.amount} currency={item.currency} size="xl" className="my-1" />
 
           <p className="text-xs text-muted-foreground">
             Cuenta debitable: <strong className="text-foreground">{item.account}</strong> • Saldo disponible suficiente ✓

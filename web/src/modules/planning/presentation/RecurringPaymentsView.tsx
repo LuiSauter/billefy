@@ -53,6 +53,9 @@ import { ConfirmRecurringPaymentModal } from "./ConfirmRecurringPaymentModal";
 import { AccountDto } from "@/modules/ledger/domain/ledger.types";
 import { useUserCategories } from "@/modules/ledger/application/CategoriesContext";
 import { Input } from "@/shared/ui/input";
+import { Amount } from "@/shared/ui/amount";
+import { formatAmountText } from "@/shared/lib/amount-format";
+import { useNumberPreferences } from "@/shared/hooks/use-number-format";
 import {
   Select,
   SelectContent,
@@ -144,6 +147,7 @@ export function RecurringPaymentsView({
 }: RecurringPaymentsViewProps) {
   void p2pRate;
   const { categories } = useUserCategories();
+  const numberPreferences = useNumberPreferences();
 
   // If repository is provided, use real hook; otherwise fallback to empty safe mock
   const recurringHook = useRecurringPayments({
@@ -410,10 +414,6 @@ export function RecurringPaymentsView({
     }
   };
 
-  const formatCurrency = (amt: number, curr = "BOB") => {
-    const symbol = curr === "BOB" ? "Bs" : curr === "USD" ? "$" : curr;
-    return `${symbol} ${amt.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  };
 
   return (
     <div className="w-full max-w-[1340px] mx-auto p-4 sm:p-6 lg:p-8 flex flex-col gap-6 text-foreground">
@@ -477,8 +477,8 @@ export function RecurringPaymentsView({
               <ArrowDown className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-xl sm:text-2xl font-black font-mono text-foreground">
-            {formatCurrency(summary?.monthlyExpenses ?? 0, selectedCurrency)}
+          <div>
+            <Amount value={summary?.monthlyExpenses ?? 0} currency={selectedCurrency} size="lg" />
           </div>
         </div>
 
@@ -490,8 +490,8 @@ export function RecurringPaymentsView({
               <ArrowUpRight className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-xl sm:text-2xl font-black font-mono text-foreground">
-            {formatCurrency(summary?.monthlyIncome ?? 0, selectedCurrency)}
+          <div>
+            <Amount value={summary?.monthlyIncome ?? 0} currency={selectedCurrency} size="lg" />
           </div>
         </div>
 
@@ -508,8 +508,8 @@ export function RecurringPaymentsView({
               {summary?.upcoming7DaysCount ?? upcomingPayments.length}
             </span>
             {(summary?.upcoming7DaysTotal ?? 0) > 0 && (
-              <span className="px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-300 text-xs font-mono font-bold border border-purple-500/25">
-                {formatCurrency(summary?.upcoming7DaysTotal ?? 0, selectedCurrency)}
+              <span className="px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-300 text-xs border border-purple-500/25">
+                <Amount value={summary?.upcoming7DaysTotal ?? 0} currency={selectedCurrency} size="xs" className="text-purple-300" />
               </span>
             )}
           </div>
@@ -528,8 +528,8 @@ export function RecurringPaymentsView({
               {summary?.overdueCount ?? 0}
             </span>
             {(summary?.overdueCount ?? 0) > 0 && (
-              <span className="px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 text-xs font-mono font-bold border border-rose-500/30">
-                {formatCurrency(summary?.overdueTotal ?? 0, selectedCurrency)}
+              <span className="px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 text-xs border border-rose-500/30">
+                <Amount value={summary?.overdueTotal ?? 0} currency={selectedCurrency} size="xs" className="text-rose-300" />
               </span>
             )}
           </div>
@@ -718,8 +718,8 @@ export function RecurringPaymentsView({
                             </td>
 
                             {/* Monto */}
-                            <td className="py-3 px-3 font-mono font-bold text-foreground">
-                              {formatCurrency(item.amount, item.currency)}
+                            <td className="py-3 px-3">
+                              <Amount value={item.amount} currency={item.currency} size="sm" />
                             </td>
 
                             {/* Próxima fecha */}
@@ -926,9 +926,9 @@ export function RecurringPaymentsView({
                                 ? "bg-purple-600/20 text-purple-200 border-purple-500/30 hover:bg-purple-600/30"
                                 : "bg-emerald-600/20 text-emerald-200 border-emerald-500/30 hover:bg-emerald-600/30"
                             }`}
-                            title={`${ev.name} - ${formatCurrency(ev.amount, ev.currency)} (Click para aceptar pago)`}
+                            title={`${ev.name} - ${formatAmountText(ev.amount, ev.currency, numberPreferences)} (Click para aceptar pago)`}
                           >
-                            {ev.name} • {formatCurrency(ev.amount, ev.currency)}
+                            {ev.name} • <Amount value={ev.amount} currency={ev.currency} size="xs" />
                           </button>
                         ))}
                       </div>
@@ -1034,9 +1034,7 @@ export function RecurringPaymentsView({
                     >
                       <span className="font-semibold text-foreground truncate">{item.name}</span>
                       <div className="flex items-center gap-1.5 shrink-0">
-                        <span className="font-mono font-bold text-xs text-foreground">
-                          {formatCurrency(item.amount, item.currency)}
-                        </span>
+                        <Amount value={item.amount} currency={item.currency} size="xs" />
                         <button
                           type="button"
                           onClick={() => setConfirmingItem(item)}
@@ -1095,9 +1093,7 @@ export function RecurringPaymentsView({
                     </div>
 
                     <div className="flex items-center gap-2 shrink-0">
-                      <span className="font-mono font-bold text-xs text-rose-400">
-                        {formatCurrency(item.amount, item.currency)}
-                      </span>
+                      <Amount value={item.amount} currency={item.currency} size="xs" className="text-rose-400" />
                       <button
                         type="button"
                         onClick={() => setConfirmingItem(item)}
