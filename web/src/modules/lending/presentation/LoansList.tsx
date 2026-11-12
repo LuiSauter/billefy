@@ -1,5 +1,8 @@
 import dynamic from "next/dynamic";
 import { LoanSummaryDto } from "@/modules/lending/domain/lending.types";
+import { Amount } from "@/shared/ui/amount";
+import { formatPercent } from "@/shared/lib/amount-format";
+import { useNumberPreferences } from "@/shared/hooks/use-number-format";
 
 const LendingOverviewChart = dynamic(
   () => import("./LendingOverviewChart").then((m) => m.LendingOverviewChart),
@@ -26,6 +29,7 @@ export function LoansList({
   onOpenLoanDetails,
   onOpenPaymentModal,
 }: LoansListProps) {
+  const preferences = useNumberPreferences();
   return (
     <div className="flex flex-col gap-5 w-full">
       {loans.length > 0 && <LendingOverviewChart loans={loans} />}
@@ -70,8 +74,8 @@ export function LoansList({
                         {isLent ? "Dinero Prestado (Cobrar)" : "Deuda (Pagar)"}
                       </span>
                       <span className="font-bold text-sm text-foreground">{loan.counterpartyName}</span>
-                      <span className="text-xs font-mono text-muted-foreground">
-                        TEA: {(loan.annualEffectiveRate * 100).toFixed(2)}%
+                      <span className="text-xs text-muted-foreground">
+                        TEA: {formatPercent(loan.annualEffectiveRate * 100, preferences)}
                       </span>
                     </div>
                     <div className="text-xs text-muted-foreground mt-0.5">
@@ -81,9 +85,7 @@ export function LoansList({
                   <div className="flex items-center gap-4 self-end sm:self-auto">
                     <div className="text-right">
                       <div className="text-xs font-semibold text-muted-foreground">Saldo Restante</div>
-                      <div className="text-[15px] font-mono font-extrabold text-foreground">
-                        {loan.remainingPrincipal.toFixed(2)} {loan.currency}
-                      </div>
+                      <Amount value={loan.remainingPrincipal} currency={loan.currency} size="md" />
                     </div>
                     <div className="flex gap-2">
                       <button

@@ -9,6 +9,8 @@ import { Input } from "@/shared/ui/input";
 import { MoneyInput } from "@/shared/ui/money-input";
 import { ResponsiveDrawer } from "@/shared/ui/responsive-drawer";
 import { SelectField } from "@/shared/ui/select-field";
+import { useNumberPreferences } from "@/shared/hooks/use-number-format";
+import { formatAmountText } from "@/shared/lib/amount-format";
 
 interface LoanPaymentModalProps {
   isOpen: boolean;
@@ -25,6 +27,7 @@ export function LoanPaymentModal({
   onClose,
   onSubmit,
 }: LoanPaymentModalProps) {
+  const preferences = useNumberPreferences();
   const [amount, setAmount] = useState("");
   const [accountId, setAccountId] = useState(accounts[0]?.id || "");
   const [note, setNote] = useState("");
@@ -115,7 +118,7 @@ export function LoanPaymentModal({
                 ...accounts.map((a) => ({
                   value: a.id,
                   label: a.name,
-                  description: `${a.currency} · Saldo ${a.balance.toFixed(2)}`,
+                  description: `${a.currency} · Saldo ${formatAmountText(a.balance, a.currency, preferences)}`,
                 })),
               ]}
             />

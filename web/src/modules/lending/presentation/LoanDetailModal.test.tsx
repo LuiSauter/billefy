@@ -57,7 +57,7 @@ describe("LoanDetailModal collection action", () => {
     const html = renderToStaticMarkup(<LoanDetailModal isOpen loan={detail} onClose={vi.fn()} />);
     expect(html).toContain("Abono a capital (reducir cuota)");
     expect(html).toContain("Pendiente");
-    expect(html).toContain("35.00");
+    expect(html).toContain("Bs 35,00");
     expect(html).toContain("Total para cancelar");
   });
 });

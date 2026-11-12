@@ -7,6 +7,9 @@ import type { LoanScheduleDto } from "../../domain/lending.types";
 
 // Node-only runner: follow CreateDebtModal's state/effect harness, keeping real
 // design-system controls for the static-markup accessibility checks.
+vi.mock("@/shared/ui/amount", () => ({ Amount: ({ value, currency }: { value: number; currency: string }) => <span>{currency === "BOB" ? `Bs ${value.toFixed(2).replace(".", ",")}` : `${value.toFixed(2)} ${currency}`}</span> }));
+vi.mock("@/shared/hooks/use-number-format", () => ({ useNumberPreferences: () => ({ convention: "es-BO", decimalPlaces: 2 }) }));
+
 const { hooks } = vi.hoisted(() => ({
   hooks: { cursor: 0, slots: [] as unknown[], pending: [] as (() => void)[] },
 }));
@@ -58,7 +61,9 @@ function text(tree: unknown): string {
   if (Array.isArray(tree)) return tree.map(text).join(" ");
   if (typeof tree === "string" || typeof tree === "number") return String(tree);
   if (!tree || typeof tree !== "object" || !("props" in tree)) return "";
-  const p = (tree as Node).props;
+  const node = tree as Node;
+  const p = node.props;
+  if (typeof node.type === "function" && node.type.name === "Amount") return `${p.currency === "BOB" ? "Bs " : ""}${Number(p.value).toFixed(2).replace(".", ",")}`;
   const children = typeof p.children === "function" ? p.children({ id: p.htmlFor }) : p.children;
   return [p.label, p.hint, p.title, p.description, children, p.footer].map(text).join(" ");
 }
@@ -195,7 +200,7 @@ describe("CreateLentLoanModal", () => {
     await vi.advanceTimersByTimeAsync(299); expect(props.onSimulate).not.toHaveBeenCalled();
     tree = await simulate();
     expect(props.onSimulate).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ rate: 0.0975, template: "FixedInstallment" }));
-    expect(text(tree)).toContain("12,34 BOB"); expect(text(tree)).toContain("1012,34 BOB");
+    expect(text(tree)).toContain("Bs 12,34"); expect(text(tree)).toContain("Bs 1012,34");
   });
 
   it.each([["Biweekly", 6], ["Weekly", 13]] as const)("maps a three-month %s plan to %s nominal periods", async (frequency, count) => {

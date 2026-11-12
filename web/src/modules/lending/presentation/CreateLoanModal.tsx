@@ -20,6 +20,8 @@ import { ResponsiveDrawer } from "@/shared/ui/responsive-drawer";
 import { SegmentedControl } from "@/shared/ui/segmented-control";
 import { SelectField } from "@/shared/ui/select-field";
 import { notify } from "@/shared/lib/notify";
+import { useNumberPreferences } from "@/shared/hooks/use-number-format";
+import { formatAmountText, formatPercent } from "@/shared/lib/amount-format";
 
 interface CreateLoanModalProps {
   isOpen: boolean;
@@ -38,6 +40,7 @@ export function CreateLoanModal({
   onSimulate,
   onSubmit,
 }: CreateLoanModalProps) {
+  const preferences = useNumberPreferences();
   const [counterparty, setCounterparty] = useState("");
   const [type, setType] = useState<"Lent" | "Borrowed">("Lent");
   const [template, setTemplate] = useState<LoanTemplate>("FixedInstallment");
@@ -77,7 +80,7 @@ export function CreateLoanModal({
       setSimulatedSchedule(schedule);
       notify.success(
         "Cronograma calculado",
-        `TEA estimada: ${(schedule.annualEffectiveRate * 100).toFixed(2)}%`
+        `TEA estimada: ${formatPercent(schedule.annualEffectiveRate * 100, preferences)}`
       );
     } catch (err: unknown) {
       notify.error("Error al simular el cronograma", err);
@@ -283,7 +286,7 @@ export function CreateLoanModal({
                 ...accounts.map((a) => ({
                   value: a.id,
                   label: a.name,
-                  description: `${a.currency} · Saldo ${a.balance.toFixed(2)}`,
+                  description: `${a.currency} · Saldo ${formatAmountText(a.balance, a.currency, preferences)}`,
                 })),
               ]}
             />

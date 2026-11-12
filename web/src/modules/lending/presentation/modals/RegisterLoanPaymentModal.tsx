@@ -12,6 +12,7 @@ import { MoneyInput } from "@/shared/ui/money-input";
 import { ResponsiveDrawer } from "@/shared/ui/responsive-drawer";
 import { SelectField } from "@/shared/ui/select-field";
 import { Textarea } from "@/shared/ui/textarea";
+import { Amount } from "@/shared/ui/amount";
 
 export interface RegisterLoanPaymentModalProps {
   isOpen: boolean;
@@ -41,9 +42,6 @@ function validDate(value: string) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const date = new Date(`${value}T00:00:00Z`);
   return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
-}
-function money(value: Decimal.Value, currency: string, scale = 2) {
-  return `${new D(value).toFixed(scale).replace(".", ",")} ${currency}`;
 }
 
 interface AllocationPreviewItem {
@@ -211,10 +209,10 @@ export function RegisterLoanPaymentModal({ isOpen, onClose, loan, accounts, onSu
       <fieldset disabled={submitting || !payable} className="min-w-0 space-y-5">
         {installmentNumber !== undefined && <p className="text-sm font-medium">Referencia seleccionada: cuota {installmentNumber} · moneda del préstamo: {loan.currency}</p>}
         <p className="text-sm text-muted-foreground">Los pagos se aplican a las cuotas pendientes más antiguas, primero mora, luego intereses y finalmente capital. La cuota seleccionada, si corresponde, no cambia este orden.</p>
-        {selectedInstallment && <p className="text-sm">Pendiente de la cuota {selectedInstallment.number}: {money(selectedInstallment.totalOutstanding, loan.currency, Math.max(2, selectedInstallment.totalOutstanding.decimalPlaces()))}.
+        {selectedInstallment && <p className="text-sm">Pendiente de la cuota {selectedInstallment.number}: <Amount value={selectedInstallment.totalOutstanding} currency={loan.currency} size="sm" />.
           {selectedInstallment.outstandingLateInterest.gt(0) && " Incluye intereses de mora."}</p>}
         {quote && <div className="space-y-2">
-          <p className="text-sm font-medium">Saldo total para cancelar: {money(quote.totalPayoff, loan.currency, Math.max(2, quote.totalPayoff.decimalPlaces()))}</p>
+          <p className="text-sm font-medium">Saldo total para cancelar: <Amount value={quote.totalPayoff} currency={loan.currency} size="sm" /></p>
           <div className="flex flex-wrap gap-2">
             {quote.suggestedAmount?.gt(0) && <Button type="button" size="sm" variant="outline" onClick={() => patch({ amount: quote.suggestedAmount!.toString(), amountEdited: true })}>Cuota sugerida</Button>}
             <Button type="button" size="sm" variant="outline" onClick={() => patch({ amount: quote.totalPayoff.toString(), amountEdited: true })}>Cancelar total</Button>
@@ -258,8 +256,8 @@ export function RegisterLoanPaymentModal({ isOpen, onClose, loan, accounts, onSu
           )}
         </div>
         <dl className="space-y-2 text-sm">
-          <div className="flex flex-wrap justify-between gap-2"><dt>Capital pendiente</dt><dd className="font-semibold tabular-nums">{remaining ? money(remaining, loan.currency) : "—"}</dd></div>
-          <div className="flex flex-wrap justify-between gap-2"><dt>{amountLabel}</dt><dd className="font-semibold tabular-nums">{amount ? money(amount, loan.currency, Math.max(2, amount.decimalPlaces())) : "Ingresá el monto"}</dd></div>
+          <div className="flex flex-wrap justify-between gap-2"><dt>Capital pendiente</dt><dd>{remaining ? <Amount value={remaining} currency={loan.currency} size="sm" /> : "—"}</dd></div>
+          <div className="flex flex-wrap justify-between gap-2"><dt>{amountLabel}</dt><dd>{amount ? <Amount value={amount} currency={loan.currency} size="sm" /> : "Ingresá el monto"}</dd></div>
         </dl>
         {preview && preview.items.length > 0 && (
           <div className="space-y-2 pt-2 border-t border-border text-xs">
@@ -271,15 +269,15 @@ export function RegisterLoanPaymentModal({ isOpen, onClose, loan, accounts, onSu
                     <span>
                       Cuota {item.number}:{" "}
                       <span className={item.isFullyPaid ? "text-emerald-500 font-bold" : "text-amber-500 font-bold"}>
-                        {item.isFullyPaid ? "Cancelada 100%" : `Abono parcial · Falta ${money(item.remainingOnInstallment, loan.currency)}`}
+                        {item.isFullyPaid ? "Cancelada 100%" : <>Abono parcial · Falta <Amount value={item.remainingOnInstallment} currency={loan.currency} size="xs" /></>}
                       </span>
                     </span>
-                    <span className="font-mono font-bold">{money(item.totalAllocated, loan.currency)}</span>
+                    <Amount value={item.totalAllocated} currency={loan.currency} size="sm" />
                   </div>
                   <div className="flex gap-2 text-[11px] text-muted-foreground font-mono">
-                    {item.lateInterest.gt(0) && <span>Mora: {money(item.lateInterest, loan.currency)}</span>}
-                    {item.regularInterest.gt(0) && <span>Int: {money(item.regularInterest, loan.currency)}</span>}
-                    <span>Cap: {money(item.principal, loan.currency)}</span>
+                    {item.lateInterest.gt(0) && <span>Mora: <Amount value={item.lateInterest} currency={loan.currency} size="xs" /></span>}
+                    {item.regularInterest.gt(0) && <span>Int: <Amount value={item.regularInterest} currency={loan.currency} size="xs" /></span>}
+                    <span>Cap: <Amount value={item.principal} currency={loan.currency} size="xs" /></span>
                   </div>
                 </div>
               ))}
@@ -287,7 +285,7 @@ export function RegisterLoanPaymentModal({ isOpen, onClose, loan, accounts, onSu
                 <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400">
                   <div className="flex justify-between font-bold">
                     <span>Abono directo a capital vivo</span>
-                    <span className="font-mono">{money(preview.earlyPrincipal, loan.currency)}</span>
+                    <Amount value={preview.earlyPrincipal} currency={loan.currency} size="sm" />
                   </div>
                   <p className="text-[11px] text-muted-foreground mt-0.5">
                     {preview.policy === "ReduceInstallment"

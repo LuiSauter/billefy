@@ -34,6 +34,7 @@ vi.mock("react", async importOriginal => {
     },
   };
 });
+vi.mock("@/shared/ui/amount", () => ({ Amount: ({ value, currency }: { value: number; currency: string }) => <span>{currency === "BOB" ? `Bs ${Number(value).toFixed(2).replace(".", ",")}` : `${Number(value).toFixed(2)} ${currency}`}</span> }));
 vi.mock("@/shared/ui/responsive-drawer", () => ({
   ResponsiveDrawer: ({ open, title, description, children, footer }: import("@/shared/ui/responsive-drawer").ResponsiveDrawerProps) =>
     open ? <section role="dialog"><h2>{title}</h2><p>{description}</p>{children}{footer}</section> : null,
@@ -53,7 +54,9 @@ function text(tree: unknown): string {
   if (Array.isArray(tree)) return tree.map(text).join(" ");
   if (typeof tree === "string" || typeof tree === "number") return String(tree);
   if (!tree || typeof tree !== "object" || !("props" in tree)) return "";
-  const p = (tree as Node).props;
+  const node = tree as Node;
+  const p = node.props;
+  if (typeof node.type === "function" && node.type.name === "Amount") return `${p.currency === "BOB" ? "Bs " : ""}${Number(p.value).toFixed(2).replace(".", ",")}`;
   const children = typeof p.children === "function" ? p.children({ id: p.htmlFor }) : p.children;
   return [p.title, p.label, p.hint, p.description, children, p.footer].map(text).join(" ");
 }
@@ -128,7 +131,7 @@ describe("RegisterLoanPaymentModal", () => {
   it("keeps capital unchanged in the preview and submits the entered amount, account, date and trimmed note", async () => {
     let tree = render(); change(tree, "payment-amount", "0.10"); change(tree, "payment-account", "bob");
     change(tree, "payment-date", "2026-01-31"); change(tree, "payment-note", "  Recibo de prueba  "); tree = render();
-    expect(text(tree)).toContain("100,30 BOB");
+    expect(text(tree)).toContain("Bs 100,30");
     await submit(tree);
     expect(props.onSubmit).toHaveBeenCalledExactlyOnceWith("loan-1", { amount: "0.1", accountId: "bob", paymentDate: "2026-01-31", note: "Recibo de prueba" });
     expect(props.onClose).toHaveBeenCalledOnce();
@@ -191,7 +194,7 @@ describe("RegisterLoanPaymentModal", () => {
   it("allows a partial/interest-inclusive amount without predicting capital allocation", async () => {
     let tree = render({ loan: { ...loan, template: "FixedInstallment", interestRate: 0.12 } });
     change(tree, "payment-amount", "110.30"); tree = render();
-    expect(text(tree)).toContain("100,30 BOB"); expect(text(tree)).toContain("mora"); expect(text(tree)).not.toContain("Capital restante después");
+    expect(text(tree)).toContain("Bs 100,30"); expect(text(tree)).toContain("mora"); expect(text(tree)).not.toContain("Capital restante después");
     change(tree, "payment-account", "none"); tree = render(); await submit(tree); expect(props.onSubmit).toHaveBeenCalledWith("loan-1", expect.objectContaining({ amount: "110.3" }));
   });
 
@@ -235,8 +238,8 @@ describe("RegisterLoanPaymentModal", () => {
     render({ onGetQuote, installmentNumber: 2 }); await Promise.resolve(); const tree = render();
     expect(onGetQuote).toHaveBeenCalledExactlyOnceWith("loan-1", "2026-02-01");
     expect(control(tree, "payment-amount").props.value).toBe("23.123456");
-    expect(text(tree)).toContain("23,123456 BOB"); expect(text(tree)).toContain("Incluye intereses de mora");
-    expect(text(tree)).toContain("Saldo total para cancelar:"); expect(text(tree)).toContain("123,456789 BOB");
+    expect(text(tree)).toContain("Bs 23,12"); expect(text(tree)).toContain("Incluye intereses de mora");
+    expect(text(tree)).toContain("Saldo total para cancelar:"); expect(text(tree)).toContain("Bs 123,46");
     expect(text(tree)).toContain("pendientes más antiguas");
   });
 
@@ -270,7 +273,7 @@ describe("RegisterLoanPaymentModal", () => {
     expect(text(tree)).toContain("Distribución prevista del monto");
     expect(text(tree)).toContain("Cancelada 100%");
     expect(text(tree)).toContain("Abono parcial");
-    expect(text(tree)).toContain("Falta 78,24 BOB");
+    expect(text(tree)).toContain("Bs 78,24");
   });
 
   it.each([null, new Decimal(0)])("falls back to total payoff when suggestion is %s and the selected installment is missing", async suggestedAmount => {

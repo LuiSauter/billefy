@@ -5,6 +5,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AccountDto } from "@/modules/ledger/domain/ledger.types";
 import type { LoanScheduleDto } from "../../domain/lending.types";
 
+vi.mock("@/shared/hooks/use-number-format", () => ({ useNumberPreferences: () => ({ convention: "es-BO", decimalPlaces: 2 }) }));
+vi.mock("@/shared/ui/amount", () => ({ Amount: ({ value, currency }: { value: number; currency: string }) => <span>{currency === "BOB" ? `Bs ${Number(value).toFixed(2).replace(".", ",")}` : `${Number(value).toFixed(2)} ${currency}`}</span> }));
+
 // The project runner is Node-only (no DOM renderer). Exercise component handlers
 // and effect lifecycles with the same state-slot approach as InvestmentCashModal.
 const { hooks } = vi.hoisted(() => ({
@@ -56,6 +59,7 @@ function nodes(tree: unknown): Node[] {
   if (!tree || typeof tree !== "object") return [];
   const node = tree as Node;
   if (!node.props) return [];
+  if (typeof node.type === "function" && node.type.name === "Amount") return [node];
   const children = typeof node.props.children === "function"
     ? node.props.children({ id: node.props.htmlFor }) : node.props.children;
   return [node, ...nodes(children), ...nodes(node.props.footer), ...nodes(node.props.title)];
@@ -64,8 +68,10 @@ function text(tree: unknown): string {
   if (Array.isArray(tree)) return tree.map(text).join(" ");
   if (typeof tree === "string" || typeof tree === "number") return String(tree);
   if (!tree || typeof tree !== "object") return "";
-  const props = (tree as Node).props;
+  const node = tree as Node;
+  const props = node.props;
   if (!props) return "";
+  if (typeof node.type === "function" && node.type.name === "Amount") return `${props.currency === "BOB" ? "Bs " : ""}${Number(props.value).toFixed(2).replace(".", ",")}`;
   const children = typeof props.children === "function" ? props.children({ id: props.htmlFor }) : props.children;
   return [props.label, props.hint, props.description, props.title, children, props.footer].map(text).join(" ");
 }

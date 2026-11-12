@@ -16,6 +16,7 @@ import { SegmentedControl } from "@/shared/ui/segmented-control";
 import { SelectField } from "@/shared/ui/select-field";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/shared/ui/table";
 import { Textarea } from "@/shared/ui/textarea";
+import { Amount } from "@/shared/ui/amount";
 
 export interface CreateLentLoanModalProps {
   isOpen: boolean;
@@ -50,11 +51,6 @@ function validDate(value: string) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const date = new Date(`${value}T00:00:00Z`);
   return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
-}
-function money(value: Decimal.Value, currency: string) {
-  // Monetary arithmetic/rounding stays in Decimal; string formatting avoids a
-  // second, binary-number rounding step. DTO conversion occurs only at the API.
-  return `${new D(value).toFixed(2).replace(".", ",")} ${currency}`;
 }
 function maturity(date: string, count: number, frequency: Frequency) {
   if (!validDate(date) || !Number.isSafeInteger(count) || count < 1) return "";
@@ -241,12 +237,12 @@ export function CreateLentLoanModal({ isOpen, onClose, accounts, selectedCurrenc
         <div className="min-w-0 space-y-4" aria-live="polite">
           <Panel title="Resumen del préstamo" icon={HandCoins}>
             <dl className="space-y-3 text-sm">
-              {[["Monto prestado", principal ? money(principal, form.currency) : "—"],
-                ["Interés total", schedule ? money(schedule.totalInterest, form.currency) : "—"],
-                ["Total a recibir", schedule ? money(schedule.totalToPay, form.currency) : "—"],
+              {[["Monto prestado", principal ? <Amount value={principal} currency={form.currency} size="sm" /> : "—"],
+                ["Interés total", schedule ? <Amount value={schedule.totalInterest} currency={form.currency} size="sm" /> : "—"],
+                ["Total a recibir", schedule ? <Amount value={schedule.totalToPay} currency={form.currency} size="sm" /> : "—"],
                 ["Plazo", Number.isSafeInteger(months) && months > 0 ? `${months} meses` : "—"],
                 [form.frequency === "Monthly" ? "Cuota mensual estimada" : "Cuota por período estimada",
-                  schedule ? money(schedule.installments[0].total, form.currency) : "—"]].map(([label, value]) =>
+                  schedule ? <Amount value={schedule.installments[0].total} currency={form.currency} size="sm" /> : "—"]].map(([label, value]) =>
                 <div key={label} className="flex flex-wrap justify-between gap-2 border-b border-border pb-2">
                   <dt className="text-muted-foreground">{label}</dt><dd className="font-semibold">{value}</dd>
                 </div>)}
@@ -258,7 +254,7 @@ export function CreateLentLoanModal({ isOpen, onClose, accounts, selectedCurrenc
                 <TableHeader><TableRow><TableHead scope="col">#</TableHead><TableHead scope="col">Fecha de pago</TableHead><TableHead scope="col" className="text-right">Monto</TableHead></TableRow></TableHeader>
                 <TableBody>{schedule.installments.map(item => <TableRow key={item.number}>
                   <TableCell>{item.number}</TableCell><TableCell><time dateTime={item.dueDate}>{item.dueDate}</time></TableCell>
-                  <TableCell className="text-right tabular-nums">{money(item.total, form.currency)}</TableCell>
+                  <TableCell className="text-right"><Amount value={item.total} currency={form.currency} size="sm" /></TableCell>
                 </TableRow>)}</TableBody>
               </Table>}
           </Panel>

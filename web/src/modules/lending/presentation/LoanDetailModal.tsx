@@ -4,6 +4,9 @@ import { LoanDetailDto, LoanCancellationResultDto } from "@/modules/lending/doma
 import { Button } from "@/shared/ui/button";
 import { ResponsiveDrawer } from "@/shared/ui/responsive-drawer";
 import { Progress } from "@/shared/ui/progress";
+import { Amount } from "@/shared/ui/amount";
+import { formatAmountText, formatPercent } from "@/shared/lib/amount-format";
+import { useNumberPreferences } from "@/shared/hooks/use-number-format";
 
 interface LoanDetailModalProps {
   isOpen: boolean;
@@ -15,6 +18,7 @@ interface LoanDetailModalProps {
 
 export function LoanDetailModal(props: LoanDetailModalProps) {
   const { isOpen, loan, onClose, onOpenPayment } = props;
+  const preferences = useNumberPreferences();
   if (!isOpen || !loan) return null;
 
   const canPay = ["Active", "InArrears"].includes(loan.summary.status) && Boolean(onOpenPayment);
@@ -32,7 +36,7 @@ export function LoanDetailModal(props: LoanDetailModalProps) {
       title={`Detalle de préstamo: ${loan.summary.counterpartyName}`}
       description={`${
         loan.summary.type === "Lent" ? "Dinero que presté" : "Deuda a pagar"
-      } · ${loan.summary.template} · TEA: ${(loan.summary.annualEffectiveRate * 100).toFixed(2)}%`}
+      } · ${loan.summary.template} · TEA: ${formatPercent(loan.summary.annualEffectiveRate * 100, preferences)}`}
       footer={
         <>
         {canPay &&
@@ -55,22 +59,16 @@ export function LoanDetailModal(props: LoanDetailModalProps) {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
             <div>
               <span className="text-xs text-muted-foreground block">Capital inicial</span>
-              <strong className="text-base font-extrabold text-foreground tabular-nums">
-                {loan.summary.principal.toFixed(2)} {loan.summary.currency}
-              </strong>
+              <Amount value={loan.summary.principal} currency={loan.summary.currency} size="md" />
             </div>
             <div>
               <span className="text-xs text-muted-foreground block">Saldo de capital</span>
-              <strong className="text-base font-extrabold text-amber-600 tabular-nums">
-                {loan.summary.remainingPrincipal.toFixed(2)} {loan.summary.currency}
-              </strong>
+              <Amount value={loan.summary.remainingPrincipal} currency={loan.summary.currency} size="md" className="text-amber-600" />
             </div>
             {loan.summary.totalPayoff !== undefined && (
               <div>
                 <span className="text-xs text-muted-foreground block">Total para cancelar</span>
-                <strong className="text-base font-extrabold text-foreground tabular-nums">
-                  {loan.summary.totalPayoff.toFixed(2)} {loan.summary.currency}
-                </strong>
+                <Amount value={loan.summary.totalPayoff} currency={loan.summary.currency} size="md" />
               </div>
             )}
             <div>
@@ -93,7 +91,7 @@ export function LoanDetailModal(props: LoanDetailModalProps) {
               </span>
             </div>
             <span className="text-muted-foreground">
-              TEA: {(loan.summary.annualEffectiveRate * 100).toFixed(2)}%
+              TEA: {formatPercent(loan.summary.annualEffectiveRate * 100, preferences)}
             </span>
           </div>
 
@@ -127,12 +125,10 @@ export function LoanDetailModal(props: LoanDetailModalProps) {
                 <div key={inst.id} className="grid grid-cols-7 py-2.5 px-3 items-center hover:bg-muted/40">
                   <span className="font-semibold text-foreground">Cuota {inst.number}</span>
                   <span className="text-muted-foreground">{inst.dueDate}</span>
-                  <span className="font-mono text-foreground">{inst.expectedTotal.toFixed(2)}</span>
-                  <span className="font-mono text-foreground">{inst.paidPrincipal.toFixed(2)}</span>
-                  <span className="font-mono text-foreground">{inst.paidInterest.toFixed(2)}</span>
-                  <span className={`font-mono font-bold ${pending > 0 ? "text-amber-500" : "text-emerald-500"}`}>
-                    {pending.toFixed(2)}
-                  </span>
+                  <Amount value={inst.expectedTotal} currency={loan.summary.currency} size="xs" />
+                  <Amount value={inst.paidPrincipal} currency={loan.summary.currency} size="xs" />
+                  <Amount value={inst.paidInterest} currency={loan.summary.currency} size="xs" />
+                  <Amount value={pending} currency={loan.summary.currency} size="xs" className={pending > 0 ? "text-amber-500" : "text-emerald-500"} />
                   <div className="flex flex-col items-start gap-1">
                     <span
                       className={`px-2 py-0.5 rounded-md text-xs w-fit font-semibold ${
@@ -182,14 +178,12 @@ export function LoanDetailModal(props: LoanDetailModalProps) {
                       {pay.allocations
                         .map(
                           (a) =>
-                            `Cuota ${a.installmentNumber}: Cap ${a.toPrincipal.toFixed(2)} + Int ${a.toInterest.toFixed(2)}`
+                            `Cuota ${a.installmentNumber}: Cap ${formatAmountText(a.toPrincipal, loan.summary.currency, preferences)} + Int ${formatAmountText(a.toInterest, loan.summary.currency, preferences)}`
                         )
                         .join(" | ")}
                     </span>
                   </div>
-                  <div className="font-bold text-emerald-600 font-mono text-sm">
-                    +{pay.amount.toFixed(2)} {pay.currency}
-                  </div>
+                  <Amount value={pay.amount} currency={pay.currency} sign="always" tone="income" size="sm" />
                 </div>
               ))}
             </div>

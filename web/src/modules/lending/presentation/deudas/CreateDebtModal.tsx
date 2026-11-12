@@ -26,6 +26,9 @@ import { SegmentedControl } from "@/shared/ui/segmented-control";
 import { SelectField } from "@/shared/ui/select-field";
 import { Switch } from "@/shared/ui/switch";
 import { Textarea } from "@/shared/ui/textarea";
+import { Amount } from "@/shared/ui/amount";
+import { formatAmountText, formatPercent } from "@/shared/lib/amount-format";
+import { useNumberPreferences } from "@/shared/hooks/use-number-format";
 
 export interface CreateDebtModalProps {
   isOpen: boolean;
@@ -67,12 +70,6 @@ function validDate(value: string) {
   const date = new Date(`${value}T00:00:00Z`);
   return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
 }
-function money(value: Decimal.Value, currency: string) {
-  // Decimal performs rounding; conversion to number is only for display/API DTOs.
-  return `${new D(value).toDecimalPlaces(2).toNumber().toLocaleString("es-BO", {
-    minimumFractionDigits: 2, maximumFractionDigits: 2,
-  })} ${currency}`;
-}
 function validSchedule(schedule: LoanScheduleDto) {
   return schedule.installments.length > 0 &&
     [schedule.totalPrincipal, schedule.totalInterest, schedule.totalToPay, schedule.annualEffectiveRate,
@@ -96,6 +93,7 @@ function Panel({ title, icon: Icon, children }: {
 
 export function CreateDebtModal({ isOpen, onClose, accounts, monthlyIncome, selectedCurrency = "BOB", p2pRate,
   onSimulate, onSubmit }: CreateDebtModalProps) {
+  const preferences = useNumberPreferences();
   const [form, setForm] = useState(initialForm);
   const [includeDti, setIncludeDti] = useState(true);
   const [simulation, setSimulation] = useState<Simulation | null>(null);
@@ -252,8 +250,8 @@ export function CreateDebtModal({ isOpen, onClose, accounts, monthlyIncome, sele
           <div className="min-w-0 space-y-4">
             <Panel title="Resumen del impacto" icon={BarChart3}>
               <dl className="space-y-2 text-sm">
-                {[["Tipo", `Deuda · ${form.category}`], ["Saldo", principal ? money(principal, form.currency) : "—"],
-                  ["Cuota mensual calculada", installment ? money(installment, form.currency) : "—"],
+                {[["Tipo", `Deuda · ${form.category}`], ["Saldo", principal ? <Amount value={principal} currency={form.currency} size="sm" /> : "—"],
+                  ["Cuota mensual calculada", installment ? <Amount value={installment} currency={form.currency} size="sm" /> : "—"],
                   ["Interés anual", annualPercent ? `${annualPercent.toString()}%` : "—"], ["Cuenta", account?.name ?? "Sin seleccionar"]].map(([label, value]) =>
                   <div key={label} className="flex flex-wrap justify-between gap-2 border-b border-border pb-2"><dt className="text-muted-foreground">{label}</dt><dd className="font-semibold">{value}</dd></div>)}
               </dl>
@@ -264,7 +262,7 @@ export function CreateDebtModal({ isOpen, onClose, accounts, monthlyIncome, sele
                   : !validIncome ? <p className="text-sm text-muted-foreground">Registra tus ingresos mensuales para evaluar el DTI.</p>
                     : fxMissing ? <p className="text-sm text-muted-foreground">Falta un tipo de cambio válido para calcular el DTI.</p>
                       : dti ? <>
-                        <p className="flex justify-between text-sm"><span>{dtiStatus}</span><strong>{`${dti.toFixed(2).replace(".", ",")}%`}</strong></p>
+                        <p className="flex justify-between text-sm"><span>{dtiStatus}</span><strong>{formatPercent(dti, preferences)}</strong></p>
                         <Progress aria-label="Deuda / ingreso" value={D.min(100, dti).toNumber()} />
                       </> : <p className="text-sm text-muted-foreground">Simula para evaluar la cuota.</p>}
               </div>
@@ -278,12 +276,12 @@ export function CreateDebtModal({ isOpen, onClose, accounts, monthlyIncome, sele
                     value={form.method === "NoInterest" ? "0" : form.rate} onChange={e => patch({ rate: e.target.value })} />}</FormField>
               </FormGrid>
               <FormField htmlFor="debt-preview-payment" label="Cuota" hint="Primera cuota del cronograma; puede variar según el método.">{control =>
-                <Input {...control} readOnly value={installment ? money(installment, form.currency) : ""} placeholder="Pendiente de simulación" />}</FormField>
+                <Input {...control} readOnly value={installment ? formatAmountText(installment, form.currency, preferences) : ""} placeholder="Pendiente de simulación" />}</FormField>
               {!schedule ? <p role={currentSimulation?.status === "error" ? "alert" : "status"} className="text-sm text-muted-foreground">{simulationMessage}</p>
                 : <div aria-live="polite" className="space-y-2 text-sm">
-                  <p>Interés total: <strong>{money(schedule.totalInterest, form.currency)}</strong></p>
-                  <p>Total a pagar: <strong>{money(schedule.totalToPay, form.currency)}</strong></p>
-                  {extra?.gt(0) && <p className="rounded-xl border border-primary/20 bg-primary/5 p-3">Si adelantas {money(extra, form.currency)}/mes, tu aporte sería {money(installment!.plus(extra), form.currency)}. Solicita una nueva simulación para conocer el plazo resultante.</p>}
+                  <p>Interés total: <strong><Amount value={schedule.totalInterest} currency={form.currency} size="sm" /></strong></p>
+                  <p>Total a pagar: <strong><Amount value={schedule.totalToPay} currency={form.currency} size="sm" /></strong></p>
+                  {extra?.gt(0) && <p className="rounded-xl border border-primary/20 bg-primary/5 p-3">Si adelantas <Amount value={extra} currency={form.currency} size="sm" />/mes, tu aporte sería <Amount value={installment!.plus(extra)} currency={form.currency} size="sm" />. Solicita una nueva simulación para conocer el plazo resultante.</p>}
                 </div>}
             </Panel>
             <Panel title="Sugerencias inteligentes" icon={Sparkles}>
