@@ -21,6 +21,8 @@ import {
   Calendar,
   Users,
 } from "lucide-react";
+import { useNumberFormat } from "@/shared/hooks/use-number-format";
+import { formatCurrencyLabel } from "@/shared/lib/currency";
 
 export type NavigationTab =
   | "inicio"
@@ -62,6 +64,7 @@ export function Sidebar({
   onOpenWhatsApp,
   onOpenBinance,
 }: SidebarProps) {
+  const format = useNumberFormat();
   void planEnabled;
   const navItems = [
     { id: "inicio" as NavigationTab, label: "Inicio", icon: LayoutDashboard },
@@ -182,7 +185,7 @@ export function Sidebar({
             <span className="text-xs font-bold text-muted-foreground">Tasa P2P</span>
           </div>
           <span className="text-xs font-extrabold text-emerald-500">
-            1 USDT = Bs. {p2pRate.toFixed(2)}
+            1 USDT = {formatCurrencyLabel("BOB")} {format(p2pRate)}
           </span>
         </div>
       </div>

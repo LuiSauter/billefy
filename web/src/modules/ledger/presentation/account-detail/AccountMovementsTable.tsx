@@ -27,7 +27,7 @@ import {
   TransactionTypeFilter,
 } from "../../domain/account-detail";
 import { useUserCategories } from "../../application/CategoriesContext";
-import { useNumberFormat } from "@/shared/hooks/use-number-format";
+import { Amount } from "@/shared/ui/amount";
 
 interface AccountMovementsTableProps {
   account: AccountDto;
@@ -42,9 +42,7 @@ export function AccountMovementsTable({
   onEditTxn,
   onReverseTxn,
 }: AccountMovementsTableProps) {
-  const format = useNumberFormat();
   const { findCategory } = useUserCategories();
-  const currencySymbol = account.currency === "BOB" ? "Bs" : "$";
 
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<TransactionTypeFilter>("all");
@@ -290,18 +288,18 @@ export function AccountMovementsTable({
                     </td>
 
                     {/* Monto */}
-                    <td
-                      className={`py-3 px-4 text-right font-black whitespace-nowrap ${
-                        isIncome ? "text-emerald-400" : "text-rose-400"
-                      }`}
-                    >
-                      {isIncome ? "+ " : "- "}
-                      {currencySymbol} {format(new Decimal(txn.amount).abs())}
+                    <td className="py-3 px-4 text-right whitespace-nowrap">
+                      <Amount
+                        value={isIncome ? txn.amount : new Decimal(txn.amount).negated()}
+                        currency={account.currency}
+                        tone={isIncome ? "income" : "expense"}
+                        size="sm"
+                      />
                     </td>
 
                     {/* Saldo Running Balance */}
-                    <td className="py-3 px-4 text-right font-bold text-foreground whitespace-nowrap">
-                      {currencySymbol} {format(txn.runningBalance)}
+                    <td className="py-3 px-4 text-right whitespace-nowrap">
+                      <Amount value={txn.runningBalance} currency={account.currency} size="sm" />
                     </td>
 
                     {/* 3-dots Menu */}

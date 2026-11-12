@@ -9,7 +9,10 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/shared/ui/chart";
-import { useNumberFormat } from "@/shared/hooks/use-number-format";
+import { Amount } from "@/shared/ui/amount";
+import { useNumberFormat, useNumberPreferences } from "@/shared/hooks/use-number-format";
+import { formatAmountText, formatPercent } from "@/shared/lib/amount-format";
+import { formatCurrencyLabel } from "@/shared/lib/currency";
 
 interface CurrencyDonutChartProps {
   accounts: AccountDto[];
@@ -32,6 +35,7 @@ const chartConfig = {
 
 export function CurrencyDonutChart({ accounts, p2pRate = 9.85 }: CurrencyDonutChartProps) {
   const format = useNumberFormat();
+  const numberPreferences = useNumberPreferences();
   const { data, totalBob } = useMemo(() => {
     let bob = 0;
     let usd = 0;
@@ -69,18 +73,32 @@ export function CurrencyDonutChart({ accounts, p2pRate = 9.85 }: CurrencyDonutCh
         <div>
           <h3 className="text-sm font-bold text-foreground">Distribución por Moneda</h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Valorado al cambio P2P (Bs. {p2pRate.toFixed(2)})
+            Valorado al cambio P2P ({formatCurrencyLabel("BOB")} {format(p2pRate)})
           </p>
         </div>
-        <span className="text-xs font-mono font-bold text-primary">
-          Bs. {format(totalBob)} total
+        <span className="text-xs font-bold text-primary">
+          <Amount value={totalBob} currency="BOB" size="xs" /> total
         </span>
       </div>
 
       <div className="flex flex-col sm:flex-row items-center gap-4">
         <ChartContainer config={chartConfig} className="h-44 w-44 aspect-square shrink-0">
           <PieChart>
-            <ChartTooltip content={<ChartTooltipContent nameKey="name" />} />
+            <ChartTooltip
+              content={
+                <ChartTooltipContent
+                  nameKey="name"
+                  formatter={(value) => (
+                    <div className="flex min-w-0 flex-1 justify-between gap-2 leading-none">
+                      <span className="truncate text-muted-foreground">BOB</span>
+                      <span className="shrink-0 font-sans font-medium text-foreground tabular-nums">
+                        {formatAmountText(Number(value), "BOB", numberPreferences)}
+                      </span>
+                    </div>
+                  )}
+                />
+              }
+            />
             <Pie
               data={data}
               dataKey="value"
@@ -111,11 +129,11 @@ export function CurrencyDonutChart({ accounts, p2pRate = 9.85 }: CurrencyDonutCh
                   />
                   <span className="font-semibold text-foreground">{item.name}</span>
                 </div>
-                <div className="flex items-center gap-2 font-mono">
+                <div className="flex items-center gap-2">
                   <span className="text-muted-foreground">
-                    {format(item.rawValue)} {item.currency}
+                    {formatAmountText(item.rawValue, item.currency, numberPreferences, { currencyDisplay: "code" })}
                   </span>
-                  <strong className="text-foreground w-10 text-right">{pct}%</strong>
+                  <strong className="text-foreground min-w-10 text-right">{formatPercent(pct, numberPreferences)}</strong>
                 </div>
               </div>
             );

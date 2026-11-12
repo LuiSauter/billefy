@@ -4,6 +4,8 @@ import React from "react";
 import { Bell, Wallet } from "lucide-react";
 import { UserDto } from "@/modules/identity/domain/identity.types";
 import { UserMenuDropdown } from "@/modules/identity/presentation/UserMenuDropdown";
+import { useNumberFormat } from "@/shared/hooks/use-number-format";
+import { formatCurrencyLabel } from "@/shared/lib/currency";
 
 interface MobileHeaderProps {
   user?: UserDto | null;
@@ -26,6 +28,8 @@ export function MobileHeader({
   onOpenSettings,
   onLogout,
 }: MobileHeaderProps) {
+  const format = useNumberFormat();
+
   return (
     <header className="md:hidden bg-card/95 backdrop-blur-md border-b border-border sticky top-0 z-30 px-4 h-[60px] flex items-center justify-between gap-2 shrink-0">
       <div className="flex items-center gap-2.5 min-w-0">
@@ -42,7 +46,7 @@ export function MobileHeader({
           title="Transferir FX a tasa P2P"
         >
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-          <span>P2P Bs {p2pRate.toFixed(2)}</span>
+          <span>P2P {formatCurrencyLabel("BOB")} {format(p2pRate)}</span>
         </button>
       </div>
 

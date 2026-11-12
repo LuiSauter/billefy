@@ -4,7 +4,9 @@ import React from "react";
 import { Bitcoin, TrendingUp, Layers } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Badge } from "@/shared/ui/badge";
-import { useNumberFormat } from "@/shared/hooks/use-number-format";
+import { Amount } from "@/shared/ui/amount";
+import { useNumberPreferences } from "@/shared/hooks/use-number-format";
+import { formatPercent } from "@/shared/lib/amount-format";
 import type { TopInvestmentItem } from "../../domain/dashboard-home-analytics";
 
 interface DashboardTopInvestmentsCardProps {
@@ -18,8 +20,7 @@ export function DashboardTopInvestmentsCard({
   selectedCurrency,
   onOpenInvestmentsTab,
 }: DashboardTopInvestmentsCardProps) {
-  const format = useNumberFormat();
-  const currencySymbol = selectedCurrency === "USD" ? "$" : "Bs";
+  const numberPreferences = useNumberPreferences();
 
   const getIcon = (type: string, name: string) => {
     const lower = `${type} ${name}`.toLowerCase();
@@ -86,14 +87,12 @@ export function DashboardTopInvestmentsCard({
                   </div>
 
                   <div className="flex items-center gap-3 shrink-0">
-                    <span className="text-xs sm:text-sm font-extrabold tabular-nums text-foreground">
-                      {currencySymbol} {format(inv.balance)}
-                    </span>
+                    <Amount value={inv.balance} currency={selectedCurrency} size="sm" />
                     <Badge
                       variant="outline"
                       className="bg-emerald-500/15 border-emerald-500/30 text-emerald-400 text-[11px] font-bold px-2 py-0.5 rounded-full"
                     >
-                      {inv.yieldRate >= 0 ? "+" : ""}{inv.yieldRate.toFixed(1)}%
+                      {inv.yieldRate >= 0 ? "+" : "-"}{formatPercent(Math.abs(inv.yieldRate), numberPreferences)}
                     </Badge>
                   </div>
                 </div>

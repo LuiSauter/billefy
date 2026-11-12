@@ -4,7 +4,7 @@ import React from "react";
 import { Plus, Home, Laptop, TrendingUp, Car } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Button } from "@/shared/ui/button";
-import { useNumberFormat } from "@/shared/hooks/use-number-format";
+import { Amount } from "@/shared/ui/amount";
 import type { AssetSummaryItem } from "../../domain/dashboard-home-analytics";
 
 interface DashboardAssetsCardProps {
@@ -20,9 +20,6 @@ export function DashboardAssetsCard({
   onOpenPatrimonio,
   onAddAsset,
 }: DashboardAssetsCardProps) {
-  const format = useNumberFormat();
-  const currencySymbol = selectedCurrency === "USD" ? "$" : "Bs";
-
   const getAssetIcon = (key: string) => {
     switch (key) {
       case "realestate":
@@ -78,9 +75,7 @@ export function DashboardAssetsCard({
                 </div>
               </div>
 
-              <span className="text-xs sm:text-sm font-extrabold tabular-nums text-foreground shrink-0">
-                {currencySymbol} {format(asset.amount)}
-              </span>
+              <Amount value={asset.amount} currency={selectedCurrency} size="sm" className="min-w-0 truncate" />
             </div>
           );
         })}

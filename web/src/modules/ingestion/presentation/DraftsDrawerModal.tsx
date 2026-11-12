@@ -1,13 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { AccountDto } from "@/modules/ledger/domain/ledger.types";
 import { DraftDto } from "@/modules/ingestion/domain/ingestion.types";
 import { CheckCheck, Check, Inbox } from "lucide-react";
-import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
 import { ResponsiveDrawer } from "@/shared/ui/responsive-drawer";
-import { formatSignedAmount } from "@/shared/lib/format";
+import { Amount } from "@/shared/ui/amount";
 
 interface DraftsDrawerModalProps {
   isOpen: boolean;
@@ -112,14 +111,12 @@ export function DraftsDrawerModal({
                 </div>
 
                 <div className="flex shrink-0 items-center gap-3">
-                  <span
-                    className={cn(
-                      "text-sm font-extrabold tabular-nums",
-                      isIncome ? "text-success" : "text-destructive"
-                    )}
-                  >
-                    {formatSignedAmount(draft.amount, draft.currency, draft.direction)}
-                  </span>
+                  <Amount
+                    value={isIncome ? draft.amount : draft.amount.negated()}
+                    currency={draft.currency}
+                    tone={isIncome ? "income" : "expense"}
+                    size="sm"
+                  />
                   <Button
                     type="button"
                     variant="success"

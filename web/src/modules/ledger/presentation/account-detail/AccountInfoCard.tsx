@@ -75,7 +75,7 @@ export function AccountInfoCard({ account }: AccountInfoCardProps) {
             <CreditCard className="w-4 h-4 text-muted-foreground/80" />
             <span>Número</span>
           </div>
-          <span className="font-mono font-bold text-foreground tracking-wider">
+          <span className="font-bold text-foreground tracking-wider">
             {maskedNumber}
           </span>
         </div>

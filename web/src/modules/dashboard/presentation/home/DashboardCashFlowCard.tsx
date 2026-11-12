@@ -11,7 +11,9 @@ import {
   Tooltip,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
-import { useNumberFormat } from "@/shared/hooks/use-number-format";
+import { Amount } from "@/shared/ui/amount";
+import { useNumberPreferences } from "@/shared/hooks/use-number-format";
+import { formatAmountText } from "@/shared/lib/amount-format";
 import type { MonthlyCashFlow } from "../../domain/dashboard-home-analytics";
 
 interface DashboardCashFlowCardProps {
@@ -23,8 +25,7 @@ export function DashboardCashFlowCard({
   cashFlow,
   selectedCurrency,
 }: DashboardCashFlowCardProps) {
-  const format = useNumberFormat();
-  const currencySymbol = selectedCurrency === "USD" ? "$" : "Bs";
+  const numberPreferences = useNumberPreferences();
 
   const chartData = [
     { name: "Ingresos", amount: cashFlow.income, color: "#10b981" },
@@ -32,10 +33,8 @@ export function DashboardCashFlowCard({
     { name: "Ahorro", amount: cashFlow.savings, color: "#a855f7" },
   ];
 
-  const formatK = (val: number) => {
-    if (val >= 1000) return `${Math.round(val / 1000)}K`;
-    return `${val}`;
-  };
+  const formatK = (val: number) =>
+    formatAmountText(val, selectedCurrency, numberPreferences, { compact: true });
 
   return (
     <Card className="rounded-2xl border-border/70 bg-card/60 backdrop-blur-xs shadow-xs overflow-hidden h-full">
@@ -56,9 +55,7 @@ export function DashboardCashFlowCard({
                 Ingresos
               </span>
             </div>
-            <span className="text-xs sm:text-sm font-extrabold text-foreground tabular-nums">
-              {currencySymbol} {format(cashFlow.income)}
-            </span>
+            <Amount value={cashFlow.income} currency={selectedCurrency} size="sm" />
           </div>
 
           {/* Gastos */}
@@ -69,9 +66,7 @@ export function DashboardCashFlowCard({
                 Gastos
               </span>
             </div>
-            <span className="text-xs sm:text-sm font-extrabold text-foreground tabular-nums">
-              {currencySymbol} {format(cashFlow.expenses)}
-            </span>
+            <Amount value={cashFlow.expenses} currency={selectedCurrency} size="sm" />
           </div>
 
           {/* Ahorro / Inversión */}
@@ -82,9 +77,7 @@ export function DashboardCashFlowCard({
                 Ahorro / Inversión
               </span>
             </div>
-            <span className="text-xs sm:text-sm font-extrabold text-foreground tabular-nums">
-              {currencySymbol} {format(cashFlow.savings)}
-            </span>
+            <Amount value={cashFlow.savings} currency={selectedCurrency} size="sm" />
           </div>
         </div>
 
@@ -101,7 +94,7 @@ export function DashboardCashFlowCard({
               />
               <XAxis dataKey="name" hide />
               <Tooltip
-                formatter={(val) => `${currencySymbol} ${format(Number(val))}`}
+                formatter={(val) => formatAmountText(Number(val), selectedCurrency, numberPreferences) }
                 contentStyle={{
                   backgroundColor: "rgba(15, 23, 42, 0.95)",
                   borderColor: "rgba(148, 163, 184, 0.2)",

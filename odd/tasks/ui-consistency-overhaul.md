@@ -13,7 +13,7 @@ No backend changes, no i18n layer, no visual rebrand, no business-logic/financia
 
 ## Phases / Tasks
 - [x] T1 Number foundation: reactive preferences store (`useSyncExternalStore`), single engine in `shared/lib/number-format.ts`, currency metadata, `<Amount>/<Money>` (Inter, tabular-nums, semibold, sign/tone, compact), retire `format.ts` money paths, `formatMoney` en-US, chart tooltip, `workspaceMoney`; tests.
-- [ ] T2 Migrate all numeric display to `<Amount>`/`useNumberFormat` in ledger, dashboard, ingestion, fx (incl. Drafts currency mislabel bug, percentages, counts).
+- [x] T2 Migrate all numeric display to `<Amount>`/`useNumberFormat` in ledger, dashboard, ingestion, fx (incl. Drafts currency mislabel bug, percentages, counts).
 - [ ] T3 Same migration for planning, lending, investments.
 - [ ] T4 Same migration for patrimonio, reports, workspaces, identity/auth FX displays.
 - [ ] T5 shared/ui consolidation: segmented-control + chip-radio-group on `RadioGroup`; select-field composes native-select; Select/Tabs/MonthPicker/chart tooltip overflow hardening; `Alert` for page error banner; month-picker theme tokens.
@@ -26,4 +26,4 @@ No backend changes, no i18n layer, no visual rebrand, no business-logic/financia
 - [ ] T12 Final verification: `pnpm --dir web lint && test && build`; fixed-format grep guards (no `toLocaleString`/`toFixed` for money outside number-format).
 
 ## Evidence log
-(commit hashes recorded per task)
+T1 ad1f086; T2 b64c66a + follow-up commits (ledger movements, account-detail, dashboard/fx/ingestion)

@@ -18,7 +18,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/shared/ui/dropdown-menu";
-import { useNumberFormat } from "@/shared/hooks/use-number-format";
+import { useNumberPreferences } from "@/shared/hooks/use-number-format";
+import { formatAmountText } from "@/shared/lib/amount-format";
 import type { NetWorthEvolutionPoint } from "../../domain/dashboard-home-analytics";
 
 interface DashboardNetWorthEvolutionCardProps {
@@ -30,13 +31,10 @@ export function DashboardNetWorthEvolutionCard({
   data,
   selectedCurrency,
 }: DashboardNetWorthEvolutionCardProps) {
-  const format = useNumberFormat();
-  const currencySymbol = selectedCurrency === "USD" ? "$" : "Bs";
+  const numberPreferences = useNumberPreferences();
 
-  const formatK = (val: number) => {
-    if (val >= 1000) return `${Math.round(val / 1000)}K`;
-    return `${val}`;
-  };
+  const formatK = (val: number) =>
+    formatAmountText(val, selectedCurrency, numberPreferences, { compact: true });
 
   return (
     <Card className="rounded-2xl border-border/70 bg-card/60 backdrop-blur-xs shadow-xs overflow-hidden h-full flex flex-col justify-between">
@@ -93,7 +91,7 @@ export function DashboardNetWorthEvolutionCard({
                 domain={["auto", "auto"]}
               />
               <Tooltip
-                formatter={(val) => `${currencySymbol} ${format(Number(val))}`}
+                formatter={(val) => formatAmountText(Number(val), selectedCurrency, numberPreferences)}
                 contentStyle={{
                   backgroundColor: "rgba(15, 23, 42, 0.95)",
                   borderColor: "rgba(168, 85, 247, 0.4)",

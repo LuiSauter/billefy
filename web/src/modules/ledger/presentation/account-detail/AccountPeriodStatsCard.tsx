@@ -4,7 +4,7 @@ import React, { useMemo } from "react";
 import { ArrowLeftRight, TrendingUp, TrendingDown, Tag } from "lucide-react";
 import { AccountDto, TransactionDto } from "../../domain/ledger.types";
 import { calculateAccountPeriodStats } from "../../domain/account-detail";
-import { useNumberFormat } from "@/shared/hooks/use-number-format";
+import { Amount } from "@/shared/ui/amount";
 
 interface AccountPeriodStatsCardProps {
   account: AccountDto;
@@ -15,16 +15,10 @@ export function AccountPeriodStatsCard({
   account,
   transactions,
 }: AccountPeriodStatsCardProps) {
-  const format = useNumberFormat();
-  const currencySymbol = account.currency === "BOB" ? "Bs" : "$";
 
   const stats = useMemo(() => {
     return calculateAccountPeriodStats(account, transactions, "all");
   }, [account, transactions]);
-
-  const formattedIncome = `${currencySymbol} ${format(stats.income)}`;
-  const formattedExpenses = `${currencySymbol} ${format(stats.expenses)}`;
-  const formattedAvgTicket = `${currencySymbol} ${format(stats.averageExpenseTicket)}`;
 
   return (
     <div className="rounded-2xl bg-card border border-border/80 p-5 flex flex-col gap-4 shadow-sm">
@@ -54,9 +48,7 @@ export function AccountPeriodStatsCard({
             </div>
             <span>Ingresos</span>
           </div>
-          <span className="font-black text-emerald-400 text-sm">
-            {formattedIncome}
-          </span>
+          <Amount value={stats.income} currency={account.currency} tone="income" size="sm" />
         </div>
 
         {/* Gastos */}
@@ -67,9 +59,7 @@ export function AccountPeriodStatsCard({
             </div>
             <span>Gastos</span>
           </div>
-          <span className="font-black text-rose-400 text-sm">
-            {formattedExpenses}
-          </span>
+          <Amount value={stats.expenses} currency={account.currency} tone="expense" size="sm" />
         </div>
 
         {/* Ticket promedio (gasto) */}
@@ -80,9 +70,7 @@ export function AccountPeriodStatsCard({
             </div>
             <span>Ticket promedio (gasto)</span>
           </div>
-          <span className="font-bold text-foreground text-sm">
-            {formattedAvgTicket}
-          </span>
+          <Amount value={stats.averageExpenseTicket} currency={account.currency} size="sm" />
         </div>
       </div>
     </div>

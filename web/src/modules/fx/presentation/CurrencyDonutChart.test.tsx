@@ -12,6 +12,6 @@ describe("CurrencyDonutChart number formatting", () => {
       balance: new Decimal("1234.56"), createdAt: "2026-01-01T00:00:00Z",
     }];
     const html = renderToStaticMarkup(<CurrencyDonutChart accounts={accounts} p2pRate={10} />);
-    expect(html).toContain("1.234,56 USD");
+    expect(html).toContain("USD 1.234,56");
   });
 });

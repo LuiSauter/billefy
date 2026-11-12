@@ -4,7 +4,9 @@ import React from "react";
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from "recharts";
 import { Tag } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
-import { useNumberFormat } from "@/shared/hooks/use-number-format";
+import { Amount } from "@/shared/ui/amount";
+import { useNumberPreferences } from "@/shared/hooks/use-number-format";
+import { formatAmountText, formatPercent } from "@/shared/lib/amount-format";
 import type { CategoryExpenseItem } from "../../domain/dashboard-home-analytics";
 
 interface DashboardCategoryExpensesCardProps {
@@ -18,8 +20,7 @@ export function DashboardCategoryExpensesCard({
   totalExpenses,
   selectedCurrency,
 }: DashboardCategoryExpensesCardProps) {
-  const format = useNumberFormat();
-  const currencySymbol = selectedCurrency === "USD" ? "$" : "Bs";
+  const numberPreferences = useNumberPreferences();
 
   return (
     <Card className="rounded-2xl border-border/70 bg-card/60 backdrop-blur-xs shadow-xs overflow-hidden h-full">
@@ -49,7 +50,7 @@ export function DashboardCategoryExpensesCard({
               <ResponsiveContainer width="100%" height="100%" minWidth={0} initialDimension={{ width: 150, height: 150 }}>
                 <PieChart>
                   <Tooltip
-                    formatter={(val) => `${currencySymbol} ${format(Number(val))}`}
+                    formatter={(val) => formatAmountText(Number(val), selectedCurrency, numberPreferences)}
                     contentStyle={{
                       backgroundColor: "rgba(15, 23, 42, 0.95)",
                       borderColor: "rgba(148, 163, 184, 0.2)",
@@ -77,9 +78,7 @@ export function DashboardCategoryExpensesCard({
 
               {/* Center Label inside Donut */}
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center">
-                <span className="text-xs sm:text-sm font-black text-foreground tracking-tight tabular-nums">
-                  {currencySymbol} {format(totalExpenses)}
-                </span>
+                <Amount value={totalExpenses} currency={selectedCurrency} size="sm" />
                 <span className="text-[10px] text-muted-foreground font-medium">
                   Gastos del mes
                 </span>
@@ -101,11 +100,9 @@ export function DashboardCategoryExpensesCard({
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <span className="text-[11px] text-muted-foreground font-bold tabular-nums">
-                      {cat.percentage}%
+                      {formatPercent(cat.percentage, numberPreferences)}
                     </span>
-                    <span className="text-[11px] font-extrabold text-foreground tabular-nums">
-                      {currencySymbol} {format(cat.amount)}
-                    </span>
+                    <Amount value={cat.amount} currency={selectedCurrency} size="xs" />
                   </div>
                 </div>
               ))}

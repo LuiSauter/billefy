@@ -25,7 +25,7 @@ import { AccountCashFlowDonutCard } from "./AccountCashFlowDonutCard";
 import { AccountMovementsTable } from "./AccountMovementsTable";
 import { AccountInfoCard } from "./AccountInfoCard";
 import { AccountPeriodStatsCard } from "./AccountPeriodStatsCard";
-import { useNumberFormat } from "@/shared/hooks/use-number-format";
+import { Amount } from "@/shared/ui/amount";
 
 export type AccountDetailTab =
   | "resumen"
@@ -62,7 +62,6 @@ export function AccountDetailView({
   p2pRate = 9.85,
   initialTab = "resumen",
 }: AccountDetailViewProps) {
-  const format = useNumberFormat();
   const [activeTab, setActiveTab] = useState<AccountDetailTab>(initialTab);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -102,7 +101,6 @@ export function AccountDetailView({
     }
   };
 
-  const currencySymbol = account.currency === "BOB" ? "Bs" : "$";
 
   return (
     <div className="flex flex-col gap-6 w-full animate-in fade-in duration-200">
@@ -253,9 +251,7 @@ export function AccountDetailView({
             <div className="rounded-xl bg-muted/40 border border-border/70 p-4 flex flex-col gap-2 text-xs">
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Saldo actual registrado</span>
-                <span className="font-bold text-foreground">
-                  {currencySymbol} {format(account.balance || 0)}
-                </span>
+                <Amount value={account.balance || 0} currency={account.currency} size="sm" />
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Estado de integridad</span>
@@ -303,14 +299,12 @@ export function AccountDetailView({
                           {new Date(adj.occurredAt).toLocaleDateString()}
                         </span>
                       </div>
-                      <span
-                        className={`font-black ${
-                          adj.direction === "Income" ? "text-emerald-400" : "text-rose-400"
-                        }`}
-                      >
-                        {adj.direction === "Income" ? "+ " : "- "}
-                        {currencySymbol} {format(new Decimal(adj.amount).abs())}
-                      </span>
+                      <Amount
+                        value={adj.direction === "Income" ? adj.amount : new Decimal(adj.amount).negated()}
+                        currency={account.currency}
+                        tone={adj.direction === "Income" ? "income" : "expense"}
+                        size="sm"
+                      />
                     </div>
                   ))}
               </div>

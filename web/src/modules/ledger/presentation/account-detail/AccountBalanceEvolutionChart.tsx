@@ -13,7 +13,8 @@ import {
 import { ChevronDown } from "lucide-react";
 import { AccountDto, TransactionDto } from "../../domain/ledger.types";
 import { calculateBalanceEvolutionPoints } from "../../domain/account-detail";
-import { useNumberFormat } from "@/shared/hooks/use-number-format";
+import { useNumberFormat, useNumberPreferences } from "@/shared/hooks/use-number-format";
+import { formatAmountText } from "@/shared/lib/amount-format";
 
 interface AccountBalanceEvolutionChartProps {
   account: AccountDto;
@@ -25,8 +26,8 @@ export function AccountBalanceEvolutionChart({
   transactions,
 }: AccountBalanceEvolutionChartProps) {
   const format = useNumberFormat();
+  const preferences = useNumberPreferences();
   const [range, setRange] = useState<"1m" | "3m" | "6m" | "1y">("6m");
-  const currencySymbol = account.currency === "BOB" ? "Bs" : "$";
 
   const data = useMemo(() => {
     return calculateBalanceEvolutionPoints(account, transactions, range);
@@ -35,8 +36,8 @@ export function AccountBalanceEvolutionChart({
   const latestPoint = data[data.length - 1];
 
   const formatYAxis = (val: number) => {
-    if (val >= 1000) return `${Math.round(val / 1000)}K`;
-    return val.toString();
+    if (val >= 1000) return `${format(val / 1000)}K`;
+    return format(val);
   };
 
   return (
@@ -68,7 +69,7 @@ export function AccountBalanceEvolutionChart({
         {/* Floating Callout for Current Balance in the upper right or on top of last point */}
         {latestPoint && (
           <div className="absolute top-2 right-4 z-10 bg-purple-950/80 border border-purple-500/40 text-purple-200 text-xs font-bold px-2.5 py-1 rounded-lg shadow-sm backdrop-blur-xs pointer-events-none">
-            {currencySymbol} {format(latestPoint.balance)}
+            {formatAmountText(latestPoint.balance, account.currency, preferences)}
           </div>
         )}
 
@@ -115,7 +116,7 @@ export function AccountBalanceEvolutionChart({
                         {label}
                       </span>
                       <span className="font-bold text-foreground text-sm">
-                        {currencySymbol} {format(val)}
+                        {formatAmountText(val, account.currency, preferences)}
                       </span>
                     </div>
                   );

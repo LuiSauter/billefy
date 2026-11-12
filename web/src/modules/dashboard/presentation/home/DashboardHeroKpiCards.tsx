@@ -11,7 +11,9 @@ import {
   Info,
 } from "lucide-react";
 import { Card, CardContent } from "@/shared/ui/card";
-import { useNumberFormat } from "@/shared/hooks/use-number-format";
+import { Amount } from "@/shared/ui/amount";
+import { useNumberPreferences } from "@/shared/hooks/use-number-format";
+import { formatPercent } from "@/shared/lib/amount-format";
 import type { DashboardHeroKpis } from "../../domain/dashboard-home-analytics";
 
 interface DashboardHeroKpiCardsProps {
@@ -23,8 +25,7 @@ export function DashboardHeroKpiCards({
   kpis,
   selectedCurrency,
 }: DashboardHeroKpiCardsProps) {
-  const format = useNumberFormat();
-  const currencySymbol = selectedCurrency === "USD" ? "$" : "Bs";
+  const numberPreferences = useNumberPreferences();
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -44,16 +45,14 @@ export function DashboardHeroKpiCards({
 
           {/* Amount */}
           <div className="flex flex-col min-w-0">
-            <span className="text-xl sm:text-2xl lg:text-[28px] font-black text-white tracking-tight tabular-nums truncate">
-              {currencySymbol} {format(kpis.netWorth)}
-            </span>
+            <Amount value={kpis.netWorth} currency={selectedCurrency} size="xl" className="text-white !text-xl sm:!text-2xl lg:!text-[28px] min-w-0 truncate" />
           </div>
 
           {/* Footer Badge & Comparison */}
           <div className="flex items-center gap-2 text-xs">
             <div className="flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 font-extrabold text-[11px]">
               <ArrowUp className="w-3 h-3 stroke-[2.5]" />
-              <span>+{kpis.netWorthGrowthPct.toFixed(1)}%</span>
+              <span>+{formatPercent(kpis.netWorthGrowthPct, numberPreferences)}</span>
             </div>
             <span className="text-purple-200/70 text-[11px] font-medium">vs. mes anterior</span>
           </div>
@@ -93,14 +92,12 @@ export function DashboardHeroKpiCards({
           </div>
 
           <div className="flex flex-col min-w-0">
-            <span className="text-lg sm:text-xl lg:text-2xl font-extrabold text-foreground tracking-tight tabular-nums truncate">
-              {currencySymbol} {format(kpis.totalAssets)}
-            </span>
+            <Amount value={kpis.totalAssets} currency={selectedCurrency} size="lg" className="min-w-0 truncate" />
           </div>
 
           <div className="flex items-center gap-1 text-[11px] font-bold text-emerald-400">
             <ArrowUp className="w-3 h-3 stroke-[2.5]" />
-            <span>+{kpis.assetsGrowthPct.toFixed(1)}%</span>
+            <span>+{formatPercent(kpis.assetsGrowthPct, numberPreferences)}</span>
           </div>
         </CardContent>
       </Card>
@@ -116,14 +113,12 @@ export function DashboardHeroKpiCards({
           </div>
 
           <div className="flex flex-col min-w-0">
-            <span className="text-lg sm:text-xl lg:text-2xl font-extrabold text-foreground tracking-tight tabular-nums truncate">
-              {currencySymbol} {format(kpis.totalLiabilities)}
-            </span>
+            <Amount value={kpis.totalLiabilities} currency={selectedCurrency} size="lg" className="min-w-0 truncate" />
           </div>
 
           <div className="flex items-center gap-1 text-[11px] font-bold text-rose-400">
             <ArrowDown className="w-3 h-3 stroke-[2.5]" />
-            <span>{kpis.liabilitiesGrowthPct.toFixed(1)}%</span>
+            <span>{kpis.liabilitiesGrowthPct < 0 ? "-" : ""}{formatPercent(Math.abs(kpis.liabilitiesGrowthPct), numberPreferences)}</span>
           </div>
         </CardContent>
       </Card>
@@ -139,9 +134,7 @@ export function DashboardHeroKpiCards({
           </div>
 
           <div className="flex flex-col min-w-0">
-            <span className="text-lg sm:text-xl lg:text-2xl font-extrabold text-foreground tracking-tight tabular-nums truncate">
-              {currencySymbol} {format(kpis.totalLiquidBalance)}
-            </span>
+            <Amount value={kpis.totalLiquidBalance} currency={selectedCurrency} size="lg" className="min-w-0 truncate" />
           </div>
 
           <span className="text-[11px] text-muted-foreground font-medium truncate">

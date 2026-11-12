@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Button } from "@/shared/ui/button";
-import { useNumberFormat } from "@/shared/hooks/use-number-format";
+import { Amount } from "@/shared/ui/amount";
 import type { AccountDto } from "@/modules/ledger/domain/ledger.types";
 
 interface DashboardAccountsCardProps {
@@ -28,9 +28,7 @@ export function DashboardAccountsCard({
   onOpenCreateAccount,
   onOpenAccountsTab,
 }: DashboardAccountsCardProps) {
-  const format = useNumberFormat();
-  const currencySymbol = selectedCurrency === "USD" ? "$" : "Bs";
-
+  void selectedCurrency;
   const getAccountIcon = (name: string, type: string) => {
     const lower = `${name} ${type}`.toLowerCase();
     if (lower.includes("crypto") || lower.includes("binance") || lower.includes("btc")) {
@@ -91,9 +89,7 @@ export function DashboardAccountsCard({
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
-                  <span className="text-xs font-extrabold tabular-nums text-foreground">
-                    {currencySymbol} {format(Number(acc.balance.toString()))}
-                  </span>
+                  <Amount value={acc.balance} currency={acc.currency} size="xs" className="min-w-0 truncate" />
                   <ChevronRight className="w-3.5 h-3.5 text-muted-foreground group-hover:text-foreground group-hover:translate-x-0.5 transition-all" />
                 </div>
               </div>

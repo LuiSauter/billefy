@@ -3,7 +3,9 @@
 import React from "react";
 import { Info, Home, Heart, TrendingUp, Layers } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
-import { useNumberFormat } from "@/shared/hooks/use-number-format";
+import { Amount } from "@/shared/ui/amount";
+import { useNumberPreferences } from "@/shared/hooks/use-number-format";
+import { formatPercent } from "@/shared/lib/amount-format";
 import { CATEGORY_COLOR_THEMES, CategoryColorKey } from "@/modules/ledger/domain/category.types";
 import type { RecommendedDistribution } from "../../domain/dashboard-home-analytics";
 
@@ -32,8 +34,7 @@ export function DashboardDistributionCard({
   selectedCurrency,
   onOpenPlanTab,
 }: DashboardDistributionCardProps) {
-  const format = useNumberFormat();
-  const currencySymbol = selectedCurrency === "USD" ? "$" : "Bs";
+  const numberPreferences = useNumberPreferences();
   const title = distribution.isCustom
     ? `Regla de distribución (${distribution.ruleLabel})`
     : `Distribución recomendada (${distribution.ruleLabel || "50/30/20"})`;
@@ -73,7 +74,7 @@ export function DashboardDistributionCard({
                   width: `${b.percent}%`,
                   backgroundColor: theme.swatchHex,
                 }}
-                title={`${b.percent}% ${b.name}`}
+                title={`${formatPercent(b.percent, numberPreferences)} ${b.name}`}
               />
             );
           })}
@@ -102,15 +103,13 @@ export function DashboardDistributionCard({
                     style={{ color: theme.swatchHex }}
                   />
                   <span className="font-bold text-foreground truncate">
-                    {bucket.percent}%{" "}
+                    {formatPercent(bucket.percent, numberPreferences)}{" "}
                     <span className="font-semibold text-muted-foreground">
                       {bucket.name}
                     </span>
                   </span>
                 </div>
-                <span className="font-extrabold text-foreground tabular-nums text-xs sm:text-sm shrink-0">
-                  {currencySymbol} {format(bucket.amount)}
-                </span>
+                <Amount value={bucket.amount} currency={selectedCurrency} size="sm" className="shrink-0" />
               </div>
             );
           })}
