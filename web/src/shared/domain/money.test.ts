@@ -14,7 +14,7 @@ describe("Web Money helper", () => {
     const result = addMoney(m1, m2);
 
     expect(result.amount.toString()).toBe("0.3");
-    expect(formatMoney(result)).toBe("0.30 USD");
+    expect(formatMoney(result)).toBe("0,30 USD");
   });
 
   it("should throw error on currency mismatch", () => {

@@ -1,40 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { defaultTokenStorage } from "@/shared/infrastructure/local-storage-token.adapter";
-import { StoredSessionUser } from "@/shared/application/token-storage.contract";
-import { formatNumber, NumberGroupingConvention } from "@/shared/lib/number-format";
+import { useCallback, useSyncExternalStore } from "react";
+import { DEFAULT_NUMBER_FORMAT_PREFERENCES, formatNumber, getNumberFormatPreferences, subscribeNumberFormatPreferences } from "@/shared/lib/number-format";
 
-interface NumberPreferences {
-  numberGroupingConvention?: NumberGroupingConvention;
-  maximumDecimalPlaces?: number;
+export function useNumberPreferences() {
+  return useSyncExternalStore(subscribeNumberFormatPreferences, getNumberFormatPreferences, () => DEFAULT_NUMBER_FORMAT_PREFERENCES);
 }
-
-function storedPreferences(): Required<Pick<NumberPreferences, "numberGroupingConvention" | "maximumDecimalPlaces">> {
-  const user = defaultTokenStorage.getUser() as (StoredSessionUser & NumberPreferences) | null;
-  return {
-    numberGroupingConvention: user?.numberGroupingConvention ?? "es-BO",
-    maximumDecimalPlaces: user?.maximumDecimalPlaces ?? 2,
-  };
-}
-
 export function useNumberFormat() {
-  const [preferences, setPreferences] = useState(storedPreferences);
-  useEffect(() => {
-    setPreferences(storedPreferences());
-    const sync = (event: Event) => {
-      const detail = (event as CustomEvent<NumberPreferences>).detail;
-      setPreferences({
-        numberGroupingConvention: detail.numberGroupingConvention ?? "es-BO",
-        maximumDecimalPlaces: detail.maximumDecimalPlaces ?? 2,
-      });
-    };
-    window.addEventListener("billefy:number-format-updated", sync);
-    return () => window.removeEventListener("billefy:number-format-updated", sync);
-  }, []);
-  return useCallback(
-    (value: string | number | Parameters<typeof formatNumber>[0]) =>
-      formatNumber(value, preferences.numberGroupingConvention, preferences.maximumDecimalPlaces),
-    [preferences]
-  );
+  const preferences = useNumberPreferences();
+  return useCallback((value: string | number | Parameters<typeof formatNumber>[0]) =>
+    formatNumber(value, preferences.convention, preferences.decimalPlaces), [preferences]);
 }

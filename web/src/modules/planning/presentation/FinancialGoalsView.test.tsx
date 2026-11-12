@@ -7,7 +7,7 @@ const tracked: GoalDto = { id: "g", name: "Una meta con un nombre bastante largo
 describe("financial goals view", () => {
   it("shows valid backend progress, truthful shared disclosure and no contribution action", () => {
     const html = renderToStaticMarkup(<FinancialGoalsView goals={[tracked]} onOpenCreateGoalModal={vi.fn()} onOpenAccounts={vi.fn()} />);
-    for (const text of ["Tus metas", tracked.name, "30.00 BOB", "120.00 BOB", "90.00 BOB", "25%", "En 3 meses", "Cuenta familiar", "Compartida con 2 metas"]) expect(html).toContain(text);
+    for (const text of ["Tus metas", tracked.name, "30,00 BOB", "120,00 BOB", "90,00 BOB", "25%", "En 3 meses", "Cuenta familiar", "Compartida con 2 metas"]) expect(html).toContain(text);
     expect(html).toContain('role="progressbar"');
     expect(html).not.toContain("Aportar");
   });

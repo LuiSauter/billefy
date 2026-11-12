@@ -1,5 +1,5 @@
 import Decimal from "decimal.js";
-import { formatNumber } from "@/shared/lib/number-format";
+import { formatNumber, getNumberFormatPreferences } from "@/shared/lib/number-format";
 
 // Ensure Decimal uses half away from zero by default for consistency with backend
 Decimal.set({ rounding: Decimal.ROUND_HALF_UP });
@@ -48,6 +48,7 @@ export function subtractMoney(a: Money, b: Money): Money {
   };
 }
 
-export function formatMoney(money: Money, decimals: number = 2): string {
-  return `${formatNumber(money.amount, "en-US", decimals)} ${money.currency}`;
+export function formatMoney(money: Money, decimals?: number): string {
+  const preferences = getNumberFormatPreferences();
+  return `${formatNumber(money.amount, preferences.convention, decimals ?? preferences.decimalPlaces)} ${money.currency}`;
 }

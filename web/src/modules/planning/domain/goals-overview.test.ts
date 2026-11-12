@@ -8,7 +8,7 @@ describe("goal overview model", () => {
     expect(eligibleGoalAccounts(accounts, "USD").map((account) => account.id)).toEqual(["usd"]);
   });
   it("uses tracked backend values and currency precision without floating point", () => {
-    expect(buildGoalOverview(base)).toMatchObject({ tracked: true, current: "0.00000040 BTC", target: "0.00000123 BTC", remaining: "0.00000083 BTC", percentage: 32.52, monthly: "0.00000017 BTC", shared: true });
+    expect(buildGoalOverview(base)).toMatchObject({ tracked: true, current: "0,00000040 BTC", target: "0,00000123 BTC", remaining: "0,00000083 BTC", percentage: 32.52, monthly: "0,00000017 BTC", shared: true });
   });
   it.each(["unlinked", "unavailable", "currency_mismatch"] as const)("never presents invalid %s data as progress", (trackingStatus) => {
     const view = buildGoalOverview({ ...base, trackingStatus, currentAmount: null, remainingAmount: null, percentageAchieved: null, monthsRemaining: null, monthlyContributionNeeded: null });

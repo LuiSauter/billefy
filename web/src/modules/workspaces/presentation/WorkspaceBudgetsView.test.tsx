@@ -62,7 +62,7 @@ describe("WorkspaceBudgetsView", () => {
   it("preserves overspending while clamping the visual progress indicator", () => {
     const html = renderToStaticMarkup(<WorkspaceBudgetsView {...props()} budget={{ ...budgetFixture, spentAmount: 1500, remainingAmount: -500, executionPercentage: 150 }} />);
     expect(html).toContain("150%");
-    expect(html).toContain("Bs -500,00");
+    expect(html).toContain("-Bs 500,00");
     expect(html).toContain("Has superado el presupuesto");
     expect(html).not.toContain("NaN");
   });
