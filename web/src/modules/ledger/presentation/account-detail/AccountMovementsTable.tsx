@@ -312,6 +312,7 @@ export function AccountMovementsTable({
                           }
                           className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition cursor-pointer"
                           title="Acciones del movimiento"
+                          aria-label="Acciones del movimiento"
                         >
                           <MoreVertical className="w-4 h-4" />
                         </button>

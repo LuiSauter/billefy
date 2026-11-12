@@ -113,9 +113,10 @@ export function AccountsFilterToolbar({
           type="button"
           onClick={() => onViewModeChange("grid")}
           title="Vista en cuadrícula"
-          className={`w-8 h-8 rounded-lg flex items-center justify-center transition cursor-pointer ${
+          aria-label="Vista en cuadrícula"
+          className={`size-8 rounded-lg flex items-center justify-center transition cursor-pointer ${
             viewMode === "grid"
-              ? "bg-purple-600 text-white shadow-xs"
+              ? "bg-primary text-primary-foreground shadow-xs"
               : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
           }`}
         >
@@ -125,9 +126,10 @@ export function AccountsFilterToolbar({
           type="button"
           onClick={() => onViewModeChange("list")}
           title="Vista en lista"
-          className={`w-8 h-8 rounded-lg flex items-center justify-center transition cursor-pointer ${
+          aria-label="Vista en lista"
+          className={`size-8 rounded-lg flex items-center justify-center transition cursor-pointer ${
             viewMode === "list"
-              ? "bg-purple-600 text-white shadow-xs"
+              ? "bg-primary text-primary-foreground shadow-xs"
               : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
           }`}
         >

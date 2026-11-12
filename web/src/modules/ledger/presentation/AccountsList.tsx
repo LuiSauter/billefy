@@ -86,6 +86,7 @@ export function AccountsList({
                     <button
                       type="button"
                       title="Editar cuenta"
+                      aria-label="Editar cuenta"
                       onClick={(e) => {
                         e.stopPropagation();
                         setEditing(acc);

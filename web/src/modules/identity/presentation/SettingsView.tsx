@@ -1631,11 +1631,11 @@ Respaldo automático: ${settings.autoBackup ? "Activado" : "Desactivado"}
             <ShieldCheck className="w-5 h-5 text-indigo-400 shrink-0 mt-0.5" />
             <div>
               <strong className="block text-sm font-bold text-foreground mb-1">
-                Autenticación segura federada
+                Gestión de contraseña
               </strong>
-              Tu cuenta de Billefy utiliza inicio de sesión único con Google OAuth 2.0. No almacenamos
-              contraseñas en nuestros servidores. Para actualizar tu clave de acceso o la verificación
-              en dos pasos, gestionala directamente desde tu cuenta de Google.
+              Si te registraste con correo y contraseña, podés actualizar tu clave cerrando sesión y
+              usando la opción de recuperación. Si iniciaste sesión con Google, gestioná tu seguridad
+              directamente desde tu cuenta de Google.
             </div>
           </div>
         </div>

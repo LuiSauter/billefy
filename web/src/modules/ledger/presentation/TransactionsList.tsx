@@ -282,6 +282,7 @@ export function TransactionsList({
                         onEditTxn(txn);
                       }}
                       title="Editar o eliminar movimiento"
+                      aria-label="Editar o eliminar movimiento"
                       className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-xl transition"
                     >
                       <Pencil className="w-3.5 h-3.5" />

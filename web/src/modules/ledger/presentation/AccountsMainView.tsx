@@ -182,6 +182,7 @@ export function AccountsMainView({
                       type="button"
                       onClick={() => handleEdit(acc)}
                       title="Editar cuenta"
+                      aria-label="Editar cuenta"
                       className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition cursor-pointer"
                     >
                       <Pencil className="w-3.5 h-3.5" />
@@ -190,6 +191,7 @@ export function AccountsMainView({
                       type="button"
                       onClick={() => onOpenReconcileModal(acc)}
                       title="Conciliar saldo"
+                      aria-label="Conciliar saldo"
                       className="p-1.5 rounded-lg text-primary hover:bg-primary/10 transition cursor-pointer"
                     >
                       <Scale className="w-3.5 h-3.5" />
@@ -199,7 +201,8 @@ export function AccountsMainView({
                         type="button"
                         onClick={() => setAccountToDelete(acc)}
                         title="Eliminar cuenta"
-                        className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-500/10 transition cursor-pointer"
+                        aria-label="Eliminar cuenta"
+                        className="p-1.5 rounded-lg text-destructive hover:bg-destructive/10 transition cursor-pointer"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
