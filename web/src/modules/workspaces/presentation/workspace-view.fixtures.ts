@@ -1,6 +1,6 @@
 import React from "react";
 import { FormField } from "@/shared/ui/form-field";
-import type { SharedBudgetDto, SharedFinancialEventDto, SharedGoalDto, WorkspaceDashboardDto, WorkspaceDetailDto, WorkspaceExpenseDto } from "../domain/workspaces.types";
+import type { SharedBudgetDto, SharedFinancialEventDto, SharedGoalDto, WorkspaceDashboardDto, WorkspaceDetailDto, WorkspaceExpenseDto, WorkspaceIncomeDto } from "../domain/workspaces.types";
 
 // Synthetic fixtures only; never consumed by production views or sent to an API.
 export const workspaceFixture: WorkspaceDetailDto = {
@@ -22,6 +22,7 @@ export const dashboardFixture: WorkspaceDashboardDto = {
 export const goalsFixture: SharedGoalDto[] = [{ id: "goal", title: "Viaje de prueba", targetAmount: 100, currency: "BOB", currentAmount: 60, monthlyCommitmentAmount: 0, targetDate: null, category: null, status: "Active", memberContributions: [{ memberId: "one", amount: 60, contributedAt: "2026-10-20" }, { memberId: "two", amount: 90, contributedAt: "2026-09-20" }] }];
 export const calendarFixture: SharedFinancialEventDto[] = [{ id: "payment", title: "Internet de prueba", financialEventType: "Payment", dueDate: "2026-10-25", amount: 250, currency: "BOB", responsibleMemberId: "two", isCompleted: false, notes: null, isDerived: false }];
 export const expensesFixture: WorkspaceExpenseDto[] = [{ id: "expense", workspaceId: "home", description: "Compra de prueba", amount: 725, currency: "BOB", date: "2026-10-28", paidByMemberId: "one", categoryId: "food", notes: null, splitRuleType: "IncomeProportional", allocations: [{ memberId: "one", amount: 435, percentage: 60 }, { memberId: "two", amount: 290, percentage: 40 }] }];
+export const incomesFixture: WorkspaceIncomeDto[] = [{ id: "income", workspaceId: "home", description: "Sueldo de prueba", amount: 1200, currency: "BOB", date: "2026-10-05", receivedByMemberId: "one", categoryId: "salary", notes: null }];
 export type TestElement = React.ReactElement<Record<string, unknown>>;
 export function viewNodes(tree: React.ReactNode): TestElement[] {
   if (Array.isArray(tree)) return tree.flatMap(viewNodes);

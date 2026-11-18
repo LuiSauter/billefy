@@ -6,7 +6,7 @@ import { SegmentedControl } from "@/shared/ui/segmented-control";
 import { SelectField } from "@/shared/ui/select-field";
 import { Input } from "@/shared/ui/input";
 import { WorkspaceMovementsView } from "./WorkspaceMovementsView";
-import { dashboardFixture, expensesFixture, goalsFixture, viewNodes, workspaceFixture } from "./workspace-view.fixtures";
+import { dashboardFixture, expensesFixture, goalsFixture, incomesFixture, viewNodes, workspaceFixture } from "./workspace-view.fixtures";
 
 const hooks = vi.hoisted(() => ({ cursor: 0, slots: [] as unknown[] }));
 vi.mock("react", async (load) => {
@@ -18,14 +18,14 @@ vi.mock("react", async (load) => {
   } };
 });
 vi.mock("@/modules/ledger/application/CategoriesContext", () => ({ useUserCategories: () => ({ findCategory: (id: string) => id === "food" ? { name: "Alimentación", iconKey: "utensils", colorKey: "rose" } : undefined }) }));
-const props = () => ({ workspace: workspaceFixture, dashboard: dashboardFixture, expenses: expensesFixture, goals: goalsFixture, year: 2026, month: 10, viewerUserId: "viewer", onRegisterExpense: vi.fn() });
+const props = () => ({ workspace: workspaceFixture, dashboard: dashboardFixture, expenses: expensesFixture, incomes: incomesFixture, goals: goalsFixture, year: 2026, month: 10, viewerUserId: "viewer", onRegisterExpense: vi.fn(), onRegisterIncome: vi.fn() });
 describe("WorkspaceMovementsView", () => {
   beforeAll(() => vi.stubGlobal("React", React));
   afterAll(() => vi.unstubAllGlobals());
   beforeEach(() => { hooks.cursor = 0; hooks.slots.length = 0; });
   it("renders the shared movement table, KPIs, filters and member metrics from real records", () => {
     const html = renderToStaticMarkup(<WorkspaceMovementsView {...props()} />);
-    for (const text of ["Movimientos compartidos", "Registrar movimiento", "Total de movimientos", "Ingresos", "Gastos", "Aportaciones", "Transferencias", "Filtros", "Categoría", "Cuenta", "Participación", "Rango de fechas", "Gastos por integrante", "Por categoría", "Fecha", "Descripción", "Monto", "Compra de prueba", "Compartido", "Bs 725,00", "Bs 60,00"]) expect(html).toContain(text);
+    for (const text of ["Movimientos compartidos", "Registrar ingreso", "Registrar gasto", "Total de movimientos", "Ingresos", "Gastos", "Aportaciones", "Transferencias", "Filtros", "Categoría", "Cuenta", "Participación", "Rango de fechas", "Gastos por integrante", "Por categoría", "Fecha", "Descripción", "Monto", "Compra de prueba", "Sueldo de prueba", "Compartido", "Bs 725,00", "Bs 60,00"]) expect(html).toContain(text);
     expect(html).not.toContain("Bs 90,00");
   });
   it("filters contribution rows and does not fabricate unavailable income or transfer records", () => {
@@ -38,7 +38,7 @@ describe("WorkspaceMovementsView", () => {
     expect(html).not.toContain("Compra de prueba");
     (toggle().props.onChange as (value: string) => void)("income");
     html = renderToStaticMarkup(render());
-    expect(html).toContain("El servicio no expone el detalle de ingresos");
+    expect(html).toContain("Sueldo de prueba");
     expect(html).not.toContain("Compra de prueba");
   });
   it("applies category and date filters, validates reversed ranges, and clears all filters", () => {
@@ -73,8 +73,10 @@ describe("WorkspaceMovementsView", () => {
     let html = renderToStaticMarkup(tree);
     expect(html).not.toContain("Fuera de período");
     expect(html).not.toContain("Otra moneda");
-    (viewNodes(tree).find((node) => node.type === Button && node.props["aria-label"] === "Registrar movimiento")!.props.onClick as () => void)();
+    (viewNodes(tree).find((node) => node.type === Button && node.props["aria-label"] === "Registrar gasto")!.props.onClick as () => void)();
     expect(input.onRegisterExpense).toHaveBeenCalledOnce();
+    (viewNodes(render()).find((node) => node.type === Button && node.props["aria-label"] === "Registrar ingreso")!.props.onClick as () => void)();
+    expect(input.onRegisterIncome).toHaveBeenCalledOnce();
     const participation = viewNodes(render()).find((node) => node.type === SelectField && node.props["aria-label"] === "Participación")!;
     (participation.props.onChange as (event: unknown) => void)({ target: { value: "mine" } });
     html = renderToStaticMarkup(render());

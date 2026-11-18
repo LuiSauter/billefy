@@ -11,10 +11,11 @@ import {
   WorkspaceDashboardDto, WorkspaceDateRange, WorkspaceDetailDto, WorkspaceExpenseDto,
   WorkspaceExpenseFilter, WorkspaceInvitationDto, WorkspaceMemberDto, WorkspaceMonthlyReportDto,
   WorkspacePeriod, WorkspaceSettlementDto, WorkspaceSummaryDto, SplitConfigurationDto, UpdateSplitConfigurationRequest,
+  RegisterWorkspaceIncomeRequest, WorkspaceIncomeDto, WorkspaceIncomeFilter,
 } from "../domain/workspaces.types";
 
 const root = "/v1/workspaces";
-function query(params?: WorkspacePeriod | WorkspaceDateRange | WorkspaceExpenseFilter): string {
+function query(params?: WorkspacePeriod | WorkspaceDateRange | WorkspaceExpenseFilter | WorkspaceIncomeFilter): string {
   const search = new URLSearchParams();
   for (const [key, value] of Object.entries(params ?? {})) {
     if (value !== undefined && value !== null) search.set(key, String(value));
@@ -52,6 +53,8 @@ export class WorkspacesApiRepository implements IWorkspacesRepository {
   getDashboard(id: string, period?: WorkspacePeriod) { return this.http.get<WorkspaceDashboardDto>(`${root}/${id}/dashboard${query(period)}`); }
   getExpenses(id: string, filter?: WorkspaceExpenseFilter) { return this.http.get<WorkspaceExpenseDto[]>(`${root}/${id}/expenses${query(filter)}`); }
   registerExpense(id: string, req: RegisterWorkspaceExpenseRequest) { return this.http.post<WorkspaceExpenseDto>(`${root}/${id}/expenses`, req); }
+  getIncomes(id: string, filter?: WorkspaceIncomeFilter) { return this.http.get<WorkspaceIncomeDto[]>(`${root}/${id}/incomes${query(filter)}`); }
+  registerIncome(id: string, req: RegisterWorkspaceIncomeRequest) { return this.http.post<WorkspaceIncomeDto>(`${root}/${id}/incomes`, req); }
   getBalances(id: string) { return this.http.get<WorkspaceBalancesDto>(`${root}/${id}/balances`); }
   getSettlements(id: string) { return this.http.get<WorkspaceSettlementDto[]>(`${root}/${id}/settlements`); }
   settleBalance(id: string, req: SettleBalanceRequest) { return this.http.post<WorkspaceSettlementDto>(`${root}/${id}/settlements`, req); }

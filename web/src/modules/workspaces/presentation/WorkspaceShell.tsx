@@ -19,6 +19,7 @@ import { WorkspaceCalendarView } from "./WorkspaceCalendarView";
 import { WorkspaceReportsView } from "./WorkspaceReportsView";
 import { WorkspaceSettingsView } from "./WorkspaceSettingsView";
 import { RegisterWorkspaceExpenseModal } from "./RegisterWorkspaceExpenseModal";
+import { RegisterWorkspaceIncomeModal } from "./RegisterWorkspaceIncomeModal";
 import { SettleBalanceModal } from "./SettleBalanceModal";
 import { WorkspaceBalancesView } from "./WorkspaceBalancesView";
 import { WorkspaceBudgetsView } from "./WorkspaceBudgetsView";
@@ -77,6 +78,7 @@ export function WorkspaceShellView({ http, workspace: initialWorkspace, initialT
     return workspacePeriodKey(now.getUTCFullYear(), now.getUTCMonth() + 1);
   });
   const [expenseOpen, setExpenseOpen] = useState(false);
+  const [incomeOpen, setIncomeOpen] = useState(false);
   const [budgetOpen, setBudgetOpen] = useState(false);
   const [settlement, setSettlement] = useState<PairwiseBalanceDto | null>(null);
   const [year, month] = period.split("-").map(Number);
@@ -93,6 +95,7 @@ export function WorkspaceShellView({ http, workspace: initialWorkspace, initialT
     setPeriod(value);
     setBudgetOpen(false);
     setExpenseOpen(false);
+    setIncomeOpen(false);
     setSettlement(null);
     setGoalOpen(false);
     setEventOpen(false);
@@ -110,7 +113,7 @@ export function WorkspaceShellView({ http, workspace: initialWorkspace, initialT
     {tab === "configuracion" ? <WorkspaceSettingsView workspace={workspace} repository={repository} viewerUserId={viewerUserId} onDeactivated={onBack} onUpdated={(updated) => { setWorkspace(updated); void details.refreshAll().catch(() => {}); }} /> : details.error || history.error ? <section role="alert" className={workspacePanel}><p className="mb-3 text-sm text-destructive">No se pudieron actualizar los datos del espacio.</p><Button disabled={details.loading || history.loading} onClick={() => void Promise.all([details.refreshAll(), history.refresh()]).catch(() => {})}>Reintentar</Button></section> : !ready ? <p role="status" className="py-12 text-center text-muted-foreground">Cargando datos del período…</p> : <>
       {tab === "dashboard" && <WorkspaceDashboardView workspace={workspace} dashboard={details.dashboard!} goals={details.goals} calendar={details.calendar} viewerUserId={viewerUserId} onNavigate={setTab} onRegisterExpense={() => setExpenseOpen(true)} />}
       {tab === "presupuesto" && <WorkspaceBudgetsView workspace={workspace} budget={details.budget} year={year} month={month} viewerUserId={viewerUserId} onConfigureBudget={() => setBudgetOpen(true)} />}
-      {tab === "movimientos" && <WorkspaceMovementsView key={period} workspace={workspace} dashboard={details.dashboard!} expenses={history.expenses} goals={details.goals} year={year} month={month} viewerUserId={viewerUserId} onRegisterExpense={() => setExpenseOpen(true)} />}
+      {tab === "movimientos" && <WorkspaceMovementsView key={period} workspace={workspace} dashboard={details.dashboard!} expenses={history.expenses} incomes={details.incomes} goals={details.goals} year={year} month={month} viewerUserId={viewerUserId} onRegisterExpense={() => setExpenseOpen(true)} onRegisterIncome={() => setIncomeOpen(true)} />}
       {tab === "balances" && <WorkspaceBalancesView key={period} members={workspace.members} expenses={history.expenses} balances={details.balances!} currency={workspace.baseCurrency} viewerUserId={viewerUserId} initialPeriod={period} onSettleBalance={setSettlement} />}
       {tab === "metas" && <WorkspaceGoalsView workspace={workspace} goals={details.goals} calendar={details.calendar} viewerUserId={viewerUserId} onCreate={() => setGoalOpen(true)} onContribute={setContributionGoal} />}
       {tab === "calendario" && <WorkspaceCalendarView key={period} workspace={workspace} events={details.calendar} year={year} month={month} viewerUserId={viewerUserId} onCreate={() => setEventOpen(true)} onPeriodChange={changePeriod} />}
@@ -123,6 +126,7 @@ export function WorkspaceShellView({ http, workspace: initialWorkspace, initialT
       try { return await details.registerExpense(request); }
       finally { await history.refresh(); }
     }} />}
+    {incomeOpen && workspace.isActive && <RegisterWorkspaceIncomeModal key={workspace.id} open onOpenChange={setIncomeOpen} members={workspace.members} currency={workspace.baseCurrency} viewerUserId={viewerUserId} registerIncome={details.registerIncome} />}
     {budgetOpen && canManage && <ConfigureWorkspaceBudgetModal key={`${workspace.id}-${period}`} budget={details.budget} year={year} month={month} currency={workspace.baseCurrency} onClose={() => setBudgetOpen(false)} setBudget={details.setBudget} />}
     {settlement && details.balances && <SettleBalanceModal key={workspace.id} open onOpenChange={(open) => { if (!open) setSettlement(null); }} members={workspace.members} balances={details.balances} currency={workspace.baseCurrency} viewerUserId={viewerUserId} initialBalance={settlement} settleBalance={details.settleBalance} />}
   </div>;

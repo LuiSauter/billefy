@@ -10,7 +10,7 @@ import { Input } from "@/shared/ui/input";
 import { SelectField } from "@/shared/ui/select-field";
 import { SegmentedControl } from "@/shared/ui/segmented-control";
 import { useUserCategories } from "@/modules/ledger/application/CategoriesContext";
-import type { SharedGoalDto, WorkspaceDashboardDto, WorkspaceDetailDto, WorkspaceExpenseDto } from "../domain/workspaces.types";
+import type { SharedGoalDto, WorkspaceDashboardDto, WorkspaceDetailDto, WorkspaceExpenseDto, WorkspaceIncomeDto } from "../domain/workspaces.types";
 import { WorkspaceMember } from "./workspace-members";
 import { workspaceMoney, workspacePanel } from "./workspace-ui";
 import { WorkspaceCategory, WorkspaceCategoryList, WorkspaceKpi, WorkspaceProgress, workspacePercentage, workspacePeriodKey } from "./workspace-view-ui";
@@ -19,11 +19,13 @@ interface Props {
   workspace: WorkspaceDetailDto;
   dashboard: WorkspaceDashboardDto;
   expenses: WorkspaceExpenseDto[];
+  incomes: WorkspaceIncomeDto[];
   goals: SharedGoalDto[];
   year: number;
   month: number;
   viewerUserId?: string;
   onRegisterExpense: () => void;
+  onRegisterIncome: () => void;
 }
 type MovementType = "all" | "income" | "expense" | "contribution" | "transfer";
 interface Movement {
@@ -31,12 +33,12 @@ interface Movement {
   date: string;
   description: string;
   amount: number;
-  type: "expense" | "contribution";
+  type: "income" | "expense" | "contribution";
   categoryId: string | null;
   memberId: string;
   shared: boolean;
 }
-export function WorkspaceMovementsView({ workspace, dashboard, expenses, goals, year, month, viewerUserId, onRegisterExpense }: Props) {
+export function WorkspaceMovementsView({ workspace, dashboard, expenses, incomes, goals, year, month, viewerUserId, onRegisterExpense, onRegisterIncome }: Props) {
   const [type, setType] = useState<MovementType>("all");
   const [categoryId, setCategoryId] = useState("");
   const [participation, setParticipation] = useState("all");
@@ -49,9 +51,11 @@ export function WorkspaceMovementsView({ workspace, dashboard, expenses, goals, 
   const money = (amount: Decimal.Value) => workspaceMoney(amount, currency);
   const viewer = workspace.members.find((member) => member.userId === viewerUserId);
   const monthExpenses = expenses.filter((expense) => expense.workspaceId === workspace.id && expense.currency === currency && expense.date.startsWith(prefix));
+  const monthIncomes = incomes.filter((income) => income.workspaceId === workspace.id && income.currency === currency && income.date.startsWith(prefix));
   const contributions = goals.filter((goal) => goal.currency === currency).flatMap((goal) => goal.memberContributions.filter((entry) => entry.contributedAt.startsWith(prefix)).map((entry, index): Movement => ({ id: `goal-${goal.id}-${index}`, date: entry.contributedAt, description: `Aporte a meta: ${goal.title}`, amount: entry.amount, type: "contribution", categoryId: "__goals__", memberId: entry.memberId, shared: false })));
   const rows: Movement[] = [
     ...monthExpenses.map((expense): Movement => ({ id: expense.id, date: expense.date, description: expense.description, amount: expense.amount, type: "expense", categoryId: expense.categoryId, memberId: expense.paidByMemberId, shared: expense.allocations.filter((allocation) => new Decimal(allocation.amount).gt(0)).length > 1 })),
+    ...monthIncomes.map((income): Movement => ({ id: income.id, date: income.date, description: income.description, amount: income.amount, type: "income", categoryId: income.categoryId ?? null, memberId: income.receivedByMemberId, shared: false })),
     ...(workspace.settings.showIndividualContributions ? contributions : []),
   ];
   const invalidRange = dateRange === "custom" && !!from && !!to && from > to;
@@ -68,7 +72,7 @@ export function WorkspaceMovementsView({ workspace, dashboard, expenses, goals, 
   const reset = () => { setType("all"); setCategoryId(""); setParticipation("all"); setDateRange("month"); setFrom(""); setTo(""); };
   return <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
     <div className="min-w-0 space-y-4">
-      <header className="flex flex-wrap items-center justify-between gap-3"><div><h1 className="text-2xl font-extrabold tracking-tight">Movimientos compartidos</h1><p className="mt-1 text-sm text-muted-foreground">Gastos y aportes a metas registrados en el espacio.</p></div><Button aria-label="Registrar movimiento" disabled={!workspace.isActive} onClick={onRegisterExpense}><Plus />Registrar movimiento</Button></header>
+      <header className="flex flex-wrap items-center justify-between gap-3"><div><h1 className="text-2xl font-extrabold tracking-tight">Movimientos compartidos</h1><p className="mt-1 text-sm text-muted-foreground">Ingresos, gastos y aportes a metas registrados en el espacio.</p></div><div className="flex flex-wrap gap-2"><Button variant="outline" aria-label="Registrar ingreso" disabled={!workspace.isActive} onClick={onRegisterIncome}><ArrowDown />Registrar ingreso</Button><Button aria-label="Registrar gasto" disabled={!workspace.isActive} onClick={onRegisterExpense}><Plus />Registrar gasto</Button></div></header>
       <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-4">
         <WorkspaceKpi label="Total de movimientos" value={String(rows.length)} Icon={ArrowLeftRight} featured />
         <WorkspaceKpi label="Ingresos" value={workspaceMoney(dashboard.monthlyIncome, dashboard.currency)} Icon={ArrowDown} tone="text-emerald-500" />
@@ -79,7 +83,7 @@ export function WorkspaceMovementsView({ workspace, dashboard, expenses, goals, 
       <div className="overflow-x-auto"><SegmentedControl aria-label="Tipo de movimiento" value={type} onChange={setType} options={[{ value: "all", label: "Todos" }, { value: "income", label: "Ingresos", tone: "income" }, { value: "expense", label: "Gastos", tone: "expense" }, { value: "contribution", label: "Aportaciones" }, { value: "transfer", label: "Transferencias" }]} /></div>
       <section className={`${workspacePanel} overflow-x-auto p-0`}>
         <table className="w-full min-w-[600px] text-left text-sm"><caption className="sr-only">Movimientos del espacio seleccionado</caption><thead><tr className="border-b border-border bg-muted/20 text-xs text-muted-foreground">{["Fecha", "Descripción", "Categoría", "Monto", "Participación"].map((label) => <th key={label} className="px-4 py-3 font-medium">{label}</th>)}</tr></thead><tbody>{visible.map((row) => <tr key={row.id} className="border-b border-border last:border-0"><td className="px-4 py-3"><time dateTime={row.date.slice(0, 10)} className="inline-block rounded-lg bg-muted px-2 py-1 text-center text-xs font-semibold"><span className="block text-lg">{row.date.slice(8, 10)}</span>{new Date(`${row.date.slice(0, 10)}T00:00:00Z`).toLocaleDateString("es", { month: "short", timeZone: "UTC" })}</time></td><td className="px-4 py-3 font-medium">{row.description}</td><td className="px-4 py-3">{row.type === "contribution" ? <span className="inline-flex items-center gap-2"><Coins className="size-5 text-chart-4" />Aportación a meta</span> : <WorkspaceCategory id={row.categoryId} />}</td><td className={`whitespace-nowrap px-4 py-3 font-bold tabular-nums ${row.type === "expense" ? "text-destructive" : "text-emerald-500"}`}>{row.type === "expense" ? "−" : "+"} {money(row.amount)}</td><td className="px-4 py-3"><Badge variant="secondary">{row.shared ? "Compartido" : row.memberId === viewer?.id ? "Tú" : `Integrante ${workspace.members.findIndex((member) => member.id === row.memberId) + 1 || "anterior"}`}</Badge></td></tr>)}
-          {!visible.length && <tr><td colSpan={5} className="px-4 py-12 text-center text-sm text-muted-foreground">{type === "income" ? "El servicio no expone el detalle de ingresos del espacio." : type === "transfer" ? "El servicio no expone transferencias del espacio. Las liquidaciones se consultan en Balances." : "No hay movimientos con estos filtros."}</td></tr>}
+          {!visible.length && <tr><td colSpan={5} className="px-4 py-12 text-center text-sm text-muted-foreground">{type === "transfer" ? "El servicio no expone transferencias del espacio. Las liquidaciones se consultan en Balances." : "No hay movimientos con estos filtros."}</td></tr>}
         </tbody></table>
       </section>
       {!workspace.settings.showIndividualContributions && <p className="text-xs text-muted-foreground">El detalle de aportaciones individuales está oculto por la configuración del espacio.</p>}

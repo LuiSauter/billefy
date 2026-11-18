@@ -148,6 +148,27 @@ export interface WorkspaceExpenseFilter {
   limit?: number;
   offset?: number;
 }
+export interface RegisterWorkspaceIncomeRequest {
+  description: string;
+  amount: number;
+  currency: string;
+  receivedByMemberId: string;
+  date: string;
+  categoryId?: string | null;
+  notes?: string | null;
+}
+export interface WorkspaceIncomeDto extends RegisterWorkspaceIncomeRequest {
+  id: string;
+  workspaceId: string;
+}
+export interface WorkspaceIncomeFilter {
+  from?: string;
+  to?: string;
+  categoryId?: string;
+  receivedByMemberId?: string;
+  limit?: number;
+  offset?: number;
+}
 export interface PairwiseBalanceDto { debtorMemberId: string; creditorMemberId: string; amount: number; currency: string; }
 export interface MemberNetBalanceDto { memberId: string; balance: number; currency: string; }
 export interface SettleBalanceRequest {
@@ -280,6 +301,8 @@ export interface IWorkspacesRepository {
   getDashboard(id: string, period?: WorkspacePeriod): Promise<WorkspaceDashboardDto>;
   getExpenses(id: string, filter?: WorkspaceExpenseFilter): Promise<WorkspaceExpenseDto[]>;
   registerExpense(id: string, req: RegisterWorkspaceExpenseRequest): Promise<WorkspaceExpenseDto>;
+  getIncomes(id: string, filter?: WorkspaceIncomeFilter): Promise<WorkspaceIncomeDto[]>;
+  registerIncome(id: string, req: RegisterWorkspaceIncomeRequest): Promise<WorkspaceIncomeDto>;
   getBalances(id: string): Promise<WorkspaceBalancesDto>;
   getSettlements(id: string): Promise<WorkspaceSettlementDto[]>;
   settleBalance(id: string, req: SettleBalanceRequest): Promise<WorkspaceSettlementDto>;

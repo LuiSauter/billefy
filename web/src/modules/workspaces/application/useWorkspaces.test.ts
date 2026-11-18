@@ -174,11 +174,11 @@ describe("workspace state and hook wiring", () => {
 describe("active workspace subresources", () => {
   it("loads all subresources with a consistent period and calendar range", async () => {
     const { http, repo } = setup();
-    const values = [{ workspaceId: "w" }, [{ id: "e" }], { pairwiseBalances: [] }, null, [{ id: "g" }], [{ id: "c" }], { year: 2026 }];
+    const values = [{ workspaceId: "w" }, [{ id: "e" }], [{ id: "i" }], { pairwiseBalances: [] }, null, [{ id: "g" }], [{ id: "c" }], { year: 2026 }];
     for (const value of values) http.get.mockResolvedValueOnce(value);
     const resource = createWorkspaceDetailsResource(repo, "w", { year: 2026, month: 2 });
     await resource.refreshAll();
-    expect(resource.getSnapshot()).toMatchObject({ dashboard: values[0], expenses: values[1], balances: values[2], budget: null, goals: values[4], calendar: values[5], reports: values[6], loading: false, error: null });
+    expect(resource.getSnapshot()).toMatchObject({ dashboard: values[0], expenses: values[1], incomes: values[2], balances: values[3], budget: null, goals: values[5], calendar: values[6], reports: values[7], loading: false, error: null });
     expect(http.get).toHaveBeenCalledWith("/v1/workspaces/w/calendar?from=2026-02-01&to=2026-02-28");
     expect(http.get).toHaveBeenCalledWith("/v1/workspaces/w/reports?year=2026&month=2");
   });
@@ -190,6 +190,7 @@ describe("active workspace subresources", () => {
     const resource = createWorkspaceDetailsResource(repo, "w");
     const actions = [
       () => resource.registerExpense({ description: "Expense", amount: 12, currency: "USD", paidByMemberId: "m", date: "2026-01-01", splitRuleType: "EqualParts", participants: [] }),
+      () => resource.registerIncome({ description: "Income", amount: 12, currency: "USD", receivedByMemberId: "m", date: "2026-01-01" }),
       () => resource.settleBalance({ payerMemberId: "m", receiverMemberId: "n", amount: 6, currency: "USD", settlementDate: "2026-01-01" }),
       () => resource.setBudget({ year: 2026, month: 1, amount: 100, currency: "USD", categories: [] }),
       () => resource.createGoal({ title: "Goal", targetAmount: 100, currency: "USD" }),
@@ -199,13 +200,13 @@ describe("active workspace subresources", () => {
     for (const action of actions) {
       http.get.mockClear();
       await expect(action()).resolves.toEqual({ id: "created" });
-      expect(http.get).toHaveBeenCalledTimes(7);
+      expect(http.get).toHaveBeenCalledTimes(8);
     }
     http.post.mockRejectedValueOnce(new Error("denied"));
     http.get.mockClear();
     await expect(actions[0]()).rejects.toThrow("denied");
     expect(http.get).not.toHaveBeenCalled();
-    expect(http.post).toHaveBeenCalledTimes(7);
+    expect(http.post).toHaveBeenCalledTimes(actions.length + 1);
     expect(resource.getSnapshot()).toMatchObject({ loading: false, error: "denied" });
   });
 

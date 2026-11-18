@@ -1,14 +1,15 @@
 import {
   ContributeSharedGoalRequest, CreateSharedFinancialEventRequest, CreateSharedGoalRequest,
-  IWorkspacesRepository, RegisterWorkspaceExpenseRequest, SetSharedBudgetRequest, SettleBalanceRequest,
+  IWorkspacesRepository, RegisterWorkspaceExpenseRequest, RegisterWorkspaceIncomeRequest, SetSharedBudgetRequest, SettleBalanceRequest,
   SharedBudgetDto, SharedFinancialEventDto, SharedGoalDto, WorkspaceBalancesDto, WorkspaceDashboardDto,
-  WorkspaceExpenseDto, WorkspaceMonthlyReportDto, WorkspacePeriod,
+  WorkspaceExpenseDto, WorkspaceIncomeDto, WorkspaceMonthlyReportDto, WorkspacePeriod,
 } from "../domain/workspaces.types";
 import { createWorkspaceStore, WorkspaceRequestState } from "./workspace-store";
 
 interface WorkspaceDetailsState extends WorkspaceRequestState {
   dashboard: WorkspaceDashboardDto | null;
   expenses: WorkspaceExpenseDto[];
+  incomes: WorkspaceIncomeDto[];
   balances: WorkspaceBalancesDto | null;
   budget: SharedBudgetDto | null;
   goals: SharedGoalDto[];
@@ -17,7 +18,7 @@ interface WorkspaceDetailsState extends WorkspaceRequestState {
 }
 
 export function createWorkspaceDetailsResource(repository: IWorkspacesRepository | null, workspaceId: string | null, selectedPeriod?: WorkspacePeriod) {
-  const store = createWorkspaceStore<WorkspaceDetailsState>({ dashboard: null, expenses: [], balances: null, budget: null, goals: [], calendar: [], reports: null, loading: false, error: null });
+  const store = createWorkspaceStore<WorkspaceDetailsState>({ dashboard: null, expenses: [], incomes: [], balances: null, budget: null, goals: [], calendar: [], reports: null, loading: false, error: null });
   let generation = 0;
   // Resolve the period once so every subresource uses the same month, including calendar bounds.
   const now = new Date();
@@ -41,11 +42,11 @@ export function createWorkspaceDetailsResource(repository: IWorkspacesRepository
     const end = new Date(0);
     end.setUTCFullYear(year, month, 0);
     const range = { from: `${prefix}-01`, to: `${prefix}-${String(end.getUTCDate()).padStart(2, "0")}` };
-    const [dashboard, expenses, balances, budget, goals, calendar, reports] = await Promise.all([
-      repo.getDashboard(id, period), repo.getExpenses(id), repo.getBalances(id), repo.getBudget(id, period),
+    const [dashboard, expenses, incomes, balances, budget, goals, calendar, reports] = await Promise.all([
+      repo.getDashboard(id, period), repo.getExpenses(id), repo.getIncomes(id), repo.getBalances(id), repo.getBudget(id, period),
       repo.getGoals(id), repo.getCalendar(id, range), repo.getReports(id, period),
     ]);
-    if (current === generation) store.patch({ dashboard, expenses, balances, budget, goals, calendar, reports });
+    if (current === generation) store.patch({ dashboard, expenses, incomes, balances, budget, goals, calendar, reports });
   });
   const mutate = <T>(operation: (repo: IWorkspacesRepository, id: string) => Promise<T>) => store.run(async () => {
     const { repo, id } = requireContext();
@@ -58,6 +59,7 @@ export function createWorkspaceDetailsResource(repository: IWorkspacesRepository
     subscribe: store.subscribe,
     refreshAll,
     registerExpense: (request: RegisterWorkspaceExpenseRequest) => mutate((repo, id) => repo.registerExpense(id, request)),
+    registerIncome: (request: RegisterWorkspaceIncomeRequest) => mutate((repo, id) => repo.registerIncome(id, request)),
     settleBalance: (request: SettleBalanceRequest) => mutate((repo, id) => repo.settleBalance(id, request)),
     setBudget: (request: SetSharedBudgetRequest) => mutate((repo, id) => repo.setBudget(id, request)),
     createGoal: (request: CreateSharedGoalRequest) => mutate((repo, id) => repo.createGoal(id, request)),

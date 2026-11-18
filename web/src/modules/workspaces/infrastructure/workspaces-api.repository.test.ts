@@ -18,6 +18,7 @@ describe("workspaces API transport", () => {
       [() => repo.getPendingInvitations(), "/v1/workspaces/invitations/pending"],
       [() => repo.getDashboard("w"), "/v1/workspaces/w/dashboard"],
       [() => repo.getExpenses("w"), "/v1/workspaces/w/expenses"],
+      [() => repo.getIncomes("w"), "/v1/workspaces/w/incomes"],
       [() => repo.getBalances("w"), "/v1/workspaces/w/balances"],
       [() => repo.getSettlements("w"), "/v1/workspaces/w/settlements"],
       [() => repo.getBudget("w"), "/v1/workspaces/w/budget"],
@@ -37,6 +38,8 @@ describe("workspaces API transport", () => {
     const { http, repo } = setup();
     await repo.getExpenses("w", { from: "2026-01-01", to: "2026-01-31", categoryId: "a&b", paidByMemberId: "m", limit: 0, offset: 0 });
     expect(http.get).toHaveBeenLastCalledWith("/v1/workspaces/w/expenses?from=2026-01-01&to=2026-01-31&categoryId=a%26b&paidByMemberId=m&limit=0&offset=0");
+    await repo.getIncomes("w", { from: "2026-01-01", to: "2026-01-31", categoryId: "a&b", receivedByMemberId: "m", limit: 0, offset: 0 });
+    expect(http.get).toHaveBeenLastCalledWith("/v1/workspaces/w/incomes?from=2026-01-01&to=2026-01-31&categoryId=a%26b&receivedByMemberId=m&limit=0&offset=0");
     for (const call of [repo.getDashboard.bind(repo), repo.getBudget.bind(repo), repo.getReports.bind(repo)]) {
       await call("w", { year: 2026, month: 1 });
       expect(http.get.mock.lastCall?.[0]).toMatch(/\?year=2026&month=1$/);
@@ -50,6 +53,7 @@ describe("workspaces API transport", () => {
     const create = { name: "Shared", workspaceType: "Other" as const, baseCurrency: "USD" };
     const settings = { hidePersonalPatrimony: true };
     const expense = { description: "Expense", amount: 12, currency: "USD", paidByMemberId: "m", date: "2026-01-01", splitRuleType: "EqualParts" as const, participants: [{ memberId: "m" }] };
+    const income = { description: "Income", amount: 12, currency: "USD", receivedByMemberId: "m", date: "2026-01-01" };
     const settlement = { payerMemberId: "m", receiverMemberId: "n", amount: 6, currency: "USD", settlementDate: "2026-01-01" };
     const budget = { year: 2026, month: 1, amount: 100, currency: "USD", categories: [] };
     const goal = { title: "Goal", targetAmount: 100, currency: "USD" };
@@ -65,6 +69,7 @@ describe("workspaces API transport", () => {
       [() => repo.rejectInvitation("i"), http.post, "/v1/workspaces/invitations/i/reject", {}],
       [() => repo.updateMemberRole("w", "m", { workspaceRole: "Admin" }), http.put, "/v1/workspaces/w/members/m", { workspaceRole: "Admin" }],
       [() => repo.registerExpense("w", expense), http.post, "/v1/workspaces/w/expenses", expense],
+      [() => repo.registerIncome("w", income), http.post, "/v1/workspaces/w/incomes", income],
       [() => repo.settleBalance("w", settlement), http.post, "/v1/workspaces/w/settlements", settlement],
       [() => repo.setBudget("w", budget), http.post, "/v1/workspaces/w/budget", budget],
       [() => repo.createGoal("w", goal), http.post, "/v1/workspaces/w/goals", goal],
