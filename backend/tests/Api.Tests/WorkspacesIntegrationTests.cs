@@ -5,6 +5,7 @@ using System.Text.Json;
 using FluentAssertions;
 using BuildingBlocks.Common;
 using Identity.Contracts;
+using Notifications.Contracts;
 using BuildingBlocks.Time;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -25,6 +26,7 @@ public sealed class WorkspacesIntegrationTests : IDisposable
     private readonly TestClock _clock = new();
     private readonly FailWorkspaceSave _saveFailure = new();
     private readonly FailLedgerCommit _ledgerCommitFailure = new();
+    private readonly RecordingNotificationsModule _notifications = new();
 
     public WorkspacesIntegrationTests()
     {
@@ -34,6 +36,7 @@ public sealed class WorkspacesIntegrationTests : IDisposable
             services.AddDbContext<WorkspacesDbContext>(options => options.UseSqlite(_connection).AddInterceptors(_saveFailure));
             services.AddDbContext<Ledger.Infrastructure.LedgerDbContext>(options => options.UseSqlite(_connection).AddInterceptors(_ledgerCommitFailure));
             services.AddSingleton<IIdentityModule, WorkspaceTestIdentity>();
+            services.AddSingleton<INotificationsModule>(_notifications);
             services.AddSingleton<IClock>(_clock);
         }, ledgerWorkspacesConnection: _connection);
         _client = _factory.CreateClient();
@@ -326,6 +329,19 @@ public sealed class WorkspacesIntegrationTests : IDisposable
         (await Balance(_owner, account)).Should().Be(500m);
         using var list = await Send(HttpMethod.Get, $"/v1/workspaces/{id}/incomes", _owner);
         (await Json(list)).GetArrayLength().Should().Be(0);
+    }
+
+    [Fact]
+    public async Task InviteAsync_SendsRealEmailToInvitedAddressAndStillCreatesInvitationIfEmailFails()
+    {
+        var (id, _) = await CreateWorkspace();
+        var invitee = Guid.NewGuid();
+        var email = $"{invitee:N}@example.test";
+        using var invite = await Send(HttpMethod.Post, $"/v1/workspaces/{id}/invitations", _owner, new { email });
+        invite.StatusCode.Should().Be(HttpStatusCode.Created);
+        _notifications.SentEmails.Should().ContainSingle(x => x.ToEmail == email);
+        _notifications.SentEmails.Single().Subject.Should().NotBeNullOrWhiteSpace();
+        _notifications.SentEmails.Single().Body.Should().NotBeNullOrWhiteSpace();
     }
 
     [Fact]
@@ -1415,6 +1431,21 @@ public sealed class WorkspacesIntegrationTests : IDisposable
         using var repeated = await Send(HttpMethod.Post, $"/v1/workspaces/invitations/{invitation}/accept", user);
         repeated.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         return (await Json(accept)).GetProperty("id").GetGuid();
+    }
+
+    private sealed class RecordingNotificationsModule : INotificationsModule
+    {
+        public List<SendEmailRequest> SentEmails { get; } = [];
+        public Task<Result<DeviceRegistrationDto>> RegisterDeviceAsync(Guid userId, RegisterDeviceTokenRequest req, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<Result> SendPushNotificationAsync(Guid userId, PushNotificationMessage message, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<Result> SendEmailNotificationAsync(SendEmailRequest request, CancellationToken ct = default)
+        {
+            SentEmails.Add(request);
+            return Task.FromResult(Result.Success());
+        }
+        public Task<Result<IReadOnlyList<NotificationLogDto>>> GetNotificationHistoryAsync(Guid userId, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<Result> NotifyBudgetThresholdExceededAsync(Guid userId, string category, decimal spent, decimal limit, decimal threshold, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<Result> NotifyLoanInstallmentDueAsync(Guid userId, string counterparty, decimal amount, string currency, DateTime dueDate, CancellationToken ct = default) => throw new NotSupportedException();
     }
 
     private sealed class WorkspaceTestIdentity : IIdentityModule

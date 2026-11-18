@@ -18,6 +18,7 @@ public static class DependencyInjection
 
         services.AddScoped<IWorkspaceRepository, WorkspaceRepository>();
         services.AddScoped<IWorkspaceInvitationLinkRepository, WorkspaceInvitationLinkRepository>();
+        services.AddSingleton<IAppLinkProvider, AppLinkProvider>();
         return services;
     }
 }

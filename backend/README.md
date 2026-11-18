@@ -67,6 +67,12 @@ PORT="5267"
 CORS_ALLOWED_ORIGINS="http://localhost:3000,http://127.0.0.1:3000"
 
 # ------------------------------------------------------------------------------
+# 3b. URL base del frontend (usada en links de invitación por correo)
+# ------------------------------------------------------------------------------
+# Debe apuntar a la URL pública real del frontend en producción.
+WEB_APP_BASE_URL="http://localhost:3000"
+
+# ------------------------------------------------------------------------------
 # 4. Entorno de Ejecución
 # ------------------------------------------------------------------------------
 ASPNETCORE_ENVIRONMENT="Development"
@@ -136,6 +142,7 @@ export DB_PASSWORD=""
 # 2. Puerto y CORS
 export ASPNETCORE_URLS="http://localhost:5267"
 export CORS_ALLOWED_ORIGINS="http://localhost:3000,http://127.0.0.1:3000"
+export WEB_APP_BASE_URL="http://localhost:3000"
 export ASPNETCORE_ENVIRONMENT="Development"
 
 # 3. WhatsApp y Cotización
@@ -158,6 +165,7 @@ $env:DB_PASSWORD=""
 # 2. Puerto y CORS
 $env:ASPNETCORE_URLS="http://localhost:5267"
 $env:CORS_ALLOWED_ORIGINS="http://localhost:3000,http://127.0.0.1:3000"
+$env:WEB_APP_BASE_URL="http://localhost:3000"
 $env:ASPNETCORE_ENVIRONMENT="Development"
 
 # 3. WhatsApp y Cotización
@@ -180,6 +188,7 @@ set DB_PASSWORD=
 :: 2. Puerto y CORS
 set ASPNETCORE_URLS=http://localhost:5267
 set CORS_ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+set WEB_APP_BASE_URL=http://localhost:3000
 set ASPNETCORE_ENVIRONMENT=Development
 
 :: 3. WhatsApp y Cotización

@@ -1,6 +1,7 @@
 using BuildingBlocks.Common;
 using Identity.Contracts;
 using Ledger.Contracts;
+using Notifications.Contracts;
 using Workspaces.Application.Abstractions;
 using Workspaces.Contracts;
 using Workspaces.Domain.Workspaces;
@@ -29,7 +30,8 @@ public interface IWorkspaceService
     Task<Result<SplitConfigurationDto>> UpdateSplitConfigurationAsync(Guid id, UpdateSplitConfigurationRequest request, CancellationToken ct = default);
 }
 
-public sealed class WorkspaceService(IWorkspaceRepository repository, WorkspaceAccess access, IIdentityModule identity, ILedgerModule ledger) : IWorkspaceService
+public sealed class WorkspaceService(IWorkspaceRepository repository, WorkspaceAccess access, IIdentityModule identity,
+    ILedgerModule ledger, INotificationsModule notifications, IAppLinkProvider appLinks) : IWorkspaceService
 {
     public Task<Result<IReadOnlyList<WorkspaceAccountDto>>> GetMyAccountsAsync(Guid id, CancellationToken ct = default) =>
         ReadAsync<IReadOnlyList<WorkspaceAccountDto>>(async () =>
@@ -106,11 +108,12 @@ public sealed class WorkspaceService(IWorkspaceRepository repository, WorkspaceA
         workspace.Deactivate();
     }, ct);
 
-    public Task<Result<WorkspaceInvitationDto>> InviteAsync(Guid id, InviteMemberRequest request, CancellationToken ct = default) =>
-        access.WriteAsync(async () =>
+    public async Task<Result<WorkspaceInvitationDto>> InviteAsync(Guid id, InviteMemberRequest request, CancellationToken ct = default)
+    {
+        var email = request.Email?.Trim().ToLowerInvariant();
+        var result = await access.WriteAsync(async () =>
         {
             var (workspace, _) = await access.RequireAsync(id, ct, manage: true);
-            var email = request.Email?.Trim().ToLowerInvariant();
             var invitation = new WorkspaceInvitation(Guid.NewGuid(), id, email!,
                 Convert.ToHexString(RandomNumberGenerator.GetBytes(32)), request.WorkspaceRole, access.Now.AddDays(7),
                 request.PlannedIncomeSharePercentage, request.PlannedCustomSharePercentage, request.PlannedResponsibilityWeight);
@@ -121,6 +124,28 @@ public sealed class WorkspaceService(IWorkspaceRepository repository, WorkspaceA
             repository.Add(invitation);
             return MapInvitation(invitation, workspace);
         }, ct);
+        if (result.IsSuccess && email is not null)
+            await SendInvitationEmailAsync(email, result.Value.WorkspaceName, ct);
+        return result;
+    }
+
+    private async Task SendInvitationEmailAsync(string invitedEmail, string workspaceName, CancellationToken ct)
+    {
+        // Best-effort: the invitation already exists and is visible in the recipient's
+        // pending-invitations panel once they sign in, regardless of email delivery.
+        try
+        {
+            var appUrl = appLinks.GetAppRootUrl();
+            await notifications.SendEmailNotificationAsync(new SendEmailRequest(invitedEmail,
+                $"Te invitaron a \"{workspaceName}\" en Billefy",
+                $"Te invitaron a unirte al espacio compartido \"{workspaceName}\" en Billefy. " +
+                $"Inicia sesion o crea tu cuenta en {appUrl} y encontraras la invitacion pendiente para aceptarla."), ct);
+        }
+        catch
+        {
+            // Swallowed: delivery failure must not fail invitation creation or leak to the caller.
+        }
+    }
 
     public Task<Result<IReadOnlyList<WorkspaceInvitationDto>>> PendingInvitationsAsync(CancellationToken ct = default) =>
         ReadAsync<IReadOnlyList<WorkspaceInvitationDto>>(async () =>
