@@ -6,6 +6,7 @@ import { FetchHttpClient } from "@/shared/infrastructure/fetch-http.client";
 import { defaultTokenStorage } from "@/shared/infrastructure/local-storage-token.adapter";
 import { AuthResponseDto, UserDto } from "../domain/identity.types";
 import { IdentityApiRepository } from "../infrastructure/identity-api.repository";
+import { registerServiceWorker, requestWebPushSubscriptionOnce } from "./webPushSubscription";
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -29,6 +30,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Service worker registration is independent of auth and of push permission.
+  useEffect(() => {
+    void registerServiceWorker();
+  }, []);
+
+  // Single hook point for all auth paths (password, register, Google, session
+  // restore): fires when the user becomes authenticated. Once per user per page
+  // load is enforced inside requestWebPushSubscriptionOnce.
+  const authenticatedUserId = isAuthenticated ? user?.id : undefined;
+  useEffect(() => {
+    if (!authenticatedUserId) return;
+    void requestWebPushSubscriptionOnce(
+      new FetchHttpClient({ userId: authenticatedUserId }),
+      authenticatedUserId
+    );
+  }, [authenticatedUserId]);
 
   useEffect(() => {
     async function verifyAuth() {
