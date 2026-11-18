@@ -41,9 +41,20 @@ public sealed class SharedGoalService(IWorkspaceRepository repository, Workspace
         {
             var (workspace, member) = await access.RequireAsync(id, ct);
             var currency = CurrencyFor(workspace, request.Currency);
+            Validate(request.Amount == decimal.Round(request.Amount, currency.DecimalPlaces), "Amount exceeds currency precision.");
             var goal = (await repository.ListAsync<SharedGoal>(x => x.Id == goalId && x.WorkspaceId == id, ct)).SingleOrDefault() ?? throw Missing();
             Validate(goal.Status == SharedGoalStatus.Active, "Only active goals accept contributions.");
-            goal.AddContribution(new SharedGoalContribution(member.Id, new Money(request.Amount, currency), access.Now));
+            if (request.IdempotencyKey.HasValue)
+            {
+                var previous = goal.MemberContributions.SingleOrDefault(c => c.IdempotencyKey == request.IdempotencyKey);
+                if (previous is not null)
+                {
+                    Validate(previous.MemberId == member.Id && previous.Amount == new Money(request.Amount, currency),
+                        "The idempotency key was already used with a different contribution.");
+                    return Map(goal, workspace.Settings.ShowIndividualContributions);
+                }
+            }
+            goal.AddContribution(new SharedGoalContribution(Guid.NewGuid(), member.Id, new Money(request.Amount, currency), access.Now, request.IdempotencyKey));
             return Map(goal, workspace.Settings.ShowIndividualContributions);
         }, ct);
 

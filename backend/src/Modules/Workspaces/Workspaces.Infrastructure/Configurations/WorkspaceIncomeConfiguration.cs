@@ -28,6 +28,11 @@ internal sealed class WorkspaceIncomeConfiguration : IEntityTypeConfiguration<Wo
         builder.Property(x => x.Notes).HasColumnName("notes");
         builder.Property(x => x.PersonalTransactionId).HasColumnName("personal_transaction_id");
         builder.Property(x => x.ReceivedToAccountId).HasColumnName("received_to_account_id");
+        builder.Property(x => x.IdempotencyKey).HasColumnName("idempotency_key");
+        builder.HasIndex(x => new { x.WorkspaceId, x.IdempotencyKey }).IsUnique()
+            .HasFilter("idempotency_key IS NOT NULL");
+        builder.HasIndex(x => x.PersonalTransactionId).IsUnique()
+            .HasFilter("personal_transaction_id IS NOT NULL");
         builder.HasIndex(x => new { x.WorkspaceId, x.Date, x.Id });
         builder.HasIndex(x => new { x.WorkspaceId, x.CategoryId, x.Date });
         builder.HasIndex(x => new { x.WorkspaceId, x.ReceivedByMemberId, x.Date });

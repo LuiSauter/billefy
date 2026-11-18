@@ -7,17 +7,21 @@ namespace Workspaces.Domain.Goals;
 
 public sealed record SharedGoalContribution
 {
+    public Guid Id { get; }
     public Guid MemberId { get; }
     public Money Amount { get; }
     public DateTime ContributedAt { get; }
+    public Guid? IdempotencyKey { get; }
 
     private SharedGoalContribution() { }
 
-    public SharedGoalContribution(Guid memberId, Money amount, DateTime contributedAt)
+    public SharedGoalContribution(Guid id, Guid memberId, Money amount, DateTime contributedAt, Guid? idempotencyKey = null)
     {
+        Id = DomainGuard.Id(id, nameof(id));
         MemberId = DomainGuard.Id(memberId, nameof(memberId));
         Amount = DomainGuard.Amount(amount, nameof(amount));
         ContributedAt = contributedAt;
+        IdempotencyKey = idempotencyKey.HasValue ? DomainGuard.Id(idempotencyKey.Value, nameof(idempotencyKey)) : null;
     }
 }
 

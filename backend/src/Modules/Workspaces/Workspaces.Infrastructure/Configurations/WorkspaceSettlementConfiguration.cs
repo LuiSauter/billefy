@@ -29,6 +29,13 @@ internal sealed class WorkspaceSettlementConfiguration : IEntityTypeConfiguratio
         builder.Property(s => s.Notes).HasColumnName("notes");
         builder.Property(s => s.PayerTransactionId).HasColumnName("payer_transaction_id");
         builder.Property(s => s.ReceiverTransactionId).HasColumnName("receiver_transaction_id");
+        builder.Property(s => s.IdempotencyKey).HasColumnName("idempotency_key");
+        builder.HasIndex(s => new { s.WorkspaceId, s.IdempotencyKey }).IsUnique()
+            .HasFilter("idempotency_key IS NOT NULL");
+        builder.HasIndex(s => s.PayerTransactionId).IsUnique()
+            .HasFilter("payer_transaction_id IS NOT NULL");
+        builder.HasIndex(s => s.ReceiverTransactionId).IsUnique()
+            .HasFilter("receiver_transaction_id IS NOT NULL");
         builder.HasIndex(s => new { s.WorkspaceId, s.SettlementDate });
         builder.HasOne<Workspace>().WithMany().HasForeignKey(s => s.WorkspaceId)
             .OnDelete(DeleteBehavior.Restrict);

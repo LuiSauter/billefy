@@ -48,7 +48,7 @@ public sealed record UpdateMemberRoleRequest(WorkspaceRole WorkspaceRole);
 public sealed record SplitParticipantRequest(Guid MemberId, decimal CustomPercentage = 0m, decimal ResponsibilityWeight = 0m);
 public sealed record RegisterWorkspaceExpenseRequest(string Description, decimal Amount, string Currency,
     Guid PaidByMemberId, DateOnly Date, SplitRuleType SplitRuleType, IReadOnlyList<SplitParticipantRequest> Participants,
-    Guid? CategoryId = null, string? Notes = null, Guid? PaidFromAccountId = null);
+    Guid? CategoryId = null, string? Notes = null, Guid? PaidFromAccountId = null, Guid? IdempotencyKey = null);
 // Expense edits/deletions are contracts only: financial records remain immutable until a reversal workflow exists.
 public sealed record UpdateWorkspaceExpenseRequest(string Description, string? Notes = null);
 public sealed record DeleteWorkspaceExpenseRequest(string Reason);
@@ -61,7 +61,8 @@ public sealed record WorkspaceExpenseDto(Guid Id, Guid WorkspaceId, string Descr
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     Guid? PaidFromAccountId = null);
 public sealed record RegisterWorkspaceIncomeRequest(string Description, decimal Amount, string Currency,
-    Guid ReceivedByMemberId, DateOnly Date, Guid? CategoryId = null, string? Notes = null, Guid? ReceivedToAccountId = null);
+    Guid ReceivedByMemberId, DateOnly Date, Guid? CategoryId = null, string? Notes = null, Guid? ReceivedToAccountId = null,
+    Guid? IdempotencyKey = null);
 public sealed record WorkspaceIncomeFilter(DateOnly? From = null, DateOnly? To = null, Guid? CategoryId = null,
     Guid? ReceivedByMemberId = null, int Limit = 100, int Offset = 0);
 public sealed record WorkspaceIncomeDto(Guid Id, Guid WorkspaceId, string Description, Guid? CategoryId,
@@ -77,7 +78,7 @@ public sealed record MemberNetBalanceDto(Guid MemberId, decimal Balance, string 
 public sealed record WorkspaceBalancesDto(IReadOnlyList<PairwiseBalanceDto> PairwiseBalances,
     IReadOnlyList<MemberNetBalanceDto> MemberNetBalances, IReadOnlyList<SettlementDto> Settlements);
 public sealed record SettleBalanceRequest(Guid PayerMemberId, Guid ReceiverMemberId, decimal Amount,
-    string Currency, DateOnly SettlementDate, string? Notes = null, Guid? PayerAccountId = null);
+    string Currency, DateOnly SettlementDate, string? Notes = null, Guid? PayerAccountId = null, Guid? IdempotencyKey = null);
 public sealed record SettlementDto(Guid Id, Guid PayerMemberId, Guid ReceiverMemberId, decimal Amount,
     string Currency, DateOnly SettlementDate, SettlementStatus Status, string? Notes,
     bool PayerLinked = false, bool ReceiverLinked = false);
@@ -90,7 +91,7 @@ public sealed record SharedBudgetDto(int Year, int Month, decimal Amount, string
     decimal RemainingAmount, decimal ExecutionPercentage, IReadOnlyList<SharedBudgetCategoryDto> Categories);
 public sealed record CreateSharedGoalRequest(string Title, decimal TargetAmount, string Currency,
     decimal MonthlyCommitmentAmount = 0m, DateOnly? TargetDate = null, string? Category = null);
-public sealed record ContributeGoalRequest(decimal Amount, string Currency);
+public sealed record ContributeGoalRequest(decimal Amount, string Currency, Guid? IdempotencyKey = null);
 public sealed record SharedGoalContributionDto(Guid MemberId, decimal Amount, DateTime ContributedAt);
 public sealed record SharedGoalDto(Guid Id, string Title, string? Category, decimal TargetAmount, decimal CurrentAmount,
     string Currency, DateOnly? TargetDate, decimal MonthlyCommitmentAmount, SharedGoalStatus Status,

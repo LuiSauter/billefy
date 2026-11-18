@@ -30,6 +30,11 @@ internal sealed class WorkspaceExpenseConfiguration : IEntityTypeConfiguration<W
         builder.Property(e => e.Notes).HasColumnName("notes");
         builder.Property(e => e.PersonalTransactionId).HasColumnName("personal_transaction_id");
         builder.Property(e => e.PaidFromAccountId).HasColumnName("paid_from_account_id");
+        builder.Property(e => e.IdempotencyKey).HasColumnName("idempotency_key");
+        builder.HasIndex(e => new { e.WorkspaceId, e.IdempotencyKey }).IsUnique()
+            .HasFilter("idempotency_key IS NOT NULL");
+        builder.HasIndex(e => e.PersonalTransactionId).IsUnique()
+            .HasFilter("personal_transaction_id IS NOT NULL");
         builder.HasAlternateKey(e => new { e.Id, e.WorkspaceId });
         builder.HasIndex(e => new { e.WorkspaceId, e.Date });
         builder.HasOne<Workspace>().WithMany().HasForeignKey(e => e.WorkspaceId)

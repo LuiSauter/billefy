@@ -217,6 +217,29 @@ public sealed class WorkspacesIntegrationTests : IDisposable
     }
 
     [Fact]
+    public async Task SharedIncome_RetryWithSameIdempotencyKeyReturnsSameIncomeAndCreditsOnce()
+    {
+        var (id, receiver) = await CreateWorkspace();
+        var account = await CreateAccount(_owner);
+        var body = new
+        {
+            description = "Salary", amount = 75m, currency = "USD", receivedByMemberId = receiver, date = "2026-06-12",
+            receivedToAccountId = account, idempotencyKey = Guid.NewGuid()
+        };
+        using var first = await Send(HttpMethod.Post, $"/v1/workspaces/{id}/incomes", _owner, body);
+        using var retry = await Send(HttpMethod.Post, $"/v1/workspaces/{id}/incomes", _owner, body);
+        first.StatusCode.Should().Be(HttpStatusCode.Created);
+        retry.StatusCode.Should().Be(HttpStatusCode.Created, await retry.Content.ReadAsStringAsync());
+        (await Json(retry)).GetProperty("id").GetGuid().Should().Be((await Json(first)).GetProperty("id").GetGuid());
+        using var list = await Send(HttpMethod.Get, $"/v1/workspaces/{id}/incomes", _owner);
+        (await Json(list)).GetArrayLength().Should().Be(1);
+        (await Balance(_owner, account)).Should().Be(575m);
+        using var scope = _factory.Services.CreateScope();
+        (await scope.ServiceProvider.GetRequiredService<Ledger.Infrastructure.LedgerDbContext>()
+            .Transactions.IgnoreQueryFilters().CountAsync()).Should().Be(1);
+    }
+
+    [Fact]
     public async Task SharedIncome_ConcurrentLinkAttemptsCreditOnlyOnce()
     {
         var (id, receiver) = await CreateWorkspace();
@@ -551,7 +574,7 @@ public sealed class WorkspacesIntegrationTests : IDisposable
     public async Task SharedExpenseFlow_InvitationBalancesSettlementBudgetAndDashboard()
     {
         var secondUser = Guid.NewGuid();
-        var category = Guid.NewGuid();
+        var category = await CreateExpenseCategory(_owner);
         var date = new DateOnly(2026, 6, 15);
         var (id, ownerMember) = await CreateWorkspace();
         var member = await Join(id, secondUser);
@@ -732,7 +755,7 @@ public sealed class WorkspacesIntegrationTests : IDisposable
     {
         var (id, ownerMember) = await CreateWorkspace();
         var member = await Join(id, Guid.NewGuid());
-        var category = Guid.NewGuid();
+        var category = await CreateExpenseCategory(_owner);
         using var expense = await Send(HttpMethod.Post, $"/v1/workspaces/{id}/expenses", _owner,
             new
             {
@@ -837,7 +860,7 @@ public sealed class WorkspacesIntegrationTests : IDisposable
         var (id, ownerMember) = await CreateWorkspace();
         var secondUser = Guid.NewGuid();
         var member = await Join(id, secondUser);
-        var category = Guid.NewGuid();
+        var category = await CreateExpenseCategory(_owner);
         foreach (var (date, amount) in new[] { ("2025-12-15", 100m), ("2026-01-15", 40m) })
         {
             using var expense = await Send(HttpMethod.Post, $"/v1/workspaces/{id}/expenses", _owner,
@@ -1176,6 +1199,30 @@ public sealed class WorkspacesIntegrationTests : IDisposable
     }
 
     [Fact]
+    public async Task LedgerSettlement_RetryWithSameIdempotencyKeyReturnsSameSettlementAndPostsOneLeg()
+    {
+        var (id, receiver) = await CreateWorkspace();
+        var payerUser = Guid.NewGuid();
+        var payer = await Join(id, payerUser);
+        var payerAccount = await CreateAccount(payerUser);
+        using var expense = await RegisterExpense(id, receiver, payer, _owner);
+        expense.StatusCode.Should().Be(HttpStatusCode.Created);
+        var body = new
+        {
+            payerMemberId = payer, receiverMemberId = receiver, amount = 50m, currency = "USD", settlementDate = "2026-06-15",
+            payerAccountId = payerAccount, idempotencyKey = Guid.NewGuid()
+        };
+        using var first = await Send(HttpMethod.Post, $"/v1/workspaces/{id}/settlements", payerUser, body);
+        using var retry = await Send(HttpMethod.Post, $"/v1/workspaces/{id}/settlements", payerUser, body);
+        first.StatusCode.Should().Be(HttpStatusCode.Created);
+        retry.StatusCode.Should().Be(HttpStatusCode.Created, await retry.Content.ReadAsStringAsync());
+        (await Json(retry)).GetProperty("id").GetGuid().Should().Be((await Json(first)).GetProperty("id").GetGuid());
+        using var list = await Send(HttpMethod.Get, $"/v1/workspaces/{id}/settlements", payerUser);
+        (await Json(list)).GetArrayLength().Should().Be(1);
+        (await Balance(payerUser, payerAccount)).Should().Be(450m);
+    }
+
+    [Fact]
     public async Task LedgerSettlement_ConcurrentSameSideLinkPostsOnlyOneLeg()
     {
         var (id, receiver) = await CreateWorkspace();
@@ -1317,6 +1364,14 @@ public sealed class WorkspacesIntegrationTests : IDisposable
     {
         using var response = await Send(HttpMethod.Post, "/v1/accounts", user,
             new { name = "Personal cash", type = "Cash", currency, initialBalance = 500m });
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+        return (await Json(response)).GetProperty("id").GetGuid();
+    }
+
+    private async Task<Guid> CreateExpenseCategory(Guid user)
+    {
+        using var response = await Send(HttpMethod.Post, "/v1/categories", user,
+            new { name = "Shared expense category", direction = "Expense" });
         response.StatusCode.Should().Be(HttpStatusCode.Created);
         return (await Json(response)).GetProperty("id").GetGuid();
     }

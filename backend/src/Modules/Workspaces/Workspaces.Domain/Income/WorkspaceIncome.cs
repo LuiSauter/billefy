@@ -16,11 +16,12 @@ public sealed class WorkspaceIncome : AggregateRoot
     public string? Notes { get; }
     public Guid? PersonalTransactionId { get; private set; }
     public Guid? ReceivedToAccountId { get; private set; }
+    public Guid? IdempotencyKey { get; }
 
     private WorkspaceIncome() => Description = null!;
 
     public WorkspaceIncome(Guid id, Guid workspaceId, string description, Money amount, Guid receivedByMemberId,
-        DateOnly date, Guid? categoryId = null, string? notes = null) : base(id)
+        DateOnly date, Guid? categoryId = null, string? notes = null, Guid? idempotencyKey = null) : base(id)
     {
         WorkspaceId = DomainGuard.Id(workspaceId, nameof(workspaceId));
         Description = DomainGuard.Text(description, nameof(description));
@@ -29,6 +30,7 @@ public sealed class WorkspaceIncome : AggregateRoot
         Date = date;
         CategoryId = categoryId.HasValue ? DomainGuard.Id(categoryId.Value, nameof(categoryId)) : null;
         Notes = notes;
+        IdempotencyKey = idempotencyKey.HasValue ? DomainGuard.Id(idempotencyKey.Value, nameof(idempotencyKey)) : null;
     }
 
     public void LinkAccount(Guid transactionId, Guid accountId)

@@ -223,6 +223,10 @@ namespace Workspaces.Infrastructure.Migrations
                         .HasColumnType("text")
                         .HasColumnName("description");
 
+                    b.Property<Guid?>("IdempotencyKey")
+                        .HasColumnType("uuid")
+                        .HasColumnName("idempotency_key");
+
                     b.Property<string>("Notes")
                         .HasColumnType("text")
                         .HasColumnName("notes");
@@ -267,9 +271,17 @@ namespace Workspaces.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("PersonalTransactionId")
+                        .IsUnique()
+                        .HasFilter("personal_transaction_id IS NOT NULL");
+
                     b.HasIndex("PaidByMemberId", "WorkspaceId");
 
                     b.HasIndex("WorkspaceId", "Date");
+
+                    b.HasIndex("WorkspaceId", "IdempotencyKey")
+                        .IsUnique()
+                        .HasFilter("idempotency_key IS NOT NULL");
 
                     b.ToTable("workspace_expenses", (string)null);
                 });
@@ -346,7 +358,6 @@ namespace Workspaces.Infrastructure.Migrations
             modelBuilder.Entity("Workspaces.Domain.Goals.SharedGoalContribution", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
@@ -357,6 +368,10 @@ namespace Workspaces.Infrastructure.Migrations
                     b.Property<Guid>("GoalId")
                         .HasColumnType("uuid")
                         .HasColumnName("goal_id");
+
+                    b.Property<Guid?>("IdempotencyKey")
+                        .HasColumnType("uuid")
+                        .HasColumnName("idempotency_key");
 
                     b.Property<Guid>("MemberId")
                         .HasColumnType("uuid")
@@ -386,6 +401,10 @@ namespace Workspaces.Infrastructure.Migrations
 
                     b.HasIndex("GoalId", "ContributedAt");
 
+                    b.HasIndex("GoalId", "IdempotencyKey")
+                        .IsUnique()
+                        .HasFilter("idempotency_key IS NOT NULL");
+
                     b.HasIndex("GoalId", "WorkspaceId");
 
                     b.HasIndex("MemberId", "WorkspaceId");
@@ -411,6 +430,10 @@ namespace Workspaces.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("description");
+
+                    b.Property<Guid?>("IdempotencyKey")
+                        .HasColumnType("uuid")
+                        .HasColumnName("idempotency_key");
 
                     b.Property<string>("Notes")
                         .HasColumnType("text")
@@ -450,7 +473,15 @@ namespace Workspaces.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("PersonalTransactionId")
+                        .IsUnique()
+                        .HasFilter("personal_transaction_id IS NOT NULL");
+
                     b.HasIndex("ReceivedByMemberId", "WorkspaceId");
+
+                    b.HasIndex("WorkspaceId", "IdempotencyKey")
+                        .IsUnique()
+                        .HasFilter("idempotency_key IS NOT NULL");
 
                     b.HasIndex("WorkspaceId", "CategoryId", "Date");
 
@@ -466,6 +497,10 @@ namespace Workspaces.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<Guid?>("IdempotencyKey")
+                        .HasColumnType("uuid")
+                        .HasColumnName("idempotency_key");
 
                     b.Property<string>("Notes")
                         .HasColumnType("text")
@@ -519,9 +554,21 @@ namespace Workspaces.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("PayerTransactionId")
+                        .IsUnique()
+                        .HasFilter("payer_transaction_id IS NOT NULL");
+
+                    b.HasIndex("ReceiverTransactionId")
+                        .IsUnique()
+                        .HasFilter("receiver_transaction_id IS NOT NULL");
+
                     b.HasIndex("PayerMemberId", "WorkspaceId");
 
                     b.HasIndex("ReceiverMemberId", "WorkspaceId");
+
+                    b.HasIndex("WorkspaceId", "IdempotencyKey")
+                        .IsUnique()
+                        .HasFilter("idempotency_key IS NOT NULL");
 
                     b.HasIndex("WorkspaceId", "SettlementDate");
 

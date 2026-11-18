@@ -40,6 +40,12 @@ public sealed class WorkspaceBalanceService(IWorkspaceRepository repository, Wor
         access.WriteLedgerAsync(ledger, async posted =>
         {
             var (workspace, actor) = await access.RequireAsync(id, ct);
+            if (request.IdempotencyKey.HasValue)
+            {
+                var existing = (await repository.ListAsync<WorkspaceSettlement>(
+                    x => x.WorkspaceId == id && x.IdempotencyKey == request.IdempotencyKey, ct)).SingleOrDefault();
+                if (existing is not null) return Map(existing);
+            }
             var currency = CurrencyFor(workspace, request.Currency);
             Validate(request.Amount == decimal.Round(request.Amount, currency.DecimalPlaces), "Amount exceeds currency precision.");
             if (request.PayerAccountId.HasValue) RequirePayer(actor.Id == request.PayerMemberId);
@@ -57,7 +63,7 @@ public sealed class WorkspaceBalanceService(IWorkspaceRepository repository, Wor
             Validate(amount.Amount > 0m && debt is not null && amount.Amount <= debt.Amount.Amount,
                 "Settlement must be positive and cannot exceed the outstanding pairwise debt.");
             var settlement = new WorkspaceSettlement(Guid.NewGuid(), id, request.PayerMemberId, request.ReceiverMemberId,
-                amount, request.SettlementDate, SettlementStatus.Completed, request.Notes);
+                amount, request.SettlementDate, SettlementStatus.Completed, request.Notes, request.IdempotencyKey);
             if (request.PayerAccountId.HasValue)
                 await PostLegAsync(settlement, actor.Id, request.PayerAccountId.Value, posted, ct);
             repository.Add(settlement);

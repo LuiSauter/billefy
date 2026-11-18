@@ -94,11 +94,11 @@ public sealed class SupportingEntitiesTests
     [Fact]
     public void Goal_DerivesCurrentAmountFromContributions_AndReachesTarget()
     {
-        var contributions = new List<SharedGoalContribution> { new(A, Usd(25m), Now) };
+        var contributions = new List<SharedGoalContribution> { new(Guid.NewGuid(), A, Usd(25m), Now) };
         var goal = new SharedGoal(Guid.NewGuid(), WorkspaceId, "Trip", Usd(100m), Usd(10m), memberContributions: contributions);
         contributions.Clear();
         goal.CurrentAmount.Should().Be(Usd(25m));
-        goal.AddContribution(new SharedGoalContribution(B, Usd(75m), Now));
+        goal.AddContribution(new SharedGoalContribution(Guid.NewGuid(), B, Usd(75m), Now));
         goal.CurrentAmount.Should().Be(Usd(100m));
         goal.MemberContributions.Should().HaveCount(2);
         goal.Status.Should().Be(SharedGoalStatus.Reached);
@@ -110,11 +110,11 @@ public sealed class SupportingEntitiesTests
         var goal = new SharedGoal(Guid.NewGuid(), WorkspaceId, "Trip", Usd(100m), Usd(10m));
         goal.Pause();
         goal.Status.Should().Be(SharedGoalStatus.Paused);
-        var paused = () => goal.AddContribution(new SharedGoalContribution(A, Usd(5m), Now));
+        var paused = () => goal.AddContribution(new SharedGoalContribution(Guid.NewGuid(), A, Usd(5m), Now));
         paused.Should().Throw<InvalidOperationException>();
         goal.Resume();
         goal.Status.Should().Be(SharedGoalStatus.Active);
-        var mismatch = () => goal.AddContribution(new SharedGoalContribution(A, new Money(5m, Currency.BOB), Now));
+        var mismatch = () => goal.AddContribution(new SharedGoalContribution(Guid.NewGuid(), A, new Money(5m, Currency.BOB), Now));
         mismatch.Should().Throw<ArgumentException>();
         goal.CurrentAmount.Should().Be(Usd(0m));
     }
@@ -124,7 +124,7 @@ public sealed class SupportingEntitiesTests
     {
         var commitment = () => new SharedGoal(Guid.NewGuid(), WorkspaceId, "Trip", Usd(100m), new Money(10m, Currency.BOB));
         var contribution = () => new SharedGoal(Guid.NewGuid(), WorkspaceId, "Trip", Usd(100m), Usd(10m),
-            memberContributions: [new(A, new Money(10m, Currency.BOB), Now)]);
+            memberContributions: [new(Guid.NewGuid(), A, new Money(10m, Currency.BOB), Now)]);
         commitment.Should().Throw<ArgumentException>();
         contribution.Should().Throw<ArgumentException>();
     }
@@ -181,6 +181,22 @@ public sealed class SupportingEntitiesTests
         self.Should().Throw<ArgumentException>();
         zero.Should().Throw<ArgumentException>();
         status.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void IncomeAndSettlement_KeepOptionalIdempotencyKeyAndRejectEmptyGuid()
+    {
+        var key = Guid.NewGuid();
+        new WorkspaceIncome(Guid.NewGuid(), WorkspaceId, "Salary", Usd(10m), A, DateOnly.FromDateTime(Now), idempotencyKey: key)
+            .IdempotencyKey.Should().Be(key);
+        new WorkspaceIncome(Guid.NewGuid(), WorkspaceId, "Salary", Usd(10m), A, DateOnly.FromDateTime(Now))
+            .IdempotencyKey.Should().BeNull();
+        new WorkspaceSettlement(Guid.NewGuid(), WorkspaceId, A, B, Usd(10m), DateOnly.FromDateTime(Now), idempotencyKey: key)
+            .IdempotencyKey.Should().Be(key);
+        var income = () => new WorkspaceIncome(Guid.NewGuid(), WorkspaceId, "Salary", Usd(10m), A, DateOnly.FromDateTime(Now), idempotencyKey: Guid.Empty);
+        var settlement = () => new WorkspaceSettlement(Guid.NewGuid(), WorkspaceId, A, B, Usd(10m), DateOnly.FromDateTime(Now), idempotencyKey: Guid.Empty);
+        income.Should().Throw<ArgumentException>();
+        settlement.Should().Throw<ArgumentException>();
     }
 
     private static WorkspaceInvitation Invitation(WorkspaceRole role = WorkspaceRole.Member) =>

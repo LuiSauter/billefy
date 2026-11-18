@@ -20,6 +20,7 @@ public sealed class WorkspaceExpense : AggregateRoot
     public string? Notes { get; }
     public Guid? PersonalTransactionId { get; private set; }
     public Guid? PaidFromAccountId { get; private set; }
+    public Guid? IdempotencyKey { get; }
     public IReadOnlyList<ExpenseSplitAllocation> Allocations => _allocations.AsReadOnly();
 
     private WorkspaceExpense()
@@ -31,7 +32,7 @@ public sealed class WorkspaceExpense : AggregateRoot
     public WorkspaceExpense(Guid id, Guid workspaceId, string description, Money totalAmount,
         Guid paidByMemberId, DateOnly date, SplitRuleType splitRuleType,
         IEnumerable<ExpenseSplitAllocation> allocations, Guid? categoryId = null,
-        string? notes = null, Guid? personalTransactionId = null) : base(id)
+        string? notes = null, Guid? personalTransactionId = null, Guid? idempotencyKey = null) : base(id)
     {
         WorkspaceId = DomainGuard.Id(workspaceId, nameof(workspaceId));
         Description = DomainGuard.Text(description, nameof(description));
@@ -52,6 +53,7 @@ public sealed class WorkspaceExpense : AggregateRoot
         Notes = notes;
         PersonalTransactionId = personalTransactionId.HasValue
             ? DomainGuard.Id(personalTransactionId.Value, nameof(personalTransactionId)) : null;
+        IdempotencyKey = idempotencyKey.HasValue ? DomainGuard.Id(idempotencyKey.Value, nameof(idempotencyKey)) : null;
     }
 
     public void LinkAccount(Guid transactionId, Guid accountId)

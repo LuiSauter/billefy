@@ -23,6 +23,12 @@ public sealed class WorkspaceExpenseService(IWorkspaceRepository repository, Wor
         access.WriteLedgerAsync(ledger, async posted =>
         {
             var (workspace, actor) = await access.RequireAsync(id, ct);
+            if (request.IdempotencyKey.HasValue)
+            {
+                var existing = (await repository.ListAsync<WorkspaceExpense>(
+                    x => x.WorkspaceId == id && x.IdempotencyKey == request.IdempotencyKey, ct)).SingleOrDefault();
+                if (existing is not null) return Map(existing, actor.Id);
+            }
             if (request.PaidFromAccountId.HasValue) RequirePayer(actor.Id == request.PaidByMemberId);
             var currency = CurrencyFor(workspace, request.Currency);
             Validate(request.Amount == decimal.Round(request.Amount, currency.DecimalPlaces), "Amount exceeds currency precision.");
@@ -30,13 +36,16 @@ public sealed class WorkspaceExpenseService(IWorkspaceRepository repository, Wor
             Validate(request.Participants is { Count: > 0 } && request.Participants.All(p => p is not null && members.Any(m => m.Id == p.MemberId)),
                 "Participants must be active workspace members.");
             Validate(members.Any(x => x.Id == request.PaidByMemberId), "Payer must be an active workspace member.");
+            if (request.CategoryId.HasValue && !request.PaidFromAccountId.HasValue)
+                Validate((await ledger.GetExpenseCategoryIdsForCurrentUserAsync(ct)).Contains(request.CategoryId.Value),
+                    "Category must be an existing expense category owned by the current user.");
             var participants = request.Participants.Select(p => new SplitParticipant(p.MemberId,
                 members.Single(m => m.Id == p.MemberId).IncomeSharePercentage, p.CustomPercentage, p.ResponsibilityWeight)).ToArray();
             var amount = new Money(request.Amount, currency);
             var allocations = SplitCalculator.Calculate(amount, request.SplitRuleType, participants,
                 participants.Any(x => x.MemberId == request.PaidByMemberId) ? request.PaidByMemberId : null);
             var expense = new WorkspaceExpense(Guid.NewGuid(), id, request.Description, amount, request.PaidByMemberId,
-                request.Date, request.SplitRuleType, allocations, request.CategoryId, request.Notes);
+                request.Date, request.SplitRuleType, allocations, request.CategoryId, request.Notes, idempotencyKey: request.IdempotencyKey);
             if (request.PaidFromAccountId.HasValue)
                 await DebitAsync(expense, request.PaidFromAccountId.Value, posted, ct);
             repository.Add(expense);

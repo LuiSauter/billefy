@@ -17,12 +17,13 @@ public sealed class WorkspaceSettlement : AggregateRoot
     public string? Notes { get; }
     public Guid? PayerTransactionId { get; private set; }
     public Guid? ReceiverTransactionId { get; private set; }
+    public Guid? IdempotencyKey { get; }
 
     private WorkspaceSettlement() { }
 
     public WorkspaceSettlement(Guid id, Guid workspaceId, Guid payerMemberId, Guid receiverMemberId,
         Money amount, DateOnly settlementDate, SettlementStatus status = SettlementStatus.Pending,
-        string? notes = null) : base(id)
+        string? notes = null, Guid? idempotencyKey = null) : base(id)
     {
         WorkspaceId = DomainGuard.Id(workspaceId, nameof(workspaceId));
         PayerMemberId = DomainGuard.Id(payerMemberId, nameof(payerMemberId));
@@ -33,6 +34,7 @@ public sealed class WorkspaceSettlement : AggregateRoot
         SettlementDate = settlementDate;
         Status = DomainGuard.Defined(status, nameof(status));
         Notes = notes;
+        IdempotencyKey = idempotencyKey.HasValue ? DomainGuard.Id(idempotencyKey.Value, nameof(idempotencyKey)) : null;
     }
 
     public void Complete() => Status = SettlementStatus.Completed;
