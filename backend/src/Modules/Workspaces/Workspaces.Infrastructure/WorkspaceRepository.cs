@@ -49,14 +49,36 @@ internal sealed class WorkspaceRepository(WorkspacesDbContext db) : IWorkspaceRe
         db.SharedBudgets.Add(budget);
     }
 
+    private const int MaxWriteAttempts = 5;
+
     public async Task<T> WriteAsync<T>(Func<Task<T>> action, CancellationToken ct)
     {
-        await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
-        var result = await action();
-        await db.SaveChangesAsync(ct);
-        await transaction.CommitAsync(ct);
-        return result;
+        for (var attempt = 1; attempt <= MaxWriteAttempts; attempt++)
+        {
+            try
+            {
+                await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
+                var result = await action();
+                await db.SaveChangesAsync(ct);
+                await transaction.CommitAsync(ct);
+                return result;
+            }
+            catch (Exception exception) when (attempt < MaxWriteAttempts && IsSerializationConflict(exception))
+            {
+                db.ChangeTracker.Clear();
+                await Task.Delay(TimeSpan.FromMilliseconds(10 * attempt), ct);
+            }
+        }
+
+        throw new WorkspaceWriteConflictException();
     }
+
+    public bool IsSerializationConflict(Exception exception) => exception switch
+    {
+        PostgresException postgres => postgres.SqlState is PostgresErrorCodes.SerializationFailure or PostgresErrorCodes.DeadlockDetected,
+        DbUpdateException { InnerException: PostgresException inner } => inner.SqlState is PostgresErrorCodes.SerializationFailure or PostgresErrorCodes.DeadlockDetected,
+        _ => false
+    };
 
     public async Task<T> WriteLedgerAsync<T>(Func<Task<T>> action, DbConnection ledgerConnection, DbTransaction ledgerTransaction, CancellationToken ct)
     {

@@ -6,6 +6,9 @@ using Workspaces.Domain.Workspaces;
 
 namespace Workspaces.Application.Abstractions;
 
+/// <summary>Thrown when every retry of a serializable workspace write still conflicts; the caller should ask the client to retry.</summary>
+public sealed class WorkspaceWriteConflictException : Exception;
+
 public interface IWorkspaceRepository
 {
     Task<List<T>> ListAsync<T>(Expression<Func<T, bool>> predicate, CancellationToken ct) where T : class;
@@ -17,4 +20,6 @@ public interface IWorkspaceRepository
     // Writes and their authorization/balance reads share a serializable transaction.
     Task<T> WriteAsync<T>(Func<Task<T>> action, CancellationToken ct);
     Task<T> WriteLedgerAsync<T>(Func<Task<T>> action, DbConnection connection, DbTransaction transaction, CancellationToken ct);
+    /// <summary>Returns true when the exception is a transient PostgreSQL serialization/deadlock conflict safe to retry.</summary>
+    bool IsSerializationConflict(Exception exception);
 }

@@ -52,19 +52,37 @@ public sealed class WorkspaceAccess(IWorkspaceRepository repository, ICurrentUse
         try { return Result.Success(await action()); }
         catch (WorkspaceFailure ex) { return Result.Failure<T>(ex.Error); }
         catch (ArgumentException) { return Result.Failure<T>(Error.Validation("Workspace.InvalidRequest", "One or more request values are invalid.")); }
+        catch (WorkspaceWriteConflictException) { return Result.Failure<T>(Error.Conflict("Workspace.WriteConflict", "The request conflicted with a concurrent change. Retry it.")); }
     }
 
     internal Task<Result<T>> WriteAsync<T>(Func<Task<T>> action, CancellationToken ct) =>
         ReadAsync(() => repository.WriteAsync(action, ct));
 
+    private const int MaxLedgerWriteAttempts = 5;
+
     internal Task<Result<T>> WriteLedgerAsync<T>(ILedgerModule ledger, Func<Action<Guid>, Task<T>> action, CancellationToken ct) =>
-        ReadAsync(() => ledger.ExecuteWorkspaceAtomicAsync(
-            (connection, transaction, token) => repository.WriteLedgerAsync(
-                () => action(static transactionId =>
+        ReadAsync(async () =>
+        {
+            for (var attempt = 1; attempt <= MaxLedgerWriteAttempts; attempt++)
+            {
+                try
                 {
-                    if (transactionId == Guid.Empty)
-                        throw new InvalidOperationException("Ledger returned an empty transaction ID.");
-                }), connection, transaction, token), ct));
+                    return await ledger.ExecuteWorkspaceAtomicAsync(
+                        (connection, transaction, token) => repository.WriteLedgerAsync(
+                            () => action(static transactionId =>
+                            {
+                                if (transactionId == Guid.Empty)
+                                    throw new InvalidOperationException("Ledger returned an empty transaction ID.");
+                            }), connection, transaction, token), ct);
+                }
+                catch (Exception exception) when (attempt < MaxLedgerWriteAttempts && repository.IsSerializationConflict(exception))
+                {
+                    await Task.Delay(TimeSpan.FromMilliseconds(10 * attempt), ct);
+                }
+            }
+
+            throw new WorkspaceWriteConflictException();
+        });
 
     internal static Guid RequireLedgerTransaction(WorkspaceLedgerTransactionResultDto result, Action<Guid> posted)
     {
