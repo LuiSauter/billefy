@@ -3,6 +3,7 @@ using BuildingBlocks.Currencies;
 using BuildingBlocks.Security;
 using BuildingBlocks.Time;
 using Ledger.Contracts;
+using Notifications.Contracts;
 using Workspaces.Application.Abstractions;
 using Workspaces.Contracts;
 using Workspaces.Domain.Workspaces;
@@ -26,6 +27,40 @@ public sealed class WorkspaceAccess(IWorkspaceRepository repository, ICurrentUse
             throw new WorkspaceFailure(Error.Forbidden("Workspace.Forbidden", "A workspace owner or administrator is required."));
         return (workspace, member);
     }
+
+    /// <summary>
+    /// Best-effort web push fan-out to every active member of the workspace except the current (acting) user.
+    /// Must be called only after the underlying write has committed. Delivery problems are swallowed so they
+    /// never fail or leak into the operation that triggered the notification.
+    /// </summary>
+    internal async Task NotifyOtherMembersAsync(INotificationsModule notifications, Guid workspaceId,
+        PushNotificationMessage message, CancellationToken ct)
+    {
+        try
+        {
+            var actorUserId = UserId;
+            var recipients = (await repository.ListAsync<WorkspaceMember>(x => x.WorkspaceId == workspaceId && x.IsActive, ct))
+                .Select(x => x.UserId).Where(x => x != actorUserId).Distinct().ToArray();
+            foreach (var recipient in recipients)
+            {
+                try
+                {
+                    await notifications.SendPushNotificationAsync(recipient, message, ct);
+                }
+                catch
+                {
+                    // Swallowed: one recipient's delivery failure must not block the others.
+                }
+            }
+        }
+        catch
+        {
+            // Swallowed: push delivery is best-effort and must not fail the committed write.
+        }
+    }
+
+    internal static string Amount(decimal amount, string currency) =>
+        $"{amount.ToString("N2", System.Globalization.CultureInfo.InvariantCulture)} {currency}";
 
     internal static WorkspaceFailure Missing() => new(Error.NotFound("Workspace.NotFound", "Workspace resource not found."));
     internal static void Validate([System.Diagnostics.CodeAnalysis.DoesNotReturnIf(false)] bool condition, string message)

@@ -345,6 +345,172 @@ public sealed class WorkspacesIntegrationTests : IDisposable
     }
 
     [Fact]
+    public async Task AcceptAsync_PushesEveryOtherActiveMemberButNotTheAcceptor()
+    {
+        var (id, _) = await CreateWorkspace();
+        var second = Guid.NewGuid();
+        var third = Guid.NewGuid();
+        await Join(id, second);
+        _notifications.Pushes.Clear();
+
+        await Join(id, third);
+
+        _notifications.Pushes.Select(x => x.UserId).Should().BeEquivalentTo(new[] { _owner, second });
+        _notifications.Pushes.Select(x => x.UserId).Should().NotContain(third);
+        var push = _notifications.Pushes.First().Message;
+        push.Title.Should().Be("Nuevo integrante");
+        push.Body.Should().Be("Test member se unió a tu espacio compartido");
+        push.Data.Should().ContainKey("workspaceId").WhoseValue.Should().Be(id.ToString());
+    }
+
+    [Fact]
+    public async Task AcceptAsync_StillSucceedsWhenPushThrowsOrFails()
+    {
+        var (id, _) = await CreateWorkspace();
+        _notifications.ThrowOnPush = true;
+        var thrown = await Join(id, Guid.NewGuid());
+        thrown.Should().NotBeEmpty();
+        _notifications.ThrowOnPush = false;
+        _notifications.FailPush = true;
+        var failed = await Join(id, Guid.NewGuid());
+        failed.Should().NotBeEmpty();
+        using var details = await Send(HttpMethod.Get, $"/v1/workspaces/{id}", _owner);
+        (await Json(details)).GetProperty("members").GetArrayLength().Should().Be(3);
+    }
+
+    [Fact]
+    public async Task RegisterExpense_PushesOtherActiveMembersButNotTheActor()
+    {
+        var second = Guid.NewGuid();
+        var third = Guid.NewGuid();
+        var (id, ownerMember) = await CreateWorkspace();
+        var secondMember = await Join(id, second);
+        var thirdMember = await Join(id, third);
+        _notifications.Pushes.Clear();
+
+        using var expense = await Send(HttpMethod.Post, $"/v1/workspaces/{id}/expenses", second,
+            new
+            {
+                description = "Groceries", amount = 100m, currency = "USD", paidByMemberId = secondMember,
+                date = new DateOnly(2026, 6, 15), splitRuleType = "EqualParts",
+                participants = new[] { new { memberId = ownerMember }, new { memberId = secondMember }, new { memberId = thirdMember } }
+            });
+
+        expense.StatusCode.Should().Be(HttpStatusCode.Created);
+        _notifications.Pushes.Select(x => x.UserId).Should().BeEquivalentTo(new[] { _owner, third });
+        var push = _notifications.Pushes.First().Message;
+        push.Title.Should().Be("Nuevo gasto compartido");
+        push.Body.Should().Contain("Groceries").And.Contain("100.00 USD").And.Contain("Shared home");
+        push.Data.Should().ContainKey("workspaceId").WhoseValue.Should().Be(id.ToString());
+    }
+
+    [Fact]
+    public async Task RegisterExpense_IdempotentReplayAndRejectedWritesDoNotPushAgain()
+    {
+        var second = Guid.NewGuid();
+        var (id, ownerMember) = await CreateWorkspace();
+        var secondMember = await Join(id, second);
+        _notifications.Pushes.Clear();
+        var key = Guid.NewGuid();
+        object Body(decimal amount) => new
+        {
+            description = "Rent", amount, currency = "USD", paidByMemberId = ownerMember, date = new DateOnly(2026, 6, 15),
+            splitRuleType = "EqualParts", idempotencyKey = key,
+            participants = new[] { new { memberId = ownerMember }, new { memberId = secondMember } }
+        };
+
+        using var first = await Send(HttpMethod.Post, $"/v1/workspaces/{id}/expenses", _owner, Body(80m));
+        using var replay = await Send(HttpMethod.Post, $"/v1/workspaces/{id}/expenses", _owner, Body(80m));
+        using var rejected = await Send(HttpMethod.Post, $"/v1/workspaces/{id}/expenses", _owner,
+            new { description = "Bad", amount = 10m, currency = "EUR", paidByMemberId = ownerMember, date = new DateOnly(2026, 6, 15),
+                splitRuleType = "EqualParts", participants = new[] { new { memberId = ownerMember } } });
+
+        first.StatusCode.Should().Be(HttpStatusCode.Created);
+        replay.StatusCode.Should().BeOneOf(HttpStatusCode.Created, HttpStatusCode.OK);
+        rejected.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        _notifications.Pushes.Should().ContainSingle().Which.UserId.Should().Be(second);
+    }
+
+    [Fact]
+    public async Task RegisterExpense_StillSucceedsWhenPushThrows()
+    {
+        var (id, ownerMember) = await CreateWorkspace();
+        var secondMember = await Join(id, Guid.NewGuid());
+        _notifications.ThrowOnPush = true;
+
+        using var expense = await Send(HttpMethod.Post, $"/v1/workspaces/{id}/expenses", _owner,
+            new
+            {
+                description = "Groceries", amount = 100m, currency = "USD", paidByMemberId = ownerMember,
+                date = new DateOnly(2026, 6, 15), splitRuleType = "EqualParts",
+                participants = new[] { new { memberId = ownerMember }, new { memberId = secondMember } }
+            });
+
+        expense.StatusCode.Should().Be(HttpStatusCode.Created);
+        using var list = await Send(HttpMethod.Get, $"/v1/workspaces/{id}/expenses", _owner);
+        (await Json(list)).GetArrayLength().Should().Be(1);
+    }
+
+    [Fact]
+    public async Task RegisterIncome_PushesOtherActiveMembersButNotTheActorAndSurvivesPushFailure()
+    {
+        var second = Guid.NewGuid();
+        var (id, ownerMember) = await CreateWorkspace();
+        await Join(id, second);
+        _notifications.Pushes.Clear();
+
+        using var income = await Send(HttpMethod.Post, $"/v1/workspaces/{id}/incomes", _owner,
+            new { description = "Salary", amount = 25m, currency = "USD", receivedByMemberId = ownerMember, date = "2026-06-12" });
+
+        income.StatusCode.Should().Be(HttpStatusCode.Created);
+        _notifications.Pushes.Should().ContainSingle().Which.UserId.Should().Be(second);
+        var push = _notifications.Pushes.Single().Message;
+        push.Title.Should().Be("Nuevo ingreso compartido");
+        push.Body.Should().Contain("Salary").And.Contain("25.00 USD").And.Contain("Shared home");
+
+        _notifications.Pushes.Clear();
+        _notifications.ThrowOnPush = true;
+        using var survived = await Send(HttpMethod.Post, $"/v1/workspaces/{id}/incomes", _owner,
+            new { description = "Bonus", amount = 5m, currency = "USD", receivedByMemberId = ownerMember, date = "2026-06-13" });
+        survived.StatusCode.Should().Be(HttpStatusCode.Created);
+    }
+
+    [Fact]
+    public async Task SettleAsync_PushesEveryOtherActiveMemberButNotTheActorAndSurvivesPushFailure()
+    {
+        var second = Guid.NewGuid();
+        var third = Guid.NewGuid();
+        var (id, ownerMember) = await CreateWorkspace();
+        var secondMember = await Join(id, second);
+        var thirdMember = await Join(id, third);
+        var date = new DateOnly(2026, 6, 15);
+        using var expense = await Send(HttpMethod.Post, $"/v1/workspaces/{id}/expenses", _owner,
+            new
+            {
+                description = "Groceries", amount = 90m, currency = "USD", paidByMemberId = ownerMember, date,
+                splitRuleType = "EqualParts",
+                participants = new[] { new { memberId = ownerMember }, new { memberId = secondMember }, new { memberId = thirdMember } }
+            });
+        expense.StatusCode.Should().Be(HttpStatusCode.Created);
+        _notifications.Pushes.Clear();
+
+        using var settle = await Send(HttpMethod.Post, $"/v1/workspaces/{id}/settlements", second,
+            new { payerMemberId = secondMember, receiverMemberId = ownerMember, amount = 10m, currency = "USD", settlementDate = date });
+
+        settle.StatusCode.Should().Be(HttpStatusCode.Created);
+        _notifications.Pushes.Select(x => x.UserId).Should().BeEquivalentTo(new[] { _owner, third });
+        var push = _notifications.Pushes.First().Message;
+        push.Title.Should().Be("Pago registrado");
+        push.Body.Should().Contain("10.00 USD").And.Contain("Shared home");
+
+        _notifications.Pushes.Clear();
+        _notifications.ThrowOnPush = true;
+        using var survived = await Send(HttpMethod.Post, $"/v1/workspaces/{id}/settlements", second,
+            new { payerMemberId = secondMember, receiverMemberId = ownerMember, amount = 5m, currency = "USD", settlementDate = date });
+        survived.StatusCode.Should().Be(HttpStatusCode.Created);
+    }
+
+    [Fact]
     public async Task SplitConfiguration_NullArraysAndEntriesReturnClientErrorsWithoutMutation()
     {
         var (id, ownerMember) = await CreateWorkspace();
@@ -1436,8 +1602,18 @@ public sealed class WorkspacesIntegrationTests : IDisposable
     private sealed class RecordingNotificationsModule : INotificationsModule
     {
         public List<SendEmailRequest> SentEmails { get; } = [];
+        public List<(Guid UserId, PushNotificationMessage Message)> Pushes { get; } = [];
+        public bool ThrowOnPush { get; set; }
+        public bool FailPush { get; set; }
         public Task<Result<DeviceRegistrationDto>> RegisterDeviceAsync(Guid userId, RegisterDeviceTokenRequest req, CancellationToken ct = default) => throw new NotSupportedException();
-        public Task<Result> SendPushNotificationAsync(Guid userId, PushNotificationMessage message, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<Result> SubscribeWebPushAsync(Guid userId, SubscribeWebPushRequest request, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<Result> UnsubscribeWebPushAsync(Guid userId, string endpoint, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<Result> SendPushNotificationAsync(Guid userId, PushNotificationMessage message, CancellationToken ct = default)
+        {
+            if (ThrowOnPush) throw new InvalidOperationException("Simulated push outage.");
+            Pushes.Add((userId, message));
+            return Task.FromResult(FailPush ? Result.Failure(Error.Failure("Push.Failed", "Simulated push failure.")) : Result.Success());
+        }
         public Task<Result> SendEmailNotificationAsync(SendEmailRequest request, CancellationToken ct = default)
         {
             SentEmails.Add(request);

@@ -1,6 +1,7 @@
 using BuildingBlocks.Common;
 using BuildingBlocks.ValueObjects;
 using Ledger.Contracts;
+using Notifications.Contracts;
 using Workspaces.Application.Abstractions;
 using Workspaces.Contracts;
 using Workspaces.Domain.Expenses;
@@ -19,7 +20,8 @@ public interface IWorkspaceBalanceService
     Task<Result<SettlementDto>> LinkAccountAsync(Guid id, Guid settlementId, LinkWorkspaceAccountRequest request, CancellationToken ct = default);
 }
 
-public sealed class WorkspaceBalanceService(IWorkspaceRepository repository, WorkspaceAccess access, ILedgerModule ledger) : IWorkspaceBalanceService
+public sealed class WorkspaceBalanceService(IWorkspaceRepository repository, WorkspaceAccess access, ILedgerModule ledger,
+    INotificationsModule notifications) : IWorkspaceBalanceService
 {
     public Task<Result<WorkspaceBalancesDto>> GetAsync(Guid id, CancellationToken ct = default) => ReadAsync(async () =>
     {
@@ -36,9 +38,12 @@ public sealed class WorkspaceBalanceService(IWorkspaceRepository repository, Wor
             settlements.OrderByDescending(x => x.SettlementDate).Select(Map).ToArray());
     });
 
-    public Task<Result<SettlementDto>> SettleAsync(Guid id, SettleBalanceRequest request, CancellationToken ct = default) =>
-        access.WriteLedgerAsync(ledger, async posted =>
+    public async Task<Result<SettlementDto>> SettleAsync(Guid id, SettleBalanceRequest request, CancellationToken ct = default)
+    {
+        PushNotificationMessage? push = null;
+        var result = await access.WriteLedgerAsync(ledger, async posted =>
         {
+            push = null;
             var (workspace, actor) = await access.RequireAsync(id, ct);
             if (request.IdempotencyKey.HasValue)
             {
@@ -67,8 +72,16 @@ public sealed class WorkspaceBalanceService(IWorkspaceRepository repository, Wor
             if (request.PayerAccountId.HasValue)
                 await PostLegAsync(settlement, actor.Id, request.PayerAccountId.Value, posted, ct);
             repository.Add(settlement);
+            push = new PushNotificationMessage("Pago registrado",
+                $"Se registró un pago de {Amount(amount.Amount, currency.Code)} en {workspace.Name}",
+                new Dictionary<string, string> { ["type"] = "workspace.settlement", ["workspaceId"] = id.ToString() });
             return Map(settlement);
         }, ct);
+        // Best-effort and only after the write committed; idempotent replays and rejected writes never notify.
+        if (result.IsSuccess && push is not null)
+            await access.NotifyOtherMembersAsync(notifications, id, push, ct);
+        return result;
+    }
 
     public Task<Result<IReadOnlyList<SettlementDto>>> ListSettlementsAsync(Guid id, CancellationToken ct = default) =>
         ReadAsync<IReadOnlyList<SettlementDto>>(async () =>

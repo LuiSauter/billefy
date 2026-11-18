@@ -1,6 +1,7 @@
 using BuildingBlocks.Common;
 using BuildingBlocks.ValueObjects;
 using Ledger.Contracts;
+using Notifications.Contracts;
 using Workspaces.Application.Abstractions;
 using Workspaces.Contracts;
 using Workspaces.Domain.Income;
@@ -16,11 +17,15 @@ public interface IWorkspaceIncomeService
     Task<Result<WorkspaceIncomeDto>> LinkAccountAsync(Guid id, Guid incomeId, LinkWorkspaceIncomeAccountRequest request, CancellationToken ct = default);
 }
 
-public sealed class WorkspaceIncomeService(IWorkspaceRepository repository, WorkspaceAccess access, ILedgerModule ledger) : IWorkspaceIncomeService
+public sealed class WorkspaceIncomeService(IWorkspaceRepository repository, WorkspaceAccess access, ILedgerModule ledger,
+    INotificationsModule notifications) : IWorkspaceIncomeService
 {
-    public Task<Result<WorkspaceIncomeDto>> RegisterAsync(Guid id, RegisterWorkspaceIncomeRequest request, CancellationToken ct = default) =>
-        access.WriteLedgerAsync(ledger, async posted =>
+    public async Task<Result<WorkspaceIncomeDto>> RegisterAsync(Guid id, RegisterWorkspaceIncomeRequest request, CancellationToken ct = default)
+    {
+        PushNotificationMessage? push = null;
+        var result = await access.WriteLedgerAsync(ledger, async posted =>
         {
+            push = null;
             var (workspace, actor) = await access.RequireAsync(id, ct);
             if (request.IdempotencyKey.HasValue)
             {
@@ -42,8 +47,16 @@ public sealed class WorkspaceIncomeService(IWorkspaceRepository repository, Work
             if (request.ReceivedToAccountId.HasValue)
                 await CreditAsync(income, request.ReceivedToAccountId.Value, posted, ct);
             repository.Add(income);
+            push = new PushNotificationMessage("Nuevo ingreso compartido",
+                $"Se registró \"{income.Description}\" por {Amount(income.Amount.Amount, income.Currency.Code)} en {workspace.Name}",
+                new Dictionary<string, string> { ["type"] = "workspace.income", ["workspaceId"] = id.ToString() });
             return Map(income, actor.Id);
         }, ct);
+        // Best-effort and only after the write committed; idempotent replays and rejected writes never notify.
+        if (result.IsSuccess && push is not null)
+            await access.NotifyOtherMembersAsync(notifications, id, push, ct);
+        return result;
+    }
 
     public Task<Result<IReadOnlyList<WorkspaceIncomeDto>>> ListAsync(Guid id, WorkspaceIncomeFilter filter, CancellationToken ct = default) =>
         ReadAsync<IReadOnlyList<WorkspaceIncomeDto>>(async () =>

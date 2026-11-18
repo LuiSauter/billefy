@@ -160,19 +160,46 @@ public sealed class WorkspaceService(IWorkspaceRepository repository, WorkspaceA
                 .OrderBy(x => x.ExpiresAt).Select(i => MapInvitation(i, workspaces.Single(w => w.Id == i.WorkspaceId))).ToArray();
         });
 
-    public Task<Result<MemberDto>> AcceptAsync(Guid invitationId, CancellationToken ct = default) => access.WriteAsync(async () =>
+    public async Task<Result<MemberDto>> AcceptAsync(Guid invitationId, CancellationToken ct = default)
     {
-        var (invitation, _) = await RequireInvitation(invitationId, ct);
-        var userId = access.UserId;
-        var members = await repository.ListAsync<WorkspaceMember>(x => x.WorkspaceId == invitation.WorkspaceId && x.UserId == userId, ct);
-        Validate(members.Count == 0, "This user already has a membership in this workspace.");
-        invitation.Accept(access.Now);
-        var member = new WorkspaceMember(Guid.NewGuid(), invitation.WorkspaceId, userId, invitation.WorkspaceRole,
-            invitation.PlannedIncomeSharePercentage, access.Now, invitation.PlannedCustomSharePercentage,
-            invitation.PlannedResponsibilityWeight);
-        repository.Add(member);
-        return MapMember(member);
-    }, ct);
+        Workspace? joined = null;
+        var result = await access.WriteAsync(async () =>
+        {
+            var (invitation, workspace) = await RequireInvitation(invitationId, ct);
+            var userId = access.UserId;
+            var members = await repository.ListAsync<WorkspaceMember>(x => x.WorkspaceId == invitation.WorkspaceId && x.UserId == userId, ct);
+            Validate(members.Count == 0, "This user already has a membership in this workspace.");
+            invitation.Accept(access.Now);
+            var member = new WorkspaceMember(Guid.NewGuid(), invitation.WorkspaceId, userId, invitation.WorkspaceRole,
+                invitation.PlannedIncomeSharePercentage, access.Now, invitation.PlannedCustomSharePercentage,
+                invitation.PlannedResponsibilityWeight);
+            repository.Add(member);
+            joined = workspace;
+            return MapMember(member);
+        }, ct);
+        if (result.IsSuccess && joined is not null)
+            await NotifyMemberJoinedAsync(joined, ct);
+        return result;
+    }
+
+    private async Task NotifyMemberJoinedAsync(Workspace workspace, CancellationToken ct)
+    {
+        // Best-effort: the membership is already committed; push delivery must never fail the acceptance.
+        try
+        {
+            var profile = await identity.GetCurrentUserAsync(access.UserId, ct);
+            var name = profile.IsSuccess
+                ? (string.IsNullOrWhiteSpace(profile.Value.FullName) ? profile.Value.Email : profile.Value.FullName).Trim()
+                : "Un nuevo integrante";
+            await access.NotifyOtherMembersAsync(notifications, workspace.Id,
+                new PushNotificationMessage("Nuevo integrante", $"{name} se unió a tu espacio compartido",
+                    new Dictionary<string, string> { ["type"] = "workspace.member-joined", ["workspaceId"] = workspace.Id.ToString() }), ct);
+        }
+        catch
+        {
+            // Swallowed: delivery failure must not fail the acceptance or leak to the caller.
+        }
+    }
 
     public Task<Result> RejectAsync(Guid invitationId, CancellationToken ct = default) => access.WriteAsync(async () =>
     {

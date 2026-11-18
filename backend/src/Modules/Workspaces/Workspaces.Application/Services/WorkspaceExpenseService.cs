@@ -1,6 +1,7 @@
 using BuildingBlocks.Common;
 using BuildingBlocks.ValueObjects;
 using Ledger.Contracts;
+using Notifications.Contracts;
 using Workspaces.Application.Abstractions;
 using Workspaces.Contracts;
 using Workspaces.Domain.Expenses;
@@ -17,11 +18,15 @@ public interface IWorkspaceExpenseService
     Task<Result<WorkspaceExpenseDto>> LinkAccountAsync(Guid id, Guid expenseId, LinkWorkspaceAccountRequest request, CancellationToken ct = default);
 }
 
-public sealed class WorkspaceExpenseService(IWorkspaceRepository repository, WorkspaceAccess access, ILedgerModule ledger) : IWorkspaceExpenseService
+public sealed class WorkspaceExpenseService(IWorkspaceRepository repository, WorkspaceAccess access, ILedgerModule ledger,
+    INotificationsModule notifications) : IWorkspaceExpenseService
 {
-    public Task<Result<WorkspaceExpenseDto>> RegisterAsync(Guid id, RegisterWorkspaceExpenseRequest request, CancellationToken ct = default) =>
-        access.WriteLedgerAsync(ledger, async posted =>
+    public async Task<Result<WorkspaceExpenseDto>> RegisterAsync(Guid id, RegisterWorkspaceExpenseRequest request, CancellationToken ct = default)
+    {
+        PushNotificationMessage? push = null;
+        var result = await access.WriteLedgerAsync(ledger, async posted =>
         {
+            push = null;
             var (workspace, actor) = await access.RequireAsync(id, ct);
             if (request.IdempotencyKey.HasValue)
             {
@@ -49,8 +54,16 @@ public sealed class WorkspaceExpenseService(IWorkspaceRepository repository, Wor
             if (request.PaidFromAccountId.HasValue)
                 await DebitAsync(expense, request.PaidFromAccountId.Value, posted, ct);
             repository.Add(expense);
+            push = new PushNotificationMessage("Nuevo gasto compartido",
+                $"Se registró \"{expense.Description}\" por {Amount(expense.TotalAmount.Amount, expense.Currency.Code)} en {workspace.Name}",
+                new Dictionary<string, string> { ["type"] = "workspace.expense", ["workspaceId"] = id.ToString() });
             return Map(expense, actor.Id);
         }, ct);
+        // Best-effort and only after the write committed; idempotent replays and rejected writes never notify.
+        if (result.IsSuccess && push is not null)
+            await access.NotifyOtherMembersAsync(notifications, id, push, ct);
+        return result;
+    }
 
     public Task<Result<IReadOnlyList<WorkspaceExpenseDto>>> ListAsync(Guid id, WorkspaceExpenseFilter filter, CancellationToken ct = default) =>
         ReadAsync<IReadOnlyList<WorkspaceExpenseDto>>(async () =>
