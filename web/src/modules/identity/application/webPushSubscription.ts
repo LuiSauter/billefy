@@ -40,6 +40,34 @@ export async function registerServiceWorker(): Promise<void> {
   }
 }
 
+async function subscribeWithCurrentOrRequestedPermission(http: IHttpClient): Promise<boolean> {
+  if (!isPushSupported()) return false;
+
+  const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+  if (!vapidPublicKey) return false;
+
+  if (Notification.permission !== "granted") {
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted") return false;
+  }
+
+  const registration = await navigator.serviceWorker.ready;
+  const subscription = await registration.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
+  });
+
+  const { endpoint, keys } = subscription.toJSON();
+  if (!endpoint || !keys?.p256dh || !keys?.auth) return false;
+
+  await new WebPushApiRepository(http).subscribe({
+    endpoint,
+    p256dhKey: keys.p256dh,
+    authKey: keys.auth,
+  });
+  return true;
+}
+
 /**
  * Asks for notification permission (unless already decided) and subscribes the
  * browser to Web Push, persisting the subscription on the backend. Runs at most
@@ -55,32 +83,35 @@ export async function requestWebPushSubscriptionOnce(
     attemptedUserIds.add(userId);
 
     if (!isPushSupported()) return;
-
-    const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-    if (!vapidPublicKey) return;
-
     if (Notification.permission === "denied") return;
 
-    if (Notification.permission !== "granted") {
-      const permission = await Notification.requestPermission();
-      if (permission !== "granted") return;
-    }
-
-    const registration = await navigator.serviceWorker.ready;
-    const subscription = await registration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
-    });
-
-    const { endpoint, keys } = subscription.toJSON();
-    if (!endpoint || !keys?.p256dh || !keys?.auth) return;
-
-    await new WebPushApiRepository(http).subscribe({
-      endpoint,
-      p256dhKey: keys.p256dh,
-      authKey: keys.auth,
-    });
+    await subscribeWithCurrentOrRequestedPermission(http);
   } catch {
     // Intentionally silent: push is best-effort and must never surface errors.
+  }
+}
+
+export type WebPushPermissionState = "unsupported" | "not-configured" | "granted" | "denied" | "default";
+
+/** Current browser permission state, for a Settings toggle to reflect without prompting. */
+export function getWebPushPermissionState(): WebPushPermissionState {
+  if (!isPushSupported()) return "unsupported";
+  if (!process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY) return "not-configured";
+  return Notification.permission;
+}
+
+/**
+ * Explicit user-initiated subscribe attempt (e.g. a Settings toggle). Unlike
+ * requestWebPushSubscriptionOnce, this always re-prompts when permission is not
+ * yet decided, regardless of any earlier attempt this page load. Returns whether
+ * the browser ended up subscribed; never throws. A previously "denied" permission
+ * cannot be re-prompted by script (Notification API restriction) — the caller must
+ * tell the user to change it from their browser's site settings.
+ */
+export async function subscribeToWebPushExplicitly(http: IHttpClient): Promise<boolean> {
+  try {
+    return await subscribeWithCurrentOrRequestedPermission(http);
+  } catch {
+    return false;
   }
 }

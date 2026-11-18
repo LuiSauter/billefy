@@ -1,8 +1,13 @@
 "use client";
 
-import React from "react";
-import { Bell, Target, CalendarClock, Trophy, TrendingUp, Mail } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { Bell, Target, CalendarClock, Trophy, TrendingUp, Mail, BellRing } from "lucide-react";
 import { Card } from "@/shared/ui/card";
+import { FetchHttpClient } from "@/shared/infrastructure/fetch-http.client";
+import {
+  getWebPushPermissionState,
+  subscribeToWebPushExplicitly,
+} from "../../application/webPushSubscription";
 import { SettingSwitchRow } from "./SettingSwitchRow";
 
 export interface NotificationsSettings {
@@ -22,6 +27,34 @@ export function NotificationsSectionCard({
   settings,
   onChange,
 }: NotificationsSectionCardProps) {
+  const [webPushState, setWebPushState] = useState(getWebPushPermissionState);
+  const [webPushBusy, setWebPushBusy] = useState(false);
+
+  useEffect(() => {
+    setWebPushState(getWebPushPermissionState());
+  }, []);
+
+  const webPushDescription =
+    webPushState === "unsupported"
+      ? "Tu navegador no soporta notificaciones push."
+      : webPushState === "not-configured"
+      ? "No disponible en este entorno."
+      : webPushState === "denied"
+      ? "Bloqueado por el navegador. Habilítalo desde la configuración del sitio."
+      : "Recibe avisos al instante de invitaciones y movimientos en espacios compartidos.";
+
+  const handleWebPushToggle = async (checked: boolean) => {
+    if (!checked || webPushState === "denied" || webPushState === "unsupported" || webPushState === "not-configured") return;
+    setWebPushBusy(true);
+    try {
+      const subscribed = await subscribeToWebPushExplicitly(new FetchHttpClient());
+      setWebPushState(getWebPushPermissionState());
+      if (!subscribed) return;
+    } finally {
+      setWebPushBusy(false);
+    }
+  };
+
   return (
     <Card className="lg:col-span-4 p-5 flex flex-col justify-between gap-4 bg-card border-border">
       <div>
@@ -40,6 +73,19 @@ export function NotificationsSectionCard({
         </div>
 
         <div className="flex flex-col gap-2 pt-2 border-t border-border/60">
+          <SettingSwitchRow
+            label={
+              <span className="flex items-center gap-1.5">
+                <BellRing className="size-3.5 text-primary" />
+                Notificaciones push del navegador
+              </span>
+            }
+            description={webPushDescription}
+            checked={webPushState === "granted"}
+            disabled={webPushBusy || webPushState === "unsupported" || webPushState === "not-configured" || webPushState === "denied"}
+            onCheckedChange={handleWebPushToggle}
+          />
+
           <SettingSwitchRow
             label={
               <span className="flex items-center gap-1.5">

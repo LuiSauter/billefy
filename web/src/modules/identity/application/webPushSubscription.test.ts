@@ -185,6 +185,63 @@ describe("requestWebPushSubscriptionOnce", () => {
   });
 });
 
+describe("getWebPushPermissionState", () => {
+  it("reports unsupported without service worker or PushManager", async () => {
+    installBrowser("default", { serviceWorker: false });
+    const { getWebPushPermissionState } = await load();
+    expect(getWebPushPermissionState()).toBe("unsupported");
+  });
+
+  it("reports not-configured without a VAPID public key", async () => {
+    vi.stubEnv("NEXT_PUBLIC_VAPID_PUBLIC_KEY", "");
+    installBrowser("default");
+    const { getWebPushPermissionState } = await load();
+    expect(getWebPushPermissionState()).toBe("not-configured");
+  });
+
+  it.each(["granted", "denied", "default"] as const)("mirrors Notification.permission %s", async (permission) => {
+    installBrowser(permission);
+    const { getWebPushPermissionState } = await load();
+    expect(getWebPushPermissionState()).toBe(permission);
+  });
+});
+
+describe("subscribeToWebPushExplicitly", () => {
+  it("re-prompts and subscribes even if an earlier automatic attempt already ran this page load", async () => {
+    const env = installBrowser("default", { requestResult: "granted" });
+    const { requestWebPushSubscriptionOnce, subscribeToWebPushExplicitly } = await load();
+    await requestWebPushSubscriptionOnce(env.http, "u1");
+    env.requestPermission.mockClear();
+    env.permission = "default";
+
+    const subscribed = await subscribeToWebPushExplicitly(env.http);
+
+    expect(subscribed).toBe(true);
+    expect(env.requestPermission).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns false and never throws when the prompt is declined", async () => {
+    const env = installBrowser("default", { requestResult: "denied" });
+    const { subscribeToWebPushExplicitly } = await load();
+    await expect(subscribeToWebPushExplicitly(env.http)).resolves.toBe(false);
+    expect(env.post).not.toHaveBeenCalled();
+  });
+
+  it("returns false without prompting when unsupported", async () => {
+    const env = installBrowser("default", { serviceWorker: false });
+    const { subscribeToWebPushExplicitly } = await load();
+    await expect(subscribeToWebPushExplicitly(env.http)).resolves.toBe(false);
+    expect(env.requestPermission).not.toHaveBeenCalled();
+  });
+
+  it("swallows a throwing subscribe() and returns false", async () => {
+    const env = installBrowser("granted");
+    env.subscribe.mockRejectedValueOnce(new Error("bad key"));
+    const { subscribeToWebPushExplicitly } = await load();
+    await expect(subscribeToWebPushExplicitly(env.http)).resolves.toBe(false);
+  });
+});
+
 describe("registerServiceWorker", () => {
   it("is a no-op without service worker support", async () => {
     vi.stubGlobal("navigator", {});
