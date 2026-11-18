@@ -12,11 +12,13 @@ public sealed class NotificationsDbContext : DbContext
 
     public DbSet<DeviceToken> DeviceTokens => Set<DeviceToken>();
     public DbSet<NotificationLog> NotificationLogs => Set<NotificationLog>();
+    public DbSet<WebPushSubscription> WebPushSubscriptions => Set<WebPushSubscription>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfiguration(new DeviceTokenConfiguration());
         modelBuilder.ApplyConfiguration(new NotificationLogConfiguration());
+        modelBuilder.ApplyConfiguration(new WebPushSubscriptionConfiguration());
 
         base.OnModelCreating(modelBuilder);
     }
@@ -61,5 +63,25 @@ public sealed class NotificationLogConfiguration : IEntityTypeConfiguration<Noti
         builder.Property(nl => nl.CreatedAt).HasColumnName("created_at").IsRequired();
 
         builder.HasIndex(nl => nl.UserId);
+    }
+}
+
+public sealed class WebPushSubscriptionConfiguration : IEntityTypeConfiguration<WebPushSubscription>
+{
+    public void Configure(EntityTypeBuilder<WebPushSubscription> builder)
+    {
+        builder.ToTable("web_push_subscriptions");
+
+        builder.HasKey(s => s.Id);
+        builder.Property(s => s.Id).HasColumnName("id");
+        builder.Property(s => s.UserId).HasColumnName("user_id").IsRequired();
+        builder.Property(s => s.Endpoint).HasColumnName("endpoint").HasMaxLength(1000).IsRequired();
+        builder.HasIndex(s => s.Endpoint).IsUnique();
+
+        builder.Property(s => s.P256dhKey).HasColumnName("p256dh_key").HasMaxLength(500).IsRequired();
+        builder.Property(s => s.AuthKey).HasColumnName("auth_key").HasMaxLength(500).IsRequired();
+        builder.Property(s => s.CreatedAt).HasColumnName("created_at").IsRequired();
+
+        builder.HasIndex(s => s.UserId);
     }
 }

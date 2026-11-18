@@ -5,6 +5,8 @@ namespace Notifications.Contracts;
 public interface INotificationsModule
 {
     Task<Result<DeviceRegistrationDto>> RegisterDeviceAsync(Guid userId, RegisterDeviceTokenRequest req, CancellationToken ct = default);
+    Task<Result> SubscribeWebPushAsync(Guid userId, SubscribeWebPushRequest request, CancellationToken ct = default);
+    Task<Result> UnsubscribeWebPushAsync(Guid userId, string endpoint, CancellationToken ct = default);
     Task<Result> SendPushNotificationAsync(Guid userId, PushNotificationMessage message, CancellationToken ct = default);
     Task<Result> SendEmailNotificationAsync(SendEmailRequest request, CancellationToken ct = default);
     Task<Result<IReadOnlyList<NotificationLogDto>>> GetNotificationHistoryAsync(Guid userId, CancellationToken ct = default);

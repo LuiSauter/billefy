@@ -36,6 +36,38 @@ public sealed class DeviceTokenRepository : IDeviceTokenRepository
     }
 }
 
+public sealed class WebPushSubscriptionRepository : IWebPushSubscriptionRepository
+{
+    private readonly NotificationsDbContext _context;
+
+    public WebPushSubscriptionRepository(NotificationsDbContext context)
+    {
+        _context = context;
+    }
+
+    public async Task<IReadOnlyList<WebPushSubscription>> GetByUserIdAsync(Guid userId, CancellationToken ct = default)
+    {
+        return await _context.WebPushSubscriptions
+            .Where(s => s.UserId == userId)
+            .ToListAsync(ct);
+    }
+
+    public async Task<WebPushSubscription?> GetByEndpointAsync(string endpoint, CancellationToken ct = default)
+    {
+        return await _context.WebPushSubscriptions.FirstOrDefaultAsync(s => s.Endpoint == endpoint, ct);
+    }
+
+    public async Task AddAsync(WebPushSubscription subscription, CancellationToken ct = default)
+    {
+        await _context.WebPushSubscriptions.AddAsync(subscription, ct);
+    }
+
+    public void Remove(WebPushSubscription subscription)
+    {
+        _context.WebPushSubscriptions.Remove(subscription);
+    }
+}
+
 public sealed class NotificationLogRepository : INotificationLogRepository
 {
     private readonly NotificationsDbContext _context;

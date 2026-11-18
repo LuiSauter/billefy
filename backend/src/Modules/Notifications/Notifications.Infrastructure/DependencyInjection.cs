@@ -22,11 +22,14 @@ public static class DependencyInjection
         }
 
         services.AddScoped<IDeviceTokenRepository, DeviceTokenRepository>();
+        services.AddScoped<IWebPushSubscriptionRepository, WebPushSubscriptionRepository>();
         services.AddScoped<INotificationLogRepository, NotificationLogRepository>();
         services.AddScoped<INotificationsUnitOfWork, NotificationsUnitOfWork>();
 
         services.AddSingleton<IPushGateway, SimulatedPushGateway>();
         services.AddSingleton<IEmailGateway, SimulatedEmailGateway>();
+        services.Configure<VapidOptions>(configuration.GetSection(VapidOptions.SectionName));
+        services.AddSingleton<IWebPushGateway, VapidWebPushGateway>();
         services.AddScoped<INotificationsModule, NotificationsService>();
 
         return services;

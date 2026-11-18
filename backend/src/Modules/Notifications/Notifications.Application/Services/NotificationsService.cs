@@ -9,23 +9,29 @@ namespace Notifications.Application.Services;
 public sealed class NotificationsService : INotificationsModule
 {
     private readonly IDeviceTokenRepository _deviceTokenRepository;
+    private readonly IWebPushSubscriptionRepository _webPushSubscriptionRepository;
     private readonly INotificationLogRepository _logRepository;
     private readonly IPushGateway _pushGateway;
+    private readonly IWebPushGateway _webPushGateway;
     private readonly IEmailGateway _emailGateway;
     private readonly INotificationsUnitOfWork _unitOfWork;
     private readonly IClock _clock;
 
     public NotificationsService(
         IDeviceTokenRepository deviceTokenRepository,
+        IWebPushSubscriptionRepository webPushSubscriptionRepository,
         INotificationLogRepository logRepository,
         IPushGateway pushGateway,
+        IWebPushGateway webPushGateway,
         IEmailGateway emailGateway,
         INotificationsUnitOfWork unitOfWork,
         IClock clock)
     {
         _deviceTokenRepository = deviceTokenRepository;
+        _webPushSubscriptionRepository = webPushSubscriptionRepository;
         _logRepository = logRepository;
         _pushGateway = pushGateway;
+        _webPushGateway = webPushGateway;
         _emailGateway = emailGateway;
         _unitOfWork = unitOfWork;
         _clock = clock;
@@ -64,13 +70,67 @@ public sealed class NotificationsService : INotificationsModule
         return Result.Success(new DeviceRegistrationDto(entity.Id, entity.Platform, entity.CreatedAt));
     }
 
+    public async Task<Result> SubscribeWebPushAsync(
+        Guid userId,
+        SubscribeWebPushRequest request,
+        CancellationToken ct = default)
+    {
+        var endpoint = request.Endpoint?.Trim() ?? string.Empty;
+        var existing = string.IsNullOrEmpty(endpoint)
+            ? null
+            : await _webPushSubscriptionRepository.GetByEndpointAsync(endpoint, ct);
+
+        if (existing != null && existing.UserId == userId)
+        {
+            return Result.Success();
+        }
+
+        var createResult = WebPushSubscription.Create(userId, endpoint, request.P256dhKey ?? string.Empty, request.AuthKey ?? string.Empty, _clock.UtcNow);
+        if (createResult.IsFailure)
+        {
+            return Result.Failure(createResult.Error);
+        }
+
+        if (existing != null)
+        {
+            // The browser endpoint now belongs to whoever is signed in on that browser profile.
+            _webPushSubscriptionRepository.Remove(existing);
+        }
+
+        await _webPushSubscriptionRepository.AddAsync(createResult.Value, ct);
+        await _unitOfWork.CommitAsync(ct);
+        return Result.Success();
+    }
+
+    public async Task<Result> UnsubscribeWebPushAsync(
+        Guid userId,
+        string endpoint,
+        CancellationToken ct = default)
+    {
+        var normalized = endpoint?.Trim();
+        if (string.IsNullOrEmpty(normalized))
+        {
+            return Result.Success();
+        }
+
+        var existing = await _webPushSubscriptionRepository.GetByEndpointAsync(normalized, ct);
+        if (existing != null && existing.UserId == userId)
+        {
+            _webPushSubscriptionRepository.Remove(existing);
+            await _unitOfWork.CommitAsync(ct);
+        }
+
+        return Result.Success();
+    }
+
     public async Task<Result> SendPushNotificationAsync(
         Guid userId,
         PushNotificationMessage message,
         CancellationToken ct = default)
     {
         var devices = await _deviceTokenRepository.GetActiveByUserIdAsync(userId, ct);
-        if (devices.Count == 0)
+        var webPushSubscriptions = await _webPushSubscriptionRepository.GetByUserIdAsync(userId, ct);
+        if (devices.Count == 0 && webPushSubscriptions.Count == 0)
         {
             // Still log as in-app notification
             var log = NotificationLog.CreateSuccess(
@@ -93,6 +153,25 @@ public sealed class NotificationsService : INotificationsModule
                 : NotificationLog.CreateFailed(userId, NotificationType.Push, device.Platform, message.Title, message.Body, "Push gateway refused or failed", _clock.UtcNow);
 
             await _logRepository.AddAsync(log, ct);
+        }
+
+        foreach (var subscription in webPushSubscriptions)
+        {
+            var sendResult = await _webPushGateway.SendAsync(subscription, message.Title, message.Body, message.Data, ct);
+            var log = sendResult == WebPushSendResult.Sent
+                ? NotificationLog.CreateSuccess(userId, NotificationType.Push, "WebPush", message.Title, message.Body, _clock.UtcNow)
+                : NotificationLog.CreateFailed(userId, NotificationType.Push, "WebPush", message.Title, message.Body,
+                    sendResult == WebPushSendResult.SubscriptionExpired
+                        ? "Web push subscription expired and was removed"
+                        : "Web push gateway refused or failed",
+                    _clock.UtcNow);
+
+            await _logRepository.AddAsync(log, ct);
+
+            if (sendResult == WebPushSendResult.SubscriptionExpired)
+            {
+                _webPushSubscriptionRepository.Remove(subscription);
+            }
         }
 
         await _unitOfWork.CommitAsync(ct);

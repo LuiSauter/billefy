@@ -9,6 +9,11 @@ public sealed record DeviceRegistrationDto(
     string Platform,
     DateTime CreatedAt);
 
+public sealed record SubscribeWebPushRequest(
+    string Endpoint,
+    string P256dhKey,
+    string AuthKey);
+
 public sealed record PushNotificationMessage(
     string Title,
     string Body,

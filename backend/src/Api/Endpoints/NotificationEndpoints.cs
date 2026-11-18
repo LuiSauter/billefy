@@ -36,6 +36,43 @@ public static class NotificationEndpoints
 
         if (includeNames) regRoute.WithName("RegisterDevice");
 
+        // 1b. Subscribe / unsubscribe a browser for Web Push (VAPID) notifications
+        var subscribeRoute = group.MapPost("/web-push/subscribe", async (
+            [FromBody] SubscribeWebPushRequest request,
+            [FromServices] ICurrentUserContext currentUser,
+            [FromServices] INotificationsModule notificationsModule,
+            CancellationToken ct) =>
+        {
+            if (!currentUser.IsAuthenticated)
+            {
+                return Results.Unauthorized();
+            }
+
+            var result = await notificationsModule.SubscribeWebPushAsync(currentUser.UserId!.Value, request, ct);
+            return result.ToHttpResult();
+        })
+        .WithSummary("Registra la suscripción Web Push (VAPID) del navegador del usuario");
+
+        if (includeNames) subscribeRoute.WithName("SubscribeWebPush");
+
+        var unsubscribeRoute = group.MapDelete("/web-push/subscribe", async (
+            [FromQuery] string endpoint,
+            [FromServices] ICurrentUserContext currentUser,
+            [FromServices] INotificationsModule notificationsModule,
+            CancellationToken ct) =>
+        {
+            if (!currentUser.IsAuthenticated)
+            {
+                return Results.Unauthorized();
+            }
+
+            var result = await notificationsModule.UnsubscribeWebPushAsync(currentUser.UserId!.Value, endpoint, ct);
+            return result.ToHttpResult();
+        })
+        .WithSummary("Elimina la suscripción Web Push del navegador del usuario (idempotente)");
+
+        if (includeNames) unsubscribeRoute.WithName("UnsubscribeWebPush");
+
         // 2. Get Notification History
         var histRoute = group.MapGet("/", async (
             [FromServices] ICurrentUserContext currentUser,
