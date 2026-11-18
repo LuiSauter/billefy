@@ -30,6 +30,8 @@ web/src/
 ### Movimientos
 La sección **Movimientos** está disponible desde el menú lateral. Consulta el mes local seleccionado; sus límites de inicio y fin de mes se envían como instantes UTC al backend (`startUtc` inclusivo y `endUtcExclusive` exclusivo). Búsqueda, filtros e historial usan paginación del servidor; los resúmenes de ingresos, gastos, transferencias y efectivo de inversiones se mantienen separados por moneda. Desde Movimientos se registran aportes y retiros vinculados a una inversión y una cuenta real. El monto usa la moneda de la cuenta; estas operaciones no cambian la valuación ni la cantidad del activo. El historial de efectivo conserva el vínculo con la inversión y solo se revierte mediante su acción coordinada. Archivar un activo no es un retiro y conserva su historial. Los recibos están explícitamente diferidos.
 
+Las transferencias ordinarias y FX permiten elegir **Fecha** y **Hora** locales (incluidas fechas retroactivas). Se envían como un instante UTC al backend, igual que los movimientos; si no se elige una fecha o se borra, se conserva el comportamiento anterior: el servidor usa la fecha y hora actual al registrar. Elegir una fecha histórica no cambia la tasa FX: revisá la cotización aplicada antes de confirmar.
+
 Pruebas enfocadas del módulo:
 ```bash
 pnpm --dir web exec vitest run src/modules/ledger/application/useMovements.test.ts src/modules/ledger/presentation/MovimientosView.test.tsx src/modules/ledger/infrastructure/ledger-api.repository.test.ts src/modules/ledger/application/useLedgerModule.test.ts
@@ -65,6 +67,7 @@ El cliente web requiere la configuración de su URL de backend y del ID de clien
 |---|---|---|
 | `NEXT_PUBLIC_API_URL` | URL base del backend ASP.NET Core | `http://localhost:5267` |
 | `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | Client ID de Google Identity Services obtenido en Google Cloud Console | `123456789-xyz.apps.googleusercontent.com` |
+| `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | Clave pública VAPID para suscribirse a Web Push nativo del navegador; debe coincidir con `Vapid__PublicKey` del backend (ver `backend/README.md`) | sin valor por defecto, requerida para que la app pida permiso de notificaciones |
 
 ### Configuración de Google Cloud Console:
 1. En [Google Cloud Console](https://console.cloud.google.com/), ve a **APIs & Services > Credentials**.
@@ -85,6 +88,9 @@ NEXT_PUBLIC_API_URL=http://localhost:5267
 
 # Google OAuth Client ID (Google Identity Services)
 NEXT_PUBLIC_GOOGLE_CLIENT_ID=TU_GOOGLE_CLIENT_ID.apps.googleusercontent.com
+
+# Clave pública VAPID para Web Push (debe coincidir con Vapid__PublicKey del backend)
+NEXT_PUBLIC_VAPID_PUBLIC_KEY=TU_VAPID_PUBLIC_KEY
 EOF
 ```
 
@@ -96,6 +102,7 @@ EOF
 ```bash
 export NEXT_PUBLIC_API_URL="http://localhost:5267"
 export NEXT_PUBLIC_GOOGLE_CLIENT_ID="TU_GOOGLE_CLIENT_ID.apps.googleusercontent.com"
+export NEXT_PUBLIC_VAPID_PUBLIC_KEY="TU_VAPID_PUBLIC_KEY"
 ```
 
 #### Windows (PowerShell)

@@ -49,7 +49,7 @@ public static class NotificationEndpoints
             }
 
             var result = await notificationsModule.SubscribeWebPushAsync(currentUser.UserId!.Value, request, ct);
-            return result.ToHttpResult();
+            return result.ToHttpResult(() => Results.NoContent());
         })
         .WithSummary("Registra la suscripción Web Push (VAPID) del navegador del usuario");
 
@@ -67,7 +67,7 @@ public static class NotificationEndpoints
             }
 
             var result = await notificationsModule.UnsubscribeWebPushAsync(currentUser.UserId!.Value, endpoint, ct);
-            return result.ToHttpResult();
+            return result.ToHttpResult(() => Results.NoContent());
         })
         .WithSummary("Elimina la suscripción Web Push del navegador del usuario (idempotente)");
 

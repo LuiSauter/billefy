@@ -40,7 +40,7 @@ public sealed class NotificationWebPushEndpointTests : IDisposable
     {
         using var response = await Send(HttpMethod.Post, route, _user, new SubscribeWebPushRequest("https://push.test/browser-1", "p256dh-1", "auth-1"));
 
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
         var stored = (await Subscriptions()).Should().ContainSingle().Subject;
         stored.UserId.Should().Be(_user);
         stored.Endpoint.Should().Be("https://push.test/browser-1");
@@ -68,8 +68,8 @@ public sealed class NotificationWebPushEndpointTests : IDisposable
         using var first = await Send(HttpMethod.Post, "/v1/notifications/web-push/subscribe", _user, body);
         using var second = await Send(HttpMethod.Post, "/v1/notifications/web-push/subscribe", _user, body);
 
-        first.StatusCode.Should().Be(HttpStatusCode.OK);
-        second.StatusCode.Should().Be(HttpStatusCode.OK);
+        first.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        second.StatusCode.Should().Be(HttpStatusCode.NoContent);
         (await Subscriptions()).Should().ContainSingle();
     }
 
@@ -81,7 +81,7 @@ public sealed class NotificationWebPushEndpointTests : IDisposable
         using var second = await Send(HttpMethod.Post, "/v1/notifications/web-push/subscribe", _otherUser,
             new SubscribeWebPushRequest("https://push.test/shared-browser", "p-new", "a-new"));
 
-        second.StatusCode.Should().Be(HttpStatusCode.OK);
+        second.StatusCode.Should().Be(HttpStatusCode.NoContent);
         var stored = (await Subscriptions()).Should().ContainSingle().Subject;
         stored.UserId.Should().Be(_otherUser);
         stored.P256dhKey.Should().Be("p-new");
@@ -103,11 +103,11 @@ public sealed class NotificationWebPushEndpointTests : IDisposable
     public async Task Unsubscribe_OwnEndpoint_RemovesSubscription(string route)
     {
         using var subscribe = await Send(HttpMethod.Post, route, _user, new SubscribeWebPushRequest("https://push.test/browser-1", "p", "a"));
-        subscribe.StatusCode.Should().Be(HttpStatusCode.OK);
+        subscribe.StatusCode.Should().Be(HttpStatusCode.NoContent);
 
         using var response = await Send(HttpMethod.Delete, $"{route}?endpoint={Uri.EscapeDataString("https://push.test/browser-1")}", _user);
 
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
         (await Subscriptions()).Should().BeEmpty();
     }
 
@@ -116,12 +116,12 @@ public sealed class NotificationWebPushEndpointTests : IDisposable
     {
         using var subscribe = await Send(HttpMethod.Post, "/v1/notifications/web-push/subscribe", _user,
             new SubscribeWebPushRequest("https://push.test/browser-1", "p", "a"));
-        subscribe.StatusCode.Should().Be(HttpStatusCode.OK);
+        subscribe.StatusCode.Should().Be(HttpStatusCode.NoContent);
 
         using var response = await Send(HttpMethod.Delete,
             $"/v1/notifications/web-push/subscribe?endpoint={Uri.EscapeDataString("https://push.test/browser-1")}", _otherUser);
 
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
         (await Subscriptions()).Should().ContainSingle().Which.UserId.Should().Be(_user);
     }
 
@@ -142,8 +142,8 @@ public sealed class NotificationWebPushEndpointTests : IDisposable
             new SubscribeWebPushRequest("https://push.test/alive", "p1", "a1"));
         using var dead = await Send(HttpMethod.Post, "/v1/notifications/web-push/subscribe", _user,
             new SubscribeWebPushRequest("https://push.test/dead", "p2", "a2"));
-        alive.StatusCode.Should().Be(HttpStatusCode.OK);
-        dead.StatusCode.Should().Be(HttpStatusCode.OK);
+        alive.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        dead.StatusCode.Should().Be(HttpStatusCode.NoContent);
         _gateway.ResultFor = endpoint => endpoint.EndsWith("/dead", StringComparison.Ordinal)
             ? WebPushSendResult.SubscriptionExpired
             : WebPushSendResult.Sent;

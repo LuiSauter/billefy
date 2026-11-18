@@ -19,6 +19,10 @@ El backend está organizado como un monolito modular desacoplado. Los módulos n
 
 ---
 
+### Metas con reservas explícitas (implementación por etapas)
+
+La API de metas incorpora `fundingMode`: al omitirlo conserva `AccountTracking` (saldo completo de la cuenta); `ReservedFunds` comienza en cero y exige una cuenta propia de la misma moneda. Las rutas `POST /v1/planning/goals/{id}/funding/assign` y `/release` registran asignaciones/liberaciones inmutables con `Idempotency-Key`, sin mover dinero. El límite considera todas las metas de la cuenta. Gastar después sigue permitido y expone un faltante explícito; la interfaz de reservas todavía está pendiente. El contrato y las precauciones de migración están en [Soft goal reservations](../docs/financial-audit/reserved-goals.md). Generar la migración no la aplica: no reinicies la API con migración automática sobre datos existentes sin respaldo verificado y un plan autorizado.
+
 ## 2. Requisitos Previos
 
 1. **.NET 10 SDK** (versión 10.0 o superior):
@@ -122,6 +126,18 @@ Google__ClientSecret="TU_GOOGLE_CLIENT_SECRET"
 # 10. Seguridad & Encriptación en Reposo (AES-256-GCM)
 # ------------------------------------------------------------------------------
 Security__EncryptionKey="billefy_production_aes_256_gcm_master_encryption_key_2026!"
+
+# ------------------------------------------------------------------------------
+# 11. VAPID (Web Push nativo del navegador)
+# ------------------------------------------------------------------------------
+# Par de claves VAPID para firmar notificaciones Web Push. Generalas una sola vez
+# por entorno (son el equivalente a una identidad del servidor push, no rotan
+# salvo compromiso) con el helper de la libreria WebPush (VapidHelper.GenerateVapidKeys())
+# o con `npx web-push generate-vapid-keys`. La clave publica tambien debe configurarse
+# en el frontend como NEXT_PUBLIC_VAPID_PUBLIC_KEY (ver web/README.md).
+Vapid__PublicKey="TU_VAPID_PUBLIC_KEY"
+Vapid__PrivateKey="TU_VAPID_PRIVATE_KEY"
+Vapid__Subject="mailto:soporte@billefy.app"
 EOF
 ```
 
@@ -150,6 +166,11 @@ export WhatsApp__Provider="Devhooh"
 export WhatsApp__Devhooh__BaseUrl="https://api-whp.devhooh.com"
 export WhatsApp__Devhooh__ApiKey="tu_api_key_devhooh"
 export Fx__RateSourceUrl="https://bo.dolarapi.com/v1/dolares/binance"
+
+# 4. VAPID (Web Push)
+export Vapid__PublicKey="TU_VAPID_PUBLIC_KEY"
+export Vapid__PrivateKey="TU_VAPID_PRIVATE_KEY"
+export Vapid__Subject="mailto:soporte@billefy.app"
 ```
 
 #### Windows (PowerShell)
@@ -173,6 +194,11 @@ $env:WhatsApp__Provider="Devhooh"
 $env:WhatsApp__Devhooh__BaseUrl="https://api-whp.devhooh.com"
 $env:WhatsApp__Devhooh__ApiKey="tu_api_key_devhooh"
 $env:Fx__RateSourceUrl="https://bo.dolarapi.com/v1/dolares/binance"
+
+# 4. VAPID (Web Push)
+$env:Vapid__PublicKey="TU_VAPID_PUBLIC_KEY"
+$env:Vapid__PrivateKey="TU_VAPID_PRIVATE_KEY"
+$env:Vapid__Subject="mailto:soporte@billefy.app"
 ```
 
 #### Windows (Command Prompt / CMD)
@@ -196,6 +222,11 @@ set WhatsApp__Provider=Devhooh
 set WhatsApp__Devhooh__BaseUrl=https://api-whp.devhooh.com
 set WhatsApp__Devhooh__ApiKey=tu_api_key_devhooh
 set Fx__RateSourceUrl=https://bo.dolarapi.com/v1/dolares/binance
+
+:: 4. VAPID (Web Push)
+set Vapid__PublicKey=TU_VAPID_PUBLIC_KEY
+set Vapid__PrivateKey=TU_VAPID_PRIVATE_KEY
+set Vapid__Subject=mailto:soporte@billefy.app
 ```
 
 ---
@@ -237,7 +268,15 @@ Verifica la API y la documentación interactiva en:
 
 ## Movement queries
 
-`GET /v1/transactions/movements` is a backward-compatible logical movement feed. The existing `GET /v1/transactions/` fields remain available and now include an `allocations` array. Supported query parameters are `startUtc`, `endUtcExclusive`, `accountId`, `categoryId`, `type` (`Income`, `Expense`, or `Transfer`), `search`, `mode` (`Active` by default or `Audit`), `page` (1-based, maximum 100000), and `pageSize` (1–100). Date-time bounds must be UTC ISO-8601 timestamps (`Z` or `+00:00`); start is inclusive and end is exclusive. A transfer is one feed item with its ledger legs and each leg's account, amount, currency, and ID. When filtering by an account, that account's transfer leg is representative. Amounts and period summaries remain native-currency values; totals are separated by currency. Active mode hides reversal records and transactions they reverse; audit mode retains original and reversal records. Transfer legs and reversal records are excluded from income/expense summaries in both modes, so audit reversals remain historical evidence rather than fresh income or expense. Search checks description, account label, and category label as literal case-insensitive substrings; `%`, `_`, and `!` are not wildcards. The result includes page-independent `totalCount` and currency summaries for the full filtered result set.
+`GET /v1/transactions/movements` is a backward-compatible logical movement feed. The existing `GET /v1/transactions/` fields remain available and now include an `allocations` array. Supported query parameters are `startUtc`, `endUtcExclusive`, `accountId`, `categoryId`, `type` (`Income`, `Expense`, `Transfer`, `Investment`, `Adjustment`, or `Loan`), `search`, `mode` (`Active` by default or `Audit`), `page` (1-based, maximum 100000), and `pageSize` (1–100). Date-time bounds must be UTC ISO-8601 timestamps (`Z` or `+00:00`); start is inclusive and end is exclusive. A transfer is one feed item with its ledger legs and each leg's account, amount, currency, and ID. When filtering by an account, that account's transfer leg is representative. Amounts and period summaries remain native-currency values; totals are separated by currency. Active mode hides reversal records and transactions they reverse; audit mode retains original and reversal records. Transfer legs and reversal records are excluded from income/expense summaries in both modes, so audit reversals remain historical evidence rather than fresh income or expense. Search checks description, account label, and category label as literal case-insensitive substrings; `%`, `_`, and `!` are not wildcards. The result includes page-independent `totalCount` and currency summaries for the full filtered result set.
+
+## Debt, card and investment accounting
+
+Loan creation accepts additive `originationKind` (`CashDisbursement` by default; `OpeningBalance` creates no cash) and `loanKind` (`Loan` by default; `CreditCard` enables purchases). Principal cash movements are labeled `Loan` and excluded from income, expense and category consumption. Interest is recognized separately, optionally using `interestCategoryId`. `POST /v1/loans/{id}/purchases` recognizes a card expense and liability without withdrawing cash. Creation, payment and purchase support payload-bound `Idempotency-Key` replay; linked postings cannot be independently edited or reversed. See [debt/card policy and API](../docs/financial-audit/debt-card-accounting.md).
+
+Funded investment `Buy` operations use the existing operations route with `linkedAccountId` and a UUID `Idempotency-Key`, atomically updating cash, units, historical cost and immutable history. Funded `Dividend` uses the same route/account/key and atomically records cash plus recognized income, not an investment disposal; quantity, unit price and fees must be zero. It leaves units, cost and value unchanged. Legacy unlinked operations remain cash-neutral. Public transaction DTOs include `investmentId` and `investmentCashKind` so client result projections preserve the distinction. Dated `Revaluation` changes value, not units, cost or cash. New `costBasis` and `unrealizedGain` fields are nullable: unknown legacy acquisition cost is not inferred from current value. Cash-only contribution/disposal routes retain their separate semantics. See [purchase/valuation policy and API](../docs/financial-audit/investment-purchase-accounting.md).
+
+Financial exports include owner-scoped card `purchases` and `investmentTransactions`; authenticated financial reset removes their owned history while preserving other users. These features require new additive Ledger, Lending and Planning migrations. Offline design-time factories generate models without credentials or application startup; generation does not apply schema changes. Do not enable schema-dependent writes before backup, migration review and separately authorized database application.
 
 ## Transaction category allocations
 
