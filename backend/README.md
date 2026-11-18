@@ -128,7 +128,19 @@ Google__ClientSecret="TU_GOOGLE_CLIENT_SECRET"
 Security__EncryptionKey="billefy_production_aes_256_gcm_master_encryption_key_2026!"
 
 # ------------------------------------------------------------------------------
-# 11. VAPID (Web Push nativo del navegador)
+# 11. Mailtrap (Envío real de correos transaccionales)
+# ------------------------------------------------------------------------------
+# Usado para enviar invitaciones por correo y otras notificaciones transaccionales.
+# Si falta cualquiera de las 3 variables requeridas, el envío de correos queda
+# deshabilitado (loguea un warning y SendEmailAsync devuelve false) en vez de fallar.
+MAILER_SERVICE="https://send.api.mailtrap.io/api/send"
+MAILER_EMAIL="no-reply@tu-dominio.com"
+MAILER_SECRET_KEY="TU_MAILTRAP_API_TOKEN"
+# Opcional, nombre de remitente mostrado al destinatario (por defecto "Billefy")
+MAILER_FROM_NAME="Billefy"
+
+# ------------------------------------------------------------------------------
+# 12. VAPID (Web Push nativo del navegador)
 # ------------------------------------------------------------------------------
 # Par de claves VAPID para firmar notificaciones Web Push. Generalas una sola vez
 # por entorno (son el equivalente a una identidad del servidor push, no rotan
@@ -167,7 +179,13 @@ export WhatsApp__Devhooh__BaseUrl="https://api-whp.devhooh.com"
 export WhatsApp__Devhooh__ApiKey="tu_api_key_devhooh"
 export Fx__RateSourceUrl="https://bo.dolarapi.com/v1/dolares/binance"
 
-# 4. VAPID (Web Push)
+# 4. Mailtrap (Correos transaccionales)
+export MAILER_SERVICE="https://send.api.mailtrap.io/api/send"
+export MAILER_EMAIL="no-reply@tu-dominio.com"
+export MAILER_SECRET_KEY="TU_MAILTRAP_API_TOKEN"
+export MAILER_FROM_NAME="Billefy"
+
+# 5. VAPID (Web Push)
 export Vapid__PublicKey="TU_VAPID_PUBLIC_KEY"
 export Vapid__PrivateKey="TU_VAPID_PRIVATE_KEY"
 export Vapid__Subject="mailto:soporte@billefy.app"
@@ -195,7 +213,13 @@ $env:WhatsApp__Devhooh__BaseUrl="https://api-whp.devhooh.com"
 $env:WhatsApp__Devhooh__ApiKey="tu_api_key_devhooh"
 $env:Fx__RateSourceUrl="https://bo.dolarapi.com/v1/dolares/binance"
 
-# 4. VAPID (Web Push)
+# 4. Mailtrap (Correos transaccionales)
+$env:MAILER_SERVICE="https://send.api.mailtrap.io/api/send"
+$env:MAILER_EMAIL="no-reply@tu-dominio.com"
+$env:MAILER_SECRET_KEY="TU_MAILTRAP_API_TOKEN"
+$env:MAILER_FROM_NAME="Billefy"
+
+# 5. VAPID (Web Push)
 $env:Vapid__PublicKey="TU_VAPID_PUBLIC_KEY"
 $env:Vapid__PrivateKey="TU_VAPID_PRIVATE_KEY"
 $env:Vapid__Subject="mailto:soporte@billefy.app"
@@ -223,7 +247,13 @@ set WhatsApp__Devhooh__BaseUrl=https://api-whp.devhooh.com
 set WhatsApp__Devhooh__ApiKey=tu_api_key_devhooh
 set Fx__RateSourceUrl=https://bo.dolarapi.com/v1/dolares/binance
 
-:: 4. VAPID (Web Push)
+:: 4. Mailtrap (Correos transaccionales)
+set MAILER_SERVICE=https://send.api.mailtrap.io/api/send
+set MAILER_EMAIL=no-reply@tu-dominio.com
+set MAILER_SECRET_KEY=TU_MAILTRAP_API_TOKEN
+set MAILER_FROM_NAME=Billefy
+
+:: 5. VAPID (Web Push)
 set Vapid__PublicKey=TU_VAPID_PUBLIC_KEY
 set Vapid__PrivateKey=TU_VAPID_PRIVATE_KEY
 set Vapid__Subject=mailto:soporte@billefy.app

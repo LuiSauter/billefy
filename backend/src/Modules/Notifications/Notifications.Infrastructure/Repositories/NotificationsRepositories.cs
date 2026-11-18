@@ -116,11 +116,4 @@ public sealed class SimulatedPushGateway : IPushGateway
     }
 }
 
-public sealed class SimulatedEmailGateway : IEmailGateway
-{
-    public Task<bool> SendEmailAsync(string toEmail, string subject, string body, CancellationToken ct = default)
-    {
-        // In local development / test, email delivers successfully
-        return Task.FromResult(true);
-    }
-}
+

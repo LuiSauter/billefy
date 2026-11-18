@@ -27,7 +27,25 @@ public static class DependencyInjection
         services.AddScoped<INotificationsUnitOfWork, NotificationsUnitOfWork>();
 
         services.AddSingleton<IPushGateway, SimulatedPushGateway>();
-        services.AddSingleton<IEmailGateway, SimulatedEmailGateway>();
+
+        var mailtrapOptions = new MailtrapOptions
+        {
+            ServiceUrl = configuration["Mailer:ServiceUrl"]
+                ?? Environment.GetEnvironmentVariable("MAILER_SERVICE")
+                ?? string.Empty,
+            FromEmail = configuration["Mailer:FromEmail"]
+                ?? Environment.GetEnvironmentVariable("MAILER_EMAIL")
+                ?? string.Empty,
+            SecretKey = configuration["Mailer:SecretKey"]
+                ?? Environment.GetEnvironmentVariable("MAILER_SECRET_KEY")
+                ?? string.Empty,
+            FromName = configuration["Mailer:FromName"]
+                ?? Environment.GetEnvironmentVariable("MAILER_FROM_NAME")
+                ?? "Billefy"
+        };
+        services.AddSingleton(mailtrapOptions);
+        services.AddHttpClient<IEmailGateway, MailtrapEmailGateway>();
+
         services.Configure<VapidOptions>(configuration.GetSection(VapidOptions.SectionName));
         services.AddSingleton<IWebPushGateway, VapidWebPushGateway>();
         services.AddScoped<INotificationsModule, NotificationsService>();
