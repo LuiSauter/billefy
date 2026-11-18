@@ -27,7 +27,7 @@ describe("WorkspaceReportsView", () => {
   beforeEach(() => { hooks.cursor = 0; hooks.slots.length = 0; });
   it("renders server reports, honest two-month trends and available exports", () => {
     const html = renderToStaticMarkup(<WorkspaceReportsView report={reportFixture} onPeriodChange={vi.fn()} />);
-    for (const text of ["Ingresos", "Gastos", "Aportaciones", "Balance del período", "Evolución de ingresos y gastos", "Gastos por categoría", "Reportes generados", "Ver", "Descargar", "JSON", "CSV", "Exportar reporte", "no registra ingresos"]) expect(html).toContain(text);
+    for (const text of ["Ingresos", "Gastos", "Aportaciones", "Balance del período", "Evolución de ingresos y gastos", "Gastos por categoría", "Reportes generados", "Ver", "Descargar", "JSON", "CSV", "Exportar reporte", "ingresos compartidos registrados en el espacio"]) expect(html).toContain(text);
     expect(html).not.toContain("NaN");
     expect(reportBalance(reportFixture).toFixed(2)).toBe("-0.10");
   });
