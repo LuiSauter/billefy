@@ -1,0 +1,33 @@
+{
+  "status": "INCOMPLETE",
+  "applicationChecksExecuted": false,
+  "runtimeProvisioned": false,
+  "profiles": [
+    {
+      "profile": "tests",
+      "exitCode": 1,
+      "elapsedSeconds": 9.429,
+      "deadlineSeconds": 120,
+      "attempts": 1,
+      "reason": "Preparator cannot establish safety of omissions with dynamic resource use",
+      "rawLogPath": "/var/folders/lb/ydz9zgs96ms9wss75lvjpj740000gn/T/gpCIxjot/gentle-jobs-VLguS2/job-3.log",
+      "rawOutput": "PROFILE=tests ATTEMPT=1 DEADLINE_SECONDS=120\nUncertain dynamic resource prevents profile omissions: web/node_modules/.pnpm/@base-ui+react@1.9.0_@date-fns+tz@1.5.0_@types+react@19.3.0_date-fns@4.4.0_react-dom@19.3.1_react@19.3.1__react@19.3.1/node_modules/@base-ui/react/csp-provider/CSPProvider.js\nPROFILE=tests EXIT_CODE=1 ELAPSED_SECONDS=9.429\n"
+    },
+    {
+      "profile": "types",
+      "exitCode": 1,
+      "elapsedSeconds": 12.613,
+      "deadlineSeconds": 120,
+      "attempts": 1,
+      "reason": "Preparator cannot establish safety of omissions with encoded/template module references",
+      "rawLogPath": "/var/folders/lb/ydz9zgs96ms9wss75lvjpj740000gn/T/gpCIxjot/gentle-jobs-VLguS2/job-4.log",
+      "rawOutput": "PROFILE=types ATTEMPT=1 DEADLINE_SECONDS=120\nUncertain encoded/template module prevents profile omissions: web/node_modules/.pnpm/next@15.5.28_@babel+core@7.29.7_supports-color@7.2.0__@types+node@22.20.5_react-dom@19.3.1_react@19.3.1__react@19.3.1/node_modules/next/dist/compiled/busboy/index.js\nPROFILE=types EXIT_CODE=1 ELAPSED_SECONDS=12.613\n"
+    }
+  ],
+  "utilityTests": {
+    "passed": 19,
+    "scope": "Synthetic preparator tests, NOT application acceptance",
+    "workerReportedPriorTimeoutSeconds": 30,
+    "independentReview": "NOT_RUN"
+  }
+}

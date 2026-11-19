@@ -61,6 +61,108 @@
         }
       }
     },
+    "/api/v1/auth/register": {
+      "post": {
+        "tags": [
+          "Identity & Authentication (Google OAuth Only)"
+        ],
+        "summary": "Registra un nuevo usuario con email y contraseña segura",
+        "operationId": "RegisterWithPassword",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterWithPasswordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "tags": [
+          "Identity & Authentication (Google OAuth Only)"
+        ],
+        "summary": "Inicia sesión mediante email y contraseña",
+        "operationId": "LoginWithPassword",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginWithPasswordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/auth/google": {
       "post": {
         "tags": [
@@ -233,6 +335,106 @@
         "responses": {
           "204": {
             "description": "No Content"
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/register": {
+      "post": {
+        "tags": [
+          "Identity & Authentication (Google OAuth Only)"
+        ],
+        "summary": "Registra un nuevo usuario con email y contraseña segura",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterWithPasswordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/login": {
+      "post": {
+        "tags": [
+          "Identity & Authentication (Google OAuth Only)"
+        ],
+        "summary": "Inicia sesión mediante email y contraseña",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginWithPasswordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           },
           "401": {
             "description": "Unauthorized",
@@ -1837,8 +2039,19 @@
         "tags": [
           "Loans"
         ],
-        "summary": "Create a new loan with full amortization schedule.",
+        "summary": "Create a cash loan or existing opening debt; CreditCard uses a no-interest opening obligation.",
+        "description": "originationKind: CashDisbursement (default) posts principal cash, never income/expense; OpeningBalance records existing principal without cash. loanKind: Loan (default) or CreditCard. Optional Idempotency-Key UUID replays the same payload; changed payload returns 409.",
         "operationId": "CreateLoan",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -1875,6 +2088,16 @@
           },
           "404": {
             "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2135,13 +2358,22 @@
         "tags": [
           "Loans"
         ],
-        "summary": "Register a payment on a loan with cascade allocation (late interest -> regular interest -> principal).",
+        "summary": "Allocate a payment and post principal separately from recognized interest.",
+        "description": "Principal changes cash and debt/receivable only; interestCategoryId categorizes recognized interest. Idempotency-Key replays a successful payment, conflicts return 409. Card payments require an actual account.",
         "operationId": "RegisterLoanPayment",
         "parameters": [
           {
             "name": "id",
             "in": "path",
             "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
             "schema": {
               "type": "string",
               "format": "uuid"
@@ -2191,6 +2423,100 @@
           },
           "404": {
             "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/loans/{id}/purchases": {
+      "post": {
+        "tags": [
+          "Loans"
+        ],
+        "summary": "Recognize a dated card expense and principal liability atomically, without cash.",
+        "description": "Requires an owned CreditCard loan, matching currency, positive currency-precision amount, UTC occurredAt, and owned expense category when supplied. Optional Idempotency-Key UUID replays 201; changed payload returns 409. Purchases are append-only and included in loan detail.",
+        "operationId": "RegisterCardPurchase",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterCardPurchaseRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2718,12 +3044,21 @@
           "Planning"
         ],
         "summary": "Register an immutable investment operation (buy, sell, dividend, fee, revaluation).",
+        "description": "Buy with linkedAccountId atomically debits same-currency cash and increases units, value and known historical cost. Dividend with linkedAccountId atomically credits cash as recognized income and appends linked immutable history without changing units, value or cost. Its quantity, unitPrice and fees must be zero; totalAmount is the positive received amount in account currency precision. Idempotency-Key UUID is reserved for funded purchases and dividends and required for them: exact replay returns 200, changed payload (including type or omitted account) 409. totalAmount is quantity × unitPrice rounded away from zero to currency precision; fees are separate and capitalized. Unlinked legacy operations retain their previous cash-neutral behavior. Revaluation records an effective date/reference price without cash; quantity 0 preserves position units. Cash-only reversal of funded purchases is blocked.",
         "operationId": "RegisterInvestmentOperation",
         "parameters": [
           {
             "name": "id",
             "in": "path",
             "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
             "schema": {
               "type": "string",
               "format": "uuid"
@@ -2741,6 +3076,16 @@
           "required": true
         },
         "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvestmentTransactionDto"
+                }
+              }
+            }
+          },
           "201": {
             "description": "Created",
             "content": {
@@ -3024,12 +3369,177 @@
         }
       }
     },
+    "/v1/planning/goals/{id}/funding/{kind}": {
+      "post": {
+        "tags": [
+          "Planning"
+        ],
+        "summary": "Assign or release earmarked funds without moving cash.",
+        "description": "kind is assign or release; a nonempty Idempotency-Key UUID is required. Positive currency-precision amounts only. Assignments are capped across all reserved goals of the account. Subsequent spending is allowed and may produce accountFundingShortfall. Same key/payload replays; conflicting payloads or competing writes return 409. No automatic retry.",
+        "operationId": "RecordGoalFunding",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GoalFundingRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoalFundingEntryDto"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoalFundingEntryDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/planning/goals/{id}/funding": {
+      "get": {
+        "tags": [
+          "Planning"
+        ],
+        "summary": "List the immutable assignment and release history for an owned goal.",
+        "operationId": "GetGoalFunding",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GoalFundingEntryDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/planning/goals": {
       "post": {
         "tags": [
           "Planning"
         ],
         "summary": "Create a savings goal with target amount, target date, and associated account (BUD-03).",
+        "description": "Optional fundingMode defaults to AccountTracking (full linked-account balance). ReservedFunds starts at zero, requires an owned same-currency account, and never posts a ledger transaction. Funding entries explicitly assign or release earmarks. Unknown/null modes return 400 Goal.InvalidFundingMode.",
         "operationId": "CreateGoal",
         "requestBody": {
           "content": {
@@ -3071,7 +3581,8 @@
         "tags": [
           "Planning"
         ],
-        "summary": "List savings goals evaluated with current account progress and required monthly contribution.",
+        "summary": "List savings goals with funding mode, progress, and required monthly contribution.",
+        "description": "AccountTracking uses the full linked-account balance. ReservedFunds uses net assignment history. accountReservedAmount and accountFundingShortfall are shared account-wide totals; do not add them across goals. reservationStatus is funded, underfunded, or unavailable. Spending never silently releases reservations.",
         "operationId": "GetGoals",
         "responses": {
           "200": {
@@ -3106,6 +3617,7 @@
           "Planning"
         ],
         "summary": "Update a savings goal.",
+        "description": "Preserves fundingMode. A ReservedFunds goal cannot be unlinked or change accounts after funding history exists. Goals with funding history cannot be deleted. Editing does not assign funds or post transactions.",
         "operationId": "UpdateGoal",
         "parameters": [
           {
@@ -5503,6 +6015,52 @@
         }
       }
     },
+    "/api/v1/notifications/web-push/subscribe": {
+      "post": {
+        "tags": [
+          "Notifications & Alerts"
+        ],
+        "summary": "Registra la suscripción Web Push (VAPID) del navegador del usuario",
+        "operationId": "SubscribeWebPush",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubscribeWebPushRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Notifications & Alerts"
+        ],
+        "summary": "Elimina la suscripción Web Push del navegador del usuario (idempotente)",
+        "operationId": "UnsubscribeWebPush",
+        "parameters": [
+          {
+            "name": "endpoint",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/v1/notifications": {
       "get": {
         "tags": [
@@ -5557,6 +6115,50 @@
           },
           "required": true
         },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/v1/notifications/web-push/subscribe": {
+      "post": {
+        "tags": [
+          "Notifications & Alerts"
+        ],
+        "summary": "Registra la suscripción Web Push (VAPID) del navegador del usuario",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubscribeWebPushRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Notifications & Alerts"
+        ],
+        "summary": "Elimina la suscripción Web Push del navegador del usuario (idempotente)",
+        "parameters": [
+          {
+            "name": "endpoint",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK"
@@ -5988,6 +6590,38 @@
           "International"
         ]
       },
+      "AuthResponseDto": {
+        "required": [
+          "accessToken",
+          "refreshToken",
+          "expiresIn",
+          "tokenType",
+          "user"
+        ],
+        "type": "object",
+        "properties": {
+          "accessToken": {
+            "type": "string"
+          },
+          "refreshToken": {
+            "type": "string"
+          },
+          "expiresIn": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "tokenType": {
+            "type": "string"
+          },
+          "user": {
+            "$ref": "#/components/schemas/UserDto"
+          }
+        }
+      },
       "BinanceCredentialStatusDto": {
         "required": [
           "connected",
@@ -6101,6 +6735,56 @@
           "createdAt": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "CardPurchaseDto": {
+        "required": [
+          "id",
+          "amount",
+          "currency",
+          "categoryId",
+          "occurredAt",
+          "description",
+          "ledgerTransactionId"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "amount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "categoryId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "ledgerTransactionId": {
+            "type": "string",
+            "format": "uuid"
           }
         }
       },
@@ -6255,6 +6939,13 @@
           },
           "currency": {
             "type": "string"
+          },
+          "idempotencyKey": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
           }
         }
       },
@@ -6469,6 +7160,10 @@
               "string"
             ],
             "format": "uuid"
+          },
+          "fundingMode": {
+            "type": "string",
+            "default": "AccountTracking"
           }
         }
       },
@@ -6661,6 +7356,21 @@
               "null",
               "string"
             ]
+          },
+          "originationKind": {
+            "type": "string",
+            "default": "CashDisbursement"
+          },
+          "loanKind": {
+            "type": "string",
+            "default": "Loan"
+          },
+          "idempotencyKey": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
           }
         }
       },
@@ -7307,6 +8017,110 @@
           "createdAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "fundingMode": {
+            "type": "string",
+            "default": "AccountTracking"
+          },
+          "accountReservedAmount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "accountFundingShortfall": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "reservationStatus": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "GoalFundingEntryDto": {
+        "required": [
+          "id",
+          "goalId",
+          "accountId",
+          "kind",
+          "amount",
+          "currency",
+          "occurredAt",
+          "createdAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "goalId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "accountId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "amount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "GoalFundingRequest": {
+        "required": [
+          "amount",
+          "currency"
+        ],
+        "type": "object",
+        "properties": {
+          "amount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "occurredAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
           }
         }
       },
@@ -7675,6 +8489,24 @@
               "null",
               "string"
             ]
+          },
+          "costBasis": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "unrealizedGain": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
           }
         }
       },
@@ -7964,6 +8796,15 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/LoanPaymentDto"
+            }
+          },
+          "purchases": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/CardPurchaseDto"
             }
           }
         }
@@ -8649,6 +9490,33 @@
               "string"
             ],
             "format": "double"
+          },
+          "originationKind": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "loanKind": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "LoginWithPasswordRequest": {
+        "required": [
+          "email",
+          "password"
+        ],
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string"
           }
         }
       },
@@ -8876,6 +9744,19 @@
           "isReconciliationAdjustment": {
             "type": "boolean",
             "default": false
+          },
+          "loanId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "loanCashKind": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -8893,6 +9774,7 @@
           "Transfer",
           "Investment",
           "Adjustment",
+          "Loan",
           null
         ]
       },
@@ -9595,6 +10477,52 @@
           }
         }
       },
+      "RegisterCardPurchaseRequest": {
+        "required": [
+          "amount",
+          "currency",
+          "categoryId",
+          "occurredAt"
+        ],
+        "type": "object",
+        "properties": {
+          "amount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "categoryId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "idempotencyKey": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
       "RegisterDeviceTokenRequest": {
         "required": [
           "token",
@@ -9742,6 +10670,20 @@
               "null",
               "string"
             ]
+          },
+          "interestCategoryId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "idempotencyKey": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
           }
         }
       },
@@ -9877,6 +10819,32 @@
           }
         }
       },
+      "RegisterWithPasswordRequest": {
+        "required": [
+          "fullName",
+          "email",
+          "password"
+        ],
+        "type": "object",
+        "properties": {
+          "fullName": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string"
+          },
+          "preferredCurrency": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "default": "BOB"
+          }
+        }
+      },
       "RegisterWorkspaceExpenseRequest": {
         "required": [
           "description",
@@ -9939,6 +10907,13 @@
               "string"
             ],
             "format": "uuid"
+          },
+          "idempotencyKey": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
           }
         }
       },
@@ -9988,6 +10963,13 @@
             ]
           },
           "receivedToAccountId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "idempotencyKey": {
             "type": [
               "null",
               "string"
@@ -10125,6 +11107,13 @@
             ]
           },
           "payerAccountId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "idempotencyKey": {
             "type": [
               "null",
               "string"
@@ -10579,6 +11568,25 @@
           }
         }
       },
+      "SubscribeWebPushRequest": {
+        "required": [
+          "endpoint",
+          "p256dhKey",
+          "authKey"
+        ],
+        "type": "object",
+        "properties": {
+          "endpoint": {
+            "type": "string"
+          },
+          "p256dhKey": {
+            "type": "string"
+          },
+          "authKey": {
+            "type": "string"
+          }
+        }
+      },
       "SyncBinancePortfolioRequest": {
         "type": "object",
         "properties": {
@@ -10873,6 +11881,32 @@
           "isReconciliationAdjustment": {
             "type": "boolean",
             "default": false
+          },
+          "loanId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "loanCashKind": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "investmentId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "investmentCashKind": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -11248,6 +12282,55 @@
           "spaceNotifications": {
             "type": "boolean",
             "default": true
+          }
+        }
+      },
+      "UserDto": {
+        "required": [
+          "id",
+          "email",
+          "fullName",
+          "pictureUrl",
+          "preferredCurrency",
+          "createdAt",
+          "numberGroupingConvention",
+          "maximumDecimalPlaces"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "email": {
+            "type": "string"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "pictureUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "preferredCurrency": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "numberGroupingConvention": {
+            "type": "string"
+          },
+          "maximumDecimalPlaces": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           }
         }
       },
