@@ -9,6 +9,17 @@ function repo(overrides: Partial<IPlanningRepository> = {}): IPlanningRepository
 }
 
 describe("planning overview resource", () => {
+  it("refreshes goals once after an explicit funding command without retrying the command on a refresh error", async () => {
+    const recordGoalFunding = vi.fn().mockResolvedValue({ id: "entry-a" });
+    const api = repo({ recordGoalFunding, getGoals: vi.fn().mockRejectedValue(new Error("read offline")) });
+    const resource = createPlanningOverviewResource(api);
+    const request = { amount: "700", currency: "BOB" };
+    await resource.recordGoalFunding("g", "assign", request, "key-a");
+    expect(recordGoalFunding).toHaveBeenCalledExactlyOnceWith("g", "assign", request, "key-a");
+    expect(api.getGoals).toHaveBeenCalledOnce();
+    expect(resource.getSnapshot().status).toBe("error");
+  });
+
   it("publishes goals and health together and preserves last good data on read failure", async () => {
     const api = repo();
     const resource = createPlanningOverviewResource(api);

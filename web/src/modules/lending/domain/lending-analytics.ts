@@ -223,7 +223,10 @@ function positions(loans: LoanSummaryDto[], details: LoanAnalyticsDetails | unde
   const index = new Map(Object.values(details ?? {}).map((item) => [item.summary.id, item]));
   return loans.map((loan) => {
     const detail = index.get(loan.id);
-    const raw = completed(loan) ? [] : detail ? detailedInstallments(detail) : estimateInstallments(loan);
+    // Card summaries carry opening principal, not the subsequently appended
+    // purchase obligations. Only server details can supply their due schedule.
+    const raw = completed(loan) ? [] : detail ? detailedInstallments(detail)
+      : loan.loanKind === "CreditCard" ? [] : estimateInstallments(loan);
     const installments = raw.map((item) => ({ ...item,
       principal: convert(item.principal, loan.currency), interest: convert(item.interest, loan.currency),
       total: convert(item.total, loan.currency),
@@ -245,6 +248,7 @@ function upcoming(items: Position[], currency: string): UpcomingLoanPayment[] {
   }))).sort((a, b) => a.dueDate.localeCompare(b.dueDate) || a.loanId.localeCompare(b.loanId) || a.installmentNumber - b.installmentNumber);
 }
 function category(loan: LoanSummaryDto): DebtCategory {
+  if (loan.loanKind === "CreditCard") return "Tarjetas";
   // Notes aren't exposed on LoanSummaryDto; recognize them if a caller carries
   // the creation DTO's optional notes without requiring a contract change.
   const notes = (loan as LoanSummaryDto & { counterpartyNotes?: string }).counterpartyNotes ?? "";

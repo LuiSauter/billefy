@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi, type Mocked } from "vitest";
 import { useState } from "react";
 import { IHttpClient } from "@/shared/application/http-client.contract";
 import { useLedgerModule } from "./useLedgerModule";
@@ -19,7 +19,7 @@ function createHttp() {
     get: vi.fn(async (path: string) => path === "/v1/accounts" ? accounts : []),
     post: vi.fn(async () => ({ outflowId: "out", inflowId: "in" })),
     put: vi.fn(), delete: vi.fn(), setAuthSession: vi.fn(), getAuthToken: vi.fn(), getUserId: vi.fn(),
-  } as unknown as IHttpClient;
+  } as unknown as Mocked<IHttpClient>;
 }
 
 function useLedgerForTest(http: IHttpClient) {
@@ -31,6 +31,17 @@ function useLedgerForTest(http: IHttpClient) {
 beforeEach(() => vi.mocked(useState).mockReset());
 
 describe("FX transfer module flow", () => {
+  it.each([undefined, "2027-01-15T13:30:00.000Z"])("preserves optional effective date %s through the actual HTTP payload", async occurredAt => {
+    const http = createHttp();
+    const ledger = useLedgerForTest(http);
+    await ledger.executeFxTransfer({ fromAccountId: "bob", toAccountId: "usd", amount: "100.01", description: "January", p2pRate: 10, ...(occurredAt ? { occurredAt } : {}) });
+    expect(http.post).toHaveBeenCalledExactlyOnceWith("/v1/transactions/transfers", {
+      sourceAccountId: "bob", destinationAccountId: "usd", sourceAmount: "100.01", destinationAmount: "10.00", description: "January",
+      ...(occurredAt ? { occurredAt } : {}),
+    });
+    expect(http.get).toHaveBeenCalledTimes(2);
+  });
+
   it("creates one transfer pair and refreshes ledger after success", async () => {
     const http = createHttp();
     const ledger = useLedgerForTest(http);

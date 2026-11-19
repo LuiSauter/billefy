@@ -6,7 +6,7 @@ import { WorkspaceHubCard } from "./WorkspaceHubCard";
 import type { WorkspaceDashboardDto, WorkspaceDetailDto } from "../domain/workspaces.types";
 
 const detail: WorkspaceDetailDto = {
-  id: "home", name: "Casa", workspaceType: "Couple", baseCurrency: "BOB", icon: "home", color: "violet", description: null, isActive: true, createdBy: "user", createdAt: "2026-01-01", settings: { hidePersonalPatrimony: true, memberSeesOnlyShared: true, showIndividualContributions: true, allowMovementComments: true, paymentReminders: true, weeklySummary: true, spaceNotifications: true },
+  id: "home", name: "Casa", workspaceType: "Couple", baseCurrency: "BOB", icon: "home", color: "violet", description: null, isActive: true, createdBy: "user", createdAt: "2026-01-01", startDate: "2026-01-01", settings: { hidePersonalPatrimony: true, memberSeesOnlyShared: true, showIndividualContributions: true, allowMovementComments: true, paymentReminders: true, weeklySummary: true, spaceNotifications: true },
   members: [{ id: "member", userId: "user", workspaceRole: "Owner", incomeSharePercentage: 100, joinedAt: "2026-01-01", isActive: true }],
 };
 const dashboard = { workspaceId: "home", currency: "BOB", budget: { amount: 100, remainingAmount: 75, executionPercentage: 25 }, monthlyExpenses: 25, pendingSettlements: [] } as unknown as WorkspaceDashboardDto;

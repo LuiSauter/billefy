@@ -7,6 +7,8 @@ import { AccountDto } from "@/modules/ledger/domain/ledger.types";
 import { Button } from "@/shared/ui/button";
 import { FormField, FormGrid } from "@/shared/ui/form-field";
 import { MoneyInput } from "@/shared/ui/money-input";
+import { Input } from "@/shared/ui/input";
+import { combineDateAndTimeToIso, getLocalTimeString } from "../application/useTransactionFormDraft";
 import { ResponsiveDrawer } from "@/shared/ui/responsive-drawer";
 import { SelectField } from "@/shared/ui/select-field";
 import { notify } from "@/shared/lib/notify";
@@ -27,6 +29,7 @@ interface FxTransferModalProps {
     toAccountId: string;
     amount: string;
     description: string;
+    occurredAt?: string;
   }) => Promise<void>;
   onOpenCreateAccount?: () => void;
 }
@@ -49,6 +52,8 @@ export function FxTransferModal({
   const [amountStr, setAmountStr] = useState("");
   const [secondsLeft, setSecondsLeft] = useState(RATE_FREEZE_SECONDS);
   const [loading, setLoading] = useState(false);
+  const [date, setDate] = useState("");
+  const [time, setTime] = useState(getLocalTimeString());
 
   // Initialize accounts default when available
   useEffect(() => {
@@ -71,6 +76,8 @@ export function FxTransferModal({
   useEffect(() => {
     if (!isOpen) {
       setAmountStr("");
+      setDate("");
+      setTime(getLocalTimeString());
       setSecondsLeft(RATE_FREEZE_SECONDS);
       return;
     }
@@ -126,6 +133,7 @@ export function FxTransferModal({
         toAccountId,
         amount: amountStr,
         description: `Conversión FX ${fromAccount?.currency} ➔ ${toAccount?.currency} (Tasa P2P ${p2pRate.toFixed(2)})`,
+        ...(date ? { occurredAt: combineDateAndTimeToIso(date, time) } : {}),
       });
       setAmountStr("");
       onClose();
@@ -262,6 +270,15 @@ export function FxTransferModal({
               </span>
             </div>
           </div>
+
+          <FormGrid>
+            <FormField label="Fecha" hint="Opcional. Sin fecha se usa la fecha y hora actual al registrar.">
+              {(control) => <Input {...control} type="date" value={date} onChange={e => setDate(e.target.value)} />}
+            </FormField>
+            {date && <FormField label="Hora" hint="Fecha y hora en tu zona horaria local.">
+              {(control) => <Input {...control} type="time" required value={time} onChange={e => setTime(e.target.value)} />}
+            </FormField>}
+          </FormGrid>
 
           {/* Rate snapshot pill (OpenPencil RPill) */}
           <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-primary/20 bg-accent px-4 py-3">

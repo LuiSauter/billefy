@@ -36,6 +36,21 @@ function categoryTotal(transactions: TransactionDto[], category = "food"): strin
 afterEach(() => vi.useRealTimers());
 
 describe("monthly non-transfer flows", () => {
+  it("recognizes card purchases and interest but excludes loan principal from monthly result and budgets", () => {
+    const postings = [
+      txn("received", { direction: "Income", amount: new Decimal(900), loanId: "family", loanCashKind: "Principal" }),
+      txn("principal", { amount: new Decimal(700), loanId: "card", loanCashKind: "Principal" }),
+      txn("interest-paid", { amount: new Decimal(30), loanId: "bank-loan", loanCashKind: "Interest" }),
+      txn("interest-received", { direction: "Income", amount: new Decimal(20), loanId: "friend", loanCashKind: "Interest" }),
+      txn("card-food", { accountId: "card", amount: new Decimal(350), loanId: "card", loanCashKind: "CardPurchase" }),
+    ];
+    expect(sumMonthlyFlow(postings, month, "Income", rate).toString()).toBe("20");
+    expect(sumMonthlyFlow(postings, month, "Expense", rate).toString()).toBe("380");
+    expect(categoryTotal(postings)).toBe("380");
+    expect(getActiveFlowTransactions(postings).map(t => t.id)).toEqual(["interest-paid", "interest-received", "card-food"]);
+    expect(getActiveTransactions(postings)).toEqual(postings);
+  });
+
   it.each(["BOB", "USD", "USDT"])("excludes both %s transfer legs, even with categories", (currency) => {
     const legs = transfer(currency);
     expect(sumByMonth(legs, month, "Income", rate)).toBe(0);
@@ -56,6 +71,13 @@ describe("monthly non-transfer flows", () => {
     vi.setSystemTime(new Date("2026-05-20T12:00:00"));
     const account: AccountDto = { id: "source", name: "Source", type: "Bank", currency: "BOB", balance: new Decimal("97.875"), createdAt: "2026-01-01" };
     expect(computeAccountMonthlyChanges([account], [adjustment]).get("source")?.previousBalance).toBe(100);
+  });
+
+  it("recognizes linked dividend income without treating it as an investment disposal", () => {
+    const dividend = txn("dividend", { direction: "Income", investmentId: "inv-1", investmentCashKind: "Dividend", amount: new Decimal("40") });
+    expect(sumByMonth([dividend], month, "Income", rate)).toBe(40);
+    expect(sumByMonth([dividend], month, "Expense", rate)).toBe(0);
+    expect(categoryTotal([dividend])).toBeUndefined();
   });
 
   it("excludes investment cash entries and their reversals from legacy income and spending analytics", () => {

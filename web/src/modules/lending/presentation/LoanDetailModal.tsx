@@ -1,5 +1,6 @@
 "use client";
 
+import Decimal from "decimal.js";
 import { LoanDetailDto, LoanCancellationResultDto } from "@/modules/lending/domain/lending.types";
 import { Button } from "@/shared/ui/button";
 import { ResponsiveDrawer } from "@/shared/ui/responsive-drawer";
@@ -14,6 +15,7 @@ interface LoanDetailModalProps {
   onClose: () => void;
   onCancelLoan?: (loanId: string) => Promise<LoanCancellationResultDto>;
   onOpenPayment?: (loanId: string, installmentNumber?: number) => void;
+  onOpenCardPurchase?: (loanId: string) => void;
 }
 
 export function LoanDetailModal(props: LoanDetailModalProps) {
@@ -23,10 +25,11 @@ export function LoanDetailModal(props: LoanDetailModalProps) {
 
   const canPay = ["Active", "InArrears"].includes(loan.summary.status) && Boolean(onOpenPayment);
   const isCollection = loan.summary.type === "Lent";
-  const principal = Number(loan.summary.principal) || 1;
-  const remaining = Number(loan.summary.remainingPrincipal) || 0;
-  const paid = Math.max(0, principal - remaining);
-  const progressPercent = Math.min(100, Math.round((paid / principal) * 100));
+  const principal = new Decimal(loan.summary.principal).plus((loan.purchases ?? []).reduce((sum, purchase) => sum.plus(purchase.amount), new Decimal(0)));
+  const remaining = new Decimal(loan.summary.remainingPrincipal);
+  const paid = Decimal.max(0, principal.minus(remaining));
+  const progressPercent = principal.gt(0) ? Decimal.min(100, paid.div(principal).times(100)).toDecimalPlaces(0).toNumber() : 0;
+  const isCard = loan.summary.loanKind === "CreditCard";
 
   return (
     <ResponsiveDrawer
@@ -39,6 +42,8 @@ export function LoanDetailModal(props: LoanDetailModalProps) {
       } · ${loan.summary.template} · TEA: ${formatPercent(loan.summary.annualEffectiveRate * 100, preferences)}`}
       footer={
         <>
+        {isCard && props.onOpenCardPurchase && !["Cancelled", "Forgiven"].includes(loan.summary.status) &&
+          <Button type="button" variant="outline" onClick={() => props.onOpenCardPurchase?.(loan.summary.id)}>Registrar compra con tarjeta</Button>}
         {canPay &&
           <Button type="button" size="lg" onClick={() => onOpenPayment?.(loan.summary.id)}>{isCollection ? "Registrar cobro" : "Registrar pago"}</Button>}
         <Button
@@ -54,6 +59,16 @@ export function LoanDetailModal(props: LoanDetailModalProps) {
       }
     >
       <div className="flex flex-col gap-5">
+        <p className="text-sm text-muted-foreground">{loan.summary.originationKind === "OpeningBalance" ? "Saldo de apertura: sin efectivo ni ingreso."
+          : loan.summary.originationKind === "CashDisbursement" ? "Desembolso de capital: no es ingreso ni gasto."
+          : "Registro anterior sin origen contable explícito; no se reconstruyen movimientos históricos."}</p>
+        {isCard && <section className="space-y-2"><h4 className="text-sm font-bold">Compras registradas</h4>
+          {(loan.purchases ?? []).map(purchase => <div key={purchase.id} className="flex justify-between gap-3 rounded-xl border border-border p-3 text-sm">
+            <span>{purchase.occurredAt.slice(0, 10)} · {purchase.description || "Compra con tarjeta"}</span>
+            <Amount value={purchase.amount} currency={purchase.currency} size="sm" />
+          </div>)}
+          <p className="text-xs text-muted-foreground">Las compras reconocen gasto sin retirar efectivo. Los pagos de capital no repiten ese gasto.</p>
+        </section>}
         {/* KPI Card */}
         <div className="p-4 rounded-2xl bg-muted/60 border border-border flex flex-col gap-3">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">

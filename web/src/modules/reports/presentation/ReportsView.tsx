@@ -4,6 +4,7 @@ import React, { useMemo, useState } from "react";
 import type { AccountDto, TransactionDto } from "@/modules/ledger/domain/ledger.types";
 import type { LoanSummaryDto } from "@/modules/lending/domain/lending.types";
 import type { BudgetDto } from "@/modules/planning/domain/planning.types";
+import { useUserCategories } from "@/modules/ledger/application/CategoriesContext";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/shared/ui/empty";
 import { Skeleton } from "@/shared/ui/skeleton";
 import { calculateFinancialReport } from "../domain/reports-analytics";
@@ -63,16 +64,19 @@ export function ReportsView({
   const [activeReportTab, setActiveReportTab] = useState<ActiveReportTab>("general");
   const [selectedPopularReport, setSelectedPopularReport] = useState<string>("");
   const [exportError, setExportError] = useState(false);
+  // Transactions only carry category ids; names come from the user's category list.
+  const { categories } = useUserCategories();
+  const categoryNames = useMemo(() => new Map(categories.map((category) => [category.id, category.name])), [categories]);
   const report = useMemo(() => {
     if (loading || transactions.length === 0) return null;
     try {
-      return calculateFinancialReport({ transactions, accounts, loans, budgets, periodMonths, selectedCurrency, p2pRate });
+      return calculateFinancialReport({ transactions, accounts, loans, budgets, periodMonths, selectedCurrency, p2pRate, categoryNames });
     } catch (err) {
       console.error("[ReportsView] calculateFinancialReport failed:", err);
       // Missing FX rates or invalid financial inputs must not become invented totals.
       return null;
     }
-  }, [transactions, accounts, loans, budgets, periodMonths, selectedCurrency, p2pRate, loading]);
+  }, [transactions, accounts, loans, budgets, periodMonths, selectedCurrency, p2pRate, categoryNames, loading]);
 
   function changePeriod(months: ReportsPeriodMonths) {
     setPeriodMonths(months);
@@ -107,8 +111,10 @@ export function ReportsView({
       {loading ? (
         <div role="status" aria-label="Cargando reportes" className="space-y-5">
           <span className="sr-only">Cargando reportes…</span>
-          <div aria-hidden="true" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            {Array.from({ length: 4 }, (_, index) => <Skeleton key={index} className="h-28 rounded-xl" />)}
+          <div aria-hidden="true" className="@container">
+            <div className="grid gap-3 @xl:grid-cols-2 @min-[1040px]:grid-cols-4">
+              {Array.from({ length: 4 }, (_, index) => <Skeleton key={index} className="h-28 rounded-xl" />)}
+            </div>
           </div>
           <div aria-hidden="true" className="grid gap-5 lg:grid-cols-3">
             {Array.from({ length: 6 }, (_, index) => <Skeleton key={index} className="h-72 rounded-xl" />)}

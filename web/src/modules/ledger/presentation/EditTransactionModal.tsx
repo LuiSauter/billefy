@@ -37,6 +37,7 @@ import { ResponsiveDrawer } from "@/shared/ui/responsive-drawer";
 import { SegmentedControl } from "@/shared/ui/segmented-control";
 import { isPositiveDecimal } from "@/shared/lib/money-input";
 import { currencyChipLabel, normalizeAmountString } from "@/shared/lib/keypad";
+import { translateTransactionError } from "@/modules/ledger/domain/transaction-errors";
 import { Amount } from "@/shared/ui/amount";
 import { useNumberFormat, useNumberPreferences } from "@/shared/hooks/use-number-format";
 import { formatAmountText } from "@/shared/lib/amount-format";
@@ -57,6 +58,7 @@ interface EditTransactionModalProps {
 
 const EDIT_FORM_ID = "edit-transaction-form";
 const EDIT_CAT_FORM_ID = "edit-transaction-category-form";
+
 
 const DIRECTION_OPTIONS = [
   { value: "Expense" as const, label: "Gasto", tone: "expense" as const },
@@ -90,6 +92,7 @@ export function EditTransactionModal({
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
 
   useEffect(() => {
     if (!transaction || !isOpen) {
@@ -160,6 +163,7 @@ export function EditTransactionModal({
     if (!isFormValid) return;
 
     setSubmitting(true);
+    setSubmitError("");
     try {
       const occurredAt = combineDateAndTimeToIso(customDate, customTime);
       const combinedDescription = encodeTransactionText(title, details);
@@ -176,6 +180,8 @@ export function EditTransactionModal({
         occurredAt,
       });
       onClose();
+    } catch (reason) {
+      setSubmitError(translateTransactionError(reason, "No se pudo guardar el movimiento. Intentá de nuevo."));
     } finally {
       setSubmitting(false);
     }
@@ -331,9 +337,17 @@ export function EditTransactionModal({
                 size="lg"
                 currency={currencyChipLabel(selectedAccount?.currency)}
                 value={amount}
-                onValueChange={setAmount}
+                onValueChange={(val) => {
+                  setSubmitError("");
+                  setAmount(val);
+                }}
               />
-              {equivText && (
+              {submitError && (
+                <span role="alert" className="text-xs font-semibold text-rose-500 px-1">
+                  {submitError}
+                </span>
+              )}
+              {equivText && !submitError && (
                 <span className="text-xs font-semibold text-muted-foreground tabular-nums px-1">
                   {equivText}
                 </span>

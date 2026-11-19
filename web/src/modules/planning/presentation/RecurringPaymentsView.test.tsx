@@ -1,4 +1,5 @@
 import React from "react";
+import Decimal from "decimal.js";
 import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { RecurringPaymentsView } from "./RecurringPaymentsView";
@@ -79,6 +80,8 @@ const mockRepo: IPlanningRepository = {
   createGoal: async () => ({ id: "" }),
   updateGoal: async () => ({ message: "" }),
   getGoals: async () => [],
+  getGoalFunding: async () => [],
+  recordGoalFunding: async () => { throw new Error("Not exercised by recurring payment tests"); },
   deleteGoal: async () => ({ message: "" }),
   getFinancialHealth: async () => ({ monthStartUtc: "", monthEndUtcExclusive: "", currencies: [] }),
   proposeIncomeDistribution: async () => ({
@@ -102,7 +105,7 @@ describe("RecurringPaymentsView redesign", () => {
       <RecurringPaymentsView
         repository={mockRepo}
         selectedCurrency="BOB"
-        accounts={[{ id: "acc-1", name: "Banco BCP", type: "Bank", currency: "BOB", balance: 5000, createdAt: "" }]}
+        accounts={[{ id: "acc-1", name: "Banco BCP", type: "Bank", currency: "BOB", balance: new Decimal(5000), createdAt: "" }]}
       />
     );
 

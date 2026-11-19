@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import Decimal from "decimal.js";
 import {
   BarChart3,
@@ -10,14 +10,25 @@ import {
   Scale,
   Pencil,
   Trash2,
+  type LucideIcon,
 } from "lucide-react";
-import { ResponsiveDrawer } from "@/shared/ui/responsive-drawer";
 import { Button } from "@/shared/ui/button";
+import { Badge } from "@/shared/ui/badge";
+import { CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
+import {
+  appCardContentClassName,
+  appCardHeaderClassName,
+  appCardTitleClassName,
+} from "@/shared/presentation/card-variants";
+import { IconTile } from "@/modules/dashboard/presentation/home/IconTile";
 import { AccountDto, TransactionDto } from "../../domain/ledger.types";
 import {
   calculateAccountPeriodStats,
   getActiveAccountTransactions,
 } from "../../domain/account-detail";
+import { AccountsCard } from "../AccountsCard";
+import { DeleteAccountConfirmation } from "../DeleteAccountConfirmation";
+import { accountsPillClassName, accountsToggleVariant } from "../accounts-styles";
 import { AccountDetailHeader } from "./AccountDetailHeader";
 import { AccountHeroCard } from "./AccountHeroCard";
 import { AccountBalanceEvolutionChart } from "./AccountBalanceEvolutionChart";
@@ -48,6 +59,13 @@ interface AccountDetailViewProps {
   initialTab?: AccountDetailTab;
 }
 
+const DETAIL_TABS: { id: AccountDetailTab; label: string; icon: LucideIcon }[] = [
+  { id: "resumen", label: "Resumen", icon: BarChart3 },
+  { id: "movimientos", label: "Movimientos", icon: ArrowLeftRight },
+  { id: "conciliacion", label: "Conciliación", icon: CheckCircle2 },
+  { id: "configuracion", label: "Configuración", icon: Settings },
+];
+
 export function AccountDetailView({
   account,
   transactions = [],
@@ -63,24 +81,27 @@ export function AccountDetailView({
   initialTab = "resumen",
 }: AccountDetailViewProps) {
   const [activeTab, setActiveTab] = useState<AccountDetailTab>(initialTab);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [deleting, setDeleting] = useState(false);
+  const [accountPendingDelete, setAccountPendingDelete] = useState<AccountDto | null>(null);
 
-  const handleDelete = async () => {
-    if (!onDeleteAccount) return;
-    setDeleting(true);
-    try {
-      await onDeleteAccount(account.id);
-      setShowDeleteConfirm(false);
+  const handleRequestDelete = useCallback(() => setAccountPendingDelete(account), [account]);
+  const handleCloseDelete = useCallback(() => setAccountPendingDelete(null), []);
+  const handleConfirmDelete = useCallback(
+    async (accountId: string) => {
+      if (!onDeleteAccount) return;
+      await onDeleteAccount(accountId);
       onBack();
-    } finally {
-      setDeleting(false);
-    }
-  };
+    },
+    [onDeleteAccount, onBack]
+  );
 
   const accountTxns = useMemo(() => {
     return getActiveAccountTransactions(account.id, transactions);
   }, [account.id, transactions]);
+
+  const reconciliationAdjustments = useMemo(
+    () => accountTxns.filter((t) => t.isReconciliationAdjustment),
+    [accountTxns]
+  );
 
   const stats = useMemo(() => {
     return calculateAccountPeriodStats(account, transactions, "all");
@@ -101,9 +122,8 @@ export function AccountDetailView({
     }
   };
 
-
   return (
-    <div className="flex flex-col gap-6 w-full animate-in fade-in duration-200">
+    <div className="@container flex flex-col gap-6 w-full animate-in fade-in duration-200">
       {/* 1. Header with Back button and Actions */}
       <AccountDetailHeader
         onBack={onBack}
@@ -122,74 +142,42 @@ export function AccountDetailView({
         p2pRate={p2pRate}
         onOpenEdit={() => onOpenEditAccountModal(account)}
         onOpenReconcile={() => onOpenReconcileModal(account)}
-        onDelete={onDeleteAccount ? () => setShowDeleteConfirm(true) : undefined}
+        onDelete={onDeleteAccount ? handleRequestDelete : undefined}
       />
 
-      {/* 3. Navigation Tabs Bar */}
+      {/* 3. Navigation Tabs Bar (one active-state convention: Button default = active, outline = inactive) */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1 border-b border-border/60">
-        <button
-          type="button"
-          onClick={() => setActiveTab("resumen")}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 shrink-0 cursor-pointer ${
-            activeTab === "resumen"
-              ? "bg-purple-600 text-white shadow-sm"
-              : "bg-card hover:bg-muted text-muted-foreground hover:text-foreground border border-border"
-          }`}
-        >
-          <BarChart3 className="w-4 h-4" />
-          <span>Resumen</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab("movimientos")}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 shrink-0 cursor-pointer ${
-            activeTab === "movimientos"
-              ? "bg-purple-600 text-white shadow-sm"
-              : "bg-card hover:bg-muted text-muted-foreground hover:text-foreground border border-border"
-          }`}
-        >
-          <ArrowLeftRight className="w-4 h-4" />
-          <span>Movimientos</span>
-          <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-muted/60 text-muted-foreground font-mono">
-            {accountTxns.length}
-          </span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab("conciliacion")}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 shrink-0 cursor-pointer ${
-            activeTab === "conciliacion"
-              ? "bg-purple-600 text-white shadow-sm"
-              : "bg-card hover:bg-muted text-muted-foreground hover:text-foreground border border-border"
-          }`}
-        >
-          <CheckCircle2 className="w-4 h-4" />
-          <span>Conciliación</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab("configuracion")}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 shrink-0 cursor-pointer ${
-            activeTab === "configuracion"
-              ? "bg-purple-600 text-white shadow-sm"
-              : "bg-card hover:bg-muted text-muted-foreground hover:text-foreground border border-border"
-          }`}
-        >
-          <Settings className="w-4 h-4" />
-          <span>Configuración</span>
-        </button>
+        {DETAIL_TABS.map((tab) => {
+          const Icon = tab.icon;
+          return (
+            <Button
+              key={tab.id}
+              type="button"
+              size="sm"
+              variant={accountsToggleVariant(activeTab === tab.id)}
+              aria-pressed={activeTab === tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={accountsPillClassName}
+            >
+              <Icon className="w-4 h-4" />
+              <span>{tab.label}</span>
+              {tab.id === "movimientos" && (
+                <Badge variant="secondary" className="ml-1 px-1.5 py-0.5 bg-muted/60 text-muted-foreground font-mono">
+                  {accountTxns.length}
+                </Badge>
+              )}
+            </Button>
+          );
+        })}
       </div>
 
       {/* 4. Tab Content */}
       {activeTab === "resumen" && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           {/* Left Column (8 cols): Charts & Movements Table */}
-          <div className="lg:col-span-8 flex flex-col gap-6">
-            {/* Top Charts Row */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="@container lg:col-span-8 flex flex-col gap-6 min-w-0">
+            {/* Top Charts Row: splits by this column's own width, not the viewport */}
+            <div className="grid grid-cols-1 @2xl:grid-cols-2 gap-6">
               <AccountBalanceEvolutionChart
                 account={account}
                 transactions={accountTxns}
@@ -232,70 +220,69 @@ export function AccountDetailView({
       )}
 
       {activeTab === "conciliacion" && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="rounded-2xl bg-card border border-border/80 p-6 flex flex-col gap-4 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-purple-500/15 text-purple-400 flex items-center justify-center shrink-0">
-                <Scale className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-foreground">
-                  Conciliación de saldo
-                </h3>
-                <p className="text-xs text-muted-foreground">
+        <div className="grid grid-cols-1 @2xl:grid-cols-2 gap-6">
+          <AccountsCard>
+            <CardHeader className={`${appCardHeaderClassName} flex flex-row items-center gap-3 space-y-0`}>
+              <IconTile icon={Scale} variant="purple" size="md" />
+              <div className="flex flex-col gap-1">
+                <CardTitle className={appCardTitleClassName}>Conciliación de saldo</CardTitle>
+                <CardDescription className="text-xs">
                   Alinea el saldo del sistema con el extracto bancario real.
-                </p>
+                </CardDescription>
               </div>
-            </div>
+            </CardHeader>
 
-            <div className="rounded-xl bg-muted/40 border border-border/70 p-4 flex flex-col gap-2 text-xs">
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Saldo actual registrado</span>
-                <Amount value={account.balance || 0} currency={account.currency} size="sm" />
+            <CardContent className={`${appCardContentClassName} flex flex-col gap-4`}>
+              <div className="rounded-xl bg-muted/40 border border-border/70 p-4 flex flex-col gap-2 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Saldo actual registrado</span>
+                  <Amount value={account.balance || 0} currency={account.currency} size="sm" />
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Estado de integridad</span>
+                  <span className="text-emerald-400 font-semibold flex items-center gap-1">
+                    <CheckCircle2 className="w-3.5 h-3.5" /> Verificado
+                  </span>
+                </div>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Estado de integridad</span>
-                <span className="text-emerald-400 font-semibold flex items-center gap-1">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> Verificado
-                </span>
-              </div>
-            </div>
 
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Si el saldo en tu app no coincide con el de tu banco o billetera,
-              podés registrar una conciliación. El sistema generará una transacción
-              de ajuste sin alterar los registros históricos.
-            </p>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Si el saldo en tu app no coincide con el de tu banco o billetera,
+                podés registrar una conciliación. El sistema generará una transacción
+                de ajuste sin alterar los registros históricos.
+              </p>
 
-            <button
-              type="button"
-              onClick={() => onOpenReconcileModal(account)}
-              className="mt-2 w-full py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold transition shadow-sm cursor-pointer flex items-center justify-center gap-2"
-            >
-              <Scale className="w-4 h-4" />
-              <span>Abrir conciliación de saldo</span>
-            </button>
-          </div>
+              <Button
+                type="button"
+                onClick={() => onOpenReconcileModal(account)}
+                className="mt-2 w-full text-xs font-bold cursor-pointer"
+              >
+                <Scale />
+                <span>Abrir conciliación de saldo</span>
+              </Button>
+            </CardContent>
+          </AccountsCard>
 
-          <div className="rounded-2xl bg-card border border-border/80 p-6 flex flex-col gap-4 shadow-sm">
-            <h3 className="text-base font-bold text-foreground">
-              Ajustes de conciliación registrados
-            </h3>
-            {accountTxns.filter((t) => t.isReconciliationAdjustment).length === 0 ? (
-              <div className="py-8 text-center text-xs text-muted-foreground border border-dashed border-border rounded-xl">
-                No se registraron ajustes de conciliación para esta cuenta.
-              </div>
-            ) : (
-              <div className="flex flex-col divide-y divide-border/60 text-xs">
-                {accountTxns
-                  .filter((t) => t.isReconciliationAdjustment)
-                  .map((adj) => (
+          <AccountsCard>
+            <CardHeader className={appCardHeaderClassName}>
+              <CardTitle className={appCardTitleClassName}>
+                Ajustes de conciliación registrados
+              </CardTitle>
+            </CardHeader>
+            <CardContent className={appCardContentClassName}>
+              {reconciliationAdjustments.length === 0 ? (
+                <div className="py-8 text-center text-xs text-muted-foreground border border-dashed border-border rounded-xl">
+                  No se registraron ajustes de conciliación para esta cuenta.
+                </div>
+              ) : (
+                <div className="flex flex-col divide-y divide-border/60 text-xs">
+                  {reconciliationAdjustments.map((adj) => (
                     <div key={adj.id} className="py-2.5 flex items-center justify-between">
                       <div className="flex flex-col">
                         <span className="font-bold text-foreground">
                           {adj.description || "Ajuste de conciliación"}
                         </span>
-                        <span className="text-[11px] text-muted-foreground">
+                        <span className="text-xs text-muted-foreground">
                           {new Date(adj.occurredAt).toLocaleDateString()}
                         </span>
                       </div>
@@ -307,143 +294,108 @@ export function AccountDetailView({
                       />
                     </div>
                   ))}
-              </div>
-            )}
-          </div>
+                </div>
+              )}
+            </CardContent>
+          </AccountsCard>
         </div>
       )}
 
       {activeTab === "configuracion" && (
-        <div className="rounded-2xl bg-card border border-border/80 p-6 flex flex-col gap-5 shadow-sm max-w-2xl">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-purple-500/15 text-purple-400 flex items-center justify-center shrink-0">
-              <Settings className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="text-base font-bold text-foreground">
-                Configuración de cuenta
-              </h3>
-              <p className="text-xs text-muted-foreground">
+        <AccountsCard className="max-w-2xl">
+          <CardHeader className={`${appCardHeaderClassName} flex flex-row items-center gap-3 space-y-0`}>
+            <IconTile icon={Settings} variant="purple" size="md" />
+            <div className="flex flex-col gap-1">
+              <CardTitle className={appCardTitleClassName}>Configuración de cuenta</CardTitle>
+              <CardDescription className="text-xs">
                 Gestiona los datos visuales y metadatos de tu cuenta.
-              </p>
+              </CardDescription>
             </div>
-          </div>
+          </CardHeader>
 
-          <div className="flex flex-col divide-y divide-border/60 text-xs">
-            <div className="py-3 flex items-center justify-between gap-4">
-              <div>
-                <span className="font-bold text-foreground block">
-                  Identidad y apariencia
-                </span>
-                <span className="text-muted-foreground">
-                  Modifica el nombre visible, ícono y color de acento.
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => onOpenEditAccountModal(account)}
-                className="px-3.5 py-2 rounded-xl bg-card hover:bg-muted border border-border text-foreground font-bold text-xs flex items-center gap-1.5 transition cursor-pointer"
-              >
-                <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
-                <span>Editar</span>
-              </button>
-            </div>
-
-            <div className="py-3 flex items-center justify-between gap-4">
-              <div>
-                <span className="font-bold text-foreground block">
-                  Moneda base
-                </span>
-                <span className="text-muted-foreground">
-                  La moneda de una cuenta es inmutable para proteger el libro contable.
-                </span>
-              </div>
-              <span className="font-mono font-bold text-foreground px-2 py-1 bg-muted rounded-lg">
-                {account.currency}
-              </span>
-            </div>
-
-            <div className="py-3 flex items-center justify-between gap-4">
-              <div>
-                <span className="font-bold text-foreground block">
-                  Identificador de cuenta
-                </span>
-                <span className="text-muted-foreground font-mono text-[11px]">
-                  {account.id}
-                </span>
-              </div>
-            </div>
-
-            {onDeleteAccount && (
+          <CardContent className={appCardContentClassName}>
+            <div className="flex flex-col divide-y divide-border/60 text-xs">
               <div className="py-3 flex items-center justify-between gap-4">
                 <div>
-                  <span className="font-bold text-destructive block">
-                    Zona de peligro
+                  <span className="font-bold text-foreground block">
+                    Identidad y apariencia
                   </span>
                   <span className="text-muted-foreground">
-                    Eliminar o archivar esta cuenta según tenga movimientos registrados.
+                    Modifica el nombre visible, ícono y color de acento.
                   </span>
                 </div>
-                <button
+                <Button
                   type="button"
-                  onClick={() => setShowDeleteConfirm(true)}
-                  className="px-3.5 py-2 rounded-xl bg-destructive/10 hover:bg-destructive/20 border border-destructive/30 text-destructive font-bold text-xs flex items-center gap-1.5 transition cursor-pointer"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onOpenEditAccountModal(account)}
+                  className="text-xs font-bold cursor-pointer"
                 >
-                  <Trash2 className="w-3.5 h-3.5 text-destructive" />
-                  <span>Eliminar cuenta</span>
-                </button>
+                  <Pencil className="text-muted-foreground" />
+                  <span>Editar</span>
+                </Button>
               </div>
-            )}
-          </div>
-        </div>
+
+              <div className="py-3 flex items-center justify-between gap-4">
+                <div>
+                  <span className="font-bold text-foreground block">
+                    Moneda base
+                  </span>
+                  <span className="text-muted-foreground">
+                    La moneda de una cuenta es inmutable para proteger el libro contable.
+                  </span>
+                </div>
+                <Badge variant="secondary" className="rounded-lg bg-muted font-mono font-bold text-foreground">
+                  {account.currency}
+                </Badge>
+              </div>
+
+              <div className="py-3 flex items-center justify-between gap-4">
+                <div>
+                  <span className="font-bold text-foreground block">
+                    Identificador de cuenta
+                  </span>
+                  <span className="text-muted-foreground font-mono text-xs">
+                    {account.id}
+                  </span>
+                </div>
+              </div>
+
+              {onDeleteAccount && (
+                <div className="py-3 flex items-center justify-between gap-4">
+                  <div>
+                    <span className="font-bold text-destructive block">
+                      Zona de peligro
+                    </span>
+                    <span className="text-muted-foreground">
+                      Eliminar o archivar esta cuenta según tenga movimientos registrados.
+                    </span>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    onClick={handleRequestDelete}
+                    className="text-xs font-bold cursor-pointer"
+                  >
+                    <Trash2 />
+                    <span>Eliminar cuenta</span>
+                  </Button>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </AccountsCard>
       )}
 
-      {/* Delete Confirmation Drawer */}
-      <ResponsiveDrawer
-        open={showDeleteConfirm}
-        onOpenChange={(open) => !open && setShowDeleteConfirm(false)}
-        title="Eliminar cuenta"
-        description="Confirmación de baja de cuenta"
-        size="sm"
-        footer={
-          <div className="flex w-full flex-col-reverse sm:flex-row sm:justify-end gap-2">
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => setShowDeleteConfirm(false)}
-              disabled={deleting}
-              className="w-full sm:w-auto"
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              loading={deleting}
-              onClick={handleDelete}
-              className="w-full sm:w-auto"
-            >
-              Sí, eliminar cuenta
-            </Button>
-          </div>
-        }
-      >
-        <div className="flex flex-col gap-3 py-2">
-          <p className="text-sm text-foreground">
-            ¿Estás seguro de que querés eliminar la cuenta{" "}
-            <span className="font-bold text-foreground">
-              «{account.name}»
-            </span>
-            ?
-          </p>
-          <div className="rounded-xl border border-border/80 bg-muted/40 p-3 text-xs text-muted-foreground">
-            <span className="font-semibold text-foreground">Aviso contable:</span> Si
-            la cuenta tiene transacciones registradas, será archivada para mantener
-            la integridad de tu balance e historial financiero. Si no tiene
-            movimientos, se eliminará permanentemente.
-          </div>
-        </div>
-      </ResponsiveDrawer>
+      {/* Delete Confirmation Drawer (shared with the accounts list) */}
+      {onDeleteAccount && (
+        <DeleteAccountConfirmation
+          account={accountPendingDelete}
+          onConfirm={handleConfirmDelete}
+          onClose={handleCloseDelete}
+        />
+      )}
     </div>
   );
 }

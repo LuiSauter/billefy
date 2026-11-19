@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { IHttpClient } from "@/shared/application/http-client.contract";
 import { notify } from "@/shared/lib/notify";
-import { CreateInvestmentInput, Investment, InvestmentTransactionDto, RegisterInvestmentOperationInput } from "../domain/investment.types";
+import { CreateInvestmentInput, Investment, InvestmentTransactionDto, RegisterInvestmentOperationInput, InvestmentPurchaseInput, InvestmentValuationInput, InvestmentDividendInput } from "../domain/investment.types";
 import { extractCryptoSymbol, fetchCryptoTicker } from "../domain/binance-market.service";
 import { fetchStockQuote, StockQuote } from "../domain/stock-market.service";
 
@@ -109,6 +109,33 @@ export function useInvestments(http: IHttpClient | null) {
     if (!http) throw new Error("No hay conexión disponible.");
     return http.post<InvestmentCashResult>(`/v1/planning/investments/${id}/cash/${kind}`, input);
   }, [http]);
+
+  // Callers retain the same key and payload on transport failure; do not swallow financial failures.
+  const purchaseInvestment = useCallback(async (id: string, input: InvestmentPurchaseInput, key: string) => {
+    if (!http) throw new Error("No hay conexión disponible.");
+    const result = await http.post<InvestmentTransactionDto>(`/v1/planning/investments/${id}/operations`,
+      { ...input, type: "Buy" }, { headers: { "Idempotency-Key": key } });
+    await refreshAfterCash();
+    return result;
+  }, [http, refreshAfterCash]);
+
+  const recordDividend = useCallback(async (id: string, input: InvestmentDividendInput, key: string) => {
+    if (!http) throw new Error("No hay conexión disponible.");
+    const result = await http.post<InvestmentTransactionDto>(`/v1/planning/investments/${id}/operations`,
+      { ...input, type: "Dividend", quantity: "0", unitPrice: "0", fees: "0" }, { headers: { "Idempotency-Key": key } });
+    try { await refreshAfterCash(); }
+    catch (reason) { notify.error("El cobro se guardó, pero no se pudieron actualizar los datos. Recarga la vista; no vuelvas a enviarlo.", reason); }
+    return result;
+  }, [http, refreshAfterCash]);
+
+  const recordValuation = useCallback(async (id: string, input: InvestmentValuationInput) => {
+    if (!http) throw new Error("No hay conexión disponible.");
+    const result = await http.post<InvestmentTransactionDto>(`/v1/planning/investments/${id}/operations`,
+      { ...input, type: "Revaluation", quantity: "0" });
+    try { await refreshAfterCash(); }
+    catch (reason) { notify.error("La valoración se guardó, pero no se pudieron actualizar los datos. Recarga la vista; no vuelvas a enviarla.", reason); }
+    return result;
+  }, [http, refreshAfterCash]);
 
   const reverseCash = useCallback(async (transactionId: string) => {
     if (!http) throw new Error("No hay conexión disponible.");
@@ -229,6 +256,9 @@ export function useInvestments(http: IHttpClient | null) {
 
   return useMemo(
     () => ({
+      purchaseInvestment,
+      recordDividend,
+      recordValuation,
       investments,
       createInvestment,
       updateInvestmentValue,
@@ -244,6 +274,9 @@ export function useInvestments(http: IHttpClient | null) {
       isSyncingLivePrices,
     }),
     [
+      purchaseInvestment,
+      recordDividend,
+      recordValuation,
       investments,
       createInvestment,
       updateInvestmentValue,

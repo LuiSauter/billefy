@@ -1,19 +1,21 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { memo, useCallback, useMemo, useState } from "react";
 import { Plus, Pencil, Scale, Trash2 } from "lucide-react";
 import { AccountDto } from "../domain/ledger.types";
 import { AccountCard } from "./AccountCard";
+import { AccountsCard } from "./AccountsCard";
+import { DeleteAccountConfirmation } from "./DeleteAccountConfirmation";
+import { accountsSectionTitleClassName } from "./accounts-styles";
 import {
   classifyAccountCategory,
   getAccountSubtitle,
   getCategoryBadge,
   getCurrencyConversionLabel,
 } from "../domain/accounts-overview";
-import { EditAccountModal } from "./EditAccountModal";
 import { useNumberFormat } from "@/shared/hooks/use-number-format";
 import { Amount } from "@/shared/ui/amount";
-import { ResponsiveDrawer } from "@/shared/ui/responsive-drawer";
+import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
 
 interface AccountsMainViewProps {
@@ -24,13 +26,111 @@ interface AccountsMainViewProps {
   p2pRate?: number;
   onOpenCreateAccountModal: () => void;
   onOpenReconcileModal: (account: AccountDto) => void;
-  onUpdateAccount?: (
-    accountId: string,
-    data: { name: string; iconKey: string; colorKey: string }
-  ) => Promise<void>;
+  /** Opens the edit modal, which is owned by AccountsTabView (single owner). */
+  onEditAccount?: (account: AccountDto) => void;
   onDeleteAccount?: (accountId: string) => Promise<void>;
   onSelectAccount?: (account: AccountDto) => void;
 }
+
+interface AccountListRowData {
+  account: AccountDto;
+  badgeLabel: string;
+  subtitle: string;
+  conversionLabel: string | null;
+}
+
+interface AccountListRowProps {
+  row: AccountListRowData;
+  canDelete: boolean;
+  onSelect: (account: AccountDto) => void;
+  onEdit: (account: AccountDto) => void;
+  onReconcile: (account: AccountDto) => void;
+  onRequestDelete: (account: AccountDto) => void;
+}
+
+const AccountListRow = memo(function AccountListRow({
+  row,
+  canDelete,
+  onSelect,
+  onEdit,
+  onReconcile,
+  onRequestDelete,
+}: AccountListRowProps) {
+  const { account, badgeLabel, subtitle, conversionLabel } = row;
+
+  return (
+    <div
+      onClick={() => onSelect(account)}
+      className="p-4 flex items-center justify-between gap-4 hover:bg-muted/40 transition cursor-pointer group"
+    >
+      <div className="flex items-center gap-3.5 min-w-0">
+        <div className="min-w-0">
+          <div className="text-sm font-bold text-foreground truncate">{account.name}</div>
+          <div className="text-xs text-muted-foreground truncate">{subtitle}</div>
+        </div>
+      </div>
+
+      <div className="hidden sm:block">
+        <Badge variant="outline" className="rounded-lg bg-muted/60 border-border/60">
+          {badgeLabel}
+        </Badge>
+      </div>
+
+      <div className="flex items-center gap-3">
+        <div className="text-right">
+          <Amount value={account.balance} currency={account.currency} size="sm" className="min-w-0 truncate" />
+          <div className="text-xs font-bold text-muted-foreground flex items-center justify-end gap-1.5">
+            <span>{account.currency}</span>
+            {conversionLabel && (
+              <>
+                <span>•</span>
+                <span>{conversionLabel}</span>
+              </>
+            )}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => onEdit(account)}
+            title="Editar cuenta"
+            aria-label="Editar cuenta"
+            className="size-8 md:size-8 text-muted-foreground hover:text-foreground"
+          >
+            <Pencil />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => onReconcile(account)}
+            title="Conciliar saldo"
+            aria-label="Conciliar saldo"
+            className="size-8 md:size-8 text-primary hover:bg-primary/10 hover:text-primary"
+          >
+            <Scale />
+          </Button>
+          {canDelete && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => onRequestDelete(account)}
+              title="Eliminar cuenta"
+              aria-label="Eliminar cuenta"
+              className="size-8 md:size-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
+            >
+              <Trash2 />
+            </Button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+});
 
 export function AccountsMainView({
   accounts,
@@ -40,36 +140,47 @@ export function AccountsMainView({
   p2pRate = 9.85,
   onOpenCreateAccountModal,
   onOpenReconcileModal,
-  onUpdateAccount,
+  onEditAccount,
   onDeleteAccount,
   onSelectAccount,
 }: AccountsMainViewProps) {
   const format = useNumberFormat();
-  const [editingAccount, setEditingAccount] = useState<AccountDto | null>(null);
   const [accountToDelete, setAccountToDelete] = useState<AccountDto | null>(null);
-  const [deleting, setDeleting] = useState(false);
 
-  const handleEdit = (acc: AccountDto) => {
-    setEditingAccount(acc);
-  };
+  const handleEdit = useCallback(
+    (acc: AccountDto) => {
+      onEditAccount?.(acc);
+    },
+    [onEditAccount]
+  );
+  const handleRequestDelete = useCallback((acc: AccountDto) => setAccountToDelete(acc), []);
+  const handleCloseDelete = useCallback(() => setAccountToDelete(null), []);
+  const handleRowSelect = useCallback(
+    (acc: AccountDto) => (onSelectAccount ? onSelectAccount(acc) : onOpenReconcileModal(acc)),
+    [onSelectAccount, onOpenReconcileModal]
+  );
 
-  const handleConfirmDelete = async () => {
-    if (!accountToDelete || !onDeleteAccount) return;
-    setDeleting(true);
-    try {
-      await onDeleteAccount(accountToDelete.id);
-      setAccountToDelete(null);
-    } finally {
-      setDeleting(false);
-    }
-  };
+  // Per-row derived data is only needed by the list view; compute it once per input change.
+  const listRows = useMemo<AccountListRowData[]>(() => {
+    if (viewMode !== "list") return [];
+    return accounts.map((account) => ({
+      account,
+      badgeLabel: getCategoryBadge(classifyAccountCategory(account)).label,
+      subtitle: getAccountSubtitle(account),
+      conversionLabel: getCurrencyConversionLabel(
+        account.balance,
+        account.currency,
+        selectedCurrency,
+        p2pRate,
+        format
+      ),
+    }));
+  }, [viewMode, accounts, selectedCurrency, p2pRate, format]);
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="@container flex flex-col gap-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold text-foreground tracking-tight">
-          Mis cuentas
-        </h2>
+        <h2 className={accountsSectionTitleClassName}>Mis cuentas</h2>
         <span className="text-xs text-muted-foreground font-semibold">
           {accounts.length} {accounts.length === 1 ? "cuenta" : "cuentas"}
         </span>
@@ -80,20 +191,23 @@ export function AccountsMainView({
           Cargando cuentas...
         </div>
       ) : accounts.length === 0 ? (
-        <div className="py-12 border border-dashed border-border rounded-2xl text-center flex flex-col items-center justify-center gap-3 bg-card/40 p-6">
+        <AccountsCard className="py-12 border-dashed border-border bg-card/40 text-center flex flex-col items-center justify-center gap-3 p-6">
           <p className="text-sm font-semibold text-foreground">
             No tenés cuentas en esta categoría.
           </p>
-          <button
+          <Button
             type="button"
+            size="sm"
             onClick={onOpenCreateAccountModal}
-            className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold transition shadow-sm cursor-pointer"
+            className="rounded-xl text-xs font-bold cursor-pointer"
           >
             + Agregar cuenta
-          </button>
-        </div>
+          </Button>
+        </AccountsCard>
       ) : viewMode === "grid" ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+        // Container queries: this grid lives in a lg:col-span-7/xl:col-span-8 column, so its
+        // column count must follow the column's own width, not the viewport.
+        <div className="grid grid-cols-1 @lg:grid-cols-2 @3xl:grid-cols-3 gap-3.5">
           {accounts.map((acc) => (
             <AccountCard
               key={acc.id}
@@ -102,183 +216,65 @@ export function AccountsMainView({
               p2pRate={p2pRate}
               onEdit={handleEdit}
               onReconcile={onOpenReconcileModal}
-              onDelete={onDeleteAccount ? (account) => setAccountToDelete(account) : undefined}
+              onDelete={onDeleteAccount ? handleRequestDelete : undefined}
               onSelect={onSelectAccount}
             />
           ))}
 
           {/* "+ Agregar cuenta" dashed card */}
-          <div
+          <Button
+            type="button"
+            variant="ghost"
             onClick={onOpenCreateAccountModal}
-            className="rounded-2xl border-2 border-dashed border-border/80 hover:border-purple-500/60 bg-card/30 hover:bg-purple-950/10 p-5 flex flex-col items-center justify-center text-center gap-2 cursor-pointer transition group min-h-[160px]"
+            className="group h-auto min-h-[160px] flex-col gap-2 rounded-2xl border-2 border-dashed border-border/70 bg-card/30 p-4 text-center whitespace-normal cursor-pointer hover:border-primary/60 hover:bg-primary/5 hover:text-foreground"
           >
-            <div className="w-8 h-8 rounded-full bg-purple-500/15 text-purple-400 group-hover:bg-purple-500 group-hover:text-white flex items-center justify-center transition">
+            <span className="w-8 h-8 rounded-full bg-primary/15 text-primary group-hover:bg-primary group-hover:text-primary-foreground flex items-center justify-center transition">
               <Plus className="w-5 h-5 stroke-[2.5]" />
-            </div>
-            <div>
-              <div className="text-sm font-bold text-foreground group-hover:text-purple-400 transition">
+            </span>
+            <span className="flex flex-col items-center">
+              <span className="text-sm font-bold text-foreground group-hover:text-primary transition">
                 Agregar cuenta
-              </div>
-              <div className="text-xs text-muted-foreground mt-0.5">
+              </span>
+              <span className="text-xs font-normal text-muted-foreground mt-0.5">
                 Banco, wallet, cripto, inversión, etc.
-              </div>
-            </div>
-          </div>
+              </span>
+            </span>
+          </Button>
         </div>
       ) : (
         /* List View */
-        <div className="rounded-2xl bg-card border border-border/80 overflow-hidden divide-y divide-border/60">
-          {accounts.map((acc) => {
-            const category = classifyAccountCategory(acc);
-            const badge = getCategoryBadge(category);
-            const subtitle = getAccountSubtitle(acc);
-            const conversionLabel = getCurrencyConversionLabel(
-              acc.balance,
-              acc.currency,
-              selectedCurrency,
-              p2pRate,
-              format
-            );
+        <AccountsCard className="overflow-hidden divide-y divide-border/60">
+          {listRows.map((row) => (
+            <AccountListRow
+              key={row.account.id}
+              row={row}
+              canDelete={!!onDeleteAccount}
+              onSelect={handleRowSelect}
+              onEdit={handleEdit}
+              onReconcile={onOpenReconcileModal}
+              onRequestDelete={handleRequestDelete}
+            />
+          ))}
 
-            return (
-              <div
-                key={acc.id}
-                onClick={() => (onSelectAccount ? onSelectAccount(acc) : onOpenReconcileModal(acc))}
-                className="p-4 flex items-center justify-between gap-4 hover:bg-muted/40 transition cursor-pointer group"
-              >
-                <div className="flex items-center gap-3.5 min-w-0">
-                  <div className="min-w-0">
-                    <div className="text-sm font-bold text-foreground truncate">
-                      {acc.name}
-                    </div>
-                    <div className="text-xs text-muted-foreground truncate">
-                      {subtitle}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="hidden sm:block">
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-muted/60 text-foreground border border-border/60">
-                    {badge.label}
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <div className="text-right">
-                    <Amount value={acc.balance} currency={acc.currency} size="sm" className="min-w-0 truncate" />
-                    <div className="text-[11px] font-bold text-muted-foreground flex items-center justify-end gap-1.5">
-                      <span>{acc.currency}</span>
-                      {conversionLabel && (
-                        <>
-                          <span>•</span>
-                          <span>{conversionLabel}</span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                    <button
-                      type="button"
-                      onClick={() => handleEdit(acc)}
-                      title="Editar cuenta"
-                      aria-label="Editar cuenta"
-                      className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition cursor-pointer"
-                    >
-                      <Pencil className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onOpenReconcileModal(acc)}
-                      title="Conciliar saldo"
-                      aria-label="Conciliar saldo"
-                      className="p-1.5 rounded-lg text-primary hover:bg-primary/10 transition cursor-pointer"
-                    >
-                      <Scale className="w-3.5 h-3.5" />
-                    </button>
-                    {onDeleteAccount && (
-                      <button
-                        type="button"
-                        onClick={() => setAccountToDelete(acc)}
-                        title="Eliminar cuenta"
-                        aria-label="Eliminar cuenta"
-                        className="p-1.5 rounded-lg text-destructive hover:bg-destructive/10 transition cursor-pointer"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-
-          <div
+          <Button
+            type="button"
+            variant="ghost"
             onClick={onOpenCreateAccountModal}
-            className="p-4 flex items-center justify-center gap-2 hover:bg-purple-950/10 text-purple-400 font-bold text-xs transition cursor-pointer"
+            className="h-auto w-full rounded-none p-4 gap-2 text-primary font-bold text-xs hover:bg-primary/5 hover:text-primary cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             <span>Agregar otra cuenta</span>
-          </div>
-        </div>
+          </Button>
+        </AccountsCard>
       )}
 
-      {/* Edit Account Modal */}
-      {editingAccount && onUpdateAccount && (
-        <EditAccountModal
-          account={editingAccount}
-          onClose={() => setEditingAccount(null)}
-          onSubmit={onUpdateAccount}
-          onDelete={onDeleteAccount}
+      {onDeleteAccount && (
+        <DeleteAccountConfirmation
+          account={accountToDelete}
+          onConfirm={onDeleteAccount}
+          onClose={handleCloseDelete}
         />
       )}
-
-      {/* Delete Confirmation Drawer */}
-      <ResponsiveDrawer
-        open={!!accountToDelete}
-        onOpenChange={(open) => !open && setAccountToDelete(null)}
-        title="Eliminar cuenta"
-        description="Confirmación de baja de cuenta"
-        size="sm"
-        footer={
-          <div className="flex w-full flex-col-reverse sm:flex-row sm:justify-end gap-2">
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => setAccountToDelete(null)}
-              disabled={deleting}
-              className="w-full sm:w-auto"
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              loading={deleting}
-              onClick={handleConfirmDelete}
-              className="w-full sm:w-auto"
-            >
-              Sí, eliminar cuenta
-            </Button>
-          </div>
-        }
-      >
-        <div className="flex flex-col gap-3 py-2">
-          <p className="text-sm text-foreground">
-            ¿Estás seguro de que querés eliminar la cuenta{" "}
-            <span className="font-bold text-foreground">
-              «{accountToDelete?.name}»
-            </span>
-            ?
-          </p>
-          <div className="rounded-xl border border-border/80 bg-muted/40 p-3 text-xs text-muted-foreground">
-            <span className="font-semibold text-foreground">Aviso contable:</span> Si
-            la cuenta tiene transacciones registradas, será archivada para mantener
-            la integridad de tu balance e historial financiero. Si no tiene
-            movimientos, se eliminará permanentemente.
-          </div>
-        </div>
-      </ResponsiveDrawer>
     </div>
   );
 }

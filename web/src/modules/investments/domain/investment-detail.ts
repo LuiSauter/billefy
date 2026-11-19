@@ -1,4 +1,5 @@
-import { Investment, InvestmentTransactionDto } from "./investment.types";
+import Decimal from "decimal.js";
+import { Investment, InvestmentTransactionDto, investmentCostBasis } from "./investment.types";
 
 export type InvestmentOperationType =
   | "buy"
@@ -40,6 +41,7 @@ export interface InvestmentMetadata {
 export interface InvestmentDetailMetrics {
   currentValue: number;
   initialValue: number;
+  costBasis: number | null;
   gainLoss: number;
   gainLossPct: number;
   roiPct: number;
@@ -70,11 +72,12 @@ export function calculateInvestmentDetailMetrics(
   const initialValue = investment.initialValue || 0;
   const quantity = investment.quantity > 0 ? investment.quantity : 1;
 
-  const gainLoss = currentValue - initialValue;
-  const gainLossPct = initialValue > 0 ? (gainLoss / initialValue) * 100 : 0;
+  const costBasis = investmentCostBasis(investment);
+  const gainLoss = costBasis === null ? 0 : new Decimal(currentValue).minus(costBasis).toNumber();
+  const gainLossPct = costBasis !== null && costBasis > 0 ? new Decimal(gainLoss).div(costBasis).times(100).toNumber() : 0;
   const roiPct = gainLossPct;
 
-  const averageCost = initialValue / quantity;
+  const averageCost = costBasis === null ? 0 : new Decimal(costBasis).div(quantity).toNumber();
   const currentUnitPrice = currentValue / quantity;
 
   // Recent change (vs. last history entry)
@@ -96,6 +99,7 @@ export function calculateInvestmentDetailMetrics(
   return {
     currentValue,
     initialValue,
+    costBasis,
     gainLoss,
     gainLossPct,
     roiPct,

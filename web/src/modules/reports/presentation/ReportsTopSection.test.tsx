@@ -1,8 +1,10 @@
 import React, { isValidElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
+import { Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { CHART_FONT_SIZE } from "@/shared/lib/chart-utils";
 import { formatNumber } from "@/shared/lib/number-format";
+import { ChartTooltipContent } from "@/shared/ui/chart";
 import { Button } from "@/shared/ui/button";
 import { SelectField } from "@/shared/ui/select-field";
 import { SegmentedControl } from "@/shared/ui/segmented-control";
@@ -15,6 +17,27 @@ import { CategoryExpensesDonutCard } from "./CategoryExpensesDonutCard";
 
 // Keep the node-only runner; use the same default decimal formatter as the hook.
 vi.mock("@/shared/hooks/use-number-format", () => ({ useNumberFormat: () => formatNumber, useNumberPreferences: () => ({ convention: "es-BO", decimalPlaces: 2 }) }));
+// Observe chart wiring (children/props) without replacing Recharts.
+vi.mock("recharts", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("recharts")>();
+  return {
+    ...actual,
+    ResponsiveContainer: vi.fn((props: React.ComponentProps<typeof actual.ResponsiveContainer>) => (
+      <actual.ResponsiveContainer {...props} />
+    )),
+  };
+});
+function chartContainer() {
+  const call = vi.mocked(ResponsiveContainer).mock.calls.at(-1);
+  if (!call) throw new Error("Expected a responsive chart");
+  return call[0];
+}
+/** Renders the tooltip row a chart's shared ChartTooltipContent would produce for a hovered item. */
+function tooltipRow(tree: unknown, value: number, name: string, payload: Record<string, unknown>) {
+  const content = propsOf(tree, Tooltip).content as React.ReactElement<{ formatter: (...args: unknown[]) => React.ReactNode }>;
+  expect(content.type).toBe(ChartTooltipContent);
+  return renderToStaticMarkup(<>{content.props.formatter(value, name, { payload, color: "#a855f7" })}</>);
+}
 
 function nodes(tree: unknown): React.ReactElement<Record<string, unknown>>[] {
   if (Array.isArray(tree)) return tree.flatMap(nodes);
@@ -109,46 +132,88 @@ describe("Reports top section", () => {
     expect(html).toContain(">+0,00%</span>");
   });
 
-  it("renders chronological monthly bars and currency-formatted tooltips", () => {
-    const tree = IncomeVsExpensesChartCard({ data: cashFlow, selectedCurrency: "USD" });
-    expect(propsOf(tree, ResponsiveContainer).minWidth).toBe(0);
+  it("shows '—' instead of a fabricated 0% when there is no prior-period baseline", () => {
+    const html = renderToStaticMarkup(<ReportsKpiCards selectedCurrency="BOB" kpis={{ ...kpis,
+      incomeGrowthPct: null, expensesGrowthPct: null, savingsGrowthPct: 0, netBalanceGrowthPct: 10 }} />);
+    expect(html.match(/>—<\/span>/g)).toHaveLength(2);
+    expect(html.match(/>\+0,00%<\/span>/g)).toHaveLength(1); // a genuine zero change is still shown
+    expect(html).toContain("+10,00%");
+  });
+
+  it("uses shared Badge variants for icon tones and lays out by container width", () => {
+    const html = renderToStaticMarkup(<ReportsKpiCards kpis={kpis} selectedCurrency="BOB" />);
+    expect(html.match(/data-slot="badge"/g)).toHaveLength(8);
+    expect(html).not.toContain("bg-teal-500/15");
+    expect(html).toContain("@container");
+    expect(html).not.toMatch(/(^|[\s"])xl:grid-cols-4/);
+  });
+
+  it("renders chronological monthly bars with compact Y-axis ticks and the shared swatch tooltip", () => {
+    vi.mocked(ResponsiveContainer).mockClear();
+    const html = renderToStaticMarkup(<IncomeVsExpensesChartCard data={cashFlow} selectedCurrency="USD" />);
+    const tree = chartContainer().children;
     expect(propsOf(tree, BarChart).data).toEqual(cashFlow);
     const bars = nodes(tree).filter((node) => node.type === Bar);
     expect(bars.map((node) => node.props.dataKey)).toEqual(["income", "expenses"]);
     expect(bars[0].props.fill).not.toBe(bars[1].props.fill);
-    const formatter = propsOf(tree, Tooltip).formatter as (value: number) => string;
-    expect(formatter(4000.25)).toBe("$ 4.000,25");
-    const html = renderToStaticMarkup(tree);
-    expect(html).toContain("Ingresos vs. Gastos");
-    expect(html).toContain("Ingresos");
-    expect(html).toContain("Gastos");
-    // Recharts v3's node SSR renders the chart wrapper, not SVG sectors/bars.
-    // Check actual series/axis wiring above and accessible data below instead.
     expect(propsOf(tree, XAxis).dataKey).toBe("month");
+    // Y axis: shared compact formatter and axis props (same font size as every other chart).
+    const yAxis = propsOf(tree, YAxis);
+    const tick = yAxis.tickFormatter as (value: number) => string;
+    expect([6000, 4500, 1500, 0, -1500, 1_250_000].map(tick)).toEqual(["6K", "4,5K", "1,5K", "0", "-1,5K", "1,3M"]);
+    expect(yAxis.fontSize).toBe(CHART_FONT_SIZE);
+    expect(yAxis.tickLine).toBe(false);
+    expect(yAxis.axisLine).toBe(false);
+    expect(propsOf(tree, XAxis).fontSize).toBe(CHART_FONT_SIZE);
+    // Tooltip: shared ChartTooltipContent with series swatch, label and full-precision amount.
+    const row = tooltipRow(tree, 4000.25, "Ingresos", {});
+    expect(row).toContain("Ingresos");
+    expect(row).toContain("$ 4.000,25");
+    expect(row).toContain("background-color:#a855f7");
+    const content = propsOf(tree, Tooltip).content as React.ReactElement<{ labelFormatter: (label: string, payload: unknown[]) => string }>;
+    expect(content.props.labelFormatter("Oct", [{ payload: cashFlow[1] }])).toBe("2026-10");
+    expect(html).toContain("Ingresos vs. Gastos");
     expect(html).toContain("recharts-responsive-container");
     expect(html).toContain("2026-09");
-    expect(html).toContain("2026-10");
     expect(html).toContain("$ 4.000,25");
     expect(html).toContain("$ 1.500,10");
+    expect(html).not.toContain("6.000,00");
   });
 
   it("renders the donut, supplied total and every category's amount and percentage", () => {
-    const tree = CategoryExpensesDonutCard({ data: categories, totalExpenses: 10000, selectedCurrency: "BOB" });
-    expect(propsOf(tree, ResponsiveContainer).minWidth).toBe(0);
-    expect(propsOf(tree, Pie).data).toEqual(categories);
-    expect(propsOf(tree, Pie).dataKey).toBe("amount");
-    expect(propsOf(tree, Pie).innerRadius).toBeTruthy();
-    expect(propsOf(tree, Pie).nameKey).toBe("category");
+    vi.mocked(ResponsiveContainer).mockClear();
+    const html = renderToStaticMarkup(<CategoryExpensesDonutCard data={categories} totalExpenses={10000} selectedCurrency="BOB" />);
+    const tree = chartContainer().children;
+    const pie = propsOf(tree, Pie);
+    expect(pie.dataKey).toBe("amount");
+    expect(pie.nameKey).toBe("name");
+    expect(pie.innerRadius).toBeTruthy();
+    expect((pie.data as { name: string; amount: number; percentage: number }[]).map(({ name, amount, percentage }) => ({ name, amount, percentage })))
+      .toEqual([{ name: "Vivienda", amount: 7000, percentage: 70 }, { name: "Alimentación", amount: 3000, percentage: 30 }]);
     expect(propsOf(tree, PieChart)["aria-label"]).toContain("BOB");
     const fills = nodes(tree).filter((node) => node.type === Cell).map((node) => node.props.fill);
     expect(fills).toHaveLength(categories.length);
     expect(new Set(fills).size).toBe(categories.length);
-    const formatter = propsOf(tree, Tooltip).formatter as (value: number) => string;
-    expect(formatter(7000)).toBe("Bs 7.000,00");
-    const html = renderToStaticMarkup(tree);
+    const row = tooltipRow(tree, 7000, "Vivienda", { name: "Vivienda", percentage: 70, fill: fills[0] });
+    expect(row).toContain("Vivienda");
+    expect(row).toContain("Bs 7.000,00 (70,00%)");
+    expect(row).toContain(`background-color:${String(fills[0])}`);
     for (const value of ["Gastos por categoría", "Total de gastos", "Bs 10.000,00", "Vivienda", "Alimentación", "70,00%", "30,00%", "Bs 7.000,00", "Bs 3.000,00", "recharts-responsive-container"]) {
       expect(html).toContain(value);
     }
+  });
+
+  it("lays out the donut by its own container width, not the viewport", () => {
+    const html = renderToStaticMarkup(<CategoryExpensesDonutCard data={categories} totalExpenses={10000} selectedCurrency="BOB" />);
+    expect(html).toContain("@container");
+    expect(html).toContain("@lg:flex-row");
+    expect(html).not.toMatch(/(^|[\s"])(sm|lg|2xl):flex-(row|col)/);
+  });
+
+  it("never renders a raw category identifier as a label", () => {
+    const html = renderToStaticMarkup(<CategoryExpensesDonutCard
+      data={[{ category: "Sin categoría", amount: 10, percentage: 100 }]} totalExpenses={10} selectedCurrency="BOB" />);
+    expect(html).toContain("Sin categoría");
   });
 
   it("shows honest empty states without fabricating chart points or categories", () => {

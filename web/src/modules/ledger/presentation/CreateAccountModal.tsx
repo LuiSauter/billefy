@@ -183,7 +183,7 @@ export function CreateAccountModal({ isOpen, onClose, onSubmit, defaultCurrency 
                       <span className="text-xs font-extrabold text-foreground">
                         {opt.label}
                       </span>
-                      <span className="text-[11px] text-muted-foreground leading-tight mt-0.5">
+                      <span className="text-xs text-muted-foreground leading-tight mt-0.5">
                         {opt.description}
                       </span>
                     </div>
@@ -250,7 +250,7 @@ export function CreateAccountModal({ isOpen, onClose, onSubmit, defaultCurrency 
                   }`}
                 >
                   <CategoryIcon iconKey={item.key} className="w-4 h-4" />
-                  <span className="text-[10px] font-semibold truncate w-full text-center">
+                  <span className="text-xs font-semibold truncate w-full text-center">
                     {item.label}
                   </span>
                 </button>

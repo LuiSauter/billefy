@@ -1,3 +1,4 @@
+import { formatNumber, getNumberFormatPreferences, type NumberFormatPreferences } from "@/shared/lib/number-format";
 import type { FinancialReport } from "../domain/reports-analytics";
 
 export type ReportType = "financial-summary" | "cash-flow" | "category-expenses" | "net-worth";
@@ -9,7 +10,8 @@ const reportNames: Record<ReportType, { title: string; filename: string }> = {
   "net-worth": { title: "Evolución del patrimonio", filename: "evolucion-del-patrimonio" },
 };
 
-type Cell = string | number;
+/** null = value unavailable (e.g. no baseline); never exported as a fabricated 0. */
+type Cell = string | number | null;
 type Section = { title: string; headers: string[]; rows: Cell[][] };
 
 function prepare(reportData: FinancialReport, reportType: ReportType, currency: string) {
@@ -79,14 +81,31 @@ function download(text: string, mime: string, filename: string) {
   }
 }
 
-function csvCell(value: Cell): string {
-  // Untrusted labels must not become spreadsheet formulas. Numeric negatives
-  // remain numeric, and no monetary arithmetic/rounding is performed here.
-  const text = typeof value === "string" && /^[\s]*[=+\-@\t\r]/.test(value) ? `'${value}` : String(value);
+/**
+ * Comma-decimal conventions (es-BO) need ';' as the field delimiter, otherwise a
+ * formatted number such as "1.234,50" would be split across columns by Excel.
+ */
+function csvDelimiter(preferences: NumberFormatPreferences): string {
+  return preferences.convention === "es-BO" ? ";" : ",";
+}
+
+function csvCell(value: Cell, preferences: NumberFormatPreferences): string {
+  // Numbers use exactly the on-screen decimal/thousands convention and rounding.
+  // Untrusted labels must not become spreadsheet formulas; formatted numeric
+  // negatives stay numeric because only string labels are neutralized.
+  const text = value === null ? ""
+    : typeof value === "number" ? formatNumber(value, preferences.convention, preferences.decimalPlaces)
+      : /^[\s]*[=+\-@\t\r]/.test(value) ? `'${value}` : value;
   return `"${text.replaceAll('"', '""')}"`;
 }
 
-export function exportReportAsCsv(reportData: FinancialReport, reportType: ReportType, currency: string): void {
+/** Exports the report as a spreadsheet-friendly CSV using the user's number-format preferences. */
+export function exportReportAsCsv(
+  reportData: FinancialReport,
+  reportType: ReportType,
+  currency: string,
+  preferences: NumberFormatPreferences = getNumberFormatPreferences(),
+): void {
   const report = prepare(reportData, reportType, currency);
   const name = reportNames[reportType];
   const rows: Cell[][] = [["Reporte", name.title], ["Moneda", currency],
@@ -94,7 +113,8 @@ export function exportReportAsCsv(reportData: FinancialReport, reportType: Repor
   for (const section of sections(report.data, currency)) {
     rows.push([], [section.title], section.headers, ...section.rows);
   }
-  const csv = "\uFEFF" + rows.map((row) => row.map(csvCell).join(",")).join("\r\n");
+  const delimiter = csvDelimiter(preferences);
+  const csv = "\uFEFF" + rows.map((row) => row.map((cell) => csvCell(cell, preferences)).join(delimiter)).join("\r\n");
   download(csv, "text/csv;charset=utf-8", `${name.filename}-${report.period.to ?? "sin-periodo"}.csv`);
 }
 
@@ -105,10 +125,12 @@ export function exportReportAsJson(reportData: FinancialReport, reportType: Repo
 }
 
 function escapeHtml(value: Cell): string {
-  return String(value).replace(/[&<>"']/g, (char) => ({
+  return (value === null ? "—" : String(value)).replace(/[&<>"']/g, (char) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
   })[char]!);
 }
+
+const PRINT_FALLBACK_MS = 1500;
 
 /** Opens the browser print dialog, where the user can choose Save as PDF. */
 export function exportReportAsPrintable(reportData: FinancialReport, reportType: ReportType, currency: string): void {
@@ -134,7 +156,18 @@ export function exportReportAsPrintable(reportData: FinancialReport, reportType:
     </style></head><body><h1>${escapeHtml(title)}</h1>
     <p>Moneda: ${escapeHtml(currency)} · Período: ${escapeHtml(report.period.from ?? "Sin período")} — ${escapeHtml(report.period.to ?? "Sin período")}</p>
     ${tables}</body></html>`);
+  // Printing right after document.write races with rendering in some browsers
+  // and can produce a blank preview: wait for the popup to finish loading.
+  let printed = false;
+  const printWhenReady = () => {
+    if (printed || popup.closed) return;
+    printed = true;
+    popup.focus();
+    popup.print();
+  };
+  popup.addEventListener("load", printWhenReady, { once: true });
   popup.document.close();
-  popup.focus();
-  popup.print();
+  // Safety net for browsers that never dispatch load on a document.write()-built
+  // popup; printWhenReady is idempotent, so a normal load wins without double print.
+  setTimeout(printWhenReady, PRINT_FALLBACK_MS);
 }

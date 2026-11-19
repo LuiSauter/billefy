@@ -16,6 +16,7 @@ import {
   Target,
 } from "lucide-react";
 import { GoalDto } from "../domain/planning.types";
+import { Button } from "@/shared/ui/button";
 import { Amount } from "@/shared/ui/amount";
 import { formatPercent } from "@/shared/lib/amount-format";
 import { useNumberPreferences } from "@/shared/hooks/use-number-format";
@@ -24,6 +25,7 @@ interface GoalCardProps {
   goal: GoalDto;
   onEdit?: (goal: GoalDto) => void;
   onDelete?: (id: string) => void;
+  onFunding?: (goal: GoalDto) => void;
 }
 
 export function getGoalIconAndTheme(name: string) {
@@ -77,7 +79,7 @@ export function getGoalIconAndTheme(name: string) {
   };
 }
 
-export function GoalCard({ goal, onEdit, onDelete }: GoalCardProps) {
+export function GoalCard({ goal, onEdit, onDelete, onFunding }: GoalCardProps) {
   const preferences = useNumberPreferences();
   const target = Number(goal.targetAmount) || 0;
   const current = Number(goal.currentAmount) || 0;
@@ -208,6 +210,10 @@ export function GoalCard({ goal, onEdit, onDelete }: GoalCardProps) {
           )}
         </span>
       </div>
+
+      <p className="text-xs text-muted-foreground">{goal.fundingMode === "ReservedFunds" ? "Reserva explícita · solo cuentan tus asignaciones" : "Seguimiento del saldo · se cuenta toda la cuenta"}</p>
+      {goal.fundingMode === "ReservedFunds" && goal.reservationStatus === "unavailable" && <p role="status" className="text-xs text-destructive">Respaldo no disponible. Las asignaciones se conservan; no se inventa un saldo de cuenta.</p>}
+      {goal.fundingMode === "ReservedFunds" && onFunding && <Button type="button" variant="outline" onClick={() => onFunding(goal)}>Administrar reserva</Button>}
 
       {/* 4. Tag Pills (Real currency & tracking mode) */}
       <div className="flex flex-wrap gap-1.5">

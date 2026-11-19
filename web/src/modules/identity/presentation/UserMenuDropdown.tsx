@@ -70,9 +70,8 @@ export function UserMenuDropdown({
         aria-expanded={isOpen}
         aria-haspopup="menu"
         title="Menú de usuario"
-        className={`flex items-center gap-2.5 rounded-xl border border-transparent hover:border-border hover:bg-muted/60 transition p-1.5 focus:outline-hidden ${
-          isOpen ? "bg-muted/80 border-border" : ""
-        }`}
+        className={`flex items-center gap-2.5 rounded-xl border border-transparent hover:border-border hover:bg-muted/60 transition p-1.5 focus:outline-hidden ${isOpen ? "bg-muted/80 border-border" : ""
+          }`}
       >
         <UserAvatar user={user} size={compact ? "sm" : "md"} />
 
@@ -88,9 +87,8 @@ export function UserMenuDropdown({
         )}
 
         <ChevronDown
-          className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${
-            isOpen ? "rotate-180 text-foreground" : ""
-          }`}
+          className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${isOpen ? "rotate-180 text-foreground" : ""
+            }`}
         />
       </button>
 
@@ -99,22 +97,6 @@ export function UserMenuDropdown({
           role="menu"
           className="absolute right-0 mt-2 w-68 rounded-2xl bg-popover border border-border shadow-xl shadow-black/25 py-2 z-50 animate-in fade-in zoom-in-95 duration-150"
         >
-          {/* User Identity Header */}
-          <div className="px-4 py-3 border-b border-border flex items-center gap-3">
-            <UserAvatar user={user} size="md" />
-            <div className="flex flex-col min-w-0 flex-1">
-              <span className="text-sm font-extrabold text-foreground truncate">
-                {displayName}
-              </span>
-              <span className="text-xs text-muted-foreground truncate">
-                {user?.email || "Sesión verificada"}
-              </span>
-              <span className="mt-1 inline-flex items-center gap-1 text-[11px] font-bold text-emerald-500">
-                <ShieldCheck className="w-3 h-3" />
-                Sesión segura
-              </span>
-            </div>
-          </div>
 
           {/* Menu Actions */}
           <div className="py-1.5 px-1.5 flex flex-col gap-0.5">
@@ -175,9 +157,8 @@ export function UserMenuDropdown({
               </div>
 
               <span
-                className={`w-10 h-5.5 rounded-full p-0.5 transition-colors flex items-center ${
-                  isDark ? "bg-primary justify-end" : "bg-input justify-start"
-                }`}
+                className={`w-10 h-5.5 rounded-full p-0.5 transition-colors flex items-center ${isDark ? "bg-primary justify-end" : "bg-input justify-start"
+                  }`}
               >
                 <span className="w-4.5 h-4.5 rounded-full bg-white shadow-xs transition-transform" />
               </span>

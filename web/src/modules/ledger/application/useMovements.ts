@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { IHttpClient } from "@/shared/application/http-client.contract";
 import { LedgerApiRepository } from "../infrastructure/ledger-api.repository";
 import { MovementPage, MovementQuery } from "../domain/movement";
-export function useMovements(http: IHttpClient | null, query: MovementQuery) {
+export function useMovements(http: IHttpClient | null, query: MovementQuery, refreshKey?: unknown) {
   const [data, setData] = useState<MovementPage | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -23,6 +23,6 @@ export function useMovements(http: IHttpClient | null, query: MovementQuery) {
       }).finally(() => { if (requestId === sequence.current) setLoading(false); });
     }, query.search ? 300 : 0);
     return () => { clearTimeout(timer); controller.abort(); };
-  }, [http, query, retry]);
+  }, [http, query, retry, refreshKey]);
   return { data, loading, error, reload };
 }

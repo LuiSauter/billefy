@@ -118,4 +118,17 @@ describe("FetchHttpClient & Module Repositories", () => {
     expect(dev.platform).toBe("Android");
     expect(dev.id).toBe("dev-1");
   });
+
+  it("resolves to an empty object instead of throwing on a 200 with an empty body", async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => {
+        throw new SyntaxError("Unexpected end of JSON input");
+      },
+    });
+
+    const http = new FetchHttpClient({ userId, fetchFn: mockFetch });
+    await expect(http.get("/v1/workspaces/w1/budget")).resolves.toEqual({});
+  });
 });

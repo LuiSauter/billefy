@@ -3,6 +3,7 @@ import Decimal from "decimal.js";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { LoanDetailDto, LoanSummaryDto } from "../../domain/lending.types";
+import { calculateDebtMetrics } from "../../domain/lending-analytics";
 import { DeudasView, type DeudasViewProps } from "./DeudasView";
 
 const { buttons } = vi.hoisted(() => ({ buttons: [] as { label?: string; onClick?: () => void }[] }));
@@ -48,6 +49,22 @@ beforeEach(() => {
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
 
 describe("DeudasView", () => {
+  it("keeps card purchase actions available at zero debt without creating a manual liability", () => {
+    const onOpenCardPurchase = vi.fn();
+    const html = render({ loans: [loan({ id: "operational-card", counterpartyName: "Synthetic issuer", loanKind: "CreditCard", status: "Paid", remainingPrincipal: d(0) })], onOpenCardPurchase });
+    expect(html).toContain("Compras con tarjeta");
+    buttons.find(button => button.label === "Registrar compra de Synthetic issuer")?.onClick?.();
+    expect(onOpenCardPurchase).toHaveBeenCalledExactlyOnceWith("operational-card");
+  });
+
+  it("classifies typed cards without guessing purchase due dates from their opening principal", () => {
+    const metrics = calculateDebtMetrics([loan({ counterpartyName: "Synthetic issuer", loanKind: "CreditCard", principal: d(600), remainingPrincipal: d(950) })], 1000);
+    expect(metrics.totalDebt).toBe(950);
+    expect(metrics.distribution.find(item => item.category === "Tarjetas")?.total).toBe(950);
+    expect(metrics.monthlyPayment).toBe(0);
+    expect(metrics.upcomingPayments).toEqual([]);
+  });
+
   it("renders the redesign sections and real debt KPIs, excluding lent and closed loans", () => {
     const html = render({ loans: [mortgage, card, loan({ id: "lent", type: "Lent", counterpartyName: "Not a debt" }),
       loan({ id: "paid", status: "Paid", counterpartyName: "Paid debt" }),

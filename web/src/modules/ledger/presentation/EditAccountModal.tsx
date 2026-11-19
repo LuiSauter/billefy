@@ -13,6 +13,7 @@ import {
   CategoryIconKey,
 } from "@/modules/ledger/domain/category.types";
 import { CategoryIcon, CategoryIconBadge } from "./CategoryIcon";
+import { DeleteAccountConfirmation } from "./DeleteAccountConfirmation";
 import { Button } from "@/shared/ui/button";
 import { FormField } from "@/shared/ui/form-field";
 import { Input } from "@/shared/ui/input";
@@ -47,6 +48,11 @@ export function EditAccountModal({ account, onClose, onSubmit, onDelete }: EditA
   }, [account]);
 
   if (!account) return null;
+  const handleCloseDelete = () => setConfirmDelete(false);
+  const handleConfirmDelete = async (accountId: string) => {
+    await onDelete?.(accountId);
+    onClose();
+  };
   const valid = name.trim().length > 0;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -142,42 +148,12 @@ export function EditAccountModal({ account, onClose, onSubmit, onDelete }: EditA
         {onDelete && (
           <div className="pt-4 border-t border-border/60">
             {confirmDelete ? (
-              <div className="flex flex-col gap-2.5 p-3.5 rounded-xl bg-destructive/10 border border-destructive/30">
-                <span className="text-xs font-bold text-destructive">
-                  ¿Confirmás eliminar la cuenta «{account.name}»?
-                </span>
-                <p className="text-[11px] text-muted-foreground leading-relaxed">
-                  Si tiene transacciones registradas, será archivada para conservar tu historial contable. Si no tiene movimientos, se eliminará permanentemente.
-                </p>
-                <div className="flex justify-end gap-2 mt-1">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    disabled={submitting}
-                    onClick={() => setConfirmDelete(false)}
-                  >
-                    Cancelar
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="sm"
-                    loading={submitting}
-                    onClick={async () => {
-                      setSubmitting(true);
-                      try {
-                        await onDelete(account.id);
-                        onClose();
-                      } finally {
-                        setSubmitting(false);
-                      }
-                    }}
-                  >
-                    Sí, eliminar cuenta
-                  </Button>
-                </div>
-              </div>
+              <DeleteAccountConfirmation
+                account={account}
+                presentation="inline"
+                onConfirm={handleConfirmDelete}
+                onClose={handleCloseDelete}
+              />
             ) : (
               <Button
                 type="button"

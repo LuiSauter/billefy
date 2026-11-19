@@ -48,6 +48,11 @@ export function createPlanningOverviewResource(initialRepository: IPlanningRepos
       await repository.updateGoal(id, request);
       return refresh();
     },
+    async recordGoalFunding(...args: Parameters<IPlanningRepository["recordGoalFunding"]>) {
+      if (!repository) throw new Error("Cliente no inicializado");
+      await repository.recordGoalFunding(...args);
+      return refresh();
+    },
     async deleteGoal(id: string) {
       if (!repository) throw new Error("Cliente no inicializado");
       await repository.deleteGoal(id);

@@ -1,9 +1,37 @@
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SettingsView, clearClientFinancialStorage } from "./SettingsView";
 import { formatNumber } from "@/shared/lib/number-format";
 import { UserDto } from "../domain/identity.types";
+import { DataPrivacySectionCard } from "./settings/DataPrivacySectionCard";
+import { ResetFinancialDataDrawer } from "./settings/ResetFinancialDataDrawer";
+
+// Hook stubs are only active while `hookState.enabled` is true, so the
+// renderToStaticMarkup tests keep using the real React hooks.
+const hookState = vi.hoisted(() => ({ enabled: false, slots: [] as unknown[], cursor: 0 }));
+vi.mock("react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("react")>();
+  return {
+    ...actual,
+    useState: (initial: unknown) => {
+      if (!hookState.enabled) return actual.useState(initial);
+      const index = hookState.cursor++;
+      if (!(index in hookState.slots)) {
+        hookState.slots[index] = typeof initial === "function" ? initial() : initial;
+      }
+      return [hookState.slots[index], (next: unknown) => {
+        hookState.slots[index] = typeof next === "function" ? next(hookState.slots[index]) : next;
+      }];
+    },
+    useEffect: (...args: Parameters<typeof actual.useEffect>) =>
+      hookState.enabled ? undefined : actual.useEffect(...args),
+  };
+});
+
+vi.mock("@/modules/ledger/application/CategoriesContext", () => ({
+  useUserCategories: () => ({ resetCategories: vi.fn() }),
+}));
 
 vi.mock("@/shared/lib/theme-context", () => ({
   useTheme: () => ({ theme: "dark", setTheme: vi.fn() }),
@@ -169,5 +197,60 @@ describe("clearClientFinancialStorage", () => {
     expect(mockStorage.getItem("billefy_user")).toBe(JSON.stringify({ id: "u-123" }));
     expect(mockStorage.getItem("billefy_settings_u-123")).toBe(JSON.stringify({ theme: "dark" }));
     expect(mockStorage.getItem("billefy_theme")).toBe("dark");
+  });
+});
+
+describe("SettingsView financial data reset wiring", () => {
+  type Node = { type: unknown; props: Record<string, unknown> };
+
+  function nodes(tree: unknown): Node[] {
+    if (Array.isArray(tree)) return tree.flatMap(nodes);
+    if (!React.isValidElement<Record<string, unknown>>(tree)) return [];
+    const { type, props } = tree;
+    return [{ type, props }, ...nodes(props.children)];
+  }
+
+  function find(tree: unknown, type: unknown): Node {
+    const node = nodes(tree).find((candidate) => candidate.type === type);
+    if (!node) throw new Error("Missing element");
+    return node;
+  }
+
+  function render() {
+    hookState.cursor = 0;
+    return SettingsView({
+      user: mockUser,
+      selectedCurrency: "USD",
+      onSelectCurrency: vi.fn(),
+      p2pRate: 9.85,
+      onOpenBinance: vi.fn(),
+      onOpenCsv: vi.fn(),
+      onOpenWhatsApp: vi.fn(),
+      onOpenFxTransfer: vi.fn(),
+    });
+  }
+
+  beforeEach(() => {
+    hookState.enabled = true;
+    hookState.slots = [];
+    hookState.cursor = 0;
+  });
+
+  afterEach(() => {
+    hookState.enabled = false;
+  });
+
+  it("opens the confirmation drawer instead of clearing storage directly when 'Borrar datos financieros' is clicked", () => {
+    const first = render();
+    const onClearStorage = find(first, DataPrivacySectionCard).props.onClearStorage;
+
+    expect(typeof onClearStorage).toBe("function");
+    expect(onClearStorage).not.toBe(clearClientFinancialStorage);
+    expect(find(first, ResetFinancialDataDrawer).props.open).toBe(false);
+
+    (onClearStorage as () => void)();
+
+    const second = render();
+    expect(find(second, ResetFinancialDataDrawer).props.open).toBe(true);
   });
 });

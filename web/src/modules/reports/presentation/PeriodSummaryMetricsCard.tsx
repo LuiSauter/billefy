@@ -12,28 +12,35 @@ interface PeriodSummaryMetricsCardProps {
   summary?: FinancialReport["periodSummary"];
 }
 
-export function PeriodSummaryMetricsCard({ summary }: PeriodSummaryMetricsCardProps) {
-  const metrics = [
-    { label: "Ratio de ahorro", value: summary?.savingsRatio, icon: PiggyBank, tone: "bg-emerald-500/15 text-emerald-400", target: "(Recomendado: >= 20%)", signed: false, favorable: (value: number) => value >= 20, neutral: false },
-    { label: "Crecimiento del patrimonio", value: summary?.netWorthGrowthPct, icon: TrendingUp, tone: "bg-purple-500/15 text-purple-400", target: "vs. período anterior", signed: true, favorable: (value: number) => value > 0, neutral: false },
-    { label: "Ratio de endeudamiento", value: summary?.debtRatio, icon: Scale, tone: "bg-sky-500/15 text-sky-400", target: "(Saludable: < 30%)", signed: false, favorable: (value: number) => value < 30, neutral: true },
-    { label: "Cumplimiento del presupuesto", value: summary?.budgetCompliance, icon: Target, tone: "bg-amber-500/15 text-amber-400", target: "del gasto planificado", signed: false, favorable: (value: number) => value <= 100, neutral: false },
-  ];
+// Static definitions live at module scope: they never depend on props.
+const METRICS: readonly {
+  key: keyof FinancialReport["periodSummary"]; label: string; icon: typeof PiggyBank;
+  tone: "success" | "purple" | "investment" | "secondary"; target: string; signed: boolean;
+  favorable: (value: number) => boolean; neutral: boolean;
+}[] = [
+  { key: "savingsRatio", label: "Ratio de ahorro", icon: PiggyBank, tone: "success", target: "(Recomendado: >= 20%)", signed: false, favorable: (value) => value >= 20, neutral: false },
+  { key: "netWorthGrowthPct", label: "Crecimiento del patrimonio", icon: TrendingUp, tone: "purple", target: "vs. período anterior", signed: true, favorable: (value) => value > 0, neutral: false },
+  { key: "debtRatio", label: "Ratio de endeudamiento", icon: Scale, tone: "investment", target: "(Saludable: < 30%)", signed: false, favorable: (value) => value < 30, neutral: true },
+  { key: "budgetCompliance", label: "Cumplimiento del presupuesto", icon: Target, tone: "secondary", target: "del gasto planificado", signed: false, favorable: (value) => value <= 100, neutral: false },
+];
 
+export function PeriodSummaryMetricsCard({ summary }: PeriodSummaryMetricsCardProps) {
   return (
     <Card className="@container h-full min-w-0 border-border/80">
       <CardHeader><h2 className="text-lg font-bold tracking-tight">Resumen del período</h2></CardHeader>
       <CardContent>
         <dl className="divide-y divide-border border-y border-border">
-          {metrics.map(({ label, value, icon: Icon, tone, target, signed, favorable, neutral }) => {
-            const change = value !== undefined && Number.isFinite(value)
+          {METRICS.map(({ key, label, icon: Icon, tone, target, signed, favorable, neutral }) => {
+            const value = summary?.[key];
+            // undefined/null = unavailable (no denominator): show "—", never a fabricated 0%.
+            const change = value !== undefined && value !== null && Number.isFinite(value)
               ? new Decimal(value).toDecimalPlaces(1, Decimal.ROUND_HALF_UP) : undefined;
             const variant = !change ? "outline" : change.isZero() ? "secondary"
               : favorable(value!) ? neutral ? "secondary" : "success" : "expense";
             return (
               <div key={label} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 py-3 @min-[440px]:grid-cols-[minmax(0,1fr)_auto_minmax(0,0.8fr)]">
                 <dt className="flex min-w-0 items-center gap-3 text-sm font-medium">
-                  <span aria-hidden="true" className={`flex size-8 shrink-0 items-center justify-center rounded-xl ${tone}`}><Icon className="size-5" /></span>
+                  <Badge variant={tone} aria-hidden="true" className="size-8 shrink-0 rounded-xl p-0 [&>svg]:size-5"><Icon /></Badge>
                   <span>{label}</span>
                 </dt>
                 <dd>

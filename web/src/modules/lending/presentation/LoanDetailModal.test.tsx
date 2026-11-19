@@ -11,6 +11,20 @@ import type { LoanDetailDto, LoanType } from "../domain/lending.types";
 const loan = (type: LoanType, status: string): LoanDetailDto => ({ summary: { id: "l1", type, status, counterpartyName: "Marta", template: "NoInterest", annualEffectiveRate: 0, principal: 100, remainingPrincipal: 80, currency: "BOB", totalInstallments: 2 } as never, installments: [], payments: [] });
 beforeEach(() => { buttons.length = 0; vi.stubGlobal("React", React); });
 describe("LoanDetailModal collection action", () => {
+  it("shows opening provenance, immutable purchases, and the operational card action", () => {
+    const detail = loan("Borrowed", "Active");
+    detail.summary.originationKind = "OpeningBalance";
+    detail.summary.loanKind = "CreditCard";
+    detail.purchases = [{ id: "purchase", amount: new Decimal(350), currency: "BOB", occurredAt: "2027-01-07T00:00:00Z", description: "Synthetic food", ledgerTransactionId: "posting" }];
+    const onOpenCardPurchase = vi.fn();
+    const html = renderToStaticMarkup(<LoanDetailModal isOpen loan={detail} onClose={vi.fn()} onOpenCardPurchase={onOpenCardPurchase} />);
+    expect(html).toContain("Saldo de apertura: sin efectivo ni ingreso");
+    expect(html).toContain("Synthetic food");
+    expect(html).toContain("2027-01-07");
+    buttons.find(button => button.children === "Registrar compra con tarjeta")?.onClick?.();
+    expect(onOpenCardPurchase).toHaveBeenCalledExactlyOnceWith("l1");
+  });
+
   it.each(["Active", "InArrears"])("exposes collection for payable Lent status %s", status => {
     const onOpenPayment = vi.fn(); renderToStaticMarkup(<LoanDetailModal isOpen loan={loan("Lent", status)} onClose={vi.fn()} onOpenPayment={onOpenPayment} />);
     expect(buttons.some(button => button.children === "Registrar cobro")).toBe(true);

@@ -4,7 +4,9 @@ import React from "react";
 import { ArrowRight, Lightbulb } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent } from "@/shared/ui/card";
+import { cn } from "@/shared/lib/utils";
 import type { FinancialReport } from "../domain/reports-analytics";
+import { REPORT_CTA_CLASS } from "./reports-shared";
 
 interface PeriodConclusionBannerProps {
   conclusion?: FinancialReport["conclusion"];
@@ -25,7 +27,7 @@ export function PeriodConclusionBanner({ conclusion, onViewRecommendations }: Pe
             <p className="break-words text-sm leading-relaxed">{narrative}</p>
           </div>
         </div>
-        <Button type="button" disabled={!onViewRecommendations} onClick={onViewRecommendations} className="w-full shrink-0 bg-gradient-to-r from-purple-600 to-violet-600 text-white hover:from-purple-500 hover:to-violet-500 sm:w-auto sm:self-start lg:self-center">
+        <Button type="button" disabled={!onViewRecommendations} onClick={onViewRecommendations} className={cn(REPORT_CTA_CLASS, "w-full shrink-0 sm:w-auto sm:self-start lg:self-center")}>
           Ver recomendaciones <ArrowRight aria-hidden="true" className="size-4" />
         </Button>
       </CardContent>

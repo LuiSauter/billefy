@@ -1,20 +1,38 @@
 "use client";
 
-import React from "react";
+import React, { useMemo } from "react";
+import { BarChart, Bar, XAxis, YAxis } from "recharts";
+import { CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  ResponsiveContainer,
-  Cell,
-  Tooltip,
-} from "recharts";
-import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
+  DashboardCard,
+  dashboardCardContentClassName,
+  dashboardCardHeaderClassName,
+  dashboardCardTitleClassName,
+} from "./dashboard-card";
 import { Amount } from "@/shared/ui/amount";
 import { useNumberPreferences } from "@/shared/hooks/use-number-format";
-import { formatAmountText } from "@/shared/lib/amount-format";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from "@/shared/ui/chart";
 import type { MonthlyCashFlow } from "../../domain/dashboard-home-analytics";
+import {
+  CHART_AXIS_PROPS,
+  createAmountTooltipFormatter,
+  formatCompactAmount,
+} from "./dashboard-chart-utils";
+
+const CASH_FLOW_CHART_CONFIG = {
+  income: { label: "Ingresos", color: "var(--color-chart-2)" },
+  expenses: { label: "Gastos", color: "var(--color-chart-5)" },
+  savings: { label: "Ahorro", color: "var(--color-chart-4)" },
+} satisfies ChartConfig;
+
+const CASH_FLOW_CHART_MARGIN = { top: 10, right: 5, left: -20, bottom: 0 };
+const CASH_FLOW_BAR_RADIUS: [number, number, number, number] = [6, 6, 0, 0];
+const CASH_FLOW_INITIAL_DIMENSION = { width: 180, height: 135 };
 
 interface DashboardCashFlowCardProps {
   cashFlow: MonthlyCashFlow;
@@ -27,91 +45,91 @@ export function DashboardCashFlowCard({
 }: DashboardCashFlowCardProps) {
   const numberPreferences = useNumberPreferences();
 
-  const chartData = [
-    { name: "Ingresos", amount: cashFlow.income, color: "#10b981" },
-    { name: "Gastos", amount: cashFlow.expenses, color: "#f43f5e" },
-    { name: "Ahorro", amount: cashFlow.savings, color: "#a855f7" },
-  ];
+  const { income, expenses, savings } = cashFlow;
+  const chartData = useMemo(
+    () => [
+      { name: CASH_FLOW_CHART_CONFIG.income.label, amount: income, fill: "var(--color-income)" },
+      { name: CASH_FLOW_CHART_CONFIG.expenses.label, amount: expenses, fill: "var(--color-expenses)" },
+      { name: CASH_FLOW_CHART_CONFIG.savings.label, amount: savings, fill: "var(--color-savings)" },
+    ],
+    [income, expenses, savings]
+  );
 
-  const formatK = (val: number) =>
-    formatAmountText(val, selectedCurrency, numberPreferences, { compact: true });
+  const formatK = useMemo(
+    () => (val: number) => formatCompactAmount(val, selectedCurrency, numberPreferences),
+    [selectedCurrency, numberPreferences]
+  );
+  const tooltipFormatter = useMemo(
+    () => createAmountTooltipFormatter(selectedCurrency, numberPreferences),
+    [selectedCurrency, numberPreferences]
+  );
 
   return (
-    <Card className="rounded-2xl border-border/70 bg-card/60 backdrop-blur-xs shadow-xs overflow-hidden h-full">
-      <CardHeader className="p-4 pb-2">
-        <CardTitle className="text-base font-extrabold text-foreground">
+    <DashboardCard className="@container overflow-hidden h-full">
+      <CardHeader className={dashboardCardHeaderClassName}>
+        <CardTitle className={dashboardCardTitleClassName}>
           Flujo del mes
         </CardTitle>
       </CardHeader>
 
-      <CardContent className="p-4 pt-2 grid grid-cols-1 sm:grid-cols-[1.1fr_1.3fr] gap-4 items-center">
+      <CardContent className={`${dashboardCardContentClassName} grid grid-cols-1 @lg:grid-cols-[1.1fr_1.3fr] gap-4 items-center`}>
         {/* Left Side: Legend with Values */}
         <div className="flex flex-col gap-3">
           {/* Ingresos */}
           <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shrink-0" />
-              <span className="text-xs font-semibold text-muted-foreground">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="w-2.5 h-2.5 rounded-full bg-chart-2 shrink-0" />
+              <span className="text-xs font-semibold text-muted-foreground truncate">
                 Ingresos
               </span>
             </div>
-            <Amount value={cashFlow.income} currency={selectedCurrency} size="sm" />
+            <Amount value={cashFlow.income} currency={selectedCurrency} size="sm" className="shrink-0" />
           </div>
 
           {/* Gastos */}
           <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-rose-400 shrink-0" />
-              <span className="text-xs font-semibold text-muted-foreground">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="w-2.5 h-2.5 rounded-full bg-chart-5 shrink-0" />
+              <span className="text-xs font-semibold text-muted-foreground truncate">
                 Gastos
               </span>
             </div>
-            <Amount value={cashFlow.expenses} currency={selectedCurrency} size="sm" />
+            <Amount value={cashFlow.expenses} currency={selectedCurrency} size="sm" className="shrink-0" />
           </div>
 
           {/* Ahorro / Inversión */}
           <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-purple-400 shrink-0" />
-              <span className="text-xs font-semibold text-muted-foreground">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="w-2.5 h-2.5 rounded-full bg-chart-4 shrink-0" />
+              <span className="text-xs font-semibold text-muted-foreground truncate">
                 Ahorro / Inversión
               </span>
             </div>
-            <Amount value={cashFlow.savings} currency={selectedCurrency} size="sm" />
+            <Amount value={cashFlow.savings} currency={selectedCurrency} size="sm" className="shrink-0" />
           </div>
         </div>
 
         {/* Right Side: Vertical Bar Chart */}
-        <div className="h-[135px] w-full min-w-0">
-          <ResponsiveContainer width="100%" height="100%" minWidth={0} initialDimension={{ width: 180, height: 135 }}>
-            <BarChart data={chartData} margin={{ top: 10, right: 5, left: -20, bottom: 0 }}>
-              <YAxis
-                stroke="#64748b"
-                fontSize={10}
-                tickLine={false}
-                axisLine={false}
-                tickFormatter={formatK}
-              />
-              <XAxis dataKey="name" hide />
-              <Tooltip
-                formatter={(val) => formatAmountText(Number(val), selectedCurrency, numberPreferences) }
-                contentStyle={{
-                  backgroundColor: "rgba(15, 23, 42, 0.95)",
-                  borderColor: "rgba(148, 163, 184, 0.2)",
-                  borderRadius: 10,
-                  fontSize: 12,
-                  color: "#fff",
-                }}
-              />
-              <Bar dataKey="amount" radius={[6, 6, 0, 0]} isAnimationActive={false}>
-                {chartData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
+        <ChartContainer
+          config={CASH_FLOW_CHART_CONFIG}
+          initialDimension={CASH_FLOW_INITIAL_DIMENSION}
+          className="order-first @md:order-none aspect-auto h-[135px] w-full min-w-0"
+        >
+          <BarChart data={chartData} margin={CASH_FLOW_CHART_MARGIN}>
+            <YAxis {...CHART_AXIS_PROPS} tickFormatter={formatK} />
+            <XAxis dataKey="name" hide />
+            <ChartTooltip
+              content={
+                <ChartTooltipContent
+                  hideLabel
+                  formatter={tooltipFormatter}
+                />
+              }
+            />
+            <Bar dataKey="amount" radius={CASH_FLOW_BAR_RADIUS} isAnimationActive={false} />
+          </BarChart>
+        </ChartContainer>
       </CardContent>
-    </Card>
+    </DashboardCard>
   );
 }

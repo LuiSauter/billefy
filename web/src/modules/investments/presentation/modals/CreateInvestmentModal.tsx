@@ -14,7 +14,7 @@ import {
 } from "@/modules/ledger/domain/category.types";
 import { ACCOUNT_ICON_CHOICES } from "@/modules/ledger/domain/account-meta";
 import { CategoryIcon } from "@/modules/ledger/presentation/CategoryIcon";
-import { normalizeAmountString } from "@/shared/lib/keypad";
+import { toNumber } from "../parse-amount-input";
 import {
   POPULAR_CRYPTOS,
   fetchCryptoTicker,
@@ -57,11 +57,6 @@ const EXTENDED_ICONS: { key: CategoryIconKey; label: string }[] = [
   { key: "car" as CategoryIconKey, label: "Vehículo" },
   { key: "gift" as CategoryIconKey, label: "Colección" },
 ];
-
-function toNumber(raw: string): number {
-  const n = parseFloat(normalizeAmountString(raw.trim()) || "0");
-  return Number.isFinite(n) ? n : 0;
-}
 
 const POPULAR_STOCKS = [
   { symbol: "AAPL", name: "Apple Inc.", color: "blue" as CategoryColorKey },
@@ -154,8 +149,9 @@ export function CreateInvestmentModal({
   onFetchStockQuote,
   currency: defaultCurrency = "USD",
 }: CreateInvestmentModalProps) {
-  const [name, setName] = useState("");
-  const [ticker, setTicker] = useState("");
+  const [selectedCrypto, setSelectedCrypto] = useState<CryptoAssetMeta>(POPULAR_CRYPTOS[0]); // Default BTC
+  const [name, setName] = useState(`${selectedCrypto.name} (${selectedCrypto.symbol})`);
+  const [ticker, setTicker] = useState(selectedCrypto.symbol);
   const [kind, setKind] = useState<InvestmentKind>("crypto");
   const [iconKey, setIconKey] = useState<CategoryIconKey>("coins");
   const [colorKey, setColorKey] = useState<CategoryColorKey>("amber");
@@ -165,7 +161,6 @@ export function CreateInvestmentModal({
   const [submitting, setSubmitting] = useState(false);
 
   // Crypto Specific State
-  const [selectedCrypto, setSelectedCrypto] = useState<CryptoAssetMeta>(POPULAR_CRYPTOS[0]); // Default BTC
   const [cryptoSearch, setCryptoSearch] = useState("");
   const [liveTicker, setLiveTicker] = useState<CryptoTickerPrice | null>(null);
   const [loadingTicker, setLoadingTicker] = useState(false);

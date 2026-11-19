@@ -23,7 +23,7 @@ const errors = (buckets: PlanBucket[]) => validatePlan(buckets, ["food"]);
 function render(buckets: PlanBucket[], enabled = true) {
   const plan: DistributionPlan = { enabled, buckets };
   return renderToStaticMarkup(React.createElement(DistributionPlanView, {
-    controller: { plan, setBuckets: vi.fn(), setEnabled: vi.fn(), validationErrors: errors(buckets) },
+    controller: { plan, setBuckets: vi.fn(), setEnabled: vi.fn(), validationErrors: errors(buckets), loadStatus: "loaded", reloadPlan: vi.fn() },
     transactions: [], p2pRate: 7,
   }));
 }

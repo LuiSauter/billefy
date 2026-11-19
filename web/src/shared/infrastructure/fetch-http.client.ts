@@ -176,15 +176,22 @@ export class FetchHttpClient implements IHttpClient {
       } catch {
         // Fallback if response is not JSON
       }
-      throw new Error(
+      const error = new Error(
         problem.detail || problem.title || `API error: ${res.statusText}`
-      );
+      ) as Error & { code?: string };
+      error.code = problem.title;
+      throw error;
     }
 
     if (res.status === 204) {
       return {} as T;
     }
 
-    return res.json();
+    try {
+      return await res.json();
+    } catch {
+      // A 2xx response with an empty body (e.g. Results.Ok(null)) is not valid JSON.
+      return {} as T;
+    }
   }
 }

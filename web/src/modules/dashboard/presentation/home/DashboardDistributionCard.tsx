@@ -2,7 +2,13 @@
 
 import React from "react";
 import { Info, Home, Heart, TrendingUp, Layers } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
+import { CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
+import {
+  DashboardCard,
+  dashboardCardContentClassName,
+  dashboardCardHeaderClassName,
+  dashboardCardTitleClassName,
+} from "./dashboard-card";
 import { Amount } from "@/shared/ui/amount";
 import { useNumberPreferences } from "@/shared/hooks/use-number-format";
 import { formatPercent } from "@/shared/lib/amount-format";
@@ -40,9 +46,9 @@ export function DashboardDistributionCard({
     : `Distribución recomendada (${distribution.ruleLabel || "50/30/20"})`;
 
   return (
-    <Card className="rounded-2xl border-border/70 bg-card/60 backdrop-blur-xs shadow-xs overflow-hidden h-full">
-      <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between space-y-0">
-        <CardTitle className="text-base font-extrabold text-foreground flex items-center justify-between w-full">
+    <DashboardCard className="overflow-hidden h-full">
+      <CardHeader className={`${dashboardCardHeaderClassName} flex flex-row items-center justify-between space-y-0`}>
+        <CardTitle className={`${dashboardCardTitleClassName} flex items-center justify-between w-full`}>
           <div className="flex items-center gap-1.5 min-w-0">
             <span className="truncate">{title}</span>
             <Info className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
@@ -51,7 +57,7 @@ export function DashboardDistributionCard({
             <button
               type="button"
               onClick={onOpenPlanTab}
-              className="text-[11px] font-bold text-primary hover:underline transition shrink-0 cursor-pointer ml-2"
+              className="text-xs font-semibold text-primary hover:underline transition shrink-0 cursor-pointer ml-2"
             >
               Ajustar regla
             </button>
@@ -59,7 +65,7 @@ export function DashboardDistributionCard({
         </CardTitle>
       </CardHeader>
 
-      <CardContent className="p-4 pt-2 flex flex-col gap-4">
+      <CardContent className={`${dashboardCardContentClassName} flex flex-col gap-4`}>
         {/* Dynamic Multi-Color Segmented Horizontal Progress Bar */}
         <div className="w-full h-3 rounded-full overflow-hidden flex bg-muted/40 shadow-inner">
           {distribution.buckets.map((b) => {
@@ -102,7 +108,7 @@ export function DashboardDistributionCard({
                     className="w-3.5 h-3.5 shrink-0"
                     style={{ color: theme.swatchHex }}
                   />
-                  <span className="font-bold text-foreground truncate">
+                  <span className="font-semibold text-foreground truncate">
                     {formatPercent(bucket.percent, numberPreferences)}{" "}
                     <span className="font-semibold text-muted-foreground">
                       {bucket.name}
@@ -115,6 +121,6 @@ export function DashboardDistributionCard({
           })}
         </div>
       </CardContent>
-    </Card>
+    </DashboardCard>
   );
 }

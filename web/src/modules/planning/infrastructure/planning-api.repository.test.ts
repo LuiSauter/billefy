@@ -16,6 +16,20 @@ describe("planning read DTO transport", () => {
   });
 });
 
+describe("goal funding transport", () => {
+  it("preserves exact decimal strings and the caller's idempotency key for assign/release and reads history", async () => {
+    const http = { post: vi.fn().mockResolvedValue({ id: "entry-a" }), get: vi.fn().mockResolvedValue([]) } as unknown as IHttpClient;
+    const repo = new PlanningApiRepository(http);
+    const request = { amount: "700.01", currency: "BOB", occurredAt: "2027-01-12T12:00:00.000Z" };
+    await repo.recordGoalFunding("goal-a", "assign", request, "stable-key");
+    await repo.recordGoalFunding("goal-a", "release", request, "release-key");
+    expect(http.post).toHaveBeenNthCalledWith(1, "/v1/planning/goals/goal-a/funding/assign", request, { headers: { "Idempotency-Key": "stable-key" } });
+    expect(http.post).toHaveBeenNthCalledWith(2, "/v1/planning/goals/goal-a/funding/release", request, { headers: { "Idempotency-Key": "release-key" } });
+    expect(await repo.getGoalFunding("goal-a")).toEqual([]);
+    expect(http.get).toHaveBeenCalledWith("/v1/planning/goals/goal-a/funding");
+  });
+});
+
 describe("budget update transport", () => {
   it("PUTs only editable fields to the existing budget and accepts an empty 204 response", async () => {
     const fetchFn = vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status: 204 }));

@@ -5,6 +5,14 @@ import { ArrowLeftRight, TrendingUp, TrendingDown, Tag } from "lucide-react";
 import { AccountDto, TransactionDto } from "../../domain/ledger.types";
 import { calculateAccountPeriodStats } from "../../domain/account-detail";
 import { Amount } from "@/shared/ui/amount";
+import { CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
+import {
+  appCardContentClassName,
+  appCardHeaderClassName,
+  appCardTitleClassName,
+} from "@/shared/presentation/card-variants";
+import { IconTile } from "@/modules/dashboard/presentation/home/IconTile";
+import { AccountsCard } from "../AccountsCard";
 
 interface AccountPeriodStatsCardProps {
   account: AccountDto;
@@ -21,58 +29,52 @@ export function AccountPeriodStatsCard({
   }, [account, transactions]);
 
   return (
-    <div className="rounded-2xl bg-card border border-border/80 p-5 flex flex-col gap-4 shadow-sm">
-      <h3 className="text-base font-bold text-foreground tracking-tight">
-        Estadísticas del período
-      </h3>
+    <AccountsCard>
+      <CardHeader className={appCardHeaderClassName}>
+        <CardTitle className={appCardTitleClassName}>Estadísticas del período</CardTitle>
+      </CardHeader>
 
-      <div className="flex flex-col divide-y divide-border/60 text-xs font-medium">
-        {/* Movimientos totales */}
-        <div className="py-3 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5 text-muted-foreground">
-            <div className="w-6 h-6 rounded-lg bg-cyan-500/15 text-cyan-400 flex items-center justify-center shrink-0">
-              <ArrowLeftRight className="w-3.5 h-3.5" />
+      <CardContent className={appCardContentClassName}>
+        <div className="flex flex-col divide-y divide-border/60 text-xs font-medium">
+          {/* Movimientos totales */}
+          <div className="py-3 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 text-muted-foreground">
+              <IconTile icon={ArrowLeftRight} variant="cyan" size="sm" />
+              <span>Movimientos totales</span>
             </div>
-            <span>Movimientos totales</span>
+            <span className="font-bold text-foreground text-sm">
+              {stats.totalMovements}
+            </span>
           </div>
-          <span className="font-bold text-foreground text-sm">
-            {stats.totalMovements}
-          </span>
-        </div>
 
-        {/* Ingresos */}
-        <div className="py-3 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5 text-muted-foreground">
-            <div className="w-6 h-6 rounded-lg bg-emerald-500/15 text-emerald-400 flex items-center justify-center shrink-0">
-              <TrendingUp className="w-3.5 h-3.5 stroke-[2.5]" />
+          {/* Ingresos */}
+          <div className="py-3 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 text-muted-foreground">
+              <IconTile icon={TrendingUp} variant="emerald" size="sm" />
+              <span>Ingresos</span>
             </div>
-            <span>Ingresos</span>
+            <Amount value={stats.income} currency={account.currency} tone="income" size="sm" />
           </div>
-          <Amount value={stats.income} currency={account.currency} tone="income" size="sm" />
-        </div>
 
-        {/* Gastos */}
-        <div className="py-3 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5 text-muted-foreground">
-            <div className="w-6 h-6 rounded-lg bg-rose-500/15 text-rose-400 flex items-center justify-center shrink-0">
-              <TrendingDown className="w-3.5 h-3.5 stroke-[2.5]" />
+          {/* Gastos */}
+          <div className="py-3 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 text-muted-foreground">
+              <IconTile icon={TrendingDown} variant="rose" size="sm" />
+              <span>Gastos</span>
             </div>
-            <span>Gastos</span>
+            <Amount value={stats.expenses} currency={account.currency} tone="expense" size="sm" />
           </div>
-          <Amount value={stats.expenses} currency={account.currency} tone="expense" size="sm" />
-        </div>
 
-        {/* Ticket promedio (gasto) */}
-        <div className="py-3 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5 text-muted-foreground">
-            <div className="w-6 h-6 rounded-lg bg-purple-500/15 text-purple-400 flex items-center justify-center shrink-0">
-              <Tag className="w-3.5 h-3.5" />
+          {/* Ticket promedio (gasto) */}
+          <div className="py-3 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 text-muted-foreground">
+              <IconTile icon={Tag} variant="purple" size="sm" />
+              <span>Ticket promedio (gasto)</span>
             </div>
-            <span>Ticket promedio (gasto)</span>
+            <Amount value={stats.averageExpenseTicket} currency={account.currency} size="sm" />
           </div>
-          <Amount value={stats.averageExpenseTicket} currency={account.currency} size="sm" />
         </div>
-      </div>
-    </div>
+      </CardContent>
+    </AccountsCard>
   );
 }

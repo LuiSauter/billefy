@@ -44,4 +44,25 @@ describe("AccountsHeaderStats", () => {
     expect(html).toContain("Efectivo");
     expect(html).toContain("Otros");
   });
+
+  it("colors each category tile from the single shared category map", () => {
+    const html = renderToStaticMarkup(
+      <AccountsHeaderStats
+        metrics={mockMetrics}
+        currency="BOB"
+        onOpenCreateAccountModal={() => {}}
+      />
+    );
+
+    // bancos -> blue, wallets -> purple, cripto -> amber, efectivo -> emerald (IconTile palette)
+    expect(html).toContain("bg-blue-500/15");
+    expect(html).toContain("bg-purple-500/15");
+    expect(html).toContain("bg-amber-500/15");
+    expect(html).toContain("bg-emerald-500/15");
+    // BOB display currency shows the BOB total, with an ASCII-only sign convention
+    expect(html).toContain("Bs 244.871,00");
+    expect(html).not.toContain("\u2212");
+    // the emoji CSV icon is gone
+    expect(html).not.toContain("\u{1F4C4}");
+  });
 });

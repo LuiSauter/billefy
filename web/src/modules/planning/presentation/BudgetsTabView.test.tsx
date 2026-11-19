@@ -1,4 +1,6 @@
 import React from "react";
+import Decimal from "decimal.js";
+import type { DistributionPlan } from "../domain/distribution-plan";
 import { describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
@@ -87,7 +89,7 @@ describe("BudgetsTabView unified redesign", () => {
   });
 
   it("renders overrun indicator when category budgets exceed the distribution rule", () => {
-    const plan = {
+    const plan: DistributionPlan = {
       enabled: true,
       buckets: [
         {
@@ -156,10 +158,11 @@ describe("BudgetsTabView unified redesign", () => {
           {
             id: "tx-inc",
             accountId: "acc-1",
-            amount: "2000",
+            amount: new Decimal("2000"),
             currency: "BOB",
             direction: "Income",
             occurredAt: new Date().toISOString(),
+            createdAt: new Date().toISOString(),
           },
         ]}
         selectedCurrency="BOB"

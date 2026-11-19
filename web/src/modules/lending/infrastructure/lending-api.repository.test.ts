@@ -70,6 +70,15 @@ describe("LendingApiRepository payment quote and detail", () => {
 });
 
 describe("LendingApiRepository.registerLoanPayment", () => {
+  it("forwards operation keys as headers without changing exact purchase or payment amounts", async () => {
+    const post = vi.fn().mockResolvedValue({ id: "purchase" });
+    const repo = new LendingApiRepository({ post } as unknown as IHttpClient);
+    await repo.registerCardPurchase("card", { amount: "350.00", currency: "BOB", categoryId: "food", occurredAt: "2027-01-07T00:00:00Z", idempotencyKey: "purchase-key" });
+    expect(post).toHaveBeenLastCalledWith("/v1/loans/card/purchases", { amount: "350.00", currency: "BOB", categoryId: "food", occurredAt: "2027-01-07T00:00:00Z" }, { headers: { "Idempotency-Key": "purchase-key" } });
+    await repo.registerLoanPayment("card", { amount: "700.00", accountId: "bank", idempotencyKey: "payment-key" });
+    expect(post).toHaveBeenLastCalledWith("/v1/loans/card/payments", { amount: "700.00", accountId: "bank" }, { headers: { "Idempotency-Key": "payment-key" } });
+  });
+
   it("passes exact decimal amounts as JSON strings while preserving numeric callers", async () => {
     const post = vi.fn().mockResolvedValue({});
     const http = { post } as unknown as IHttpClient;

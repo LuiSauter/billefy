@@ -12,6 +12,8 @@ import {
   LoanSummaryDto,
   LoanType,
   RegisterLoanPaymentRequest,
+  RegisterCardPurchaseRequest,
+  CardPurchaseDto,
   SimulateLoanRequest,
 } from "../domain/lending.types";
 
@@ -49,8 +51,18 @@ export class LendingApiRepository implements ILendingRepository {
     return this.http.post<LoanScheduleDto>("/v1/loans/simulate", req);
   }
 
+  private postWithKey<T>(path: string, req: { idempotencyKey?: string }): Promise<T> {
+    if (!req.idempotencyKey) return this.http.post<T>(path, req);
+    const { idempotencyKey, ...body } = req;
+    return this.http.post<T>(path, body, { headers: { "Idempotency-Key": idempotencyKey } });
+  }
+
   async createLoan(req: CreateLoanRequest): Promise<{ id: string }> {
-    return this.http.post<{ id: string }>("/v1/loans", req);
+    return this.postWithKey<{ id: string }>("/v1/loans", req);
+  }
+
+  async registerCardPurchase(loanId: string, req: RegisterCardPurchaseRequest): Promise<{ id: string }> {
+    return this.postWithKey<{ id: string }>(`/v1/loans/${loanId}/purchases`, req);
   }
 
   async getLoans(type?: LoanType, status?: string): Promise<LoanSummaryDto[]> {
@@ -67,6 +79,7 @@ export class LendingApiRepository implements ILendingRepository {
   async getLoanById(id: string): Promise<LoanDetailDto> {
     interface RawLoanDetail {
       summary: RawLoanSummary;
+      purchases?: (Omit<CardPurchaseDto, "amount"> & { amount: RawMoney })[];
       installments: {
         id: string;
         number: number;
@@ -95,6 +108,7 @@ export class LendingApiRepository implements ILendingRepository {
 
     return {
       summary: mapSummary(raw.summary),
+      purchases: raw.purchases?.map(purchase => ({ ...purchase, amount: toDecimal(purchase.amount) })),
       installments: raw.installments.map((i) => ({
         ...i,
         expectedPrincipal: toDecimal(i.expectedPrincipal),
@@ -156,6 +170,6 @@ export class LendingApiRepository implements ILendingRepository {
     loanId: string,
     req: RegisterLoanPaymentRequest
   ): Promise<LoanPaymentResultDto> {
-    return this.http.post<LoanPaymentResultDto>(`/v1/loans/${loanId}/payments`, req);
+    return this.postWithKey<LoanPaymentResultDto>(`/v1/loans/${loanId}/payments`, req);
   }
 }

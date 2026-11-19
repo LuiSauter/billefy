@@ -2,6 +2,7 @@
 import React, { useRef, useState } from "react";
 import Decimal from "decimal.js";
 import { AccountDto, RegisterTransferRequest } from "../domain/ledger.types";
+import { combineDateAndTimeToIso, getLocalTimeString } from "../application/useTransactionFormDraft";
 import { Amount } from "@/shared/ui/amount";
 import { Button } from "@/shared/ui/button";
 import { FormField, FormGrid } from "@/shared/ui/form-field";
@@ -16,6 +17,7 @@ export function MovementTransferModal({ isOpen, accounts, onClose, onSubmit }: P
   const [destinationId, setDestinationId] = useState(accounts[1]?.id || accounts[0]?.id || "");
   const [sourceAmount, setSourceAmount] = useState(""); const [rate, setRate] = useState(""); const [description, setDescription] = useState("");
   const [pending, setPending] = useState(false); const pendingLock = useRef(false); const [error, setError] = useState("");
+  const [date, setDate] = useState(""); const [time, setTime] = useState(getLocalTimeString());
   if (!isOpen) return null;
   const source = accounts.find(a => a.id === sourceId); const destination = accounts.find(a => a.id === destinationId);
   const sourceCurrency = source?.currency; const destinationCurrency = destination?.currency;
@@ -34,7 +36,7 @@ export function MovementTransferModal({ isOpen, accounts, onClose, onSubmit }: P
     if (!valid || pendingLock.current || !source || !destination) return;
     pendingLock.current = true; setPending(true); setError("");
     try {
-      await onSubmit({ sourceAccountId: source.id, sourceAmount, destinationAccountId: destination.id, destinationAmount: destinationValue, ...(supportedFx ? { appliedRate: rateValue!.toFixed(6), rateSource: "Manual" } : {}), description: description.trim() || undefined });
+      await onSubmit({ sourceAccountId: source.id, sourceAmount, destinationAccountId: destination.id, destinationAmount: destinationValue, ...(supportedFx ? { appliedRate: rateValue!.toFixed(6), rateSource: "Manual" } : {}), description: description.trim() || undefined, ...(date ? { occurredAt: combineDateAndTimeToIso(date, time) } : {}) });
       onClose();
     } catch (reason) { setError(reason instanceof Error ? reason.message : "No se pudo registrar la transferencia. El resultado puede ser desconocido; verifica el historial antes de intentarlo otra vez."); }
     finally { pendingLock.current = false; setPending(false); }
@@ -47,6 +49,8 @@ export function MovementTransferModal({ isOpen, accounts, onClose, onSubmit }: P
           <FormField label="Monto origen">{(control) => <MoneyInput {...control} aria-label="Monto origen" currency={sourceCurrency || "BOB"} maxDecimals={6} value={sourceAmount} onValueChange={setSourceAmount} />}</FormField>
           <FormField label="Cuenta destino">{(control) => <SelectField {...control} aria-label="Cuenta destino" value={destinationId} onChange={e => setDestinationId(e.target.value)} options={accounts.map(a => ({ value: a.id, label: `${a.name} · ${a.currency}` }))} />}</FormField>
           {supportedFx && <FormField label="Tasa manual BOB por USD" hint="Ingresá la cotización acordada. Se enviará con origen Manual, no como tasa de mercado.">{(control) => <Input {...control} aria-label="Tasa manual BOB por USD" inputMode="decimal" value={rate} onChange={e => setRate(e.target.value)} />}</FormField>}
+          <FormField label="Fecha" hint="Opcional. Sin fecha se usa la fecha y hora actual al registrar.">{(control) => <Input {...control} aria-label="Fecha" type="date" value={date} onChange={e => setDate(e.target.value)} />}</FormField>
+          {date && <FormField label="Hora" hint="Fecha y hora en tu zona horaria local.">{(control) => <Input {...control} aria-label="Hora" type="time" required value={time} onChange={e => setTime(e.target.value)} />}</FormField>}
           <FormField label="Descripción">{(control) => <Input {...control} aria-label="Descripción" value={description} onChange={e => setDescription(e.target.value)} />}</FormField>
         </FormGrid>
         {destinationValue && destinationCurrency && <p className="text-sm">Monto destino calculado: <Amount value={destinationValue} currency={destinationCurrency} size="sm" /></p>}

@@ -28,27 +28,36 @@ export interface FinancialReportParams {
   selectedCurrency?: string;
   /** BOB per USD. Required only for nonzero cross-currency amounts. */
   p2pRate?: number;
+  /**
+   * Category id -> display name lookup (e.g. the user's category list). Used when
+   * a transaction/allocation carries only an id; ids are matched case-insensitively.
+   */
+  categoryNames?: ReadonlyMap<string, string>;
 }
 
 export interface FinancialReport {
   kpis: {
     totalIncome: number;
-    incomeGrowthPct: number;
+    /** Growth fields are null when the prior period has no baseline to compare against. */
+    incomeGrowthPct: number | null;
     totalExpenses: number;
-    expensesGrowthPct: number;
+    expensesGrowthPct: number | null;
     savingsAndInvestments: number;
-    savingsGrowthPct: number;
+    savingsGrowthPct: number | null;
     netBalance: number;
-    netBalanceGrowthPct: number;
+    netBalanceGrowthPct: number | null;
   };
   cashFlowEvolution: { month: string; monthKey: string; income: number; expenses: number; net: number }[];
   categoryExpenses: { category: string; amount: number; percentage: number }[];
   netWorthEvolution: { month: string; monthKey: string; netWorth: number }[];
   periodSummary: {
-    savingsRatio: number;
-    netWorthGrowthPct: number;
+    /** Null when there is no income in the period. */
+    savingsRatio: number | null;
+    /** Null when there is no non-zero net-worth baseline. */
+    netWorthGrowthPct: number | null;
     debtRatio: number;
-    budgetCompliance: number;
+    /** Null when there is no planned budget to execute against. */
+    budgetCompliance: number | null;
   };
   conclusion: {
     title: string;
@@ -70,13 +79,21 @@ function output(value: Decimal, places = 6): number {
   if (!Number.isFinite(result)) throw new RangeError("Report value exceeds the supported numeric range.");
   return result;
 }
-function ratio(part: Decimal, total: Decimal): Decimal {
-  return total.isZero() ? new D(0) : part.div(total).times(100);
+/** A zero denominator has no defined percentage; return null (unavailable), never an invented 0%. */
+function ratio(part: Decimal, total: Decimal): Decimal | null {
+  return total.isZero() ? null : part.div(total).times(100);
 }
-/** A zero baseline has no defined percentage change; return 0, not invented growth. */
-function growth(current: Decimal, previous: Decimal): Decimal {
+/** A zero baseline has no defined percentage change; return null, not invented growth. */
+function growth(current: Decimal, previous: Decimal): Decimal | null {
   return ratio(current.minus(previous), previous.abs());
 }
+function orZero(value: Decimal | null): Decimal {
+  return value ?? new D(0);
+}
+function percent(value: Decimal | null, places = 2): number | null {
+  return value === null ? null : output(value, places);
+}
+const UUID_LIKE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function date(value: string | Date): Date | undefined {
   const result = new Date(value);
   return Number.isFinite(result.getTime()) ? result : undefined;
@@ -125,12 +142,12 @@ function converter(selectedCurrency: string, p2pRate?: number) {
  * Budget execution is expenses / planned limits (not a capped health score).
  * Active recurring limits are normalized to monthly amounts and counted for
  * each eligible month; the current partial month uses its full monthly limit.
- * Missing baselines/budgets yield 0; positive debt with no assets yields a 100%
- * risk sentinel. The narrative explains missing data rather than praising it.
+ * Missing baselines/budgets/income yield null (unavailable, not 0%); positive debt
+ * with no assets yields a 100% risk sentinel. The narrative explains missing data rather than praising it.
  */
 export function calculateFinancialReport({
   transactions, accounts, loans = [], budgets = [], periodMonths = 6,
-  referenceDate = new Date(), selectedCurrency = "BOB", p2pRate,
+  referenceDate = new Date(), selectedCurrency = "BOB", p2pRate, categoryNames: categoryLookup,
 }: FinancialReportParams): FinancialReport {
   if (!Number.isSafeInteger(periodMonths) || periodMonths < 1) throw new RangeError("periodMonths must be a positive integer.");
   const reference = date(referenceDate);
@@ -145,7 +162,7 @@ export function calculateFinancialReport({
     const at = date(transaction.occurredAt);
     return at && at <= reference ? [{ transaction, at }] : [];
   });
-  const flows = getActiveFlowTransactions(dated.map((item) => item.transaction)).flatMap((transaction) => {
+  const flows = getActiveFlowTransactions(dated.map((item) => item.transaction)).filter(tx => tx.loanCashKind !== "Principal").flatMap((transaction) => {
     const at = date(transaction.occurredAt)!;
     return at >= priorStart ? [{ transaction, at, value: convert(transaction.amount, transaction.currency) }] : [];
   });
@@ -163,15 +180,20 @@ export function calculateFinancialReport({
     return { ...monthInfo(month), income: output(flow.income), expenses: output(flow.expenses), net: output(flow.net) };
   });
 
+  // Names supplied by the caller's category list, overridden by names carried on allocations.
   const categoryNames = new Map<string, string>();
+  for (const [id, name] of categoryLookup ?? []) {
+    if (name.trim()) categoryNames.set(id.trim().toLowerCase(), name.trim());
+  }
   for (const { transaction } of flows) {
     for (const allocation of transaction.allocations ?? []) {
-      if (allocation.categoryName) categoryNames.set(allocation.categoryId, allocation.categoryName);
+      if (allocation.categoryName) categoryNames.set(allocation.categoryId.trim().toLowerCase(), allocation.categoryName);
     }
   }
   const categories = new Map<string, Decimal>();
   const addCategory = (id: string | undefined, value: Decimal) => {
-    const label = id ? categoryNames.get(id) ?? id : "Sin categoría";
+    // Unresolvable GUIDs are internal identifiers: never show them to the user.
+    const label = id ? categoryNames.get(id.trim().toLowerCase()) ?? (UUID_LIKE.test(id.trim()) ? "Sin categoría" : id) : "Sin categoría";
     categories.set(label, (categories.get(label) ?? new D(0)).plus(value));
   };
   for (const { transaction, at, value } of flows) {
@@ -192,10 +214,10 @@ export function calculateFinancialReport({
   }
   const categoryExpenses = [...categories].filter(([, value]) => value.gt(0))
     .sort(([a, av], [b, bv]) => bv.comparedTo(av) || a.localeCompare(b))
-    .map(([category, value]) => ({ category, amount: output(value), percentage: output(ratio(value, current.expenses), 2) }));
+    .map(([category, value]) => ({ category, amount: output(value), percentage: output(orZero(ratio(value, current.expenses)), 2) }));
 
   const accountIds = new Set(accounts.map((item) => item.id));
-  const movements = dated.filter((item) => accountIds.has(item.transaction.accountId)).map(({ transaction, at }) => {
+  const movements = dated.filter((item) => accountIds.has(item.transaction.accountId) && item.transaction.loanCashKind !== "CardPurchase").map(({ transaction, at }) => {
     const value = convert(transaction.amount, transaction.currency);
     return { accountId: transaction.accountId, at, signed: transaction.direction === "Income" ? value : value.negated() };
   });
@@ -231,36 +253,39 @@ export function calculateFinancialReport({
   }));
   const savingsRatio = ratio(current.net, current.income);
   const netWorthGrowth = growth(latest.net, baseline.net);
-  const debtRatio = latest.assets.gt(0) ? ratio(latest.debt, latest.assets) : latest.debt.gt(0) ? new D(100) : new D(0);
+  const netWorthGrowthValue = orZero(netWorthGrowth);
+  const debtRatio = latest.assets.gt(0) ? orZero(ratio(latest.debt, latest.assets)) : latest.debt.gt(0) ? new D(100) : new D(0);
   const budgetCompliance = ratio(current.expenses, planned);
   const noFlows = current.income.isZero() && current.expenses.isZero();
+  const savingsRatioValue = orZero(savingsRatio);
+  const budgetComplianceValue = orZero(budgetCompliance);
   const healthStatus: FinancialReport["conclusion"]["healthStatus"] = current.net.lt(0) || debtRatio.gte(50) ? "critical"
-    : noFlows || savingsRatio.lt(10) || debtRatio.gte(30) || budgetCompliance.gt(100) ? "warning"
-      : savingsRatio.gte(20) ? "excellent" : "good";
+    : noFlows || savingsRatioValue.lt(10) || debtRatio.gte(30) || budgetComplianceValue.gt(100) ? "warning"
+      : savingsRatioValue.gte(20) ? "excellent" : "good";
   const healthLabels = { excellent: "excelente", good: "buena", warning: "requiere atención", critical: "crítica" };
   const narrative = [
     noFlows ? "No hay ingresos ni gastos operativos registrados en el período; faltan datos para evaluar tu ahorro."
       : current.income.isZero() ? "Hay gastos sin ingresos registrados: revisa cómo estás financiando el período."
-        : `Tu salud financiera ${healthStatus === "warning" ? "requiere atención" : `es ${healthLabels[healthStatus]}`}. Tu ratio de ahorro es ${savingsRatio.toFixed(1)}%${savingsRatio.gte(20) ? ", por encima del objetivo del 20%" : "; procura alcanzar el objetivo del 20%"}.`,
+        : `Tu salud financiera ${healthStatus === "warning" ? "requiere atención" : `es ${healthLabels[healthStatus]}`}. Tu ratio de ahorro es ${savingsRatioValue.toFixed(1)}%${savingsRatioValue.gte(20) ? ", por encima del objetivo del 20%" : "; procura alcanzar el objetivo del 20%"}.`,
     current.net.lt(0) ? "Tus gastos superan tus ingresos; prioriza reducir el déficit antes de invertir más." : "",
     baseline.net.isZero() ? "No hay una base patrimonial previa distinta de cero para calcular el crecimiento."
-      : `Tu patrimonio neto ${netWorthGrowth.gte(0) ? "creció" : "disminuyó"} ${netWorthGrowth.abs().toFixed(1)}% respecto al cierre anterior al período.`,
+      : `Tu patrimonio neto ${netWorthGrowthValue.gte(0) ? "creció" : "disminuyó"} ${netWorthGrowthValue.abs().toFixed(1)}% respecto al cierre anterior al período.`,
     latest.debt.gt(0) && latest.assets.isZero() ? "Tienes deuda sin activos registrados; el riesgo de endeudamiento es alto."
       : `Tu endeudamiento es ${debtRatio.toFixed(1)}% de los activos${debtRatio.lt(30) ? ", en un nivel saludable" : "; reduce la deuda hacia un nivel inferior al 30%"}.`,
     planned.isZero() ? "Sin presupuesto disponible: no es posible evaluar su cumplimiento."
-      : `Ejecutaste el ${budgetCompliance.toFixed(1)}% del gasto planificado${budgetCompliance.gt(100) ? "; revisa los excesos" : ", dentro del límite"}.`,
+      : `Ejecutaste el ${budgetComplianceValue.toFixed(1)}% del gasto planificado${budgetComplianceValue.gt(100) ? "; revisa los excesos" : ", dentro del límite"}.`,
     categoryExpenses[0] ? `La mayor concentración de gastos está en ${categoryExpenses[0].category} (${new D(categoryExpenses[0].percentage).toFixed(1)}%); revisa allí las oportunidades de ahorro.` : "",
     "La evolución patrimonial es una estimación basada en las cuentas y préstamos suministrados, sin valoraciones históricas de inversiones ni amortizaciones no informadas.",
   ].filter(Boolean).join(" ");
 
   return {
-    kpis: { totalIncome: output(current.income), incomeGrowthPct: output(growth(current.income, previous.income), 2),
-      totalExpenses: output(current.expenses), expensesGrowthPct: output(growth(current.expenses, previous.expenses), 2),
-      savingsAndInvestments: output(current.savings), savingsGrowthPct: output(growth(current.savings, previous.savings), 2),
-      netBalance: output(current.net), netBalanceGrowthPct: output(growth(current.net, previous.net), 2) },
+    kpis: { totalIncome: output(current.income), incomeGrowthPct: percent(growth(current.income, previous.income)),
+      totalExpenses: output(current.expenses), expensesGrowthPct: percent(growth(current.expenses, previous.expenses)),
+      savingsAndInvestments: output(current.savings), savingsGrowthPct: percent(growth(current.savings, previous.savings)),
+      netBalance: output(current.net), netBalanceGrowthPct: percent(growth(current.net, previous.net)) },
     cashFlowEvolution, categoryExpenses, netWorthEvolution,
-    periodSummary: { savingsRatio: output(savingsRatio, 2), netWorthGrowthPct: output(netWorthGrowth, 2),
-      debtRatio: output(debtRatio, 2), budgetCompliance: output(budgetCompliance, 2) },
+    periodSummary: { savingsRatio: percent(savingsRatio), netWorthGrowthPct: percent(netWorthGrowth),
+      debtRatio: output(debtRatio, 2), budgetCompliance: percent(budgetCompliance) },
     conclusion: { title: "Conclusión del período", narrative, healthStatus },
   };
 }

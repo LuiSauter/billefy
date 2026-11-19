@@ -4,9 +4,14 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DashboardHomeView, type DashboardHomeViewProps } from "./DashboardHomeView";
 import { AccountDto, TransactionDto } from "@/modules/ledger/domain/ledger.types";
+import { calculateBalanceMetrics } from "@/modules/ledger/domain/balance-calculator";
 import { LoanSummaryDto } from "@/modules/lending/domain/lending.types";
 import { Investment } from "@/modules/investments/domain/investment.types";
 import { UserDto } from "@/modules/identity/domain/identity.types";
+
+vi.mock("@/modules/identity/application/AuthContext", () => ({
+  useAuth: () => ({ isAuthenticated: true, user: { id: "usr-1" } }),
+}));
 
 const mockUser: UserDto = {
   id: "usr-1",
@@ -115,7 +120,7 @@ const mockInvestments: Investment[] = [
     currentValue: 6200,
     initialValue: 5500,
     quantity: 0.1,
-    iconKey: "crypto",
+    iconKey: "coins",
     colorKey: "amber",
     history: [],
     createdAt: "2026-01-01T00:00:00Z",
@@ -128,8 +133,8 @@ const mockInvestments: Investment[] = [
     currentValue: 18000,
     initialValue: 16800,
     quantity: 35,
-    iconKey: "bank",
-    colorKey: "purple",
+    iconKey: "landmark",
+    colorKey: "violet",
     history: [],
     createdAt: "2026-01-01T00:00:00Z",
   },
@@ -137,16 +142,14 @@ const mockInvestments: Investment[] = [
 
 const mockProps: DashboardHomeViewProps = {
   user: mockUser,
-  metrics: {
-    totalBalance: 24860,
-    monthlyIncome: 6800,
-    monthlyExpenses: 4120,
-    savingsRate: 20,
-    bobTotal: 0,
-    usdTotal: 24860,
-    consolidatedUsd: 24860,
-    totalDebt: 31660,
-  },
+  metrics: calculateBalanceMetrics({
+    accounts: mockAccounts,
+    loans: mockLoans,
+    bobTotal: new Decimal(0),
+    usdTotal: new Decimal(24860),
+    consolidatedUsd: new Decimal(24860),
+    p2pRate: 10,
+  }),
   accounts: mockAccounts,
   accountsMap: new Map(),
   drafts: [],
@@ -244,6 +247,42 @@ describe("DashboardHomeView Redesign Integration", () => {
     expect(html).toContain("Insights y recomendaciones");
     expect(html).toContain("patrimonio");
     expect(html).toContain("Ver plan de acción");
+  });
+
+  it("uses the unified dashboard typography scale and shared card variant", () => {
+    const html = renderToStaticMarkup(<DashboardHomeView {...mockProps} />);
+
+    expect(html).not.toMatch(/text-\[1[01]px\]/);
+    expect(html).not.toContain("font-black");
+    expect(html).not.toContain("text-[28px]");
+    expect(html).toContain("text-base font-extrabold");
+    expect(html).toContain("bg-card/60 backdrop-blur-xs");
+  });
+
+  it("lays out card internals by container width, past @lg so a ~468-500px narrow-viewport card stays stacked", () => {
+    const html = renderToStaticMarkup(<DashboardHomeView {...mockProps} />);
+
+    expect(html).toContain("@lg:grid-cols-[1.1fr_1.3fr]");
+    expect(html).not.toContain("sm:grid-cols-[1.1fr_1.3fr]");
+    expect(html).not.toContain("@md:grid-cols-[1.1fr_1.3fr]");
+  });
+
+  it("renders the onboarding banner as a stacking Card when there are no accounts", () => {
+    const html = renderToStaticMarkup(
+      <DashboardHomeView {...mockProps} accounts={[]} transactions={[]} loans={[]} investments={[]} />
+    );
+
+    expect(html).toContain("¡Te damos la bienvenida a Billefy! Vincula tu primera cuenta");
+    expect(html).toContain("+ Vincular Cuenta");
+    expect(html).toContain("flex-col");
+    expect(html).toContain("sm:flex-row");
+    expect(html).toContain('data-slot="card-content"');
+  });
+
+  it("does not render the onboarding banner when accounts exist", () => {
+    const html = renderToStaticMarkup(<DashboardHomeView {...mockProps} />);
+
+    expect(html).not.toContain("Te damos la bienvenida");
   });
 
   it("renders custom user-configured distribution plan rule and buckets when enabled", () => {

@@ -79,6 +79,12 @@ export function MovementActions({ http, movement, accounts, auditMode = false, o
   };
   const title = mode === "reverse" ? "Confirmar reversión" : mode === "duplicate" ? "Duplicar transacción" : "Editar transacción";
   const close = () => { if (!pending) setMode(null); };
+  if (movement.investmentCashKind === "Dividend") return <p className="mt-4 border-t border-border pt-3 text-sm text-muted-foreground">
+    Cobro vinculado a una inversión. No se puede editar, duplicar ni revertir por separado; consultá el historial de la inversión.
+  </p>;
+  if (movement.loanId) return <p className="mt-4 border-t border-border pt-3 text-sm text-muted-foreground">
+    Movimiento vinculado a un préstamo o tarjeta. No se puede editar, duplicar ni revertir por separado; consulta el detalle de la deuda.
+  </p>;
   if (!movement.isReversal) return <div className="mt-4 border-t border-border pt-4"><h3 className="mb-2 text-sm font-semibold">Acciones</h3><div className="grid gap-2">
     {!investment && !auditMode && <Button variant="outline" className="w-full justify-start text-left" onClick={() => start("edit")}>Editar transacción</Button>}
     {!investment && <Button variant="outline" className="w-full justify-start text-left" onClick={() => start("duplicate")}>Duplicar</Button>}

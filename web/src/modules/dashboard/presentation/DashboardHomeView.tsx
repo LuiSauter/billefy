@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { Landmark, PlusCircle } from "lucide-react";
+import { Card, CardContent } from "@/shared/ui/card";
 import { AccountDto, TransactionDto } from "@/modules/ledger/domain/ledger.types";
 import { DraftDto } from "@/modules/ingestion/domain/ingestion.types";
 import { LoanSummaryDto } from "@/modules/lending/domain/lending.types";
@@ -22,6 +23,7 @@ import { DashboardAssetsCard } from "./home/DashboardAssetsCard";
 import { DashboardNetWorthEvolutionCard } from "./home/DashboardNetWorthEvolutionCard";
 import { DashboardTopInvestmentsCard } from "./home/DashboardTopInvestmentsCard";
 import { DashboardInsightsCard } from "./home/DashboardInsightsCard";
+import { IconTile } from "./home/IconTile";
 import { DraftsInbox } from "@/modules/ingestion/presentation/DraftsInbox";
 
 export interface DashboardHomeViewProps {
@@ -129,9 +131,9 @@ export function DashboardHomeView({
     distributionPlan,
   ]);
 
-  const handleSelectMonth = (newYear: number, newMonth: number) => {
+  const handleSelectMonth = useCallback((newYear: number, newMonth: number) => {
     setCurrentDate(new Date(newYear, newMonth, 1));
-  };
+  }, []);
 
   return (
     <div className="flex flex-col gap-6 w-full">
@@ -145,28 +147,28 @@ export function DashboardHomeView({
 
       {/* Onboarding Banner when 0 accounts */}
       {!hasAccounts && (
-        <div className="flex items-center justify-between p-5 rounded-2xl bg-gradient-to-r from-blue-950/60 via-indigo-950/40 to-card border border-primary/30 shadow-xs">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-primary text-white flex items-center justify-center shrink-0 shadow-xs">
-              <Landmark className="w-6 h-6" />
+        <Card className="bg-gradient-to-r from-blue-950/60 via-indigo-950/40 to-card border-primary/30">
+          <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 items-center gap-4">
+              <IconTile icon={Landmark} variant="primary" size="xl" />
+              <div className="flex flex-col">
+                <h3 className="text-base font-extrabold text-foreground">
+                  ¡Te damos la bienvenida a Billefy! Vincula tu primera cuenta
+                </h3>
+                <p className="text-xs font-medium text-muted-foreground mt-0.5">
+                  Para empezar a registrar movimientos, transferencias FX y presupuestos, vincula tu cuenta bancaria o billetera digital.
+                </p>
+              </div>
             </div>
-            <div className="flex flex-col">
-              <h3 className="text-sm font-extrabold text-foreground">
-                ¡Te damos la bienvenida a Billefy! Vincula tu primera cuenta
-              </h3>
-              <p className="text-xs font-medium text-muted-foreground mt-0.5">
-                Para empezar a registrar movimientos, transferencias FX y presupuestos, vincula tu cuenta bancaria o billetera digital.
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={onOpenCreateAccountModal}
-            className="h-9 px-4 rounded-xl bg-primary hover:bg-blue-600 text-white text-xs font-bold transition flex items-center gap-2 shadow-xs shrink-0"
-          >
-            <PlusCircle className="w-4 h-4" />
-            <span>+ Vincular Cuenta</span>
-          </button>
-        </div>
+            <button
+              onClick={onOpenCreateAccountModal}
+              className="h-9 w-full sm:w-auto px-4 rounded-xl bg-primary hover:bg-blue-600 text-white text-xs font-semibold transition flex items-center justify-center gap-2 shadow-xs shrink-0"
+            >
+              <PlusCircle className="w-4 h-4" />
+              <span>+ Vincular Cuenta</span>
+            </button>
+          </CardContent>
+        </Card>
       )}
 
       {/* 2. Top 4 Hero KPI Cards (Patrimonio Neto, Activos, Pasivos, Saldo total) */}
@@ -177,15 +179,17 @@ export function DashboardHomeView({
 
       {/* Optional Drafts Banner if user has pending captures */}
       {drafts.length > 0 && (
-        <div className="rounded-2xl border border-purple-500/30 bg-purple-500/5 p-4">
-          <DraftsInbox
-            drafts={drafts}
-            accounts={accounts}
-            onConfirmDraft={onConfirmDraft}
-            onDiscardDraft={onDiscardDraft}
-            onConfirmAll={onConfirmAllDrafts}
-          />
-        </div>
+        <Card className="border-purple-500/30 bg-purple-500/5 shadow-none">
+          <CardContent className="p-4">
+            <DraftsInbox
+              drafts={drafts}
+              accounts={accounts}
+              onConfirmDraft={onConfirmDraft}
+              onDiscardDraft={onDiscardDraft}
+              onConfirmAll={onConfirmAllDrafts}
+            />
+          </CardContent>
+        </Card>
       )}
 
       {/* 3. Middle Section: 3 Columns Grid */}

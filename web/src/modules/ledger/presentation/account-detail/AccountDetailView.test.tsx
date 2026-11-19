@@ -139,4 +139,21 @@ describe("AccountDetailView", () => {
     expect(html).toContain("Bs.");
     expect(html).toContain("Eliminar cuenta");
   });
+
+  it("marks only the active tab with the shared primary active-state convention", () => {
+    const html = renderToStaticMarkup(
+      <AccountDetailView
+        account={mockAccount}
+        transactions={mockTransactions}
+        onBack={vi.fn()}
+        onOpenReconcileModal={vi.fn()}
+        onOpenEditAccountModal={vi.fn()}
+      />
+    );
+
+    expect(html.match(/aria-pressed="true"/g)).toHaveLength(1);
+    expect(html.match(/aria-pressed="false"/g)).toHaveLength(3);
+    expect(html).not.toContain("py-0.2");
+    expect(html).not.toContain("bg-purple-600");
+  });
 });

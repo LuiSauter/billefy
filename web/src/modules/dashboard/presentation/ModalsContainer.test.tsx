@@ -8,7 +8,44 @@ function elements(tree: React.ReactNode): React.ReactElement<Record<string, unkn
   if (!React.isValidElement<Record<string, unknown>>(tree)) return [];
   return [tree, ...elements(tree.props.children as React.ReactNode)];
 }
+describe("ModalsContainer transfer dates", () => {
+  it.each([
+    { native: true, occurredAt: "2027-01-15T13:30:00.000Z" },
+    { native: true, occurredAt: undefined },
+    { native: false, occurredAt: "2027-01-15T13:30:00.000Z" },
+    { native: false, occurredAt: undefined },
+  ])("forwards date $occurredAt with native=$native, preserving old no-date consumers", async ({ native, occurredAt }) => {
+    const actions = { executeFxTransfer: native ? vi.fn() : undefined, registerTransaction: vi.fn() };
+    const tree = ModalsContainer({ modals: { isFxTransferOpen: true }, actions, accounts: [], pendingDrafts: [], p2pRate: 10, selectedCurrency: "BOB", onSelectCurrency: vi.fn() } as unknown as Parameters<typeof ModalsContainer>[0]);
+    const modal = elements(tree).find(element => (element.type as unknown as { loader?: string }).loader?.includes("presentation/FxTransferModal"))!;
+    const date = occurredAt ? { occurredAt } : {};
+    const data = { fromAccountId: "bob", toAccountId: "usd", amount: "10.00", description: "FX", ...date };
+    await (modal.props.onConfirmTransfer as (input: typeof data) => Promise<void>)(data);
+    if (native) {
+      expect(actions.executeFxTransfer).toHaveBeenCalledExactlyOnceWith({ ...data, p2pRate: 10 });
+      expect(actions.registerTransaction).not.toHaveBeenCalled();
+    } else {
+      expect(actions.registerTransaction).toHaveBeenCalledExactlyOnceWith({ accountId: "bob", amount: "10.00", direction: "Expense", description: "FX", ...date });
+    }
+  });
+});
+
 describe("ModalsContainer detail collection transition", () => {
+  it("closes loan detail before opening a card purchase, preserving the selected identity", () => {
+    const order: string[] = [];
+    const modals = { isLoanDetailModalOpen: true, selectedLoanDetail: { id: "card-1" },
+      closeLoanDetail: vi.fn(() => order.push("close-detail")) };
+    const openPurchase = vi.fn((id: string) => { order.push(`purchase:${id}`); });
+    const tree = ModalsContainer({ modals, actions: {}, accounts: [], pendingDrafts: [],
+      p2pRate: 10, selectedCurrency: "BOB", onSelectCurrency: vi.fn(), onOpenCardPurchase: openPurchase
+    } as unknown as Parameters<typeof ModalsContainer>[0]);
+    const detail = elements(tree).find(element => (element.type as unknown as { loader?: string }).loader?.includes("presentation/LoanDetailModal"))!;
+    expect(detail.props.onOpenCardPurchase).toBeTypeOf("function");
+    (detail.props.onOpenCardPurchase as (id: string) => void)("card-1");
+    expect(order).toEqual(["close-detail", "purchase:card-1"]);
+    expect(openPurchase).toHaveBeenCalledExactlyOnceWith("card-1");
+  });
+
   it("closes detail before opening the same loan collection flow", () => {
     const order: string[] = [];
     const openPayment = vi.fn((id: string) => { order.push(`payment:${id}`); });

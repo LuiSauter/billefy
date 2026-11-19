@@ -14,4 +14,10 @@ describe("StockPicker", () => {
 
     expect(html).toContain("Buscar por ticker o nombre");
   });
+
+  it("uses the shared Input and keeps the list closed until it is focused", () => {
+    const html = renderToStaticMarkup(<StockPicker selectedTicker="" onSelectStock={vi.fn()} />);
+    expect(html).toContain('data-slot="input"');
+    expect(html).not.toContain("Sugeridos:");
+  });
 });

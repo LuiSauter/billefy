@@ -228,9 +228,9 @@ describe("RegisterOperationModal", () => {
     expect(field(tree, "Monto en dólares que vas a recibir").props.value).toBe("50");
   });
 
-  it.each(["stocks", "realestate"] as const)("keeps the %s dividend/rent payload and optional account choice", async (kind) => {
+  it.each(["stocks", "realestate"] as const)("requires a same-currency cash account for the %s dividend/rent payload", async (kind) => {
     const onConfirmOperation = vi.fn().mockResolvedValue(undefined);
-    const props = { investment: { ...mockInvestment, kind }, onConfirmOperation };
+    const props = { investment: { ...mockInvestment, kind, currency: "BOB" }, onConfirmOperation, currency: "BOB" };
     let tree = render(props);
     selectType(tree, "dividend");
     tree = render(props);
@@ -238,14 +238,43 @@ describe("RegisterOperationModal", () => {
     change(field(tree, label), "250.50");
     tree = render(props);
     expect(field(tree, "Acreditar dinero en cuenta bancaria / billetera").props.options).toEqual([
-      { value: "", label: "No acreditar en cuentas de efectivo" },
+      { value: "", label: "Seleccioná la cuenta del cobro" },
       { value: "cash", label: "Efectivo (BOB)" },
     ]);
     await submit(tree);
+    expect(onConfirmOperation).not.toHaveBeenCalled();
+    change(field(tree, "Acreditar dinero en cuenta bancaria / billetera"), "cash");
+    tree = render(props);
+    await submit(tree);
     expect(onConfirmOperation).toHaveBeenCalledWith(expect.objectContaining({
       type: "dividend", quantity: 0, unitPrice: 0, totalAmount: 250.5,
-      fees: 0, notes: undefined, linkedAccountId: undefined,
+      fees: 0, notes: undefined, linkedAccountId: "cash", totalAmountExact: "250.5", idempotencyKey: expect.any(String),
     }));
+  });
+
+  it("keeps uncertain dividend errors visible and reuses the same key when inputs change back", async () => {
+    const onConfirmOperation = vi.fn().mockRejectedValue(new Error("response lost"));
+    const onClose = vi.fn();
+    const props = { investment: { ...mockInvestment, kind: "stocks" as const, currency: "BOB" }, currency: "BOB", onConfirmOperation, onClose };
+    let tree = render(props);
+    selectType(tree, "dividend");
+    tree = render(props);
+    change(field(tree, "Monto cobrado en dividendos"), "40.00");
+    change(field(tree, "Acreditar dinero en cuenta bancaria / billetera"), "cash");
+    tree = render(props);
+    await expect(submit(tree)).resolves.toBeUndefined();
+    tree = render(props);
+    expect(renderToStaticMarkup(tree)).toContain('role="alert"');
+    expect(onClose).not.toHaveBeenCalled();
+    const first = onConfirmOperation.mock.calls[0][0];
+    change(field(tree, "Monto cobrado en dividendos"), "41");
+    await submit(render(props));
+    change(field(render(props), "Monto cobrado en dividendos"), "40");
+    await submit(render(props));
+    expect(onConfirmOperation.mock.calls[1][0].idempotencyKey).not.toBe(first.idempotencyKey);
+    expect(onConfirmOperation.mock.calls[2][0].idempotencyKey).toBe(first.idempotencyKey);
+    expect(onConfirmOperation).toHaveBeenCalledTimes(3);
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   it("does not submit invalid values and hides account choices when none exist", async () => {

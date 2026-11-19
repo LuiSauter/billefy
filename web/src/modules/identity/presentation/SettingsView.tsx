@@ -478,7 +478,7 @@ Respaldo automático: ${settings.autoBackup ? "Activado" : "Desactivado"}
             onExportData={handleExportData}
             onImportCsv={onOpenCsv}
             onDownloadReport={handleDownloadReport}
-            onClearStorage={clearClientFinancialStorage}
+            onClearStorage={() => setResetFinancialDataOpen(true)}
             onOpenDeleteAccount={() => setDeleteAccountOpen(true)}
           />
         )}

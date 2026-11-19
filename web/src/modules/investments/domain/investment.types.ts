@@ -1,3 +1,4 @@
+import Decimal from "decimal.js";
 import { CategoryColorKey, CategoryIconKey } from "@/modules/ledger/domain/category.types";
 
 export type InvestmentKind = "crypto" | "stocks" | "funds" | "realestate" | "other";
@@ -16,8 +17,11 @@ export interface Investment {
   colorKey: CategoryColorKey;
   currency: string;
   quantity: number;
-  /** Total value when the asset was registered (cost basis). */
+  /** Original registration snapshot; not accumulated purchase cost. */
   initialValue: number;
+  /** Absent on older servers; explicit null means historical cost is unknown. */
+  costBasis?: number | null;
+  unrealizedGain?: number | null;
   /** Total current value of the position. */
   currentValue: number;
   history: InvestmentValuePoint[];
@@ -80,10 +84,40 @@ export function getKindLabel(kind: InvestmentKind): string {
   return INVESTMENT_KINDS.find((k) => k.value === kind)?.label ?? "Activo";
 }
 
-/** Percentage change of an investment versus its cost basis. */
+export interface InvestmentPurchaseInput {
+  quantity: string;
+  unitPrice: string;
+  /** Gross purchase amount; fees are sent separately and capitalized by the server. */
+  totalAmount: string;
+  fees: string;
+  linkedAccountId: string;
+  occurredAt: string;
+  notes?: string;
+}
+
+export interface InvestmentDividendInput {
+  totalAmount: string;
+  linkedAccountId: string;
+  occurredAt: string;
+  notes?: string;
+}
+
+export interface InvestmentValuationInput {
+  unitPrice: string;
+  totalAmount: string;
+  occurredAt: string;
+  notes?: string;
+}
+
+export function investmentCostBasis(inv: Investment): number | null {
+  return inv.costBasis === undefined ? inv.initialValue : inv.costBasis;
+}
+
+/** Percentage change versus known acquisition cost, never contributed capital. */
 export function investmentVariationPct(inv: Investment): number | null {
-  if (inv.initialValue <= 0) return null;
-  return ((inv.currentValue - inv.initialValue) / inv.initialValue) * 100;
+  const cost = investmentCostBasis(inv);
+  if (cost === null || cost <= 0) return null;
+  return new Decimal(inv.currentValue).minus(cost).div(cost).times(100).toNumber();
 }
 
 /** Percentage change versus the previous recorded value. */

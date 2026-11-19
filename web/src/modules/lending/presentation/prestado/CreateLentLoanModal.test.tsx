@@ -128,6 +128,25 @@ afterEach(() => {
 });
 
 describe("CreateLentLoanModal", () => {
+  it("keeps high-value principal cents exact through simulation and creation", async () => {
+    let tree = fill();
+    change(tree, "lent-principal", "99999999999999.99");
+    render();
+    tree = await simulate();
+    expect(props.onSimulate).toHaveBeenCalledWith(expect.objectContaining({ principal: "99999999999999.99" }));
+    await submit(tree);
+    expect(props.onSubmit).toHaveBeenCalledWith(expect.objectContaining({ principal: "99999999999999.99" }));
+  });
+
+  it("records an existing receivable without another cash disbursement", async () => {
+    let tree = fill();
+    change(tree, "lent-origin", "OpeningBalance");
+    tree = render({ accounts: [] });
+    await submit(tree);
+    expect(props.onSubmit).toHaveBeenCalledWith(expect.objectContaining({ type: "Lent", originationKind: "OpeningBalance", principal: "1000" }));
+    expect(props.onSubmit).not.toHaveBeenCalledWith(expect.objectContaining({ disbursementAccountId: expect.any(String) }));
+  });
+
   it("renders the wide design-system drawer with all sections and a disabled incomplete submission", () => {
     const tree = render();
     expect(tree.type).toBe(ResponsiveDrawer); expect(tree.props.size).toBe("xl");
@@ -150,7 +169,7 @@ describe("CreateLentLoanModal", () => {
 
   it("submits exact annual terms and trimmed relationship/description with the automatic preference", async () => {
     await submit(fill());
-    expect(props.onSubmit).toHaveBeenCalledExactlyOnceWith({ type: "Lent", counterpartyName: "Contacto de prueba", principal: 1000,
+    expect(props.onSubmit).toHaveBeenCalledExactlyOnceWith({ type: "Lent", counterpartyName: "Contacto de prueba", principal: "1000",
       currency: "BOB", interestRate: 0.24, rateUnit: "Annual", dayCount: "Thirty360", frequency: "Monthly", template: "FixedInstallment",
       totalInstallments: 3, disbursementDate: "2026-01-31", disbursementAccountId: "bob",
       counterpartyNotes: "[Plan: Automático]\nRelación: Familia\nDescripción: Compra de equipo",
@@ -160,7 +179,7 @@ describe("CreateLentLoanModal", () => {
 
   it("submits configured earlyPaymentPolicy when changed by user", async () => {
     let tree = fill();
-    control(tree, "lent-early-policy").props.onChange({ target: { value: "ReduceInstallment" } });
+    change(tree, "lent-early-policy", "ReduceInstallment");
     tree = render();
     await submit(tree);
     expect(props.onSubmit).toHaveBeenCalledWith(expect.objectContaining({ earlyPaymentPolicy: "ReduceInstallment" }));
@@ -170,7 +189,7 @@ describe("CreateLentLoanModal", () => {
     let tree = fill(); select(tree, "Tipo de acuerdo", "none"); tree = render();
     expect(nodes(tree).some(item => item.props.id === "lent-rate")).toBe(false);
     tree = await simulate();
-    expect(props.onSimulate).toHaveBeenCalledWith({ principal: 1000, rate: 0, rateUnit: "Annual", dayCount: "Thirty360", frequency: "Monthly",
+    expect(props.onSimulate).toHaveBeenCalledWith({ principal: "1000", rate: 0, rateUnit: "Annual", dayCount: "Thirty360", frequency: "Monthly",
       template: "NoInterest", totalInstallments: 3, disbursementDate: "2026-01-31" });
     const body = nodes(tree).find(item => item.type === TableBody)!;
     expect(nodes(body).filter(item => item.type === TableRow)).toHaveLength(3);

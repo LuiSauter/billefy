@@ -45,6 +45,7 @@ import { Amount } from "@/shared/ui/amount";
 import { useNumberFormat, useNumberPreferences } from "@/shared/hooks/use-number-format";
 import { formatAmountText } from "@/shared/lib/amount-format";
 import { formatCurrencyLabel } from "@/shared/lib/currency";
+import { translateTransactionError } from "@/modules/ledger/domain/transaction-errors";
 
 interface RegisterTransactionModalProps {
   isOpen: boolean;
@@ -88,6 +89,7 @@ export function RegisterTransactionModal({
   const [isCreatingCategory, setIsCreatingCategory] = useState(false);
   const [isCategoryFormValid, setIsCategoryFormValid] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
 
   useEffect(() => {
     if (!isOpen) {
@@ -159,6 +161,7 @@ export function RegisterTransactionModal({
     if (!isTitleValid || !isCategoryValid || !isAmountValid) return;
 
     setSubmitting(true);
+    setSubmitError("");
     try {
       const occurredAt = useNow
         ? new Date().toISOString()
@@ -181,6 +184,8 @@ export function RegisterTransactionModal({
       });
       clearDraft();
       onClose();
+    } catch (reason) {
+      setSubmitError(translateTransactionError(reason, "No se pudo registrar el movimiento. Intentá de nuevo."));
     } finally {
       setSubmitting(false);
     }
@@ -573,14 +578,22 @@ export function RegisterTransactionModal({
                       autoFocus
                       currency={currencyChipLabel(selectedAccount?.currency)}
                       value={amount}
-                      onValueChange={(val) => updateDraft({ amount: val })}
+                      onValueChange={(val) => {
+                        setSubmitError("");
+                        updateDraft({ amount: val });
+                      }}
                     />
                     {amountError && (
                       <span className="text-xs font-semibold text-rose-500 px-1">
                         {amountError}
                       </span>
                     )}
-                    {equivText && !amountError && (
+                    {submitError && !amountError && (
+                      <span role="alert" className="text-xs font-semibold text-rose-500 px-1">
+                        {submitError}
+                      </span>
+                    )}
+                    {equivText && !amountError && !submitError && (
                       <span className="text-xs font-semibold text-muted-foreground tabular-nums px-1">
                         {equivText}
                       </span>
@@ -614,7 +627,10 @@ export function RegisterTransactionModal({
                           <button
                             key={acc.id}
                             type="button"
-                            onClick={() => updateDraft({ accountId: acc.id })}
+                            onClick={() => {
+                              setSubmitError("");
+                              updateDraft({ accountId: acc.id });
+                            }}
                             className={`p-2.5 rounded-xl border text-left transition flex flex-col gap-0.5 ${
                               isSelected
                                 ? "bg-accent border-primary text-foreground ring-2 ring-primary/30"

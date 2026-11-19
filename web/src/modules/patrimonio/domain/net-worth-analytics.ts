@@ -1,4 +1,6 @@
-import { Investment } from "@/modules/investments/domain/investment.types";
+import Decimal from "decimal.js";
+import { Investment, getKindLabel } from "@/modules/investments/domain/investment.types";
+import { getAccountTypeLabel } from "@/modules/ledger/domain/account-meta";
 import { AccountDto, TransactionDto } from "@/modules/ledger/domain/ledger.types";
 import { LoanSummaryDto } from "@/modules/lending/domain/lending.types";
 import {
@@ -101,26 +103,253 @@ const MONTH_NAMES_ES = [
   "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"
 ];
 
+type TargetCurrency = "USD" | "BOB";
+
+const DEFAULT_P2P_RATE = 9.85;
+const HISTORY_MONTHS = 12;
+
+/** Overview metrics plus the previous month-end totals the MoM percentages are based on. */
+export interface PatrimonioOverview extends PatrimonioOverviewMetrics {
+  previousTotalAssets: number;
+  previousTotalLiabilities: number;
+  previousNetWorth: number;
+}
+
+export type PatrimonioPeriod = "6m" | "12m" | "ytd";
+
+export const PATRIMONIO_PERIOD_OPTIONS: { value: PatrimonioPeriod; label: string; months: number | null }[] = [
+  { value: "6m", label: "Últimos 6 meses", months: 6 },
+  { value: "12m", label: "Últimos 12 meses", months: 12 },
+  { value: "ytd", label: "Este año", months: null },
+];
+
+/** Narrows the chronological evolution series to the selected period ("ytd" keeps the reference year's points). */
+export function sliceEvolutionPoints(
+  points: PatrimonioEvolutionPoint[],
+  period: PatrimonioPeriod,
+  now: Date = new Date()
+): PatrimonioEvolutionPoint[] {
+  const months = PATRIMONIO_PERIOD_OPTIONS.find((option) => option.value === period)?.months ?? null;
+  if (months !== null) return points.slice(-months);
+  const year = String(now.getFullYear());
+  return points.filter((point) => point.date.startsWith(year));
+}
+
+// ---------------------------------------------------------------------------
+// Money helpers (Decimal internally; plain numbers only at the public boundary)
+// ---------------------------------------------------------------------------
+
+function toDecimal(value: unknown): Decimal {
+  if (value === null || value === undefined || value === "") return new Decimal(0);
+  try {
+    const parsed = new Decimal(value as Decimal.Value);
+    return parsed.isFinite() ? parsed : new Decimal(0);
+  } catch {
+    return new Decimal(0);
+  }
+}
+
+/** Avoids leaking `-0` (e.g. `0 * -1`) into totals, chart points and assertions. */
+function toNumber(value: Decimal): number {
+  return value.toNumber() + 0;
+}
+
+/**
+ * Single currency policy for both targets: BOB is BOB; USDT and every other
+ * currency (or an unknown one) is valued at USD parity. A missing currency is
+ * assumed to already be in the target currency.
+ */
+function normalizeCurrency(currency: string | undefined, fallback: TargetCurrency): TargetCurrency {
+  return (currency || fallback).toUpperCase() === "BOB" ? "BOB" : "USD";
+}
+
+function convertDecimal(
+  amount: Decimal,
+  fromCurrency: string | undefined,
+  targetCurrency: TargetCurrency,
+  p2pRate: number
+): Decimal {
+  if (amount.isZero()) return new Decimal(0);
+  const rate = new Decimal(p2pRate > 0 ? p2pRate : DEFAULT_P2P_RATE);
+  const from = normalizeCurrency(fromCurrency, targetCurrency);
+  if (from === targetCurrency) return amount;
+  return targetCurrency === "BOB" ? amount.times(rate) : amount.div(rate);
+}
+
 export function convertPatrimonioAmount(
   amount: number,
   fromCurrency: string | undefined,
-  targetCurrency: "USD" | "BOB" = "USD",
-  p2pRate: number = 9.85
+  targetCurrency: TargetCurrency = "USD",
+  p2pRate: number = DEFAULT_P2P_RATE
 ): number {
-  if (!amount || amount === 0) return 0;
-  const rate = p2pRate > 0 ? p2pRate : 9.85;
-  const from = (fromCurrency || targetCurrency).toUpperCase();
+  if (!amount) return 0;
+  return toNumber(convertDecimal(toDecimal(amount), fromCurrency, targetCurrency, p2pRate));
+}
 
-  if (targetCurrency === "BOB") {
-    if (from === "BOB") return amount;
-    if (from === "USD" || from === "USDT") return amount * rate;
-    return amount * rate;
-  } else {
-    // targetCurrency === "USD"
-    if (from === "USD" || from === "USDT") return amount;
-    if (from === "BOB") return amount / rate;
-    return amount;
+/** Unparseable dates are treated as "always existed": we cannot prove the record was absent. */
+function timeOf(value: string | null | undefined): number {
+  if (!value) return Number.NEGATIVE_INFINITY;
+  const time = new Date(value).getTime();
+  return Number.isNaN(time) ? Number.NEGATIVE_INFINITY : time;
+}
+
+/**
+ * Only an explicit property/mortgage signal in the creditor's name counts: a
+ * bank's brand name alone (e.g. "Santander") says nothing about the product, and
+ * the lending domain exposes no mortgage kind (only `loanKind: Loan | CreditCard`).
+ */
+function classifyBorrowedLoan(loan: LoanSummaryDto): LiabilityCategory {
+  if (loan.loanKind === "CreditCard") return "creditcard";
+  const name = (loan.counterpartyName || "").toLowerCase();
+  const isMortgage = ["hipotec", "vivienda", "inmueble"].some((signal) => name.includes(signal));
+  return isMortgage ? "mortgage" : "loan";
+}
+
+// ---------------------------------------------------------------------------
+// Point-in-time valuation (shared by the MoM baseline and the evolution series)
+// ---------------------------------------------------------------------------
+
+interface DatedAmount {
+  at: number;
+  amount: Decimal;
+}
+
+interface Snapshot {
+  assets: Decimal;
+  liabilities: Decimal;
+}
+
+const isSettledOrActive = (status: string) => status === "Active" || status === "Paid";
+
+/**
+ * Builds `valueAt(time)` returning assets/liabilities as they stood at `time`,
+ * counting only records that already existed (createdAt) and rewinding current
+ * balances with the ledger flows that happened afterwards. Parsing and currency
+ * conversion happen once here, not per month.
+ */
+function createSnapshotter(
+  { investments, accounts, transactions, manualAssets, manualLiabilities, loans }: Required<Pick<
+    CalculatePatrimonioParams,
+    "investments" | "accounts" | "transactions" | "manualAssets" | "manualLiabilities" | "loans"
+  >>,
+  targetCurrency: TargetCurrency,
+  p2pRate: number
+): (time: number) => Snapshot {
+  const convert = (amount: Decimal, currency: string | undefined) =>
+    convertDecimal(amount, currency, targetCurrency, p2pRate);
+  const signedTransactionAmount = (t: TransactionDto) => {
+    const amount = convert(toDecimal(t.amount), t.currency);
+    return t.direction === "Income" ? amount : t.direction === "Expense" ? amount.negated() : new Decimal(0);
+  };
+
+  const accountFlows = new Map<string, DatedAmount[]>();
+  const loanTransactions = new Map<string, TransactionDto[]>();
+  for (const t of transactions) {
+    const at = timeOf(t.occurredAt);
+    if (t.accountId) {
+      const flows = accountFlows.get(t.accountId) ?? [];
+      flows.push({ at, amount: signedTransactionAmount(t) });
+      accountFlows.set(t.accountId, flows);
+    }
+    if (t.loanId && t.loanCashKind) {
+      const list = loanTransactions.get(t.loanId) ?? [];
+      list.push(t);
+      loanTransactions.set(t.loanId, list);
+    }
   }
+
+  const investmentTimelines = investments.map((inv) => ({
+    createdAt: timeOf(inv.createdAt),
+    archivedAt: inv.archivedAt ? timeOf(inv.archivedAt) : Number.POSITIVE_INFINITY,
+    initial: convert(toDecimal(inv.initialValue), inv.currency),
+    valuations: (inv.history ?? [])
+      .map((h) => ({ at: timeOf(h.at), amount: convert(toDecimal(h.value), inv.currency) }))
+      .sort((a, b) => a.at - b.at),
+  }));
+
+  const accountTimelines = accounts.map((acc) => ({
+    createdAt: timeOf(acc.createdAt),
+    balanceNow: convert(toDecimal(acc.balance), acc.currency),
+    flows: accountFlows.get(acc.id) ?? [],
+  }));
+
+  const manualAssetTimeline = manualAssets.map((a) => ({
+    createdAt: timeOf(a.createdAt),
+    amount: convert(toDecimal(a.value), a.currency),
+  }));
+  const manualLiabilityTimeline = manualLiabilities.map((l) => ({
+    createdAt: timeOf(l.createdAt),
+    amount: convert(toDecimal(l.amount), l.currency),
+  }));
+
+  // Remaining principal moves with principal cash legs and card purchases, so it can be rewound from today's value.
+  const loanTimelines = loans
+    .filter((l) => isSettledOrActive(l.status))
+    .map((l) => {
+      const isLent = l.type === "Lent";
+      const rewinds: DatedAmount[] = (loanTransactions.get(l.id) ?? []).flatMap((t) => {
+        const amount = convert(toDecimal(t.amount), t.currency);
+        const at = timeOf(t.occurredAt);
+        if (t.loanCashKind === "CardPurchase") return t.direction === "Expense" && !isLent ? [{ at, amount: amount.negated() }] : [];
+        if (t.loanCashKind !== "Principal") return [];
+        // Lent: Expense = money out (receivable grows), Income = repayment. Borrowed is the mirror image.
+        const increasesBalance = isLent ? t.direction === "Expense" : t.direction === "Income";
+        return [{ at, amount: increasesBalance ? amount.negated() : amount }];
+      });
+      return {
+        isLent,
+        createdAt: timeOf(l.createdAt),
+        remainingNow: l.status === "Active" ? convert(toDecimal(l.remainingPrincipal), l.currency) : new Decimal(0),
+        rewinds,
+      };
+    });
+
+  const sumAfter = (entries: DatedAmount[], time: number) =>
+    entries.reduce((total, entry) => (entry.at > time ? total.plus(entry.amount) : total), new Decimal(0));
+
+  return (time: number): Snapshot => {
+    let assets = new Decimal(0);
+    let liabilities = new Decimal(0);
+
+    for (const inv of investmentTimelines) {
+      if (inv.createdAt > time || inv.archivedAt <= time) continue;
+      let value = inv.initial;
+      for (const valuation of inv.valuations) {
+        if (valuation.at <= time) value = valuation.amount;
+      }
+      assets = assets.plus(value);
+    }
+
+    for (const acc of accountTimelines) {
+      if (acc.createdAt > time) continue;
+      const balance = acc.balanceNow.minus(sumAfter(acc.flows, time));
+      if (balance.isNegative()) liabilities = liabilities.plus(balance.abs());
+      else assets = assets.plus(balance);
+    }
+
+    for (const a of manualAssetTimeline) if (a.createdAt <= time) assets = assets.plus(a.amount);
+    for (const l of manualLiabilityTimeline) if (l.createdAt <= time) liabilities = liabilities.plus(l.amount);
+
+    for (const loan of loanTimelines) {
+      if (loan.createdAt > time) continue;
+      const remaining = Decimal.max(0, loan.remainingNow.plus(sumAfter(loan.rewinds, time)));
+      if (loan.isLent) assets = assets.plus(remaining);
+      else liabilities = liabilities.plus(remaining);
+    }
+
+    return { assets, liabilities };
+  };
+}
+
+function formatLocalDate(date: Date): string {
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
+function percentChange(current: Decimal, previous: Decimal): number | null {
+  if (!previous.isPositive() || previous.isZero() || !current.isPositive() || current.isZero()) return null;
+  return toNumber(current.minus(previous).div(previous).times(100).toDecimalPlaces(1));
 }
 
 export function calculatePatrimonioOverview({
@@ -131,51 +360,76 @@ export function calculatePatrimonioOverview({
   manualLiabilities = [],
   transactions = [],
   targetCurrency = "USD",
-  p2pRate = 9.85,
-}: CalculatePatrimonioParams): PatrimonioOverviewMetrics {
+  p2pRate = DEFAULT_P2P_RATE,
+}: CalculatePatrimonioParams): PatrimonioOverview {
+  const preferences = getNumberFormatPreferences();
+  const convert = (amount: Decimal, currency: string | undefined) =>
+    convertDecimal(amount, currency, targetCurrency, p2pRate);
+
   // 1. Grouping Assets and collecting authentic sub-items
-  const assetMap: Record<AssetCategory, { total: number; items: AssetItemDetail[] }> = {
-    realestate: { total: 0, items: [] },
-    investments: { total: 0, items: [] },
-    vehicles: { total: 0, items: [] },
-    digital: { total: 0, items: [] },
-    cash: { total: 0, items: [] },
-    other: { total: 0, items: [] },
+  const assetMap: Record<AssetCategory, { total: Decimal; items: AssetItemDetail[] }> = {
+    realestate: { total: new Decimal(0), items: [] },
+    investments: { total: new Decimal(0), items: [] },
+    vehicles: { total: new Decimal(0), items: [] },
+    digital: { total: new Decimal(0), items: [] },
+    cash: { total: new Decimal(0), items: [] },
+    other: { total: new Decimal(0), items: [] },
+  };
+
+  // Liabilities are built together with assets because a negative account balance lands here.
+  const liabMap: Record<LiabilityCategory, { total: Decimal; items: LiabilityItemDetail[] }> = {
+    mortgage: { total: new Decimal(0), items: [] },
+    loan: { total: new Decimal(0), items: [] },
+    creditcard: { total: new Decimal(0), items: [] },
+    other: { total: new Decimal(0), items: [] },
   };
 
   // Add investments from the Investments module
   for (const inv of investments) {
-    const rawVal = inv.currentValue || 0;
-    if (rawVal > 0) {
-      const val = convertPatrimonioAmount(rawVal, inv.currency, targetCurrency, p2pRate);
-      assetMap.investments.total += val;
+    const rawVal = toDecimal(inv.currentValue);
+    if (rawVal.isPositive() && !rawVal.isZero()) {
+      const val = convert(rawVal, inv.currency);
+      assetMap.investments.total = assetMap.investments.total.plus(val);
       assetMap.investments.items.push({
         id: inv.id,
         name: inv.name,
-        value: val,
-        originalValue: rawVal,
+        value: toNumber(val),
+        originalValue: toNumber(rawVal),
         category: "investments",
         currency: inv.currency,
-        notes: `${inv.kind} • ${inv.quantity} u.`,
+        notes: `${getKindLabel(inv.kind)} • ${inv.quantity} u.`,
         isFromModule: true,
       });
     }
   }
 
-  // Add liquid bank accounts from Ledger
+  // Add bank accounts from Ledger: positive balances are assets, negative ones (overdraft) are liabilities
   for (const acc of accounts) {
-    const bal = typeof acc.balance === "number" ? acc.balance : Number(acc.balance?.toString() || 0);
-    if (bal > 0) {
-      const val = convertPatrimonioAmount(bal, acc.currency, targetCurrency, p2pRate);
-      assetMap.cash.total += val;
+    const bal = toDecimal(acc.balance);
+    if (bal.isZero()) continue;
+    const val = convert(bal.abs(), acc.currency);
+    if (bal.isPositive()) {
+      assetMap.cash.total = assetMap.cash.total.plus(val);
       assetMap.cash.items.push({
         id: acc.id,
         name: acc.name,
-        value: val,
-        originalValue: bal,
+        value: toNumber(val),
+        originalValue: toNumber(bal),
         category: "cash",
         currency: acc.currency,
-        notes: acc.type,
+        notes: getAccountTypeLabel(acc.type),
+        isFromModule: true,
+      });
+    } else {
+      liabMap.other.total = liabMap.other.total.plus(val);
+      liabMap.other.items.push({
+        id: acc.id,
+        name: acc.name,
+        amount: toNumber(val),
+        originalAmount: toNumber(bal.abs()),
+        category: "other",
+        currency: acc.currency,
+        notes: `${getAccountTypeLabel(acc.type)} • Saldo negativo`,
         isFromModule: true,
       });
     }
@@ -185,14 +439,14 @@ export function calculatePatrimonioOverview({
   for (const ast of manualAssets) {
     const cat = ast.category || "other";
     const target = assetMap[cat] || assetMap.other;
-    const rawVal = ast.value;
-    const val = convertPatrimonioAmount(rawVal, ast.currency, targetCurrency, p2pRate);
-    target.total += val;
+    const rawVal = toDecimal(ast.value);
+    const val = convert(rawVal, ast.currency);
+    target.total = target.total.plus(val);
     target.items.push({
       id: ast.id,
       name: ast.name,
-      value: val,
-      originalValue: rawVal,
+      value: toNumber(val),
+      originalValue: toNumber(rawVal),
       category: cat,
       currency: ast.currency,
       notes: ast.notes,
@@ -203,21 +457,19 @@ export function calculatePatrimonioOverview({
   // Add active loans receivable (Dinero prestado) from Lending module
   for (const loan of loans) {
     if (loan.type === "Lent" && loan.status === "Active") {
-      const remaining = typeof loan.remainingPrincipal === "number"
-        ? loan.remainingPrincipal
-        : Number(loan.remainingPrincipal?.toString() || 0);
+      const remaining = toDecimal(loan.remainingPrincipal);
 
-      if (remaining > 0) {
-        const val = convertPatrimonioAmount(remaining, loan.currency, targetCurrency, p2pRate);
-        assetMap.other.total += val;
+      if (remaining.isPositive() && !remaining.isZero()) {
+        const val = convert(remaining, loan.currency);
+        assetMap.other.total = assetMap.other.total.plus(val);
         assetMap.other.items.push({
           id: loan.id,
           name: loan.counterpartyName ? `Préstamo a ${loan.counterpartyName}` : "Dinero prestado",
-          value: val,
-          originalValue: remaining,
+          value: toNumber(val),
+          originalValue: toNumber(remaining),
           category: "other",
           currency: loan.currency,
-          notes: `Tasa: ${formatPercent(loan.interestRate * 100, getNumberFormatPreferences())} • Saldo pendiente`,
+          notes: `Tasa: ${formatPercent(loan.interestRate * 100, preferences)} • Saldo pendiente`,
           isFromModule: true,
         });
       }
@@ -229,42 +481,24 @@ export function calculatePatrimonioOverview({
     assetMap[cat].items.sort((a, b) => b.value - a.value);
   }
 
-  const totalLiquidityVal = assetMap.cash.total;
-  const totalAssets = Object.values(assetMap).reduce((acc, item) => acc + item.total, 0);
+  const totalAssetsDec = Object.values(assetMap).reduce((acc, item) => acc.plus(item.total), new Decimal(0));
+  const totalAssets = toNumber(totalAssetsDec);
 
-  // 2. Grouping Liabilities and collecting authentic sub-items
-  const liabMap: Record<LiabilityCategory, { total: number; items: LiabilityItemDetail[] }> = {
-    mortgage: { total: 0, items: [] },
-    loan: { total: 0, items: [] },
-    creditcard: { total: 0, items: [] },
-    other: { total: 0, items: [] },
-  };
-
-  // Add loans from Lending module
+  // 2. Liabilities from the Lending module
   for (const loan of loans) {
     if (loan.type === "Borrowed" && loan.status === "Active") {
-      const remaining = typeof loan.remainingPrincipal === "number"
-        ? loan.remainingPrincipal
-        : Number(loan.remainingPrincipal?.toString() || 0);
-
-      const nameLower = (loan.counterpartyName || "").toLowerCase();
-      const isMortgage =
-        nameLower.includes("hipotec") ||
-        nameLower.includes("santander") ||
-        nameLower.includes("vivienda") ||
-        nameLower.includes("inmueble");
-
-      const category: LiabilityCategory = isMortgage ? "mortgage" : "loan";
-      const rem = convertPatrimonioAmount(remaining, loan.currency, targetCurrency, p2pRate);
-      liabMap[category].total += rem;
+      const remaining = toDecimal(loan.remainingPrincipal);
+      const category = classifyBorrowedLoan(loan);
+      const rem = convert(remaining, loan.currency);
+      liabMap[category].total = liabMap[category].total.plus(rem);
       liabMap[category].items.push({
         id: loan.id,
         name: loan.counterpartyName || "Préstamo",
-        amount: rem,
-        originalAmount: remaining,
+        amount: toNumber(rem),
+        originalAmount: toNumber(remaining),
         category,
         currency: loan.currency,
-        notes: `Tasa: ${formatPercent(loan.interestRate * 100, getNumberFormatPreferences())}`,
+        notes: `Tasa: ${formatPercent(loan.interestRate * 100, preferences)}`,
         isFromModule: true,
       });
     }
@@ -274,14 +508,14 @@ export function calculatePatrimonioOverview({
   for (const liab of manualLiabilities) {
     const cat = liab.category || "other";
     const target = liabMap[cat] || liabMap.other;
-    const rawAmt = liab.amount;
-    const amt = convertPatrimonioAmount(rawAmt, liab.currency, targetCurrency, p2pRate);
-    target.total += amt;
+    const rawAmt = toDecimal(liab.amount);
+    const amt = convert(rawAmt, liab.currency);
+    target.total = target.total.plus(amt);
     target.items.push({
       id: liab.id,
       name: liab.name,
-      amount: amt,
-      originalAmount: rawAmt,
+      amount: toNumber(amt),
+      originalAmount: toNumber(rawAmt),
       category: cat,
       currency: liab.currency,
       notes: liab.notes,
@@ -294,109 +528,64 @@ export function calculatePatrimonioOverview({
     liabMap[cat].items.sort((a, b) => b.amount - a.amount);
   }
 
-  const totalLiabilities = Object.values(liabMap).reduce((acc, item) => acc + item.total, 0);
+  const totalLiabilitiesDec = Object.values(liabMap).reduce((acc, item) => acc.plus(item.total), new Decimal(0));
+  const totalLiabilities = toNumber(totalLiabilitiesDec);
 
   // 3. Net Worth & Debt Ratio
-  const netWorth = totalAssets - totalLiabilities;
+  const netWorthDec = totalAssetsDec.minus(totalLiabilitiesDec);
+  const netWorth = toNumber(netWorthDec);
   const debtRatioPct = totalAssets > 0 ? (totalLiabilities / totalAssets) * 100 : 0;
   const debtHealth: "Saludable" | "Moderado" | "Comprometido" =
     debtRatioPct <= 35 ? "Saludable" : debtRatioPct <= 50 ? "Moderado" : "Comprometido";
 
-  // 4. Calculate authentic month-over-month variation
+  // 4. Historical series + month-over-month baseline, from one point-in-time valuation
   const now = new Date();
-  const startOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-
-  // Transactions occurred during current month
-  const currentMonthTxns = transactions.filter(
-    (t) => new Date(t.occurredAt).getTime() >= startOfThisMonth.getTime()
+  const valueAt = createSnapshotter(
+    { investments, accounts, transactions, manualAssets, manualLiabilities, loans },
+    targetCurrency,
+    p2pRate
   );
-  let netCashFlowThisMonth = 0;
-  for (const t of currentMonthTxns) {
-    const amt = typeof t.amount === "number" ? t.amount : Number(t.amount?.toString() || 0);
-    const convertedAmt = convertPatrimonioAmount(amt, t.currency, targetCurrency, p2pRate);
-    if (t.direction === "Income") netCashFlowThisMonth += convertedAmt;
-    else if (t.direction === "Expense") netCashFlowThisMonth -= convertedAmt;
+  const evolutionPoints: PatrimonioEvolutionPoint[] = [];
+  let previousSnapshot: Snapshot = { assets: new Decimal(0), liabilities: new Decimal(0) };
+  const pushPoint = (date: Date, net: Decimal) => {
+    const value = Math.round(toNumber(net)) + 0;
+    evolutionPoints.push({
+      date: formatLocalDate(date),
+      month: MONTH_NAMES_ES[date.getMonth()],
+      value,
+      formattedValue: formatAmountText(value, targetCurrency, preferences),
+    });
+  };
+  for (let i = HISTORY_MONTHS - 1; i >= 1; i--) {
+    const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() - i + 1, 0);
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 1).getTime() - 1;
+    const snapshot = valueAt(monthEnd);
+    if (i === 1) previousSnapshot = snapshot;
+    pushPoint(lastDayOfMonth, snapshot.assets.minus(snapshot.liabilities));
   }
+  pushPoint(now, netWorthDec); // today's point is the overview itself, so the chart always reconciles with the KPIs
 
-  // Investments previous valuation
-  let previousInvestmentsVal = 0;
-  for (const inv of investments) {
-    let rawPast = inv.initialValue;
-    if (inv.history && inv.history.length > 0) {
-      const past = inv.history.filter(
-        (h) => new Date(h.at).getTime() < startOfThisMonth.getTime()
-      );
-      if (past.length > 0) {
-        rawPast = past[past.length - 1].value;
-      }
-    }
-    previousInvestmentsVal += convertPatrimonioAmount(rawPast, inv.currency, targetCurrency, p2pRate);
-  }
-
-  const previousAccountsVal = Math.max(0, totalLiquidityVal - netCashFlowThisMonth);
-  const previousManualAssetsVal = manualAssets
-    .filter((a) => new Date(a.createdAt).getTime() < startOfThisMonth.getTime())
-    .reduce((acc, a) => acc + convertPatrimonioAmount(a.value, a.currency, targetCurrency, p2pRate), 0);
-
-  const previousManualLiabVal = manualLiabilities
-    .filter((l) => new Date(l.createdAt).getTime() < startOfThisMonth.getTime())
-    .reduce((acc, l) => acc + convertPatrimonioAmount(l.amount, l.currency, targetCurrency, p2pRate), 0);
-
-  // Approximate previous loans
-  const previousBorrowedLoansVal = loans
-    .filter((l) => l.type === "Borrowed" && l.status === "Active")
-    .reduce((acc, l) => {
-      const rem = typeof l.remainingPrincipal === "number" ? l.remainingPrincipal : Number(l.remainingPrincipal?.toString() || 0);
-      return acc + convertPatrimonioAmount(rem, l.currency, targetCurrency, p2pRate);
-    }, 0);
-
-  const previousLentLoansVal = loans
-    .filter((l) => l.type === "Lent" && l.status === "Active")
-    .reduce((acc, l) => {
-      const rem = typeof l.remainingPrincipal === "number" ? l.remainingPrincipal : Number(l.remainingPrincipal?.toString() || 0);
-      return acc + convertPatrimonioAmount(rem, l.currency, targetCurrency, p2pRate);
-    }, 0);
-
-  const previousTotalAssets =
-    previousInvestmentsVal + previousAccountsVal + previousManualAssetsVal + previousLentLoansVal;
-
-  const previousTotalLiabilities = previousBorrowedLoansVal + previousManualLiabVal;
-  const previousNetWorth = previousTotalAssets - previousTotalLiabilities;
-
-  let previousNetWorthChangePct: number | null = null;
-  if (previousNetWorth > 0 && netWorth > 0) {
-    previousNetWorthChangePct = Number(
-      (((netWorth - previousNetWorth) / previousNetWorth) * 100).toFixed(1)
-    );
-  }
-
-  let assetsChangePct: number | null = null;
-  if (previousTotalAssets > 0 && totalAssets > 0) {
-    assetsChangePct = Number(
-      (((totalAssets - previousTotalAssets) / previousTotalAssets) * 100).toFixed(1)
-    );
-  }
-
-  let liabilitiesChangePct: number | null = null;
-  if (previousTotalLiabilities > 0 && totalLiabilities > 0) {
-    liabilitiesChangePct = Number(
-      (((totalLiabilities - previousTotalLiabilities) / previousTotalLiabilities) * 100).toFixed(1)
-    );
-  }
+  const previousTotalAssets = toNumber(previousSnapshot.assets);
+  const previousTotalLiabilities = toNumber(previousSnapshot.liabilities);
+  const previousNetWorthDec = previousSnapshot.assets.minus(previousSnapshot.liabilities);
+  const previousNetWorthChangePct = percentChange(netWorthDec, previousNetWorthDec);
+  const assetsChangePct = percentChange(totalAssetsDec, previousSnapshot.assets);
+  const liabilitiesChangePct = percentChange(totalLiabilitiesDec, previousSnapshot.liabilities);
 
   // 5. Assets by category with percentages
   const assetsByCategory: AssetCategorySummary[] = (
     Object.keys(ASSET_CATEGORY_METADATA) as AssetCategory[]
   )
-    .filter((cat) => assetMap[cat] && assetMap[cat].total > 0)
+    .filter((cat) => assetMap[cat] && assetMap[cat].total.greaterThan(0))
     .map((cat) => {
       const item = assetMap[cat];
-      const pct = totalAssets > 0 ? (item.total / totalAssets) * 100 : 0;
+      const total = toNumber(item.total);
+      const pct = totalAssets > 0 ? (total / totalAssets) * 100 : 0;
       return {
         category: cat,
         label: ASSET_CATEGORY_METADATA[cat].label,
         description: ASSET_CATEGORY_METADATA[cat].description,
-        totalValue: item.total,
+        totalValue: total,
         percentage: Number(pct.toFixed(1)),
         color: ASSET_CATEGORY_METADATA[cat].color,
         icon: ASSET_CATEGORY_METADATA[cat].icon,
@@ -420,14 +609,15 @@ export function calculatePatrimonioOverview({
   const liabilitiesByCategory: LiabilityCategorySummary[] = (
     Object.keys(LIABILITY_CATEGORY_METADATA) as LiabilityCategory[]
   )
-    .filter((cat) => liabMap[cat] && liabMap[cat].total > 0)
+    .filter((cat) => liabMap[cat] && liabMap[cat].total.greaterThan(0))
     .map((cat) => {
       const item = liabMap[cat];
-      const pct = totalLiabilities > 0 ? (item.total / totalLiabilities) * 100 : 0;
+      const total = toNumber(item.total);
+      const pct = totalLiabilities > 0 ? (total / totalLiabilities) * 100 : 0;
       return {
         category: cat,
         label: LIABILITY_CATEGORY_METADATA[cat].label,
-        totalAmount: item.total,
+        totalAmount: total,
         percentage: Number(pct.toFixed(1)),
         color: LIABILITY_CATEGORY_METADATA[cat].color,
         icon: LIABILITY_CATEGORY_METADATA[cat].icon,
@@ -442,20 +632,7 @@ export function calculatePatrimonioOverview({
   const assetsPct = totalGross > 0 ? Number(((totalAssets / totalGross) * 100).toFixed(1)) : 100;
   const liabilitiesPct = totalGross > 0 ? Number(((totalLiabilities / totalGross) * 100).toFixed(1)) : 0;
 
-  // 8. Authentic monthly timeline evolution
-  const evolutionPoints = calculateHistoricalEvolutionPoints(
-    investments,
-    accounts,
-    transactions,
-    manualAssets,
-    manualLiabilities,
-    loans,
-    12,
-    targetCurrency,
-    p2pRate
-  );
-
-  // 9. Authentic automated insights
+  // 8. Authentic automated insights
   const insights: PatrimonioInsight[] = [];
 
   if (totalAssets === 0 && totalLiabilities === 0) {
@@ -486,7 +663,7 @@ export function calculatePatrimonioOverview({
     if (totalLiabilities > 0) {
       insights.push({
         id: "ins-debt",
-        text: `Tu nivel de deuda (${formatPercent(debtRatioPct, getNumberFormatPreferences())}) se mantiene en un rango ${debtHealth.toLowerCase()}.`,
+        text: `Tu nivel de deuda (${formatPercent(debtRatioPct, preferences)}) se mantiene en un rango ${debtHealth.toLowerCase()}.`,
         type: debtHealth === "Saludable" ? "positive" : debtHealth === "Moderado" ? "info" : "warning",
       });
     } else {
@@ -507,6 +684,9 @@ export function calculatePatrimonioOverview({
     previousNetWorthChangePct,
     assetsChangePct,
     liabilitiesChangePct,
+    previousTotalAssets,
+    previousTotalLiabilities,
+    previousNetWorth: toNumber(previousNetWorthDec),
     assetsByCategory,
     liabilitiesByCategory,
     composition: {
@@ -516,121 +696,4 @@ export function calculatePatrimonioOverview({
     evolutionPoints,
     insights,
   };
-}
-
-function calculateHistoricalEvolutionPoints(
-  investments: Investment[],
-  accounts: AccountDto[],
-  transactions: TransactionDto[],
-  manualAssets: PatrimonialAsset[],
-  manualLiabilities: PatrimonialLiability[],
-  loans: LoanSummaryDto[],
-  monthsCount: number = 12,
-  targetCurrency: "USD" | "BOB" = "USD",
-  p2pRate: number = 9.85
-): PatrimonioEvolutionPoint[] {
-  const points: PatrimonioEvolutionPoint[] = [];
-  const now = new Date();
-
-  const currentTotalAssets =
-    investments.reduce((acc, i) => acc + convertPatrimonioAmount(i.currentValue || 0, i.currency, targetCurrency, p2pRate), 0) +
-    accounts.reduce((acc, a) => {
-      const b = typeof a.balance === "number" ? a.balance : Number(a.balance?.toString() || 0);
-      return acc + (b > 0 ? convertPatrimonioAmount(b, a.currency, targetCurrency, p2pRate) : 0);
-    }, 0) +
-    manualAssets.reduce((acc, a) => acc + convertPatrimonioAmount(a.value, a.currency, targetCurrency, p2pRate), 0);
-
-  const currentTotalLiabilities =
-    loans.reduce((acc, l) => {
-      const r = typeof l.remainingPrincipal === "number" ? l.remainingPrincipal : Number(l.remainingPrincipal?.toString() || 0);
-      return acc + convertPatrimonioAmount(r, l.currency, targetCurrency, p2pRate);
-    }, 0) +
-    manualLiabilities.reduce((acc, l) => acc + convertPatrimonioAmount(l.amount, l.currency, targetCurrency, p2pRate), 0);
-
-  const currentNet = Math.round(currentTotalAssets - currentTotalLiabilities);
-
-  if (currentTotalAssets === 0 && currentTotalLiabilities === 0) {
-    for (let i = monthsCount - 1; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 15);
-      points.push({
-        date: d.toISOString().split("T")[0],
-        month: MONTH_NAMES_ES[d.getMonth()],
-        value: 0,
-        formattedValue: formatAmountText(0, targetCurrency, getNumberFormatPreferences()),
-      });
-    }
-    return points;
-  }
-
-  for (let i = monthsCount - 1; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 15);
-    const monthLabel = MONTH_NAMES_ES[d.getMonth()];
-
-    if (i === 0) {
-      points.push({
-        date: d.toISOString().split("T")[0],
-        month: monthLabel,
-        value: currentNet,
-        formattedValue: formatAmountText(currentNet, targetCurrency, getNumberFormatPreferences()),
-      });
-    } else {
-      // Historical calculation as of date d
-      const targetTime = d.getTime();
-
-      let astSum = 0;
-      for (const inv of investments) {
-        let rawVal = inv.initialValue;
-        if (inv.history && inv.history.length > 0) {
-          const past = inv.history.filter((h) => new Date(h.at).getTime() <= targetTime);
-          if (past.length > 0) rawVal = past[past.length - 1].value;
-        }
-        astSum += convertPatrimonioAmount(rawVal, inv.currency, targetCurrency, p2pRate);
-      }
-
-      for (const ast of manualAssets) {
-        if (new Date(ast.createdAt).getTime() <= targetTime) {
-          astSum += convertPatrimonioAmount(ast.value, ast.currency, targetCurrency, p2pRate);
-        }
-      }
-
-      // Accounts balance backwards from now
-      const laterTxns = transactions.filter((t) => new Date(t.occurredAt).getTime() > targetTime);
-      let laterFlow = 0;
-      for (const t of laterTxns) {
-        const amt = typeof t.amount === "number" ? t.amount : Number(t.amount?.toString() || 0);
-        const convertedAmt = convertPatrimonioAmount(amt, t.currency, targetCurrency, p2pRate);
-        if (t.direction === "Income") laterFlow += convertedAmt;
-        else if (t.direction === "Expense") laterFlow -= convertedAmt;
-      }
-
-      const totalAccToday = accounts.reduce((acc, a) => {
-        const b = typeof a.balance === "number" ? a.balance : Number(a.balance?.toString() || 0);
-        return acc + (b > 0 ? convertPatrimonioAmount(b, a.currency, targetCurrency, p2pRate) : 0);
-      }, 0);
-      astSum += Math.max(0, totalAccToday - laterFlow);
-
-      let liabSum = 0;
-      for (const l of manualLiabilities) {
-        if (new Date(l.createdAt).getTime() <= targetTime) {
-          liabSum += convertPatrimonioAmount(l.amount, l.currency, targetCurrency, p2pRate);
-        }
-      }
-      for (const loan of loans) {
-        if (new Date(loan.createdAt).getTime() <= targetTime) {
-          const rem = typeof loan.remainingPrincipal === "number" ? loan.remainingPrincipal : Number(loan.remainingPrincipal?.toString() || 0);
-          liabSum += convertPatrimonioAmount(rem, loan.currency, targetCurrency, p2pRate);
-        }
-      }
-
-      const net = Math.round(astSum - liabSum);
-      points.push({
-        date: d.toISOString().split("T")[0],
-        month: monthLabel,
-        value: net,
-        formattedValue: formatAmountText(net, targetCurrency, getNumberFormatPreferences()),
-      });
-    }
-  }
-
-  return points;
 }

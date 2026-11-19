@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Search, TrendingUp, Check, X, Loader2 } from "lucide-react";
 import {
   StockSearchResult,
@@ -8,6 +8,8 @@ import {
   CURATED_POPULAR_STOCKS,
 } from "../domain/stock-market.service";
 import { Badge } from "@/shared/ui/badge";
+import { Button } from "@/shared/ui/button";
+import { Input } from "@/shared/ui/input";
 import { cn } from "@/shared/lib/utils";
 
 interface StockPickerProps {
@@ -27,7 +29,6 @@ export function StockPicker({
   const [isOpen, setIsOpen] = useState(false);
   const [results, setResults] = useState<StockSearchResult[]>(CURATED_POPULAR_STOCKS);
   const [loading, setLoading] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
 
   // Filter default presets based on kind
   const filteredPopular = kind === "funds"
@@ -59,17 +60,6 @@ export function StockPicker({
     return () => clearTimeout(timer);
   }, [query, runSearch]);
 
-  // Click outside listener to close dropdown
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setIsOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
   const handleSelect = (stock: StockSearchResult) => {
     onSelectStock(stock);
     setQuery("");
@@ -91,12 +81,19 @@ export function StockPicker({
   };
 
   return (
-    <div ref={containerRef} className="relative w-full flex flex-col gap-2">
+    // Dismiss on focus leaving the picker (outside click, Tab away): no document-level listener to manage.
+    <div
+      className="relative w-full flex flex-col gap-2"
+      onBlur={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setIsOpen(false);
+      }}
+    >
       {/* Search Input Bar */}
       <div className="relative flex items-center">
         <Search className="w-4 h-4 absolute left-3.5 text-muted-foreground pointer-events-none" />
-        <input
+        <Input
           type="text"
+          aria-label="Buscar ticker o nombre"
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
@@ -116,25 +113,34 @@ export function StockPicker({
             }
           }}
           placeholder={placeholder}
-          className="w-full h-11 pl-10 pr-10 rounded-xl bg-card border border-border text-foreground text-xs font-semibold placeholder:text-muted-foreground outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition shadow-2xs"
+          className="h-11 pl-10 pr-10 text-xs md:text-xs font-semibold"
         />
 
         {loading ? (
           <Loader2 className="w-4 h-4 absolute right-3.5 text-muted-foreground animate-spin" />
         ) : query ? (
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="icon-xs"
+            aria-label="Limpiar búsqueda"
+            className="absolute right-2.5 text-muted-foreground"
+            // Keep focus in the input so clearing does not dismiss the list.
+            onMouseDown={(e) => e.preventDefault()}
             onClick={() => setQuery("")}
-            className="p-1 rounded-md text-muted-foreground hover:text-foreground absolute right-2.5 transition"
           >
-            <X className="w-3.5 h-3.5" />
-          </button>
+            <X aria-hidden="true" />
+          </Button>
         ) : null}
       </div>
 
       {/* Dropdown Menu when Open */}
       {isOpen && (
-        <div className="absolute top-12 left-0 right-0 z-50 rounded-2xl bg-card/95 backdrop-blur-md border border-border/90 shadow-2xl overflow-hidden flex flex-col max-h-72 animate-in fade-in zoom-in-95 duration-100">
+        <div
+          className="absolute top-12 left-0 right-0 z-50 rounded-2xl bg-popover text-popover-foreground ring-1 ring-foreground/10 shadow-md overflow-hidden flex flex-col max-h-72 animate-in fade-in zoom-in-95 duration-100"
+          // Clicking an option must not blur the input (Safari does not focus buttons), or the list would close before the click lands.
+          onMouseDown={(e) => e.preventDefault()}
+        >
           {/* Quick Filter Chips Header */}
           <div className="p-2 border-b border-border/60 bg-muted/30 flex items-center gap-1.5 overflow-x-auto scrollbar-none">
             <span className="text-[10px] font-bold text-muted-foreground px-1 shrink-0">
@@ -213,13 +219,9 @@ export function StockPicker({
                   No se encontraron resultados para «{query}»
                 </span>
                 {query.trim().length > 0 && (
-                  <button
-                    type="button"
-                    onClick={handleCustomTicker}
-                    className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold transition"
-                  >
+                  <Button type="button" size="sm" onClick={handleCustomTicker}>
                     Usar ticker «{query.trim().toUpperCase()}»
-                  </button>
+                  </Button>
                 )}
               </div>
             )}

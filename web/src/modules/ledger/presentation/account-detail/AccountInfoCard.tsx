@@ -10,6 +10,14 @@ import {
 } from "lucide-react";
 import { AccountDto } from "../../domain/ledger.types";
 import { getAccountSubtitle } from "../../domain/accounts-overview";
+import { AccountsCard } from "../AccountsCard";
+import { AccountStatusBadge } from "../AccountStatusBadge";
+import { CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
+import {
+  appCardContentClassName,
+  appCardHeaderClassName,
+  appCardTitleClassName,
+} from "@/shared/presentation/card-variants";
 
 interface AccountInfoCardProps {
   account: AccountDto;
@@ -30,67 +38,67 @@ export function AccountInfoCard({ account }: AccountInfoCardProps) {
   const maskedNumber = `**** ${account.id.replace(/-/g, "").slice(-4).toUpperCase()}`;
 
   return (
-    <div className="rounded-2xl bg-card border border-border/80 p-5 flex flex-col gap-4 shadow-sm">
-      <h3 className="text-base font-bold text-foreground tracking-tight">
-        Información de la cuenta
-      </h3>
+    <AccountsCard>
+      <CardHeader className={appCardHeaderClassName}>
+        <CardTitle className={appCardTitleClassName}>Información de la cuenta</CardTitle>
+      </CardHeader>
 
-      <div className="flex flex-col divide-y divide-border/60 text-xs font-medium">
-        {/* Institución */}
-        <div className="py-3 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5 text-muted-foreground">
-            <Landmark className="w-4 h-4 text-muted-foreground/80" />
-            <span>Institución</span>
+      <CardContent className={appCardContentClassName}>
+        <div className="flex flex-col divide-y divide-border/60 text-xs font-medium">
+          {/* Institución */}
+          <div className="py-3 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 text-muted-foreground">
+              <Landmark className="w-4 h-4 text-muted-foreground/80" />
+              <span>Institución</span>
+            </div>
+            <span className="font-bold text-foreground text-right truncate">
+              {account.name}
+            </span>
           </div>
-          <span className="font-bold text-foreground text-right truncate">
-            {account.name}
-          </span>
-        </div>
 
-        {/* Tipo */}
-        <div className="py-3 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5 text-muted-foreground">
-            <Briefcase className="w-4 h-4 text-muted-foreground/80" />
-            <span>Tipo</span>
+          {/* Tipo */}
+          <div className="py-3 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 text-muted-foreground">
+              <Briefcase className="w-4 h-4 text-muted-foreground/80" />
+              <span>Tipo</span>
+            </div>
+            <span className="font-bold text-foreground text-right truncate">
+              {accountTypeSpanish}
+            </span>
           </div>
-          <span className="font-bold text-foreground text-right truncate">
-            {accountTypeSpanish}
-          </span>
-        </div>
 
-        {/* Moneda */}
-        <div className="py-3 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5 text-muted-foreground">
-            <Banknote className="w-4 h-4 text-muted-foreground/80" />
-            <span>Moneda</span>
+          {/* Moneda */}
+          <div className="py-3 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 text-muted-foreground">
+              <Banknote className="w-4 h-4 text-muted-foreground/80" />
+              <span>Moneda</span>
+            </div>
+            <span className="font-bold text-foreground text-right truncate">
+              {currencyFull}
+            </span>
           </div>
-          <span className="font-bold text-foreground text-right truncate">
-            {currencyFull}
-          </span>
-        </div>
 
-        {/* Número */}
-        <div className="py-3 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5 text-muted-foreground">
-            <CreditCard className="w-4 h-4 text-muted-foreground/80" />
-            <span>Número</span>
+          {/* Número */}
+          <div className="py-3 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 text-muted-foreground">
+              <CreditCard className="w-4 h-4 text-muted-foreground/80" />
+              <span>Número</span>
+            </div>
+            <span className="font-bold text-foreground tracking-wider">
+              {maskedNumber}
+            </span>
           </div>
-          <span className="font-bold text-foreground tracking-wider">
-            {maskedNumber}
-          </span>
-        </div>
 
-        {/* Estado */}
-        <div className="py-3 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5 text-muted-foreground">
-            <ShieldCheck className="w-4 h-4 text-muted-foreground/80" />
-            <span>Estado</span>
+          {/* Estado */}
+          <div className="py-3 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 text-muted-foreground">
+              <ShieldCheck className="w-4 h-4 text-muted-foreground/80" />
+              <span>Estado</span>
+            </div>
+            <AccountStatusBadge />
           </div>
-          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-            Activa
-          </span>
         </div>
-      </div>
-    </div>
+      </CardContent>
+    </AccountsCard>
   );
 }

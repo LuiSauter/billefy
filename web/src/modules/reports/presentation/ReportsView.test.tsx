@@ -16,8 +16,14 @@ import { ReportsKpiCards } from "./ReportsKpiCards";
 import { ReportGenerationCard } from "./ReportGenerationCard";
 import { PopularReportsCard } from "./PopularReportsCard";
 import { PeriodConclusionBanner } from "./PeriodConclusionBanner";
+import { CategoryExpensesDonutCard } from "./CategoryExpensesDonutCard";
 
 vi.mock("@/shared/hooks/use-number-format", () => ({ useNumberFormat: () => formatNumber, useNumberPreferences: () => ({ convention: "es-BO", decimalPlaces: 2 }) }));
+// The user's real category list (id -> name) comes from the shared categories context.
+const categoriesState = vi.hoisted(() => ({ categories: [] as { id: string; name: string }[] }));
+vi.mock("@/modules/ledger/application/CategoriesContext", () => ({
+  useUserCategories: () => ({ categories: categoriesState.categories }),
+}));
 vi.mock("../application/report-export.service", () => ({
   exportReportAsCsv: vi.fn(), exportReportAsJson: vi.fn(), exportReportAsPrintable: vi.fn(),
 }));
@@ -104,6 +110,7 @@ function submitGeneration(tree = render()) {
 }
 
 beforeEach(() => {
+  categoriesState.categories = [];
   viewFrame = { slots: [], cursor: 0 };
   generationFrame = { slots: [], cursor: 0 };
   vi.clearAllMocks();
@@ -150,6 +157,22 @@ describe("ReportsView", () => {
     tree = render();
     expect(componentProps(tree, ReportsHeader).periodMonths).toBe(1);
     expect(componentProps(tree, ReportsKpiCards).kpis.netBalance).toBe(800);
+  });
+
+  it("resolves category labels from the user's category list instead of showing raw ids", () => {
+    const id = "71fde9fb-ad49-4e03-86b1-b87df3bda000";
+    categoriesState.categories = [{ id, name: "Supermercado" }];
+    const withCategory = { ...defaultProps, transactions: transactions.map((item) =>
+      item.id === "expense" ? { ...item, categoryId: id } : item) };
+    const html = renderToStaticMarkup(<ReportsView {...withCategory} />);
+    expect(html).toContain("Supermercado");
+    expect(html).not.toContain(id);
+    expect(componentProps(render(withCategory), CategoryExpensesDonutCard).data[0].category).toBe("Supermercado");
+    // Unknown ids degrade to "Sin categoría", never to the identifier itself.
+    categoriesState.categories = [];
+    const unresolved = renderToStaticMarkup(<ReportsView {...withCategory} />);
+    expect(unresolved).toContain("Sin categoría");
+    expect(unresolved).not.toContain(id);
   });
 
   it("memoizes calculations and recomputes when financial props change", () => {
@@ -267,7 +290,7 @@ describe("ReportsView", () => {
     }];
     const calculate = vi.spyOn(analytics, "calculateFinancialReport");
     const tree = render({ ...defaultProps, loans, budgets });
-    expect(calculate).toHaveBeenCalledWith({ ...defaultProps, loans, budgets, periodMonths: 6, selectedCurrency: "BOB", p2pRate: undefined });
+    expect(calculate).toHaveBeenCalledWith({ ...defaultProps, loans, budgets, periodMonths: 6, selectedCurrency: "BOB", p2pRate: undefined, categoryNames: new Map() });
     const data = componentProps(tree, ReportGenerationCard).reportData;
     expect(data.netWorthEvolution.at(-1)?.netWorth).toBe(1400);
     expect(data.periodSummary.budgetCompliance).toBe(33.33);

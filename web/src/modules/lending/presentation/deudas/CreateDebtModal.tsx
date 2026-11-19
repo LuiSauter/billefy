@@ -56,7 +56,8 @@ const QUICK_TEMPLATES = [
 function initialForm() {
   return { reference: "", creditor: "", account: "", currency: "BOB", principal: "", rate: "18", term: "24",
     date: new Date().toISOString().slice(0, 10), method: "FixedInstallment" as LoanTemplate,
-    category: "Personal" as Category, description: "", earlyPaymentPolicy: "AdvanceInstallments" as EarlyPaymentPolicy };
+    category: "Personal" as Category, description: "", earlyPaymentPolicy: "AdvanceInstallments" as EarlyPaymentPolicy,
+    originationKind: "CashDisbursement" as "CashDisbursement" | "OpeningBalance", loanKind: "Loan" as "Loan" | "CreditCard" };
 }
 function decimal(value: string | number): Decimal | null {
   try {
@@ -106,10 +107,13 @@ export function CreateDebtModal({ isOpen, onClose, accounts, monthlyIncome, sele
   const annualPercent = form.method === "NoInterest" ? new D(0) : decimal(form.rate);
   const rate = annualPercent?.div(100);
   const term = Number(form.term);
-  const validTerms = Boolean(principal?.gt(0) && rate && Number.isSafeInteger(term) && term > 0 && validDate(form.date));
+  const validTerms = Boolean(principal?.gt(0) && principal.decimalPlaces() <= 2 && principal.lte("99999999999999.99")
+    && rate && Number.isSafeInteger(term) && term > 0 && validDate(form.date));
   const account = accounts.find(item => item.id === form.account && item.currency === form.currency);
-  const isValid = validTerms && form.reference.trim().length > 0 && form.creditor.trim().length > 0 && Boolean(account);
-  const requestKey = validTerms ? JSON.stringify({ principal: principal!.toNumber(), rate: rate!.toNumber(),
+  const opening = form.originationKind === "OpeningBalance";
+  const card = form.loanKind === "CreditCard";
+  const isValid = validTerms && form.reference.trim().length > 0 && form.creditor.trim().length > 0 && (opening || Boolean(account));
+  const requestKey = validTerms ? JSON.stringify({ principal: principal!.toString(), rate: rate!.toNumber(),
     rateUnit: "Annual", frequency: "Monthly", template: form.method, totalInstallments: term,
     disbursementDate: form.date } satisfies SimulateLoanRequest) : "";
 
@@ -165,10 +169,12 @@ export function CreateDebtModal({ isOpen, onClose, accounts, monthlyIncome, sele
     const counterpartyNotes = [`Referencia: ${form.reference.trim()}`, `Categoría: ${form.category}`,
       ...(form.description.trim() ? [`Descripción: ${form.description.trim()}`] : [])].join("\n");
     try {
-      await onSubmit({ type: "Borrowed", counterpartyName: form.creditor.trim(), principal: principal!.toNumber(),
+      await onSubmit({ type: "Borrowed", counterpartyName: form.creditor.trim(), principal: principal!.toString(),
         currency: form.currency, interestRate: rate!.toNumber(), rateUnit: "Annual", frequency: "Monthly",
         template: form.method, totalInstallments: term, disbursementDate: form.date,
-        disbursementAccountId: account!.id, counterpartyNotes, earlyPaymentPolicy: form.earlyPaymentPolicy });
+        disbursementAccountId: opening ? undefined : account!.id, counterpartyNotes, earlyPaymentPolicy: form.earlyPaymentPolicy,
+        ...(opening ? { originationKind: "OpeningBalance" as const } : {}),
+        ...(card ? { loanKind: "CreditCard" as const } : {}) });
     } catch {
       setError("No se pudo crear la deuda. Tus datos se conservaron; inténtalo de nuevo.");
       submitLock.current = false; setSubmitting(false);
@@ -200,12 +206,21 @@ export function CreateDebtModal({ isOpen, onClose, accounts, monthlyIncome, sele
         <div className="grid gap-4 md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
           <Panel title="Datos de la deuda" icon={FileText}>
             <FormGrid>
+              <FormField htmlFor="debt-kind" label="Tipo de obligación">{control =>
+                <SelectField {...control} value={form.loanKind} options={[{ value: "Loan", label: "Préstamo" }, { value: "CreditCard", label: "Tarjeta de crédito" }]}
+                  onChange={e => e.target.value === "CreditCard" ? patch({ loanKind: "CreditCard", originationKind: "OpeningBalance",
+                    category: "Tarjeta", account: "", method: "NoInterest", rate: "0", term: "1", earlyPaymentPolicy: "AdvanceInstallments" })
+                    : patch({ loanKind: "Loan" })} />}</FormField>
+              <FormField htmlFor="debt-origin" label="Origen del saldo" hint={opening ? "No crea efectivo ni ingreso. Registra solo el capital que ya debes." : "Recibes efectivo y una deuda; no es ingreso."}>{control =>
+                <SelectField {...control} value={form.originationKind} disabled={card}
+                  options={[{ value: "CashDisbursement", label: "Nuevo desembolso a mi cuenta" }, { value: "OpeningBalance", label: "Deuda existente / saldo de apertura" }]}
+                  onChange={e => patch({ originationKind: e.target.value as typeof form.originationKind, account: "" })} />}</FormField>
               <FormField htmlFor="debt-reference" label="Nombre / referencia" required>{control =>
                 <Input {...control} required maxLength={150} value={form.reference} onChange={e => patch({ reference: e.target.value })} />}</FormField>
               <FormField htmlFor="debt-creditor" label="Acreedor" required>{control =>
                 <Input {...control} required maxLength={150} value={form.creditor} onChange={e => patch({ creditor: e.target.value })} />}</FormField>
-              <FormField htmlFor="debt-account" label="Cuenta asociada" required hint="Se registrará el desembolso en esta cuenta.">{control =>
-                <SelectField {...control} required value={form.account} placeholder="Selecciona una cuenta"
+              <FormField htmlFor="debt-account" label="Cuenta asociada" required={!opening} hint={opening ? "Sin movimiento de efectivo al registrar la apertura." : "Se registrará el desembolso en esta cuenta."}>{control =>
+                <SelectField {...control} required={!opening} disabled={opening} value={form.account} placeholder="Selecciona una cuenta"
                   onChange={e => patch({ account: e.target.value })}
                   options={accounts.filter(item => item.currency === form.currency).map(item => ({ value: item.id, label: item.name }))} />}</FormField>
               <FormField htmlFor="debt-currency" label="Moneda" required>{control =>
@@ -220,19 +235,19 @@ export function CreateDebtModal({ isOpen, onClose, accounts, monthlyIncome, sele
                 <Input {...control} type="number" min="0" step="0.01" required disabled={form.method === "NoInterest"}
                   value={form.method === "NoInterest" ? "0" : form.rate} onChange={e => patch({ rate: e.target.value })} />}</FormField>
               <FormField htmlFor="debt-term" label="Plazo (meses)" required>{control =>
-                <Input {...control} type="number" min="1" step="1" required value={form.term} onChange={e => patch({ term: e.target.value })} />}</FormField>
+                <Input {...control} type="number" min="1" step="1" required disabled={card} value={form.term} onChange={e => patch({ term: e.target.value })} />}</FormField>
               <FormField htmlFor="debt-date" label="Fecha de inicio" required>{control =>
                 <Input {...control} type="date" required value={form.date} onChange={e => patch({ date: e.target.value })} />}</FormField>
               <FormField htmlFor="debt-method" label="Método de cálculo">{control =>
-                <SelectField {...control} value={form.method} options={LOAN_TEMPLATE_OPTIONS}
+                <SelectField {...control} disabled={card} value={form.method} options={LOAN_TEMPLATE_OPTIONS}
                   onChange={e => patch({ method: e.target.value as LoanTemplate })} />}</FormField>
               <FormField htmlFor="debt-early-policy" label="Pagos mayores o anticipados"
                 hint={EARLY_PAYMENT_POLICY_OPTIONS.find(p => p.value === form.earlyPaymentPolicy)?.description}>{control =>
-                <SelectField {...control} id="debt-early-policy" value={form.earlyPaymentPolicy}
+                <SelectField {...control} id="debt-early-policy" disabled={card} value={form.earlyPaymentPolicy}
                   options={getCompatibleEarlyPaymentPolicies(form.method).map(p => ({ value: p.value, label: p.label }))}
                   onChange={e => patch({ earlyPaymentPolicy: e.target.value as EarlyPaymentPolicy })} />}</FormField>
             </FormGrid>
-            {accounts.filter(item => item.currency === form.currency).length === 0 &&
+            {!opening && accounts.filter(item => item.currency === form.currency).length === 0 &&
               <p role="status" className="text-sm text-muted-foreground">No hay cuentas en {form.currency}. Crea una cuenta compatible antes de registrar la deuda.</p>}
             <FormField htmlFor="debt-description" label="Descripción / Notas" hint="Referencia, categoría y descripción se guardan como notas de la contraparte.">{control =>
               <Textarea {...control} rows={3} maxLength={500} value={form.description} onChange={e => patch({ description: e.target.value })} />}</FormField>
@@ -270,7 +285,7 @@ export function CreateDebtModal({ isOpen, onClose, accounts, monthlyIncome, sele
             <Panel title="Simulación rápida" icon={Calculator}>
               <FormGrid>
                 <FormField htmlFor="debt-preview-term" label="Plazo">{control =>
-                  <Input {...control} type="number" min="1" step="1" value={form.term} onChange={e => patch({ term: e.target.value })} />}</FormField>
+                  <Input {...control} type="number" min="1" step="1" disabled={card} value={form.term} onChange={e => patch({ term: e.target.value })} />}</FormField>
                 <FormField htmlFor="debt-preview-rate" label="Interés anual (%)">{control =>
                   <Input {...control} type="number" min="0" step="0.01" disabled={form.method === "NoInterest"}
                     value={form.method === "NoInterest" ? "0" : form.rate} onChange={e => patch({ rate: e.target.value })} />}</FormField>
@@ -295,7 +310,7 @@ export function CreateDebtModal({ isOpen, onClose, accounts, monthlyIncome, sele
             <Panel title="Plantillas rápidas" icon={Layers}>
               <div className="grid grid-cols-2 gap-2">
                 {QUICK_TEMPLATES.map(({ category, label, rate, term, icon: Icon }) => <div key={category} className="space-y-1">
-                  <Button type="button" variant="outline" className="w-full px-2 whitespace-normal" onClick={() => patch({ category, rate, term, method: "FixedInstallment" })}
+                  <Button type="button" variant="outline" className="w-full px-2 whitespace-normal" disabled={card} onClick={() => patch({ category, rate, term, method: "FixedInstallment" })}
                     title={`${rate}% anual · ${term} meses`}><Icon aria-hidden="true" />{label}</Button>
                   <p className="text-center text-xs text-muted-foreground">{rate}% · {term} meses</p>
                 </div>)}

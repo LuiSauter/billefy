@@ -1,24 +1,27 @@
 "use client";
 
 import React, { useState } from "react";
-import { ChevronDown, ChevronRight, Home, User, CreditCard, MoreHorizontal, Trash2 } from "lucide-react";
+import { MoreHorizontal, Trash2 } from "lucide-react";
 import { LiabilityCategorySummary } from "../domain/patrimonio.types";
 import { Amount } from "@/shared/ui/amount";
+import { Button } from "@/shared/ui/button";
+import { CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
+import {
+  appCardContentClassName,
+  appCardHeaderClassName,
+  appCardTitleClassName,
+} from "@/shared/presentation/card-variants";
+import { PatrimonioCard } from "./PatrimonioCard";
+import { PatrimonioCategoryRow } from "./PatrimonioCategoryRow";
+import { ConfirmDeleteItemDrawer, type PendingDeletion } from "./ConfirmDeleteItemDrawer";
+import { PATRIMONIO_CATEGORY_ICONS } from "./category-icons";
 
 interface PatrimonioLiabilitiesListProps {
   categories: LiabilityCategorySummary[];
   totalLiabilities: number;
-  onSelectCategory?: (category: string) => void;
-  onDeleteLiability?: (id: string) => void;
+  onDeleteLiability?: (id: string) => void | Promise<void>;
   currency?: string;
 }
-
-const ICON_MAP: Record<string, React.ElementType> = {
-  home: Home,
-  user: User,
-  "credit-card": CreditCard,
-  "more-horizontal": MoreHorizontal,
-};
 
 export function PatrimonioLiabilitiesList({
   categories,
@@ -27,6 +30,7 @@ export function PatrimonioLiabilitiesList({
   currency = "USD",
 }: PatrimonioLiabilitiesListProps) {
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
+  const [pendingDeletion, setPendingDeletion] = useState<PendingDeletion | null>(null);
 
   const toggleExpand = (cat: string) => {
     setExpandedCategories((prev) => ({
@@ -36,114 +40,84 @@ export function PatrimonioLiabilitiesList({
   };
 
   return (
-    <div className="rounded-2xl bg-card border border-border/80 p-5 shadow-2xs flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-base sm:text-lg font-bold text-foreground tracking-tight">
-          Mis pasivos
-        </h3>
-        <span className="text-base sm:text-lg font-black text-foreground">
+    <PatrimonioCard>
+      <CardHeader className={`${appCardHeaderClassName} flex flex-row items-center justify-between space-y-0`}>
+        <CardTitle className={appCardTitleClassName}>Mis pasivos</CardTitle>
+        <span className="text-base font-black text-foreground">
           <Amount value={totalLiabilities} currency={currency} size="inherit" tone="inherit" />
         </span>
-      </div>
+      </CardHeader>
 
-      <div className="flex flex-col divide-y divide-border/40">
-        {categories.map((cat) => {
-          const Icon = ICON_MAP[cat.icon] || MoreHorizontal;
-          const isExpanded = !!expandedCategories[cat.category];
-
-          return (
-            <div key={cat.category} className="py-2.5 flex flex-col">
+      <CardContent className={`${appCardContentClassName} flex flex-col divide-y divide-border/40`}>
+        {categories.map((cat) => (
+          <PatrimonioCategoryRow
+            key={cat.category}
+            icon={PATRIMONIO_CATEGORY_ICONS[cat.icon] || MoreHorizontal}
+            color={cat.color}
+            title={cat.label}
+            subtitle={`${cat.itemsCount} ${cat.itemsCount === 1 ? "compromiso" : "compromisos"}`}
+            totalAmount={cat.totalAmount}
+            percentage={cat.percentage}
+            currency={currency}
+            expanded={!!expandedCategories[cat.category]}
+            onToggle={() => toggleExpand(cat.category)}
+          >
+            {cat.items.map((item) => (
               <div
-                onClick={() => toggleExpand(cat.category)}
-                className="py-2 flex items-center justify-between gap-3 hover:bg-muted/40 px-2 rounded-xl transition cursor-pointer group"
+                key={item.id}
+                className="flex items-center justify-between gap-2 p-2 rounded-lg bg-muted/30 hover:bg-muted/60 transition text-xs"
               >
-                <div className="flex items-center gap-3.5 min-w-0">
-                  <div
-                    className="w-10 h-10 rounded-xl flex items-center justify-center text-white shrink-0 shadow-2xs"
-                    style={{ backgroundColor: cat.color }}
-                  >
-                    <Icon className="w-5 h-5" />
-                  </div>
-
-                  <div className="flex flex-col min-w-0">
-                    <span className="text-sm font-bold text-foreground group-hover:text-purple-400 transition truncate">
-                      {cat.label}
-                    </span>
-                    <span className="text-[11px] text-muted-foreground truncate">
-                      {cat.itemsCount} {cat.itemsCount === 1 ? "compromiso" : "compromisos"}
-                    </span>
+                <div className="flex flex-col min-w-0">
+                  <span className="font-semibold text-foreground truncate">{item.name}</span>
+                  <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground truncate">
+                    {item.notes && <span>{item.notes}</span>}
+                    {item.originalAmount !== undefined && item.currency && item.currency !== currency && (
+                      <span className="text-rose-400">
+                        • Orig: <Amount value={item.originalAmount} currency={item.currency} size="inherit" tone="inherit" />
+                      </span>
+                    )}
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3 shrink-0">
-                  <div className="flex flex-col items-end">
-                    <span className="text-sm font-black text-foreground">
-                      <Amount value={cat.totalAmount} currency={currency} size="inherit" tone="inherit" />
-                    </span>
-                    <span className="text-[11px] text-muted-foreground">
-                      {cat.percentage}%
-                    </span>
-                  </div>
-                  {isExpanded ? (
-                    <ChevronDown className="w-4 h-4 text-purple-400 transition" />
-                  ) : (
-                    <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition" />
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span className="font-bold text-rose-400">
+                    <Amount value={item.amount} currency={currency} size="inherit" tone="inherit" />
+                  </span>
+
+                  {!item.isFromModule && onDeleteLiability && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-xs"
+                      onClick={() => setPendingDeletion({ id: item.id, name: item.name })}
+                      title="Eliminar pasivo"
+                      aria-label={`Eliminar pasivo ${item.name}`}
+                      className="text-muted-foreground/60 hover:text-rose-400"
+                    >
+                      <Trash2 aria-hidden="true" />
+                    </Button>
                   )}
                 </div>
               </div>
-
-              {/* Sub-items Drilldown */}
-              {isExpanded && (
-                <div className="mt-2 ml-4 sm:ml-12 pl-3 border-l-2 border-border/80 flex flex-col gap-2 py-1 animate-in fade-in duration-100">
-                  {cat.items.map((item) => (
-                    <div
-                      key={item.id}
-                      className="flex items-center justify-between p-2 rounded-lg bg-muted/30 hover:bg-muted/60 transition text-xs"
-                    >
-                      <div className="flex flex-col min-w-0">
-                        <span className="font-semibold text-foreground truncate">
-                          {item.name}
-                        </span>
-                        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground truncate">
-                          {item.notes && <span>{item.notes}</span>}
-                          {item.originalAmount !== undefined && item.currency && item.currency !== currency && (
-                            <span className="text-rose-400">
-                              • Orig: <Amount value={item.originalAmount} currency={item.currency} size="inherit" tone="inherit" />
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2.5 shrink-0">
-                        <span className="font-bold text-rose-400">
-                          <Amount value={item.amount} currency={currency} size="inherit" tone="inherit" />
-                        </span>
-
-                        {!item.isFromModule && onDeleteLiability && (
-                          <button
-                            type="button"
-                            onClick={() => onDeleteLiability(item.id)}
-                            title="Eliminar pasivo"
-                            className="p-1 text-muted-foreground/60 hover:text-rose-400 transition cursor-pointer"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          );
-        })}
+            ))}
+          </PatrimonioCategoryRow>
+        ))}
 
         {categories.length === 0 && (
           <div className="py-8 text-center text-xs text-muted-foreground">
             No tienes deudas ni pasivos registrados.
           </div>
         )}
-      </div>
-    </div>
+      </CardContent>
+
+      {onDeleteLiability && (
+        <ConfirmDeleteItemDrawer
+          item={pendingDeletion}
+          noun="pasivo"
+          onConfirm={onDeleteLiability}
+          onClose={() => setPendingDeletion(null)}
+        />
+      )}
+    </PatrimonioCard>
   );
 }

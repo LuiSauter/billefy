@@ -8,6 +8,7 @@ import {
   LoanPaymentQuoteDto,
   LoanSummaryDto,
   RegisterLoanPaymentRequest,
+  RegisterCardPurchaseRequest,
   SimulateLoanRequest,
 } from "../domain/lending.types";
 import { LendingApiRepository } from "../infrastructure/lending-api.repository";
@@ -22,6 +23,13 @@ export function useLendingModule(
   const repo = useMemo(
     () => (http ? new LendingApiRepository(http) : null),
     [http]
+  );
+
+  // Retain a key after an uncertain failed POST. Successful writes release it,
+  // so a later intentional identical operation receives a new identity.
+  const { keys: pendingKeys } = useMemo(
+    () => ({ repository: repo, keys: new Map<string, string>() }),
+    [repo]
   );
 
   const refreshLoans = useCallback(async () => {
@@ -40,12 +48,30 @@ export function useLendingModule(
 
   const createLoan = useCallback(
     async (req: CreateLoanRequest) => {
-      if (!repo) return;
-      await repo.createLoan(req);
-      await Promise.all([refreshLoans(), onLedgerImpacted?.()]);
+      if (!repo) throw new Error("Cliente no inicializado");
+      const operation = `create:${JSON.stringify(req)}`;
+      const key = req.idempotencyKey ?? pendingKeys.get(operation) ?? crypto.randomUUID();
+      pendingKeys.set(operation, key);
+      const result = await repo.createLoan({ ...req, idempotencyKey: key });
+      pendingKeys.delete(operation);
+      const updates = await Promise.allSettled([refreshLoans(), Promise.resolve().then(() => onLedgerImpacted?.())]);
+      if (updates.some(update => update.status === "rejected")) notify.error("Deuda guardada", "Actualiza la vista para consultar los saldos recientes.");
+      return result;
     },
-    [repo, refreshLoans, onLedgerImpacted]
+    [repo, refreshLoans, onLedgerImpacted, pendingKeys]
   );
+
+  const registerCardPurchase = useCallback(async (loanId: string, req: RegisterCardPurchaseRequest) => {
+    if (!repo) throw new Error("Cliente no inicializado");
+    const operation = `purchase:${loanId}:${JSON.stringify(req)}`;
+    const key = req.idempotencyKey ?? pendingKeys.get(operation) ?? crypto.randomUUID();
+    pendingKeys.set(operation, key);
+    const result = await repo.registerCardPurchase(loanId, { ...req, idempotencyKey: key });
+    pendingKeys.delete(operation);
+    const updates = await Promise.allSettled([refreshLoans(), Promise.resolve().then(() => onLedgerImpacted?.())]);
+    if (updates.some(update => update.status === "rejected")) notify.error("Compra guardada", "Actualiza la vista para consultar los saldos recientes.");
+    return result;
+  }, [repo, refreshLoans, onLedgerImpacted, pendingKeys]);
 
   const getLoanById = useCallback(
     async (id: string) => {
@@ -79,7 +105,11 @@ export function useLendingModule(
       if (!repo) throw new Error("Cliente no inicializado");
       // The write is authoritative. A failed read refresh must never make the
       // form report an unsaved payment or invite a duplicate POST.
-      const res = await repo.registerLoanPayment(loanId, req);
+      const operation = `payment:${loanId}:${JSON.stringify(req)}`;
+      const key = req.idempotencyKey ?? pendingKeys.get(operation) ?? crypto.randomUUID();
+      pendingKeys.set(operation, key);
+      const res = await repo.registerLoanPayment(loanId, { ...req, idempotencyKey: key });
+      pendingKeys.delete(operation);
       const safelyRefresh = async (refresh: (() => Promise<void>) | undefined) => {
         if (!refresh) return true;
         try { await refresh(); return true; } catch { return false; }
@@ -93,7 +123,7 @@ export function useLendingModule(
       }
       return res;
     },
-    [repo, refreshLoans, onLedgerImpacted]
+    [repo, refreshLoans, onLedgerImpacted, pendingKeys]
   );
 
   return {
@@ -105,6 +135,7 @@ export function useLendingModule(
     getLoanById,
     getPaymentQuote,
     registerLoanPayment,
+    registerCardPurchase,
     cancelLoan,
   };
 }

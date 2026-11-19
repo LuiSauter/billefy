@@ -21,6 +21,19 @@ describe("useLendingModule payment write boundary", () => {
     await expect(api.registerLoanPayment("loan", { amount: 1 })).rejects.toThrow("write failed");
     expect(getLoans).not.toHaveBeenCalled(); expect(warn).not.toHaveBeenCalled();
   });
+  it("reuses an operation key after an uncertain failure but renews it after success", async () => {
+    post.mockRejectedValueOnce(new Error("offline")).mockResolvedValue({ paymentId: "p1" });
+    getLoans.mockResolvedValue([]);
+    const api = useLendingModule(http);
+    await expect(api.registerLoanPayment("loan", { amount: "100.00" })).rejects.toThrow("offline");
+    await api.registerLoanPayment("loan", { amount: "100.00" });
+    const firstKey = post.mock.calls[0][1].idempotencyKey;
+    expect(firstKey).toEqual(expect.any(String));
+    expect(post.mock.calls[1][1].idempotencyKey).toBe(firstKey);
+    await api.registerLoanPayment("loan", { amount: "100.00" });
+    expect(post.mock.calls[2][1].idempotencyKey).not.toBe(firstKey);
+  });
+
   it("rejects rather than claiming success when the repository is unavailable", async () => {
     const api = useLendingModule(null);
     await expect(api.registerLoanPayment("loan", { amount: 1 })).rejects.toThrow("Cliente no inicializado");

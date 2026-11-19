@@ -78,6 +78,7 @@ export function EditGoalModal({
   };
 
   const currencySymbol = formatCurrencyLabel(goal.currency);
+  const reserved = goal.fundingMode === "ReservedFunds";
 
   return (
     <ResponsiveDrawer
@@ -85,7 +86,7 @@ export function EditGoalModal({
       onOpenChange={(open) => !open && !submitting && onClose()}
       size="md"
       title="Editar meta"
-      description="Modificá el nombre, monto objetivo, fecha y cuenta vinculada."
+      description={reserved ? "Modificá nombre, objetivo y fecha. Las asignaciones se administran por separado; el modo y la cuenta se conservan." : "Modificá el nombre, monto objetivo, fecha y cuenta vinculada. Se conserva el seguimiento del saldo completo."}
       footer={
         <>
           <Button
@@ -170,12 +171,13 @@ export function EditGoalModal({
 
         <FormField
           label="Cuenta vinculada"
-          hint="Opcional. Cuentas en la misma moneda cuyo saldo suma al avance de la meta."
+          hint={reserved ? "Cuenta de respaldo. No se cuenta su saldo completo ni se convierte la meta a otro modo." : "Opcional. Cuentas en la misma moneda cuyo saldo suma al avance de la meta."}
         >
           {(control) => (
             <SelectField
               {...control}
               value={accountId}
+              disabled={reserved || submitting}
               onChange={(e) => setAccountId(e.target.value)}
               options={[
                 { value: "", label: "Sin cuenta vinculada" },

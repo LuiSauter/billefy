@@ -29,6 +29,13 @@ export function usePlanningModule(http: IHttpClient | null) {
     if (!repo) throw new Error("Cliente no inicializado");
     await overview.updateGoal(id, request);
   }, [repo, overview]);
+  const recordGoalFunding = useCallback(async (...args: Parameters<typeof overview.recordGoalFunding>) => {
+    await overview.recordGoalFunding(...args);
+  }, [overview]);
+  const getGoalFunding = useCallback(async (id: string) => {
+    if (!repo) throw new Error("Cliente no inicializado");
+    return repo.getGoalFunding(id);
+  }, [repo]);
   const deleteGoal = useCallback(async (id: string) => {
     if (!repo) throw new Error("Cliente no inicializado");
     await overview.deleteGoal(id);
@@ -45,6 +52,6 @@ export function usePlanningModule(http: IHttpClient | null) {
     health: overviewState.health, setHealth: overview.setHealth,
     planningOverviewStatus: overviewState.status, planningOverviewError: overviewState.error,
     refreshGoalsAndHealth, refreshPlanning, retryPlanningOverview: overview.refresh,
-    createBudget, updateBudget: budgetResource.updateBudget, createGoal, updateGoal, deleteGoal, proposeIncomeDistribution,
+    createBudget, updateBudget: budgetResource.updateBudget, createGoal, updateGoal, deleteGoal, recordGoalFunding, getGoalFunding, proposeIncomeDistribution,
   };
 }

@@ -1,9 +1,46 @@
-import { describe, it, expect, vi } from "vitest";
+import { beforeEach, describe, it, expect, vi } from "vitest";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { PatrimonioView } from "./PatrimonioView";
 
+// shared/ui/skeleton.tsx uses JSX without importing React; the Next compiler injects it, vitest's transform does not.
+vi.stubGlobal("React", React);
+
+const patrimonio = vi.hoisted(() => ({ loaded: true }));
+vi.mock("../application/usePatrimonio", () => ({
+  usePatrimonio: () => ({
+    manualAssets: [],
+    manualLiabilities: [],
+    addAsset: vi.fn(),
+    deleteAsset: vi.fn(),
+    addLiability: vi.fn(),
+    deleteLiability: vi.fn(),
+    loaded: patrimonio.loaded,
+  }),
+}));
+
 describe("PatrimonioView", () => {
+  beforeEach(() => {
+    patrimonio.loaded = true;
+  });
+
+  it("shows a loading state instead of the empty-state copy and zero KPIs before manual data hydrates", () => {
+    patrimonio.loaded = false;
+    const html = renderToStaticMarkup(<PatrimonioView investments={[]} accounts={[]} loans={[]} />);
+
+    expect(html).toContain('aria-busy="true"');
+    expect(html).toContain('data-slot="skeleton"');
+    expect(html).not.toContain("No tienes activos");
+    expect(html).not.toContain("No tienes deudas");
+  });
+
+  it("renders the empty-state copy once hydrated with no records", () => {
+    const html = renderToStaticMarkup(<PatrimonioView investments={[]} accounts={[]} loans={[]} />);
+
+    expect(html).not.toContain('aria-busy="true"');
+    expect(html).toContain("No tienes activos");
+  });
+
   it("renders header, KPI cards, charts, assets/liabilities lists and composition bar", () => {
     const html = renderToStaticMarkup(
       <PatrimonioView

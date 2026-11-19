@@ -32,6 +32,9 @@ const AccountsTabView = dynamic(() =>
 const BudgetsTabView = dynamic(() =>
   import("@/modules/planning/presentation/BudgetsTabView").then((m) => m.BudgetsTabView)
 );
+const RegisterCardPurchaseModal = dynamic(() =>
+  import("@/modules/lending/presentation/modals/RegisterCardPurchaseModal").then((m) => m.RegisterCardPurchaseModal)
+);
 const DeudasView = dynamic(() =>
   import("@/modules/lending/presentation/deudas/DeudasView").then((m) => m.DeudasView)
 );
@@ -91,6 +94,8 @@ export default function DashboardPage() {
       userId: user?.id || defaultTokenStorage.getUser()?.id,
     });
   }, [token, user?.id]);
+  const [cardPurchaseLoanId, setCardPurchaseLoanId] = useState<string | null>(null);
+  const cardPurchaseLoan = dashboard.loans.find(loan => loan.id === cardPurchaseLoanId) ?? null;
   const investmentsCtl = useInvestments(planningHttp);
   const planCtl = useDistributionPlan(planningHttp);
 
@@ -308,7 +313,7 @@ export default function DashboardPage() {
               accounts={dashboard.accounts}
               goals={dashboard.goals}
               currency={selectedCurrency}
-              onCashComplete={dashboard.refreshLedger}
+              onCashComplete={dashboard.refreshLedgerAndPlanning}
               onOpenCreateGoalModal={() => modals.setIsGoalModalOpen(true)}
               onOpenBinanceModal={() => modals.setIsBinanceModalOpen(true)}
             />
@@ -349,8 +354,9 @@ export default function DashboardPage() {
             <MovimientosView
               http={planningHttp}
               accounts={dashboard.accounts}
+              transactions={dashboard.transactions}
               onRegister={() => modals.setIsTxnModalOpen(true)}
-              onRefresh={dashboard.refreshLedger}
+              onRefresh={dashboard.refreshLedgerAndPlanning}
               investmentsController={investmentsCtl}
               selectedCurrency={selectedCurrency}
               p2pRate={p2pRate}
@@ -385,6 +391,7 @@ export default function DashboardPage() {
               p2pRate={p2pRate}
               monthlyIncome={monthlyIncome}
               onOpenCreateDebt={() => modals.setIsCreateDebtModalOpen(true)}
+              onOpenCardPurchase={setCardPurchaseLoanId}
               onOpenPayment={(loanId, installmentNumber?: number) => void modals.openLoanPayment(loanId, dashboard.loans, installmentNumber)}
               onOpenLoanDetails={modals.openLoanDetail}
             />
@@ -468,6 +475,8 @@ export default function DashboardPage() {
               onOpenPlan={() => setActiveTab("presupuestos")}
               onUpdateGoal={dashboard.updateGoal}
               onDeleteGoal={dashboard.deleteGoal}
+              onRecordGoalFunding={dashboard.recordGoalFunding}
+              onGetGoalFunding={dashboard.getGoalFunding}
               selectedCurrency={selectedCurrency}
               p2pRate={p2pRate}
             />
@@ -543,7 +552,21 @@ export default function DashboardPage() {
         planEnabled={planCtl.plan.enabled}
       />
 
+      {cardPurchaseLoan && (
+        <RegisterCardPurchaseModal
+          isOpen
+          loan={cardPurchaseLoan}
+          onClose={() => setCardPurchaseLoanId(null)}
+          onSubmit={async (loanId, request) => {
+            const result = await dashboard.registerCardPurchase(loanId, request);
+            await modals.refreshSelectedLoanDetail(loanId);
+            return result;
+          }}
+        />
+      )}
+
       <ModalsContainer
+        onOpenCardPurchase={setCardPurchaseLoanId}
         modals={modals}
         user={user}
         onOpenAccounts={() => setActiveTab("cuentas")}
@@ -572,7 +595,7 @@ export default function DashboardPage() {
           executeFxTransfer: dashboard.executeFxTransfer,
           reconcileAccount: dashboard.reconcileAccount,
           simulateLoan: dashboard.simulateLoan,
-          createLoan: dashboard.createLoan,
+          createLoan: async (request) => { await dashboard.createLoan(request); },
           getPaymentQuote: dashboard.getPaymentQuote,
           registerLoanPayment: dashboard.registerLoanPayment,
           cancelLoan: dashboard.cancelLoan,

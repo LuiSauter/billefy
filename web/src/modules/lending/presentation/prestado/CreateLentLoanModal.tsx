@@ -38,7 +38,7 @@ function initialForm(currency = "BOB") {
   return { person: "", relationship: "Amigo", account: "", principal: "", currency,
     date: new Date().toISOString().slice(0, 10), agreement: "interest" as "interest" | "none",
     rate: "10", frequency: "Monthly" as Frequency, term: "6", notes: "", plan: "automatic" as "automatic" | "manual",
-    earlyPaymentPolicy: "AdvanceInstallments" as EarlyPaymentPolicy };
+    earlyPaymentPolicy: "AdvanceInstallments" as EarlyPaymentPolicy, originationKind: "CashDisbursement" as "CashDisbursement" | "OpeningBalance" };
 }
 function decimal(value: string | number): Decimal | null {
   try {
@@ -97,13 +97,14 @@ export function CreateLentLoanModal({ isOpen, onClose, accounts, selectedCurrenc
   // Thirty360 nominal periods: 30 days/month, 15 days/fortnight, 7 days/week.
   const count = form.frequency === "Monthly" ? months : Math.ceil(months * 30 / (form.frequency === "Biweekly" ? 15 : 7));
   const dueDate = maturity(form.date, count, form.frequency);
-  const validTerms = Boolean(principal?.gt(0) && principal.decimalPlaces() <= 2 && rate &&
+  const validTerms = Boolean(principal?.gt(0) && principal.decimalPlaces() <= 2 && principal.lte("99999999999999.99") && rate &&
     Number.isSafeInteger(months) && months > 0 && FREQUENCIES.some(item => item.value === form.frequency) && dueDate);
   const account = accounts.find(item => item.id === form.account && item.currency === form.currency);
-  const isValid = validTerms && Boolean(account) && ["BOB", "USD"].includes(form.currency) &&
+  const opening = form.originationKind === "OpeningBalance";
+  const isValid = validTerms && (opening || Boolean(account)) && ["BOB", "USD"].includes(form.currency) &&
     form.person.trim().length > 0 && form.person.trim().length <= 150 && form.notes.length <= 300 && RELATIONSHIPS.includes(form.relationship);
   const template = form.agreement === "none" ? "NoInterest" : "FixedInstallment";
-  const requestKey = validTerms ? JSON.stringify({ principal: principal!.toNumber(), rate: rate!.toNumber(), rateUnit: "Annual",
+  const requestKey = validTerms ? JSON.stringify({ principal: principal!.toString(), rate: rate!.toNumber(), rateUnit: "Annual",
     dayCount: "Thirty360", frequency: form.frequency, template, totalInstallments: count, disbursementDate: form.date } satisfies SimulateLoanRequest) : "";
 
   useEffect(() => {
@@ -149,10 +150,10 @@ export function CreateLentLoanModal({ isOpen, onClose, accounts, selectedCurrenc
     const counterpartyNotes = [`[Plan: ${form.plan === "manual" ? "Manual" : "Automático"}]`, `Relación: ${form.relationship}`,
       ...(form.notes.trim() ? [`Descripción: ${form.notes.trim()}`] : [])].join("\n");
     try {
-      await onSubmit({ type: "Lent", counterpartyName: form.person.trim(), principal: principal!.toNumber(), currency: form.currency,
+      await onSubmit({ type: "Lent", counterpartyName: form.person.trim(), principal: principal!.toString(), currency: form.currency,
         interestRate: rate!.toNumber(), rateUnit: "Annual", dayCount: "Thirty360", frequency: form.frequency, template,
-        totalInstallments: count, disbursementDate: form.date, disbursementAccountId: account!.id, counterpartyNotes,
-        earlyPaymentPolicy: form.earlyPaymentPolicy });
+        totalInstallments: count, disbursementDate: form.date, disbursementAccountId: opening ? undefined : account!.id, counterpartyNotes,
+        earlyPaymentPolicy: form.earlyPaymentPolicy, ...(opening ? { originationKind: "OpeningBalance" as const } : {}) });
     } catch {
       if (session.current === activeSession) {
         setError("No se pudo registrar el préstamo. Tus datos se conservaron; inténtalo de nuevo.");
@@ -175,13 +176,16 @@ export function CreateLentLoanModal({ isOpen, onClose, accounts, selectedCurrenc
         <div className="min-w-0 space-y-4">
           <Panel title="Información del préstamo" icon={UserRound}>
             <FormGrid>
+              <FormField htmlFor="lent-origin" label="Origen de la cuenta por cobrar" hint={opening ? "Saldo que ya te deben: no crea ni retira efectivo." : "Nuevo préstamo: reduce efectivo y crea una cuenta por cobrar; no es gasto."}>{control =>
+                <SelectField {...control} value={form.originationKind} onChange={e => patch({ originationKind: e.target.value as typeof form.originationKind, account: "" })}
+                  options={[{ value: "CashDisbursement", label: "Prestar dinero ahora" }, { value: "OpeningBalance", label: "Saldo existente / apertura" }]} />}</FormField>
               <FormField htmlFor="lent-person" label="Persona o contacto" required>{control =>
                 <Input {...control} required maxLength={150} value={form.person} onChange={e => patch({ person: e.target.value })} />}</FormField>
               <FormField htmlFor="lent-relationship" label="Relación">{control =>
                 <SelectField {...control} value={form.relationship} onChange={e => patch({ relationship: e.target.value })}
                   options={RELATIONSHIPS.map(value => ({ value, label: value }))} />}</FormField>
-              <FormField htmlFor="lent-account" label="Cuenta de origen" required>{control =>
-                <SelectField {...control} required value={form.account} placeholder="Selecciona una cuenta" onChange={e => patch({ account: e.target.value })}
+              <FormField htmlFor="lent-account" label="Cuenta de origen" required={!opening}>{control =>
+                <SelectField {...control} required={!opening} disabled={opening} value={form.account} placeholder="Selecciona una cuenta" onChange={e => patch({ account: e.target.value })}
                   options={accounts.filter(item => item.currency === form.currency).map(item => ({ value: item.id, label: item.name }))} />}</FormField>
               <FormField htmlFor="lent-currency" label="Moneda">{control =>
                 <SelectField {...control} value={form.currency} onChange={e => patch({ currency: e.target.value, account: "" })}
@@ -192,7 +196,7 @@ export function CreateLentLoanModal({ isOpen, onClose, accounts, selectedCurrenc
               <FormField htmlFor="lent-date" label="Fecha del préstamo" required>{control =>
                 <Input {...control} required type="date" value={form.date} onChange={e => patch({ date: e.target.value })} />}</FormField>
             </FormGrid>
-            {!accounts.some(item => item.currency === form.currency) && <p role="status" className="text-sm text-muted-foreground">
+            {!opening && !accounts.some(item => item.currency === form.currency) && <p role="status" className="text-sm text-muted-foreground">
               No hay cuentas en {form.currency}. Crea una cuenta compatible para registrar el préstamo.</p>}
             <div className="space-y-2">
               <p className="text-sm font-semibold">Tipo de acuerdo</p>

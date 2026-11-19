@@ -17,6 +17,8 @@ interface Props {
   controller: InvestmentsController;
   accounts: AccountDto[];
   onComplete: () => Promise<void>;
+  /** When the modal is opened from a specific asset, that asset is preselected and locked. */
+  investmentId?: string;
 }
 
 const FORM_ID = "investment-cash-form";
@@ -37,8 +39,10 @@ export function InvestmentCashModal({
   controller,
   accounts,
   onComplete,
+  investmentId: lockedInvestmentId,
 }: Props) {
-  const [investmentId, setInvestmentId] = useState("");
+  const [pickedInvestmentId, setInvestmentId] = useState("");
+  const investmentId = lockedInvestmentId ?? pickedInvestmentId;
   const [accountId, setAccountId] = useState("");
   const [kind, setKind] = useState<"Contribution" | "Disposal">("Contribution");
   const [amount, setAmount] = useState("");
@@ -164,6 +168,7 @@ export function InvestmentCashModal({
             aria-label="Activo"
             required
             value={investmentId}
+            disabled={!!lockedInvestmentId}
             onChange={(e) => setInvestmentId(e.target.value)}
           >
             <option value="">Selecciona una inversión</option>

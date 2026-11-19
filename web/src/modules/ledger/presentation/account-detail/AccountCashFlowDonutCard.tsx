@@ -1,20 +1,41 @@
 "use client";
 
 import React, { useMemo } from "react";
-import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
+import { Cell, Pie, PieChart } from "recharts";
 import { AccountDto, TransactionDto } from "../../domain/ledger.types";
 import { calculateCashFlowComparison } from "../../domain/account-detail";
+import { AccountsCard } from "../AccountsCard";
 import { useNumberPreferences } from "@/shared/hooks/use-number-format";
-import { formatAmountText, formatPercent } from "@/shared/lib/amount-format";
+import { formatPercent } from "@/shared/lib/amount-format";
+import { createAmountTooltipFormatter } from "@/shared/lib/chart-utils";
+import {
+  appCardContentClassName,
+  appCardHeaderClassName,
+  appCardTitleClassName,
+} from "@/shared/presentation/card-variants";
 import { Amount } from "@/shared/ui/amount";
+import { CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from "@/shared/ui/chart";
 
 interface AccountCashFlowDonutCardProps {
   account: AccountDto;
   transactions: TransactionDto[];
 }
 
-const COLOR_INCOME = "#10B981"; // Emerald
-const COLOR_EXPENSE = "#F43F5E"; // Rose
+/** Single source for the income / expense series colors (donut slices AND legend dots). */
+const COLOR_INCOME = "var(--color-chart-2)"; // emerald
+const COLOR_EXPENSE = "var(--color-chart-5)"; // rose
+
+const CASH_FLOW_CHART_CONFIG = {
+  income: { label: "Ingresos", color: COLOR_INCOME },
+  expense: { label: "Gastos", color: COLOR_EXPENSE },
+} satisfies ChartConfig;
+const CASH_FLOW_INITIAL_DIMENSION = { width: 180, height: 180 };
 
 export function AccountCashFlowDonutCard({
   account,
@@ -26,10 +47,12 @@ export function AccountCashFlowDonutCard({
     return calculateCashFlowComparison(transactions);
   }, [transactions]);
 
+  const isEmpty = comparison.totalFlow.isZero();
+
   const chartData = useMemo(() => {
-    if (comparison.totalFlow.isZero()) {
+    if (isEmpty) {
       return [
-        { name: "Sin movimientos", value: 1, color: "var(--muted)", isPlaceholder: true },
+        { name: "Sin movimientos", value: 1, fill: "var(--muted)", isPlaceholder: true },
       ];
     }
 
@@ -37,29 +60,35 @@ export function AccountCashFlowDonutCard({
       {
         name: "Ingresos",
         value: comparison.income.toNumber(),
-        color: COLOR_INCOME,
+        fill: COLOR_INCOME,
         percentage: comparison.incomePercentage,
       },
       {
         name: "Gastos",
         value: comparison.expenses.toNumber(),
-        color: COLOR_EXPENSE,
+        fill: COLOR_EXPENSE,
         percentage: comparison.expensePercentage,
       },
     ].filter((item) => item.value > 0);
-  }, [comparison]);
+  }, [comparison, isEmpty]);
+
+  const tooltipFormatter = useMemo(
+    () =>
+      createAmountTooltipFormatter(account.currency, preferences, (payload) =>
+        formatPercent(Number(payload.percentage ?? 0), preferences)
+      ),
+    [account.currency, preferences]
+  );
 
   return (
-    <div className="rounded-2xl bg-card border border-border/80 p-5 flex flex-col justify-between gap-4 shadow-sm min-w-0">
+    <AccountsCard className="@container min-w-0 flex flex-col justify-between">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <h3 className="text-base font-bold text-foreground tracking-tight">
-          Entradas vs. Salidas
-        </h3>
-      </div>
+      <CardHeader className={appCardHeaderClassName}>
+        <CardTitle className={appCardTitleClassName}>Entradas vs. Salidas</CardTitle>
+      </CardHeader>
 
-      {/* Content: Donut + Legend */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 my-auto">
+      {/* Content: Donut + Legend. Side by side only when the card itself is wide enough. */}
+      <CardContent className={`${appCardContentClassName} flex flex-col @lg:flex-row items-center justify-between gap-4 my-auto w-full`}>
         {/* Donut Container with Center Label */}
         <div className="w-[180px] h-[180px] relative shrink-0 flex items-center justify-center">
           {/* Absolute Center Content */}
@@ -67,30 +96,22 @@ export function AccountCashFlowDonutCard({
             <span className="truncate max-w-[120px]">
               <Amount value={comparison.totalFlow.toNumber()} currency={account.currency} size="sm" className="min-w-0 truncate" />
             </span>
-            <span className="text-[11px] text-muted-foreground font-medium">
+            <span className="text-xs text-muted-foreground font-medium">
               Total
             </span>
           </div>
 
-          <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+          <ChartContainer
+            config={CASH_FLOW_CHART_CONFIG}
+            initialDimension={CASH_FLOW_INITIAL_DIMENSION}
+            className="aspect-auto size-[180px] min-w-0"
+          >
             <PieChart>
-              <Tooltip
-                content={({ active, payload }) => {
-                  if (active && payload && payload.length) {
-                    const item = payload[0].payload;
-                    if (item.isPlaceholder) return null;
-                    return (
-                      <div className="rounded-xl bg-popover border border-border p-2 shadow-xl text-xs">
-                        <span className="font-semibold text-foreground">
-                          {item.name}: {formatAmountText(item.value, account.currency, preferences)} (
-                          {formatPercent(item.percentage ?? 0, preferences)})
-                        </span>
-                      </div>
-                    );
-                  }
-                  return null;
-                }}
-              />
+              {!isEmpty && (
+                <ChartTooltip
+                  content={<ChartTooltipContent hideLabel formatter={tooltipFormatter} />}
+                />
+              )}
               <Pie
                 data={chartData}
                 dataKey="value"
@@ -100,28 +121,32 @@ export function AccountCashFlowDonutCard({
                 outerRadius={75}
                 paddingAngle={chartData.length > 1 ? 4 : 0}
                 stroke="none"
+                isAnimationActive={false}
               >
                 {chartData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
+                  <Cell key={`cell-${index}`} fill={entry.fill} />
                 ))}
               </Pie>
             </PieChart>
-          </ResponsiveContainer>
+          </ChartContainer>
         </div>
 
         {/* Legend on the right */}
-        <div className="flex flex-col gap-3 min-w-[140px] w-full sm:w-auto">
+        <div className="flex flex-col gap-3 min-w-[140px] w-full @lg:w-auto">
           {/* Ingresos Row */}
           <div className="flex flex-col gap-0.5">
             <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0" />
+              <span
+                className="w-2.5 h-2.5 rounded-full shrink-0"
+                style={{ backgroundColor: COLOR_INCOME }}
+              />
               <span className="text-xs text-muted-foreground font-medium">
                 Ingresos
               </span>
             </div>
             <div className="pl-4.5">
               <Amount value={comparison.income.toNumber()} currency={account.currency} size="sm" className="min-w-0 truncate" />
-              <span className="text-[11px] text-muted-foreground ml-1">
+              <span className="text-xs text-muted-foreground ml-1">
                 ({formatPercent(comparison.incomePercentage, preferences)})
               </span>
             </div>
@@ -130,20 +155,23 @@ export function AccountCashFlowDonutCard({
           {/* Gastos Row */}
           <div className="flex flex-col gap-0.5">
             <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-rose-500 shrink-0" />
+              <span
+                className="w-2.5 h-2.5 rounded-full shrink-0"
+                style={{ backgroundColor: COLOR_EXPENSE }}
+              />
               <span className="text-xs text-muted-foreground font-medium">
                 Gastos
               </span>
             </div>
             <div className="pl-4.5">
               <Amount value={comparison.expenses.toNumber()} currency={account.currency} size="sm" className="min-w-0 truncate" />
-              <span className="text-[11px] text-muted-foreground ml-1">
+              <span className="text-xs text-muted-foreground ml-1">
                 ({formatPercent(comparison.expensePercentage, preferences)})
               </span>
             </div>
           </div>
         </div>
-      </div>
-    </div>
+      </CardContent>
+    </AccountsCard>
   );
 }

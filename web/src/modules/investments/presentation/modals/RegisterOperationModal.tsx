@@ -14,6 +14,7 @@ import {
 import { Investment } from "../../domain/investment.types";
 import { AccountDto } from "@/modules/ledger/domain/ledger.types";
 import { normalizeAmountString } from "@/shared/lib/keypad";
+import { toNumber } from "../parse-amount-input";
 import {
   extractCryptoSymbol,
   fetchCryptoTicker,
@@ -45,8 +46,12 @@ interface RegisterOperationModalProps {
     date: string;
     notes?: string;
     linkedAccountId?: string;
+    idempotencyKey?: string;
+    totalAmountExact?: string;
   }) => Promise<void>;
   onFetchStockQuote?: (ticker: string) => Promise<StockQuote | null>;
+  initialType?: "buy" | "sell" | "dividend";
+  onRequestPurchase?: () => void;
   currency?: string;
 }
 
@@ -54,11 +59,6 @@ const FORM_ID = "register-operation-form";
 const QUICK_BUY_AMOUNTS = [50, 100, 250, 500, 1000];
 // Preserve the existing input precision; rounding stays in the calculation handlers.
 const MAX_INPUT_DECIMALS = Number.MAX_SAFE_INTEGER;
-
-function toNumber(raw: string): number {
-  const n = parseFloat(normalizeAmountString(raw.trim()) || "0");
-  return Number.isFinite(n) ? n : 0;
-}
 
 function toDecimalString(value: number): string {
   return new Decimal(value).toFixed();
@@ -142,9 +142,11 @@ export function RegisterOperationModal({
   onClose,
   onConfirmOperation,
   onFetchStockQuote,
+  initialType = "buy",
+  onRequestPurchase,
   currency = "USD",
 }: RegisterOperationModalProps) {
-  const [type, setType] = useState<"buy" | "sell" | "dividend">("buy");
+  const [type, setType] = useState<"buy" | "sell" | "dividend">(initialType);
   const [date, setDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [quantityStr, setQuantityStr] = useState("");
   const [dollarAmountStr, setDollarAmountStr] = useState("");
@@ -158,6 +160,9 @@ export function RegisterOperationModal({
   const [priceChangePercent, setPriceChangePercent] = useState<number | null>(null);
   const [loadingLivePrice, setLoadingLivePrice] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [retryKeys] = useState(() => new Map<string, string>());
+  const [submitGate] = useState(() => ({ busy: false }));
+  const [error, setError] = useState("");
 
   const cryptoSymbol = useMemo(() => {
     if (!investment) return "";
@@ -208,7 +213,7 @@ export function RegisterOperationModal({
     setFeesStr("0");
     setNotes("");
     setLinkedAccountId("");
-    setType("buy");
+    setType(initialType);
     setShowAdvanced(false);
 
     const symbol = extractCryptoSymbol(investment);
@@ -227,7 +232,7 @@ export function RegisterOperationModal({
       setLiveStockQuote(null);
       setPriceChangePercent(null);
     }
-  }, [investment, isOpen, loadMarketPrice, loadStockMarketPrice]);
+  }, [investment, isOpen, loadMarketPrice, loadStockMarketPrice, initialType]);
 
   if (!isOpen || !investment) return null;
 
@@ -244,7 +249,7 @@ export function RegisterOperationModal({
   const finalTotalAmount = dollarAmount > 0 ? dollarAmount : Number(derivedTotal.toFixed(2));
 
   const valid = isDividend
-    ? dollarAmount > 0
+    ? dollarAmount > 0 && accounts.some((account) => account.id === linkedAccountId && account.currency === investment.currency)
     : qty > 0 && currentPrice > 0 && finalTotalAmount > 0;
 
   // 1. User types in Dollar amount -> Calculate quantity
@@ -311,6 +316,7 @@ export function RegisterOperationModal({
 
   // 5. User changes operation type
   const handleTypeChange = (nextType: "buy" | "sell" | "dividend") => {
+    if (nextType === "buy" && onRequestPurchase) { onRequestPurchase(); return; }
     setType(nextType);
     if (nextType === "dividend") return;
     const q = toNumber(quantityStr);
@@ -344,9 +350,11 @@ export function RegisterOperationModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!valid) return;
+    if (!valid || submitGate.busy) return;
 
+    submitGate.busy = true;
     setSubmitting(true);
+    setError("");
     try {
       await onConfirmOperation({
         investmentId: investment.id,
@@ -354,13 +362,24 @@ export function RegisterOperationModal({
         quantity: isDividend ? 0 : qty,
         unitPrice: isDividend ? 0 : currentPrice,
         totalAmount: isDividend ? dollarAmount : finalTotalAmount,
-        fees,
+        fees: isDividend ? 0 : fees,
+        ...(isDividend ? (() => {
+          const totalAmountExact = new Decimal(normalizeAmountString(dollarAmountStr)).toFixed();
+          const payload = JSON.stringify([investment.id, linkedAccountId, totalAmountExact, date, notes.trim()]);
+          let idempotencyKey = retryKeys.get(payload);
+          if (!idempotencyKey) { idempotencyKey = crypto.randomUUID(); retryKeys.set(payload, idempotencyKey); }
+          return { totalAmountExact, idempotencyKey };
+        })() : {}),
         date: new Date(date).toISOString(),
         notes: notes.trim() || undefined,
         linkedAccountId: linkedAccountId || undefined,
       });
       onClose();
+    } catch (reason) {
+      if (!isDividend) throw reason;
+      setError("No se pudo confirmar el cobro. El resultado puede ser desconocido: consultá el historial antes de reintentar. No cierres esta vista; el reintento conservará su clave.");
     } finally {
+      submitGate.busy = false;
       setSubmitting(false);
     }
   };
@@ -409,6 +428,7 @@ export function RegisterOperationModal({
       }
     >
       <form id={FORM_ID} onSubmit={handleSubmit} className="flex flex-col gap-4 py-1 text-xs">
+        {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
         <SegmentedControl
           aria-label="Tipo de operación"
           value={type}
@@ -446,7 +466,7 @@ export function RegisterOperationModal({
                     {...control}
                     value={linkedAccountId}
                     onChange={(e) => setLinkedAccountId(e.target.value)}
-                    options={[{ value: "", label: "No acreditar en cuentas de efectivo" }, ...accountOptions]}
+                    options={[{ value: "", label: "Seleccioná la cuenta del cobro" }, ...accounts.filter((account) => account.currency === investment.currency).map((account) => ({ value: account.id, label: `${account.name} (${account.currency})` }))]}
                   />
                 )}
               </FormField>

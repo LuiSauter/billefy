@@ -4,11 +4,13 @@ import React, { useState } from "react";
 import { Download, FileText } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardHeader } from "@/shared/ui/card";
+import { cn } from "@/shared/lib/utils";
 import { FormField } from "@/shared/ui/form-field";
 import { SelectField } from "@/shared/ui/select-field";
 import type { FinancialReport } from "../domain/reports-analytics";
 import { exportReportAsCsv, exportReportAsJson, exportReportAsPrintable, type ReportType } from "../application/report-export.service";
 import type { ReportsPeriodMonths } from "./ReportsHeader";
+import { REPORT_CTA_CLASS } from "./reports-shared";
 
 interface ReportGenerationCardProps {
   reportData: FinancialReport;
@@ -44,7 +46,8 @@ export function ReportGenerationCard({ reportData, selectedCurrency, periodMonth
     event.preventDefault();
     try {
       const exporter = { csv: exportReportAsCsv, json: exportReportAsJson, pdf: exportReportAsPrintable }[format];
-      // Keep print synchronous with the user gesture so popup blockers allow it.
+      // The popup is opened synchronously with the user gesture so popup blockers allow it;
+      // the exporter itself waits for the popup to load before printing.
       exporter(reportData, reportType, selectedCurrency);
       setFeedback({ kind: "success", message: format === "pdf"
         ? "Vista de impresión abierta. Puedes guardar el reporte como PDF."
@@ -83,7 +86,7 @@ export function ReportGenerationCard({ reportData, selectedCurrency, periodMonth
               if (next) { setFormat(next.value); setFeedback(null); }
             }} />}
           </FormField>
-          <Button type="submit" className="w-full bg-gradient-to-r from-purple-600 to-violet-600 text-white shadow-sm hover:from-purple-500 hover:to-violet-500">
+          <Button type="submit" className={cn(REPORT_CTA_CLASS, "w-full shadow-sm")}>
             <Download aria-hidden="true" />Generar reporte
           </Button>
           {feedback && <p role={feedback.kind === "error" ? "alert" : "status"}

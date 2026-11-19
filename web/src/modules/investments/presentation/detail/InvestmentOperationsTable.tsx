@@ -4,6 +4,14 @@ import React from "react";
 import { ArrowDownLeft, ArrowUpRight, RefreshCw, MoreVertical, Coins } from "lucide-react";
 import { InvestmentOperation } from "../../domain/investment-detail";
 import { Amount, Quantity } from "@/shared/ui/amount";
+import { Button } from "@/shared/ui/button";
+import { CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
+import {
+  appCardContentClassName,
+  appCardHeaderClassName,
+  appCardTitleClassName,
+} from "@/shared/presentation/card-variants";
+import { InvestmentsCard } from "../InvestmentsCard";
 
 interface InvestmentOperationsTableProps {
   operations: InvestmentOperation[];
@@ -19,24 +27,18 @@ export function InvestmentOperationsTable({
   onViewAll,
 }: InvestmentOperationsTableProps) {
   return (
-    <div className="rounded-2xl bg-card border border-border/80 p-5 shadow-2xs flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-base font-bold text-foreground tracking-tight">
-          Operaciones recientes
-        </h3>
+    <InvestmentsCard className="min-w-0">
+      <CardHeader className={`${appCardHeaderClassName} flex flex-row items-center justify-between space-y-0`}>
+        <CardTitle className={appCardTitleClassName}>Operaciones recientes</CardTitle>
         {onViewAll && (
-          <button
-            type="button"
-            onClick={onViewAll}
-            className="text-xs font-bold text-purple-400 hover:text-purple-300 transition cursor-pointer flex items-center gap-1"
-          >
+          <Button type="button" variant="ghost" size="xs" className="text-purple-400" onClick={onViewAll}>
             <span>Ver todas</span>
-            <span>→</span>
-          </button>
+            <span aria-hidden="true">→</span>
+          </Button>
         )}
-      </div>
+      </CardHeader>
 
-      <div className="overflow-x-auto -mx-5 px-5">
+      <CardContent className={`${appCardContentClassName} overflow-x-auto`}>
         <table className="w-full text-left border-collapse min-w-[620px]">
           <thead>
             <tr className="border-b border-border/60 text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
@@ -137,7 +139,7 @@ export function InvestmentOperationsTable({
             )}
           </tbody>
         </table>
-      </div>
-    </div>
+      </CardContent>
+    </InvestmentsCard>
   );
 }

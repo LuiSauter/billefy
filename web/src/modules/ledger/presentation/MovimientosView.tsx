@@ -31,6 +31,8 @@ import { IHttpClient } from "@/shared/application/http-client.contract";
 import { InvestmentsController } from "@/modules/investments/application/useInvestments";
 import { InvestmentCashModal } from "@/modules/investments/presentation/InvestmentCashModal";
 import { Card, CardContent } from "@/shared/ui/card";
+import { ColumnResizeHandle } from "./ColumnResizeHandle";
+import { useResizableColumns } from "./use-resizable-columns";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
@@ -53,6 +55,7 @@ import { Amount } from "@/shared/ui/amount";
 export interface MovimientosViewProps {
   http: IHttpClient | null;
   accounts: AccountDto[];
+  transactions?: TransactionDto[];
   onRegister: () => void;
   onRefresh?: () => Promise<void>;
   investmentsController: InvestmentsController;
@@ -64,6 +67,7 @@ export interface MovimientosViewProps {
     amount: string;
     description: string;
     p2pRate: number;
+    occurredAt?: string;
   }) => Promise<void>;
   onEditTxn?: (transaction: TransactionDto) => void;
 }
@@ -98,6 +102,8 @@ const kindLabel = (kind: MovementKind, investmentCashKind?: string) =>
     ? "Gasto"
     : kind === "Transfer"
     ? "Transferencia"
+    : kind === "Loan"
+    ? "Capital de préstamo"
     : kind === "Adjustment"
     ? "Ajuste de conciliación"
     : investmentCashKind === "Contribution"
@@ -124,6 +130,15 @@ const dateTimeLabel = (value: string) => {
   });
 };
 
+const MOVEMENT_COLUMN_DEFAULT_WIDTHS = {
+  fecha: 112,
+  descripcion: 280,
+  categoria: 160,
+  cuenta: 160,
+  tipo: 140,
+  monto: 140,
+} as const;
+
 const movementIcon = (kind: MovementKind) =>
   kind === "Income"
     ? ArrowDown
@@ -131,6 +146,8 @@ const movementIcon = (kind: MovementKind) =>
     ? ArrowUp
     : kind === "Transfer"
     ? ArrowLeftRight
+    : kind === "Loan"
+    ? Landmark
     : kind === "Adjustment"
     ? Landmark
     : TrendingUp;
@@ -138,6 +155,7 @@ const movementIcon = (kind: MovementKind) =>
 export function MovimientosView({
   http,
   accounts,
+  transactions,
   onRegister,
   onRefresh,
   investmentsController,
@@ -165,6 +183,11 @@ export function MovimientosView({
   const [cashOpen, setCashOpen] = useState(false);
   const [refreshError, setRefreshError] = useState("");
 
+  const { getWidth: getColumnWidth, startResize, resizingColumn } = useResizableColumns(
+    "billefy_movimientos_column_widths",
+    MOVEMENT_COLUMN_DEFAULT_WIDTHS
+  );
+
   const query = useMemo(() => {
     const [y, m] = month.split("-").map(Number);
     return {
@@ -180,9 +203,9 @@ export function MovimientosView({
     };
   }, [month, accountId, categoryId, type, search, mode, page]);
 
-  const { data, loading, error, reload } = useMovements(http, query);
+  const { data, loading, error, reload } = useMovements(http, query, transactions);
   const movements = data?.items || [];
-  const selected = movements.find((m) => m.id === selectedId) || movements[0];
+  const selected = selectedId ? movements.find((m) => m.id === selectedId) : undefined;
 
   const change = (fn: () => void) => {
     fn();
@@ -468,6 +491,7 @@ export function MovimientosView({
           <NativeSelectOption value="Expense">Gasto</NativeSelectOption>
           <NativeSelectOption value="Transfer">Transferencia</NativeSelectOption>
           <NativeSelectOption value="Investment">Inversión</NativeSelectOption>
+          <NativeSelectOption value="Loan">Capital de préstamo</NativeSelectOption>
           <NativeSelectOption value="Adjustment">Ajuste de conciliación</NativeSelectOption>
         </NativeSelect>
 
@@ -527,25 +551,51 @@ export function MovimientosView({
       )}
 
       {/* 4. Table + Detail Aside Grid */}
-      <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <div className={`grid min-w-0 gap-5 ${selected ? "lg:grid-cols-[minmax(0,1fr)_320px]" : ""}`}>
         {/* Left Column: Movement Table */}
         <div className="min-w-0 overflow-hidden rounded-2xl border border-border/80 bg-card/90 shadow-sm">
-          <Table className="min-w-[760px]">
+          <Table className="min-w-[760px] table-fixed">
+            <colgroup>
+              <col className="w-10" />
+              <col style={{ width: getColumnWidth("fecha") }} />
+              <col style={{ width: getColumnWidth("descripcion") }} />
+              <col style={{ width: getColumnWidth("categoria") }} />
+              <col style={{ width: getColumnWidth("cuenta") }} />
+              <col style={{ width: getColumnWidth("tipo") }} />
+              <col style={{ width: getColumnWidth("monto") }} />
+              <col className="w-10" />
+            </colgroup>
             <TableHeader className="bg-muted/30">
               <TableRow className="border-border/80 hover:bg-transparent">
                 <TableHead className="w-10 px-3 text-center">
                   <Square className="mx-auto size-4 text-muted-foreground/60" />
                 </TableHead>
-                <TableHead className="w-28 font-medium">
+                <TableHead className="relative font-medium">
                   <span className="flex items-center gap-1">
                     Fecha <ArrowDownUp className="size-3 text-muted-foreground" />
                   </span>
+                  <ColumnResizeHandle onPointerDown={startResize("fecha")} isResizing={resizingColumn === "fecha"} />
                 </TableHead>
-                <TableHead className="font-medium">Descripción</TableHead>
-                <TableHead className="font-medium">Categoría</TableHead>
-                <TableHead className="font-medium">Cuenta</TableHead>
-                <TableHead className="font-medium">Tipo</TableHead>
-                <TableHead className="text-right font-medium">Monto</TableHead>
+                <TableHead className="relative font-medium">
+                  Descripción
+                  <ColumnResizeHandle onPointerDown={startResize("descripcion")} isResizing={resizingColumn === "descripcion"} />
+                </TableHead>
+                <TableHead className="relative font-medium">
+                  Categoría
+                  <ColumnResizeHandle onPointerDown={startResize("categoria")} isResizing={resizingColumn === "categoria"} />
+                </TableHead>
+                <TableHead className="relative font-medium">
+                  Cuenta
+                  <ColumnResizeHandle onPointerDown={startResize("cuenta")} isResizing={resizingColumn === "cuenta"} />
+                </TableHead>
+                <TableHead className="relative font-medium">
+                  Tipo
+                  <ColumnResizeHandle onPointerDown={startResize("tipo")} isResizing={resizingColumn === "tipo"} />
+                </TableHead>
+                <TableHead className="relative text-right font-medium">
+                  Monto
+                  <ColumnResizeHandle onPointerDown={startResize("monto")} isResizing={resizingColumn === "monto"} />
+                </TableHead>
                 <TableHead className="w-10 px-2 text-center" />
               </TableRow>
             </TableHeader>
@@ -593,8 +643,8 @@ export function MovimientosView({
                     </TableCell>
 
                     {/* Descripción with colored circular icon */}
-                    <TableCell className="max-w-[220px]">
-                      <div className="flex items-center gap-2.5">
+                    <TableCell>
+                      <div className="flex min-w-0 items-center gap-2.5">
                         <span
                           className={`grid size-9 shrink-0 place-items-center rounded-xl ${
                             m.kind === "Income"
@@ -608,7 +658,7 @@ export function MovimientosView({
                         >
                           <Icon className="size-4" aria-hidden="true" />
                         </span>
-                        <span className="truncate font-medium text-foreground">
+                        <span className="min-w-0 truncate font-medium text-foreground">
                           {m.description || "Sin descripción"}
                           {m.isReversal && (
                             <span className="ml-1.5 text-xs text-amber-400">
@@ -630,13 +680,13 @@ export function MovimientosView({
                     </TableCell>
 
                     {/* Cuenta */}
-                    <TableCell className="whitespace-nowrap">
-                      <span className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">
+                    <TableCell className="min-w-0">
+                      <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium text-foreground">
                         <Landmark
-                          className="size-4 text-blue-400"
+                          className="size-4 shrink-0 text-blue-400"
                           aria-hidden="true"
                         />
-                        {m.accountName}
+                        <span className="truncate">{m.accountName}</span>
                       </span>
                     </TableCell>
 
@@ -766,16 +816,16 @@ export function MovimientosView({
           </div>
         </div>
 
-        {/* Right Column: Detalle de la transacción */}
-        <aside
-          aria-label="Detalle de la transacción"
-          className="rounded-2xl border border-border/80 bg-card/90 p-5 shadow-sm"
-        >
-          <h2 className="text-base font-semibold text-foreground">
-            Detalle de la transacción
-          </h2>
+        {/* Right Column: Detalle de la transacción (hidden entirely until a row is selected) */}
+        {selected && (
+          <aside
+            aria-label="Detalle de la transacción"
+            className="rounded-2xl border border-border/80 bg-card/90 p-5 shadow-sm"
+          >
+            <h2 className="text-base font-semibold text-foreground">
+              Detalle de la transacción
+            </h2>
 
-          {selected ? (
             <>
               {/* Selected header with circular icon and big amount */}
               <div className="mt-4 flex items-center gap-3">
@@ -899,6 +949,9 @@ export function MovimientosView({
                 )}
               </dl>
 
+              {selected.loanCashKind && <p className="text-sm text-muted-foreground">{selected.loanCashKind === "CardPurchase"
+                ? "Compra con tarjeta: gasto y deuda, sin efectivo." : selected.loanCashKind === "Principal"
+                ? "Capital: afecta efectivo y préstamo, no ingresos, gastos ni presupuesto." : "Intereses reconocidos por separado del capital."}</p>}
               {/* Category Allocations if any */}
               {selected.allocations.length > 0 && (
                 <div className="mt-4 border-t border-border/80 pt-3">
@@ -1002,12 +1055,8 @@ export function MovimientosView({
                 }}
               />
             </>
-          ) : (
-            <p className="mt-4 text-sm text-muted-foreground">
-              Selecciona una transacción para ver sus detalles.
-            </p>
-          )}
-        </aside>
+          </aside>
+        )}
       </div>
 
       {!loading && movements.length === 0 && !error && (

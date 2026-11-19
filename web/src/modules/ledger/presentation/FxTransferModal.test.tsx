@@ -60,6 +60,34 @@ function submit(tree: unknown) {
 beforeEach(() => slots.splice(0));
 
 describe("FxTransferModal source funds validation", () => {
+  it("submits a January date and local time without changing the FX amount or description", async () => {
+    const confirm = vi.fn().mockResolvedValue(undefined);
+    let tree = render(confirm);
+    enterAmount(tree, "100.00");
+    selectAccount(tree, "Fecha", "2027-01-15");
+    tree = render(confirm);
+    selectAccount(tree, "Hora", "09:30");
+    tree = render(confirm);
+    await submit(tree);
+    expect(confirm).toHaveBeenCalledExactlyOnceWith({
+      fromAccountId: "bob", toAccountId: "usd", amount: "100.00",
+      description: "Conversión FX BOB ➔ USD (Tasa P2P 10.00)",
+      occurredAt: new Date(2027, 0, 15, 9, 30).toISOString(),
+    });
+  });
+
+  it("omits a cleared date to preserve the previous server-time default", async () => {
+    const confirm = vi.fn().mockResolvedValue(undefined);
+    let tree = render(confirm);
+    enterAmount(tree, "10");
+    selectAccount(tree, "Fecha", "2027-01-15");
+    tree = render(confirm);
+    selectAccount(tree, "Fecha", "");
+    tree = render(confirm);
+    await submit(tree);
+    expect(confirm).toHaveBeenCalledExactlyOnceWith({ fromAccountId: "bob", toAccountId: "usd", amount: "10", description: "Conversión FX BOB ➔ USD (Tasa P2P 10.00)" });
+  });
+
   it("shows insufficiency immediately, disables submit, and allows exact balance", () => {
     let tree = render();
     enterAmount(tree, "100.01");
@@ -84,7 +112,7 @@ describe("FxTransferModal source funds validation", () => {
     enterAmount(tree, "100.00");
     tree = render(confirm);
     await submit(tree);
-    expect(confirm).toHaveBeenCalledWith(expect.objectContaining({ amount: "100.00" }));
+    expect(confirm).toHaveBeenCalledExactlyOnceWith({ fromAccountId: "bob", toAccountId: "usd", amount: "100.00", description: "Conversión FX BOB ➔ USD (Tasa P2P 10.00)" });
   });
 
   it("rejects selecting the same account and enables a distinct destination", () => {

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
+import Decimal from "decimal.js";
 import { Investment, InvestmentTransactionDto } from "../../domain/investment.types";
 import {
   calculateInvestmentDetailMetrics,
@@ -18,6 +19,8 @@ import { InvestmentOperationsTable } from "./InvestmentOperationsTable";
 import { InvestmentInfoCard } from "./InvestmentInfoCard";
 import { InvestmentNotesCard } from "./InvestmentNotesCard";
 import { InvestmentPriceAlertsCard } from "./InvestmentPriceAlertsCard";
+import { Button } from "@/shared/ui/button";
+import { Card } from "@/shared/ui/card";
 
 interface InvestmentDetailViewProps {
   investment: Investment;
@@ -25,7 +28,8 @@ interface InvestmentDetailViewProps {
   transactions?: InvestmentTransactionDto[];
   onBack: () => void;
   onOpenUpdatePrice: (investment: Investment) => void;
-  onOpenEditInvestment: (investment: Investment) => void;
+  /** Opens the archive confirmation for this investment. */
+  onOpenArchiveInvestment: (investment: Investment) => void;
   onOpenOperation: (investment: Investment, type: "buy" | "sell" | "cash") => void;
   currency?: string;
 }
@@ -36,7 +40,7 @@ export function InvestmentDetailView({
   transactions,
   onBack,
   onOpenUpdatePrice,
-  onOpenEditInvestment,
+  onOpenArchiveInvestment,
   onOpenOperation,
   currency = "USD",
 }: InvestmentDetailViewProps) {
@@ -52,19 +56,28 @@ export function InvestmentDetailView({
   }, [investment, evolutionMonths]);
 
   const operations = useMemo(() => {
-    if (transactions && transactions.length > 0) {
+    // An explicit server list, including empty/loading/error state, must not fabricate purchases from current units.
+    if (transactions !== undefined) {
       return mapTransactionsToOperations(transactions);
     }
     return getDerivedOperations(investment);
   }, [investment, transactions]);
 
+  const recentOperations = useMemo(() => operations.slice(0, 5), [operations]);
+
+  // Real fees come from the server operations only; unknown (undefined) hides the row instead of showing 0.
+  const totalFees = useMemo(
+    () => (transactions === undefined ? undefined : transactions.reduce((acc, t) => acc.plus(t.fees || 0), new Decimal(0)).toNumber()),
+    [transactions]
+  );
+
   return (
-    <div className="flex flex-col gap-6">
+    <div className="@container flex flex-col gap-6">
       {/* 1. Header with back button & quick actions */}
       <InvestmentDetailHeader
         onBack={onBack}
         onOpenUpdatePrice={() => onOpenUpdatePrice(investment)}
-        onOpenEditInvestment={() => onOpenEditInvestment(investment)}
+        onOpenArchiveInvestment={() => onOpenArchiveInvestment(investment)}
         onOpenOperation={(type) => onOpenOperation(investment, type)}
       />
 
@@ -73,7 +86,7 @@ export function InvestmentDetailView({
         investment={investment}
         metrics={metrics}
         currency={currency}
-        onOpenEdit={() => onOpenEditInvestment(investment)}
+        onArchive={() => onOpenArchiveInvestment(investment)}
       />
 
       {/* 3. Detail Tabs Bar */}
@@ -81,28 +94,29 @@ export function InvestmentDetailView({
         activeTab={activeTab}
         onTabChange={setActiveTab}
         operationsCount={operations.length}
-        alertsCount={2}
       />
 
       {/* Tab: Resumen */}
       {activeTab === "resumen" && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        <div className="grid grid-cols-1 @4xl:grid-cols-12 gap-6 items-start">
           {/* Main Left Column (8 cols) */}
-          <div className="lg:col-span-7 xl:col-span-8 flex flex-col gap-6">
+          <div className="@4xl:col-span-7 @5xl:col-span-8 flex flex-col gap-6 min-w-0">
             {/* 2 Top Charts side by side */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <InvestmentValueEvolutionChart
-                points={evolutionPoints}
-                currentValue={investment.currentValue}
-                currency={currency}
-                onPeriodChange={setEvolutionMonths}
-              />
+            <div className="@container">
+              <div className="grid grid-cols-1 @2xl:grid-cols-2 gap-4">
+                <InvestmentValueEvolutionChart
+                  points={evolutionPoints}
+                  currentValue={investment.currentValue}
+                  currency={currency}
+                  onPeriodChange={setEvolutionMonths}
+                />
 
-              <InvestmentPortfolioShareDonutCard
-                currentInvestment={investment}
-                allInvestments={allInvestments}
-                currency={currency}
-              />
+                <InvestmentPortfolioShareDonutCard
+                  currentInvestment={investment}
+                  allInvestments={allInvestments}
+                  currency={currency}
+                />
+              </div>
             </div>
 
             {/* 4 Mini KPI Cards */}
@@ -110,7 +124,7 @@ export function InvestmentDetailView({
 
             {/* Recent Operations Table */}
             <InvestmentOperationsTable
-              operations={operations.slice(0, 5)}
+              operations={recentOperations}
               currency={currency}
               assetTicker={investment.currency}
               onViewAll={() => setActiveTab("operaciones")}
@@ -118,11 +132,12 @@ export function InvestmentDetailView({
           </div>
 
           {/* Side Right Column (4 cols) */}
-          <div className="lg:col-span-5 xl:col-span-4 flex flex-col gap-4">
+          <div className="@4xl:col-span-5 @5xl:col-span-4 flex flex-col gap-4 min-w-0">
             <InvestmentInfoCard
               investment={investment}
               metrics={metrics}
               currency={currency}
+              fees={totalFees}
             />
 
             <InvestmentNotesCard />
@@ -147,13 +162,14 @@ export function InvestmentDetailView({
                 Compras, ventas y valuaciones de {investment.name}
               </p>
             </div>
-            <button
+            <Button
               type="button"
+              size="sm"
+              className="bg-purple-600 hover:bg-purple-700 text-white font-bold"
               onClick={() => onOpenOperation(investment, "buy")}
-              className="h-9 px-3.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold transition cursor-pointer"
             >
               + Registrar operación
-            </button>
+            </Button>
           </div>
 
           <InvestmentOperationsTable
@@ -190,9 +206,9 @@ export function InvestmentDetailView({
       {activeTab === "documentos" && (
         <div className="max-w-2xl flex flex-col gap-4">
           <InvestmentNotesCard />
-          <div className="p-6 rounded-2xl border border-dashed border-border/80 text-center text-xs text-muted-foreground bg-card/40">
+          <Card className="border-dashed border-border/80 bg-card/40 p-6 text-center text-xs text-muted-foreground shadow-none">
             Adjuntos y comprobantes de compra/venta para esta inversión estarán disponibles próximamente.
-          </div>
+          </Card>
         </div>
       )}
     </div>

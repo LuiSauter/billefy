@@ -1,8 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { MoreVertical, ExternalLink, RefreshCw, ArrowDownUp, Trash2 } from "lucide-react";
-import { Investment, InvestmentKind } from "../../domain/investment.types";
+import Decimal from "decimal.js";
+import { Investment, InvestmentKind, getKindLabel, investmentCostBasis, investmentVariationPct } from "../../domain/investment.types";
+import { convertInvestmentAmount, filterInvestmentsByKind } from "../../domain/portfolio-analytics";
 import { CategoryIconBadge } from "@/modules/ledger/presentation/CategoryIcon";
 import { CategoryColorKey, CategoryIconKey } from "@/modules/ledger/domain/category.types";
 import {
@@ -13,6 +15,13 @@ import {
   DropdownMenuTrigger,
 } from "@/shared/ui/dropdown-menu";
 import { Amount, Percentage, Quantity } from "@/shared/ui/amount";
+import { CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
+import {
+  appCardContentClassName,
+  appCardHeaderClassName,
+  appCardTitleClassName,
+} from "@/shared/presentation/card-variants";
+import { InvestmentsCard } from "../InvestmentsCard";
 
 interface InvestmentsTableCardProps {
   investments: Investment[];
@@ -21,9 +30,13 @@ interface InvestmentsTableCardProps {
   onSelectInvestment: (id: string) => void;
   onOpenUpdatePrice: (investment: Investment) => void;
   onOpenCashModal: (investment: Investment) => void;
-  onDeleteInvestment: (id: string) => void;
+  /** Opens the archive confirmation; the table never deletes by itself. */
+  onArchiveInvestment: (investment: Investment) => void;
+  onOpenPurchase?: (investment: Investment) => void;
+  /** Single display currency for value, cost and gain of every row. */
   currency?: string;
-  formatter?: (val: number) => string;
+  /** Parallel rate used to convert assets denominated in another currency. */
+  p2pRate?: number;
 }
 
 const KIND_PILLS: { key: "all" | InvestmentKind; label: string }[] = [
@@ -35,14 +48,6 @@ const KIND_PILLS: { key: "all" | InvestmentKind; label: string }[] = [
   { key: "other", label: "Otros" },
 ];
 
-const KIND_LABELS: Record<InvestmentKind, string> = {
-  crypto: "Criptoactivo",
-  funds: "Fondo / ETF",
-  stocks: "Acción",
-  realestate: "Bienes raíces",
-  other: "Otros",
-};
-
 export function InvestmentsTableCard({
   investments,
   kindCounts,
@@ -50,16 +55,29 @@ export function InvestmentsTableCard({
   onSelectInvestment,
   onOpenUpdatePrice,
   onOpenCashModal,
-  onDeleteInvestment,
-  currency = "$",
-  formatter,
+  onArchiveInvestment,
+  onOpenPurchase,
+  currency = "USD",
+  p2pRate = 9.85,
 }: InvestmentsTableCardProps) {
   const [selectedKind, setSelectedKind] = useState<"all" | InvestmentKind>("all");
+  const displayCurrency: "USD" | "BOB" = currency === "BOB" ? "BOB" : "USD";
 
-  const filteredInvestments =
-    selectedKind === "all"
-      ? investments
-      : investments.filter((i) => i.kind === selectedKind);
+  const rows = useMemo(
+    () =>
+      filterInvestmentsByKind(investments, selectedKind).map((inv) => {
+        const toDisplay = (amount: number) => convertInvestmentAmount(amount, inv.currency, displayCurrency, p2pRate);
+        const costBasis = investmentCostBasis(inv);
+        return {
+          inv,
+          value: toDisplay(inv.currentValue),
+          cost: costBasis === null ? null : toDisplay(costBasis),
+          gainLoss: costBasis === null ? 0 : toDisplay(new Decimal(inv.currentValue).minus(costBasis).toNumber()),
+          perfPct: investmentVariationPct(inv) ?? 0,
+        };
+      }),
+    [investments, selectedKind, displayCurrency, p2pRate]
+  );
 
   const getPillCount = (key: "all" | InvestmentKind) => {
     if (key === "all") return totalCount;
@@ -67,12 +85,10 @@ export function InvestmentsTableCard({
   };
 
   return (
-    <div className="rounded-2xl bg-card border border-border/80 p-5 shadow-2xs flex flex-col gap-5">
+    <InvestmentsCard className="min-w-0">
       {/* Header and Filter Pills */}
-      <div className="flex flex-col gap-3">
-        <h3 className="text-base sm:text-lg font-bold text-foreground tracking-tight">
-          Mis inversiones
-        </h3>
+      <CardHeader className={`${appCardHeaderClassName} gap-3`}>
+        <CardTitle className={appCardTitleClassName}>Mis inversiones</CardTitle>
 
         <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
           {KIND_PILLS.map((pill) => {
@@ -95,10 +111,10 @@ export function InvestmentsTableCard({
             );
           })}
         </div>
-      </div>
+      </CardHeader>
 
       {/* Table */}
-      <div className="overflow-x-auto -mx-5 px-5">
+      <CardContent className={`${appCardContentClassName} overflow-x-auto`}>
         <table className="w-full text-left border-collapse min-w-[680px]">
           <thead>
             <tr className="border-b border-border/60 text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
@@ -112,11 +128,8 @@ export function InvestmentsTableCard({
             </tr>
           </thead>
           <tbody className="divide-y divide-border/40 text-xs">
-            {filteredInvestments.map((inv) => {
-              const gainLoss = inv.currentValue - inv.initialValue;
+            {rows.map(({ inv, value, cost, gainLoss, perfPct }) => {
               const isPositive = gainLoss >= 0;
-              const perfPct =
-                inv.initialValue > 0 ? (gainLoss / inv.initialValue) * 100 : 0;
 
               return (
                 <tr
@@ -146,27 +159,24 @@ export function InvestmentsTableCard({
                   {/* Tipo */}
                   <td className="py-3.5 px-3">
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-muted/80 text-foreground/90 border border-border/60">
-                      {KIND_LABELS[inv.kind] || "Otro"}
+                      {getKindLabel(inv.kind)}
                     </span>
                   </td>
 
                   {/* Valor actual */}
                   <td className="py-3.5 px-3 font-bold text-foreground text-xs sm:text-sm">
-                    {formatter
-                      ? `${formatter(inv.currentValue)} ${inv.currency}`
-                      : <Amount value={inv.currentValue} currency={currency} size="inherit" tone="inherit" />}
+                    <Amount value={value} currency={displayCurrency} size="inherit" tone="inherit" />
                   </td>
 
                   {/* Aporte total */}
                   <td className="py-3.5 px-3 text-muted-foreground">
-                    <Amount value={inv.initialValue} currency={currency} size="inherit" tone="inherit" />
+                    {cost === null ? "Costo pendiente" : <Amount value={cost} currency={displayCurrency} size="inherit" tone="inherit" />}
                   </td>
 
                   {/* Ganancia / Pérdida */}
                   <td className="py-3.5 px-3 font-bold">
                     <span className={isPositive ? "text-emerald-400" : "text-rose-400"}>
-                      {isPositive ? "+ " : "- "}
-                      <Amount value={Math.abs(gainLoss)} currency={currency} size="inherit" tone="inherit" />
+                      {cost === null ? "No disponible" : <Amount value={gainLoss} sign="always" currency={displayCurrency} size="inherit" tone="inherit" />}
                     </span>
                   </td>
 
@@ -179,7 +189,7 @@ export function InvestmentsTableCard({
                           : "bg-rose-500/15 text-rose-400 border-rose-500/30"
                       }`}
                     >
-                      <Percentage value={perfPct} sign="always" size="inherit" tone="inherit" />
+                      {cost === null ? "No disponible" : <Percentage value={perfPct} sign="always" size="inherit" tone="inherit" />}
                     </span>
                   </td>
 
@@ -207,6 +217,10 @@ export function InvestmentsTableCard({
                           <span>Ver detalle</span>
                         </DropdownMenuItem>
 
+                        {onOpenPurchase && <DropdownMenuItem onClick={() => onOpenPurchase(inv)}>
+                          <ArrowDownUp className="w-4 h-4" /><span>Comprar unidades</span>
+                        </DropdownMenuItem>}
+
                         <DropdownMenuItem onClick={() => onOpenUpdatePrice(inv)}>
                           <RefreshCw className="w-4 h-4 text-cyan-400" />
                           <span>Actualizar precio</span>
@@ -221,7 +235,7 @@ export function InvestmentsTableCard({
 
                         <DropdownMenuItem
                           variant="destructive"
-                          onClick={() => onDeleteInvestment(inv.id)}
+                          onClick={() => onArchiveInvestment(inv)}
                         >
                           <Trash2 className="w-4 h-4" />
                           <span>Archivar activo</span>
@@ -233,7 +247,7 @@ export function InvestmentsTableCard({
               );
             })}
 
-            {filteredInvestments.length === 0 && (
+            {rows.length === 0 && (
               <tr>
                 <td colSpan={7} className="py-8 text-center text-muted-foreground text-xs">
                   No hay inversiones en esta categoría.
@@ -242,7 +256,7 @@ export function InvestmentsTableCard({
             )}
           </tbody>
         </table>
-      </div>
-    </div>
+      </CardContent>
+    </InvestmentsCard>
   );
 }

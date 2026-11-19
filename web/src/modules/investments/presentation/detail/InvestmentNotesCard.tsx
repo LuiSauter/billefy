@@ -1,70 +1,108 @@
 "use client";
 
 import React, { useState } from "react";
-import { FileEdit, Pencil, Check } from "lucide-react";
+import { FileEdit, Pencil } from "lucide-react";
+import { Button } from "@/shared/ui/button";
+import { CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
+import { Textarea } from "@/shared/ui/textarea";
+import {
+  appCardContentClassName,
+  appCardHeaderClassName,
+  appCardTitleClassName,
+} from "@/shared/presentation/card-variants";
+import { InvestmentsCard } from "../InvestmentsCard";
 
 interface InvestmentNotesCardProps {
-  initialNotes?: string;
-  onSaveNotes?: (notes: string) => void;
+  notes?: string;
+  /**
+   * Persists the notes. Without it nothing can store them (the investment API has no notes field yet),
+   * so the card renders read-only with an explicit notice instead of pretending to save.
+   */
+  onSaveNotes?: (notes: string) => Promise<void> | void;
 }
 
-export function InvestmentNotesCard({
-  initialNotes = "",
-  onSaveNotes,
-}: InvestmentNotesCardProps) {
+export function InvestmentNotesCard({ notes = "", onSaveNotes }: InvestmentNotesCardProps) {
   const [isEditing, setIsEditing] = useState(false);
-  const [notes, setNotes] = useState(initialNotes);
+  const [draft, setDraft] = useState(notes);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleSave = () => {
-    setIsEditing(false);
-    onSaveNotes?.(notes);
+  const handleSave = async () => {
+    if (!onSaveNotes) return;
+    setSaving(true);
+    setError("");
+    try {
+      await onSaveNotes(draft);
+      setIsEditing(false);
+    } catch (reason) {
+      // Stay in edit mode with the typed text: nothing was saved.
+      setError(reason instanceof Error ? reason.message : "No se pudieron guardar las notas.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
-    <div className="rounded-2xl bg-card border border-border/80 p-5 shadow-2xs flex flex-col gap-3">
-      <div className="flex items-center justify-between">
+    <InvestmentsCard>
+      <CardHeader className={`${appCardHeaderClassName} flex flex-row items-center justify-between space-y-0`}>
         <div className="flex items-center gap-2">
-          <FileEdit className="w-4 h-4 text-purple-400" />
-          <h3 className="text-base font-bold text-foreground tracking-tight">
-            Notas
-          </h3>
+          <FileEdit className="w-4 h-4 text-purple-400" aria-hidden="true" />
+          <CardTitle className={appCardTitleClassName}>Notas</CardTitle>
         </div>
 
-        {isEditing ? (
-          <button
+        {onSaveNotes && !isEditing && (
+          <Button
             type="button"
-            onClick={handleSave}
-            className="h-7 px-2.5 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-[11px] font-bold flex items-center gap-1 transition cursor-pointer"
-          >
-            <Check className="w-3 h-3" />
-            <span>Guardar</span>
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setIsEditing(true)}
-            className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/70 transition cursor-pointer"
+            variant="ghost"
+            size="icon-sm"
             title="Editar notas"
+            aria-label="Editar notas"
+            onClick={() => {
+              setDraft(notes);
+              setIsEditing(true);
+            }}
           >
-            <Pencil className="w-3.5 h-3.5" />
-          </button>
+            <Pencil aria-hidden="true" />
+          </Button>
         )}
-      </div>
+      </CardHeader>
 
-      {isEditing ? (
-        <textarea
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          rows={3}
-          className="w-full text-xs text-foreground bg-muted/60 border border-border/80 rounded-xl p-2.5 outline-none focus:border-purple-500 transition resize-none"
-          placeholder="Escribe tu tesis o recordatorios de esta inversión..."
-          autoFocus
-        />
-      ) : (
-        <p className="text-xs text-muted-foreground leading-relaxed bg-muted/30 p-3 rounded-xl border border-border/50">
-          {notes || "Sin notas registradas. Tocá el lápiz para redactar tu tesis de inversión."}
-        </p>
-      )}
-    </div>
+      <CardContent className={`${appCardContentClassName} flex flex-col gap-3`}>
+        {!onSaveNotes ? (
+          <p className="text-xs text-muted-foreground leading-relaxed bg-muted/30 p-3 rounded-xl border border-border/50">
+            Las notas todavía no se guardan en tu cuenta. Esta función estará disponible próximamente.
+          </p>
+        ) : isEditing ? (
+          <>
+            <Textarea
+              aria-label="Notas de la inversión"
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              rows={3}
+              className="min-h-20 text-xs md:text-xs"
+              placeholder="Escribe tu tesis o recordatorios de esta inversión..."
+              autoFocus
+            />
+            {error && (
+              <p role="alert" className="text-xs text-destructive">
+                {error}
+              </p>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" size="xs" disabled={saving} onClick={() => setIsEditing(false)}>
+                Cancelar
+              </Button>
+              <Button type="button" size="xs" loading={saving} onClick={() => void handleSave()}>
+                Guardar
+              </Button>
+            </div>
+          </>
+        ) : (
+          <p className="text-xs text-muted-foreground leading-relaxed bg-muted/30 p-3 rounded-xl border border-border/50">
+            {notes || "Sin notas registradas. Tocá el lápiz para redactar tu tesis de inversión."}
+          </p>
+        )}
+      </CardContent>
+    </InvestmentsCard>
   );
 }

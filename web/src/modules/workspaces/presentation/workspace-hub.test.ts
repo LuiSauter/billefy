@@ -5,7 +5,7 @@ import type { WorkspaceDashboardDto, WorkspaceDetailDto, WorkspaceExpenseDto, Wo
 const home: WorkspaceSummaryDto = { id: "home", name: "Casa", workspaceType: "Couple", baseCurrency: "BOB", icon: null, color: null, role: "Owner" };
 const trip: WorkspaceSummaryDto = { ...home, id: "trip", name: "Viaje", baseCurrency: "USD", role: "Member" };
 const detail: WorkspaceDetailDto = {
-  id: "home", name: "Casa", workspaceType: "Couple", baseCurrency: "BOB", icon: null, color: null, description: null, isActive: true, createdBy: "owner", createdAt: "2026-01-01", settings: { hidePersonalPatrimony: true, memberSeesOnlyShared: true, showIndividualContributions: true, allowMovementComments: true, paymentReminders: true, weeklySummary: true, spaceNotifications: true },
+  id: "home", name: "Casa", workspaceType: "Couple", baseCurrency: "BOB", icon: null, color: null, description: null, isActive: true, createdBy: "owner", createdAt: "2026-01-01", startDate: "2026-01-01", settings: { hidePersonalPatrimony: true, memberSeesOnlyShared: true, showIndividualContributions: true, allowMovementComments: true, paymentReminders: true, weeklySummary: true, spaceNotifications: true },
   members: [{ id: "m1", userId: "user1", workspaceRole: "Owner", incomeSharePercentage: 100, joinedAt: "2026-01-01", isActive: true }],
 };
 const dashboard = { workspaceId: "home", currency: "BOB", budget: { amount: 100, remainingAmount: 75, executionPercentage: 25 }, monthlyExpenses: 25, pendingSettlements: [] } as unknown as WorkspaceDashboardDto;

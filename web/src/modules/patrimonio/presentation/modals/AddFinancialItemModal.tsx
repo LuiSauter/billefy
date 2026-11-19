@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import Decimal from "decimal.js";
 import { AssetCategory, LiabilityCategory, PatrimonialAsset, PatrimonialLiability } from "../../domain/patrimonio.types";
 import { normalizeAmountString } from "@/shared/lib/keypad";
 import { Button } from "@/shared/ui/button";
@@ -10,6 +11,7 @@ import { MoneyInput } from "@/shared/ui/money-input";
 import { ResponsiveDrawer } from "@/shared/ui/responsive-drawer";
 import { SegmentedControl } from "@/shared/ui/segmented-control";
 import { SelectField } from "@/shared/ui/select-field";
+import { Textarea } from "@/shared/ui/textarea";
 
 type Currency = "BOB" | "USD";
 type AssetPayload = Omit<PatrimonialAsset, "id" | "createdAt">;
@@ -33,19 +35,24 @@ const assetCategories: { value: AssetCategory; label: string }[] = [
   { value: "realestate", label: "Inmuebles" },
   { value: "vehicles", label: "Vehículos" },
   { value: "digital", label: "Activos digitales" },
-  { value: "other", label: "Otros / Colección" },
+  { value: "other", label: "Otros activos" },
 ];
 
 const liabilityCategories: { value: LiabilityCategory; label: string }[] = [
   { value: "mortgage", label: "Crédito hipotecario" },
   { value: "loan", label: "Préstamo personal" },
-  { value: "creditcard", label: "Tarjeta de crédito" },
+  { value: "creditcard", label: "Tarjetas de crédito" },
   { value: "other", label: "Otros pasivos" },
 ];
 
-function toNumber(raw: string): number {
-  const parsed = Number.parseFloat(normalizeAmountString(raw.trim()) || "0");
-  return Number.isFinite(parsed) ? parsed : 0;
+/** Exact decimal parse of the typed amount; anything unparseable counts as zero (and keeps the form invalid). */
+function parseAmount(raw: string): Decimal {
+  try {
+    const parsed = new Decimal(normalizeAmountString(raw.trim()) || "0");
+    return parsed.isFinite() ? parsed : new Decimal(0);
+  } catch {
+    return new Decimal(0);
+  }
 }
 
 export function AddFinancialItemModal(props: AddFinancialItemModalProps) {
@@ -62,7 +69,8 @@ export function AddFinancialItemModal(props: AddFinancialItemModalProps) {
   }, [isOpen, defaultCurrency]);
 
   const isAsset = kind === "asset";
-  const valid = name.trim().length > 0 && toNumber(amount) > 0;
+  const parsedAmount = parseAmount(amount);
+  const valid = name.trim().length > 0 && parsedAmount.greaterThan(0);
   const formId = `add-financial-${kind}-form`;
   const title = isAsset ? "Agregar activo patrimonial" : "Registrar pasivo o deuda";
   const categories = isAsset ? assetCategories : liabilityCategories;
@@ -77,7 +85,7 @@ export function AddFinancialItemModal(props: AddFinancialItemModalProps) {
         await props.onAddAsset({
           name: name.trim(),
           category: category as AssetCategory,
-          value: toNumber(amount),
+          value: parsedAmount.toNumber(),
           currency,
           notes: notes.trim() || undefined,
         });
@@ -85,7 +93,7 @@ export function AddFinancialItemModal(props: AddFinancialItemModalProps) {
         await props.onAddLiability({
           name: name.trim(),
           category: category as LiabilityCategory,
-          amount: toNumber(amount),
+          amount: parsedAmount.toNumber(),
           currency,
           notes: notes.trim() || undefined,
         });
@@ -141,12 +149,9 @@ export function AddFinancialItemModal(props: AddFinancialItemModalProps) {
           <MoneyInput value={amount} onValueChange={setAmount} currency={currency} />
         </FormField>
         <FormField label="Notas (opcional)">
-          <textarea
-            value={notes}
-            onChange={(event) => setNotes(event.target.value)}
-            rows={2}
-            className="w-full resize-none rounded-xl border border-input bg-card p-3 text-sm text-foreground outline-hidden placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-4 focus-visible:ring-ring/15"
-          />
+          {(control) => (
+            <Textarea {...control} value={notes} onChange={(event) => setNotes(event.target.value)} rows={2} className="min-h-0" />
+          )}
         </FormField>
       </form>
     </ResponsiveDrawer>

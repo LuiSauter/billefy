@@ -6,6 +6,7 @@ import { calculatePatrimonioOverview } from "../domain/net-worth-analytics";
 import { Investment } from "@/modules/investments/domain/investment.types";
 import { AccountDto, TransactionDto } from "@/modules/ledger/domain/ledger.types";
 import { LoanSummaryDto } from "@/modules/lending/domain/lending.types";
+import { Skeleton } from "@/shared/ui/skeleton";
 
 // Presentation Subcomponents
 import { PatrimonioHeader } from "./PatrimonioHeader";
@@ -31,11 +32,44 @@ interface PatrimonioViewProps {
   p2pRate?: number;
 }
 
+// Module-scope defaults keep prop identity stable across renders so the memoized overview is not busted.
+const NO_INVESTMENTS: Investment[] = [];
+const NO_ACCOUNTS: AccountDto[] = [];
+const NO_LOANS: LoanSummaryDto[] = [];
+const NO_TRANSACTIONS: TransactionDto[] = [];
+
+/** Placeholder with the final layout, shown until the user's manual records have been read from storage. */
+function PatrimonioLoadingState() {
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="grid grid-cols-1 @md:grid-cols-2 @4xl:grid-cols-4 gap-3.5">
+        {Array.from({ length: 4 }, (_, index) => (
+          <Skeleton key={index} className="h-[148px] rounded-2xl" />
+        ))}
+      </div>
+      <div className="grid grid-cols-1 @5xl:grid-cols-12 gap-5">
+        <Skeleton className="h-72 rounded-2xl @5xl:col-span-7" />
+        <Skeleton className="h-72 rounded-2xl @5xl:col-span-5" />
+      </div>
+      <div className="grid grid-cols-1 @4xl:grid-cols-12 gap-6">
+        <div className="flex flex-col gap-6 @4xl:col-span-7 @5xl:col-span-8">
+          <Skeleton className="h-48 rounded-2xl" />
+          <Skeleton className="h-48 rounded-2xl" />
+        </div>
+        <div className="flex flex-col gap-5 @4xl:col-span-5 @5xl:col-span-4">
+          <Skeleton className="h-56 rounded-2xl" />
+          <Skeleton className="h-40 rounded-2xl" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function PatrimonioView({
-  investments = [],
-  accounts = [],
-  loans = [],
-  transactions = [],
+  investments = NO_INVESTMENTS,
+  accounts = NO_ACCOUNTS,
+  loans = NO_LOANS,
+  transactions = NO_TRANSACTIONS,
   onNavigateToInvestments,
   selectedCurrency = "BOB",
   onToggleCurrency,
@@ -48,6 +82,7 @@ export function PatrimonioView({
     deleteAsset,
     addLiability,
     deleteLiability,
+    loaded,
   } = usePatrimonio();
 
   const [addAssetOpen, setAddAssetOpen] = useState(false);
@@ -85,16 +120,30 @@ export function PatrimonioView({
     }
   };
 
+  const header = (
+    <PatrimonioHeader
+      onOpenAddAsset={() => setAddAssetOpen(true)}
+      onOpenAddLiability={() => setAddLiabilityOpen(true)}
+      selectedCurrency={targetCurrency}
+      onToggleCurrency={onToggleCurrency}
+      p2pRate={effectiveP2pRate}
+      loading={!loaded}
+    />
+  );
+
+  if (!loaded) {
+    return (
+      <div className="@container flex flex-col gap-6" aria-busy="true">
+        {header}
+        <PatrimonioLoadingState />
+      </div>
+    );
+  }
+
   return (
-    <div className="flex flex-col gap-6">
-      {/* 1. Header with Period Selector, Currency Toggle & "+ Agregar activo" */}
-      <PatrimonioHeader
-        onOpenAddAsset={() => setAddAssetOpen(true)}
-        onOpenAddLiability={() => setAddLiabilityOpen(true)}
-        selectedCurrency={targetCurrency}
-        onToggleCurrency={onToggleCurrency}
-        p2pRate={effectiveP2pRate}
-      />
+    <div className="@container flex flex-col gap-6">
+      {/* 1. Header with as-of label, Currency Toggle & "+ Agregar activo" */}
+      {header}
 
       {/* 2. Top 4 KPI Cards: Patrimonio Neto, Activos, Pasivos, Ratio de endeudamiento */}
       <PatrimonioKpiCards
@@ -105,9 +154,9 @@ export function PatrimonioView({
       />
 
       {/* 3. Middle Section: Evolución del patrimonio neto & Distribución de activos Donut */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
+      <div className="grid grid-cols-1 @5xl:grid-cols-12 gap-5 items-stretch">
         {/* Left (7 cols): Evolución */}
-        <div className="lg:col-span-7 flex flex-col">
+        <div className="@5xl:col-span-7 flex flex-col min-w-0">
           <PatrimonioEvolutionChart
             points={metrics.evolutionPoints}
             currentNetWorth={metrics.netWorth}
@@ -116,7 +165,7 @@ export function PatrimonioView({
         </div>
 
         {/* Right (5 cols): Distribución Donut */}
-        <div className="lg:col-span-5 flex flex-col">
+        <div className="@5xl:col-span-5 flex flex-col min-w-0">
           <PatrimonioDistributionDonut
             categories={metrics.assetsByCategory}
             totalAssets={metrics.totalAssets}
@@ -126,9 +175,9 @@ export function PatrimonioView({
       </div>
 
       {/* 4. Bottom Section: Mis Activos / Mis Pasivos (8 cols) & Composición / Insights (4 cols) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      <div className="grid grid-cols-1 @4xl:grid-cols-12 gap-6 items-start">
         {/* Left Column (8 cols): Mis activos & Mis pasivos lists with drill-down & deletion */}
-        <div className="lg:col-span-7 xl:col-span-8 flex flex-col gap-6">
+        <div className="@4xl:col-span-7 @5xl:col-span-8 flex flex-col gap-6 min-w-0">
           <PatrimonioAssetsList
             categories={metrics.assetsByCategory}
             totalAssets={metrics.totalAssets}
@@ -146,7 +195,7 @@ export function PatrimonioView({
         </div>
 
         {/* Right Column (4 cols): Composición general & Insights */}
-        <div className="lg:col-span-5 xl:col-span-4 flex flex-col gap-5">
+        <div className="@4xl:col-span-5 @5xl:col-span-4 flex flex-col gap-5 min-w-0">
           <PatrimonioCompositionBar
             totalAssets={metrics.totalAssets}
             totalLiabilities={metrics.totalLiabilities}

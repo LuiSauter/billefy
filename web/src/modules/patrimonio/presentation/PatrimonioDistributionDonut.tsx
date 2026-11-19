@@ -1,10 +1,27 @@
 "use client";
 
-import React from "react";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
+import React, { useMemo } from "react";
+import { Cell, Pie, PieChart } from "recharts";
+import { Sparkles } from "lucide-react";
 import { AssetCategorySummary } from "../domain/patrimonio.types";
-import { Home, TrendingUp, Laptop, Car, Banknote, Sparkles } from "lucide-react";
+import { useNumberPreferences } from "@/shared/hooks/use-number-format";
+import { formatPercent } from "@/shared/lib/amount-format";
+import { createAmountTooltipFormatter } from "@/shared/lib/chart-utils";
+import {
+  appCardContentClassName,
+  appCardHeaderClassName,
+  appCardTitleClassName,
+} from "@/shared/presentation/card-variants";
 import { Amount, Percentage } from "@/shared/ui/amount";
+import { CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from "@/shared/ui/chart";
+import { PatrimonioCard } from "./PatrimonioCard";
+import { PATRIMONIO_CATEGORY_ICONS } from "./category-icons";
 
 interface PatrimonioDistributionDonutProps {
   categories: AssetCategorySummary[];
@@ -12,106 +29,89 @@ interface PatrimonioDistributionDonutProps {
   currency?: string;
 }
 
-const ICON_MAP: Record<string, React.ElementType> = {
-  home: Home,
-  "trending-up": TrendingUp,
-  laptop: Laptop,
-  car: Car,
-  banknote: Banknote,
-  sparkles: Sparkles,
-};
+const DONUT_CONFIG = {} satisfies ChartConfig;
+const DONUT_INITIAL_DIMENSION = { width: 176, height: 176 };
 
 export function PatrimonioDistributionDonut({
   categories,
   totalAssets,
   currency = "USD",
 }: PatrimonioDistributionDonutProps) {
-  const chartData = categories.length > 0
-    ? categories
-    : [{ category: "other" as const, label: "Sin activos", color: "#64748b", totalValue: 1, percentage: 100, itemsCount: 0, description: "", icon: "sparkles" }];
+  const preferences = useNumberPreferences();
+  const isEmpty = categories.length === 0;
+
+  const chartData = useMemo(
+    () => categories.map((c) => ({ name: c.label, value: c.totalValue, fill: c.color, percentage: c.percentage })),
+    [categories]
+  );
+  const tooltipFormatter = useMemo(
+    () => createAmountTooltipFormatter(currency, preferences, (payload) => formatPercent(Number(payload.percentage ?? 0), preferences)),
+    [currency, preferences]
+  );
 
   return (
-    <div className="rounded-2xl bg-card border border-border/80 p-5 shadow-2xs flex flex-col justify-between h-full">
-      <h3 className="text-base font-bold text-foreground tracking-tight mb-3">
-        Distribución del patrimonio (activos)
-      </h3>
+    <PatrimonioCard className="@container min-w-0 h-full flex flex-col justify-between">
+      <CardHeader className={appCardHeaderClassName}>
+        <CardTitle className={appCardTitleClassName}>Distribución del patrimonio (activos)</CardTitle>
+      </CardHeader>
 
-      <div className="flex flex-col sm:flex-row items-center gap-6 my-auto">
+      <CardContent className={`${appCardContentClassName} flex flex-col @md:flex-row items-center gap-6 my-auto w-full`}>
         {/* Donut Container */}
-        <div className="relative w-44 h-44 shrink-0 flex items-center justify-center min-w-0 min-h-0">
-          <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
-            <PieChart>
-              <Tooltip
-                content={({ active, payload }) => {
-                  if (active && payload && payload.length) {
-                    const data = payload[0].payload as AssetCategorySummary;
-                    return (
-                      <div className="rounded-xl bg-popover/95 backdrop-blur-md border border-border/80 px-3 py-2 shadow-xl">
-                        <p className="text-[11px] font-semibold text-muted-foreground">{data.label}</p>
-                        <p className="text-xs font-bold text-foreground mt-0.5">
-                          <Amount value={data.totalValue} currency={currency} size="inherit" tone="inherit" /> (<Percentage value={data.percentage} sign="never" size="inherit" tone="inherit" />)
-                        </p>
-                      </div>
-                    );
-                  }
-                  return null;
-                }}
-              />
-              <Pie
-                data={chartData}
-                dataKey="totalValue"
-                nameKey="label"
-                cx="50%"
-                cy="50%"
-                innerRadius={50}
-                outerRadius={74}
-                paddingAngle={3}
-                stroke="none"
-              >
-                {chartData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
-                ))}
-              </Pie>
-            </PieChart>
-          </ResponsiveContainer>
+        <div className="relative size-44 shrink-0 flex items-center justify-center">
+          {isEmpty ? (
+            // No chart at all: nothing to hover, so no tooltip can claim an amount that does not exist.
+            <div className="size-[148px] rounded-full border-[24px] border-muted" aria-hidden="true" />
+          ) : (
+            <ChartContainer config={DONUT_CONFIG} initialDimension={DONUT_INITIAL_DIMENSION} className="aspect-auto size-44 min-w-0">
+              <PieChart>
+                <ChartTooltip content={<ChartTooltipContent hideLabel formatter={tooltipFormatter} />} />
+                <Pie
+                  data={chartData}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={50}
+                  outerRadius={74}
+                  paddingAngle={3}
+                  stroke="none"
+                  isAnimationActive={false}
+                >
+                  {chartData.map((entry) => (
+                    <Cell key={entry.name} fill={entry.fill} />
+                  ))}
+                </Pie>
+              </PieChart>
+            </ChartContainer>
+          )}
 
           {/* Centered Total */}
-          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center px-2">
-            <span className="text-sm font-black text-foreground tracking-tight leading-tight">
+          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center px-4">
+            <span className="text-sm font-black text-foreground tracking-tight leading-tight max-w-[7.5rem] truncate">
               <Amount value={totalAssets} currency={currency} size="inherit" tone="inherit" />
             </span>
-            <span className="text-[10px] font-semibold text-muted-foreground mt-0.5">
-              Activos totales
-            </span>
+            <span className="text-[10px] font-semibold text-muted-foreground mt-0.5">Activos totales</span>
           </div>
         </div>
 
         {/* Legend */}
-        <div className="flex-1 flex flex-col gap-2.5 w-full">
+        <div className="flex-1 flex flex-col gap-2.5 w-full min-w-0">
           {categories.map((item) => {
-            const Icon = ICON_MAP[item.icon] || Sparkles;
+            const Icon = PATRIMONIO_CATEGORY_ICONS[item.icon] || Sparkles;
             return (
-              <div
-                key={item.category}
-                className="flex items-center justify-between text-xs font-medium"
-              >
+              <div key={item.category} className="flex items-center justify-between gap-2 text-xs font-medium">
                 <div className="flex items-center gap-2 min-w-0">
-                  <div
-                    className="p-1 rounded-md text-white shrink-0"
-                    style={{ backgroundColor: item.color }}
-                  >
-                    <Icon className="w-3 h-3" />
+                  <div className="p-1 rounded-md text-white shrink-0" style={{ backgroundColor: item.color }}>
+                    <Icon className="w-3 h-3" aria-hidden="true" />
                   </div>
-                  <span className="text-muted-foreground font-semibold truncate">
-                    {item.label}
-                  </span>
+                  <span className="text-muted-foreground font-semibold truncate">{item.label}</span>
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
                   <span className="text-foreground font-bold">
-                    {item.percentage}%
+                    <Percentage value={item.percentage} sign="never" size="inherit" tone="inherit" />
                   </span>
-                  <span className="text-[11px] text-muted-foreground hidden sm:inline">
+                  <span className="text-[11px] text-muted-foreground hidden @xs:inline">
                     <Amount value={item.totalValue} currency={currency} size="inherit" tone="inherit" />
                   </span>
                 </div>
@@ -119,13 +119,9 @@ export function PatrimonioDistributionDonut({
             );
           })}
 
-          {categories.length === 0 && (
-            <span className="text-xs text-muted-foreground italic">
-              Sin datos de activos
-            </span>
-          )}
+          {isEmpty && <span className="text-xs text-muted-foreground italic">Sin datos de activos</span>}
         </div>
-      </div>
-    </div>
+      </CardContent>
+    </PatrimonioCard>
   );
 }

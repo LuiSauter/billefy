@@ -173,6 +173,7 @@ describe("portfolio-analytics", () => {
         quantity: 10,
         iconKey: "sparkles",
         colorKey: "blue",
+        history: [],
         createdAt: "2026-01-01",
       },
       {
@@ -185,6 +186,7 @@ describe("portfolio-analytics", () => {
         quantity: 1,
         iconKey: "sparkles",
         colorKey: "blue",
+        history: [],
         createdAt: "2026-01-01",
       },
     ];

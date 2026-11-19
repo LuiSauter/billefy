@@ -1,13 +1,34 @@
 "use client";
 
-import React from "react";
-import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from "recharts";
+import React, { useMemo } from "react";
+import { PieChart, Pie } from "recharts";
 import { Tag } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
+import { CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
+import {
+  DashboardCard,
+  dashboardCardContentClassName,
+  dashboardCardHeaderClassName,
+  dashboardCardTitleClassName,
+} from "./dashboard-card";
 import { Amount } from "@/shared/ui/amount";
+import { IconTile } from "./IconTile";
 import { useNumberPreferences } from "@/shared/hooks/use-number-format";
-import { formatAmountText, formatPercent } from "@/shared/lib/amount-format";
+import { formatPercent } from "@/shared/lib/amount-format";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from "@/shared/ui/chart";
 import type { CategoryExpenseItem } from "../../domain/dashboard-home-analytics";
+import { createAmountTooltipFormatter } from "./dashboard-chart-utils";
+
+// Slice colors are user-category colors carried in the data (`fill`), not theme series.
+const CATEGORY_CHART_CONFIG = {
+  amount: { label: "Gastos" },
+} satisfies ChartConfig;
+
+const CATEGORY_INITIAL_DIMENSION = { width: 150, height: 150 };
 
 interface DashboardCategoryExpensesCardProps {
   categories: CategoryExpenseItem[];
@@ -22,45 +43,54 @@ export function DashboardCategoryExpensesCard({
 }: DashboardCategoryExpensesCardProps) {
   const numberPreferences = useNumberPreferences();
 
+  const pieData = useMemo(
+    () => categories.map((cat) => ({ ...cat, fill: cat.color })),
+    [categories]
+  );
+  const tooltipFormatter = useMemo(
+    () => createAmountTooltipFormatter(selectedCurrency, numberPreferences),
+    [selectedCurrency, numberPreferences]
+  );
+
   return (
-    <Card className="rounded-2xl border-border/70 bg-card/60 backdrop-blur-xs shadow-xs overflow-hidden h-full">
-      <CardHeader className="p-4 pb-2">
-        <CardTitle className="text-base font-extrabold text-foreground">
+    <DashboardCard className="@container overflow-hidden h-full">
+      <CardHeader className={dashboardCardHeaderClassName}>
+        <CardTitle className={dashboardCardTitleClassName}>
           Gastos por categoría
         </CardTitle>
       </CardHeader>
 
-      <CardContent className="p-4 pt-2">
+      <CardContent className={dashboardCardContentClassName}>
         {categories.length === 0 ? (
           <div className="py-8 text-center text-xs text-muted-foreground flex flex-col items-center justify-center gap-2">
-            <div className="w-9 h-9 rounded-xl bg-muted/60 flex items-center justify-center text-muted-foreground">
-              <Tag className="w-4 h-4" />
-            </div>
+            <IconTile icon={Tag} variant="muted" />
             <div className="flex flex-col">
-              <span className="font-bold text-foreground text-xs">Sin gastos este mes</span>
-              <span className="text-[11px] text-muted-foreground">
+              <span className="font-semibold text-foreground text-xs">Sin gastos este mes</span>
+              <span className="text-xs text-muted-foreground">
                 Tus consumos clasificados aparecerán aquí automáticamente.
               </span>
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-[1.1fr_1.3fr] gap-4 items-center">
+          <div className="grid grid-cols-1 @lg:grid-cols-[1.1fr_1.3fr] gap-4 items-center">
             {/* Left Side: Donut Chart with Center Text */}
             <div className="relative w-full h-[150px] flex items-center justify-center">
-              <ResponsiveContainer width="100%" height="100%" minWidth={0} initialDimension={{ width: 150, height: 150 }}>
+              <ChartContainer
+                config={CATEGORY_CHART_CONFIG}
+                initialDimension={CATEGORY_INITIAL_DIMENSION}
+                className="aspect-auto h-full w-full min-w-0"
+              >
                 <PieChart>
-                  <Tooltip
-                    formatter={(val) => formatAmountText(Number(val), selectedCurrency, numberPreferences)}
-                    contentStyle={{
-                      backgroundColor: "rgba(15, 23, 42, 0.95)",
-                      borderColor: "rgba(148, 163, 184, 0.2)",
-                      borderRadius: 10,
-                      fontSize: 12,
-                      color: "#fff",
-                    }}
+                  <ChartTooltip
+                    content={
+                      <ChartTooltipContent
+                        hideLabel
+                        formatter={tooltipFormatter}
+                      />
+                    }
                   />
                   <Pie
-                    data={categories}
+                    data={pieData}
                     dataKey="amount"
                     nameKey="name"
                     innerRadius={46}
@@ -68,18 +98,14 @@ export function DashboardCategoryExpensesCard({
                     paddingAngle={2}
                     stroke="none"
                     isAnimationActive={false}
-                  >
-                    {categories.map((entry) => (
-                      <Cell key={`cell-${entry.id}`} fill={entry.color} />
-                    ))}
-                  </Pie>
+                  />
                 </PieChart>
-              </ResponsiveContainer>
+              </ChartContainer>
 
               {/* Center Label inside Donut */}
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center">
                 <Amount value={totalExpenses} currency={selectedCurrency} size="sm" />
-                <span className="text-[10px] text-muted-foreground font-medium">
+                <span className="text-xs text-muted-foreground font-medium">
                   Gastos del mes
                 </span>
               </div>
@@ -94,12 +120,12 @@ export function DashboardCategoryExpensesCard({
                       className="w-2 h-2 rounded-full shrink-0"
                       style={{ backgroundColor: cat.color }}
                     />
-                    <span className="text-muted-foreground font-medium truncate text-[11px]">
+                    <span className="text-muted-foreground font-medium truncate text-xs">
                       {cat.name}
                     </span>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-[11px] text-muted-foreground font-bold tabular-nums">
+                    <span className="text-xs text-muted-foreground font-semibold tabular-nums">
                       {formatPercent(cat.percentage, numberPreferences)}
                     </span>
                     <Amount value={cat.amount} currency={selectedCurrency} size="xs" />
@@ -110,6 +136,6 @@ export function DashboardCategoryExpensesCard({
           </div>
         )}
       </CardContent>
-    </Card>
+    </DashboardCard>
   );
 }

@@ -5,6 +5,8 @@ import { CalendarDays, Download } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import { SelectField } from "@/shared/ui/select-field";
 import { Amount } from "@/shared/ui/amount";
+import { cn } from "@/shared/lib/utils";
+import { REPORT_CTA_CLASS } from "./reports-shared";
 
 export type ReportsPeriodMonths = 1 | 3 | 6 | 12;
 
@@ -70,7 +72,7 @@ export function ReportsHeader({
             }}
           />
         </div>
-        <Button type="button" onClick={onExport} disabled={!onExport} className="bg-gradient-to-r from-purple-600 to-violet-600 text-white shadow-sm hover:from-purple-500 hover:to-violet-500">
+        <Button type="button" onClick={onExport} disabled={!onExport} className={cn(REPORT_CTA_CLASS, "shadow-sm")}>
           <Download aria-hidden="true" />
           Exportar reporte
         </Button>

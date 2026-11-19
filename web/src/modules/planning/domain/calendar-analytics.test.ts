@@ -259,6 +259,7 @@ describe("Calendar Analytics & Event Engine", () => {
       recurringOccurrences: [
         {
           recurringId: "rec-usdt",
+          frequency: "Monthly",
           name: "Servidor Cloud",
           flowType: "Expense",
           amount: 50,

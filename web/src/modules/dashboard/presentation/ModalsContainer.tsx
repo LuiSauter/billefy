@@ -136,6 +136,7 @@ interface ModalsContainerProps {
   onSelectCurrency: (currency: "BOB" | "USD") => void;
   onLogout?: () => void;
   onOpenAccounts?: () => void;
+  onOpenCardPurchase?: (loanId: string) => void;
   onOpenSettings?: () => void;
   planEnabled?: boolean;
   onTogglePlan?: (enabled: boolean) => void;
@@ -154,6 +155,7 @@ interface ModalsContainerProps {
       amount: number | string;
       description: string;
       p2pRate: number;
+      occurredAt?: string;
     }) => Promise<void>;
     reconcileAccount: (accountId: string, realBalance: number, notes?: string) => Promise<void>;
     simulateLoan: (req: SimulateLoanRequest) => Promise<LoanScheduleDto>;
@@ -190,6 +192,7 @@ export function ModalsContainer({
   onSelectCurrency,
   onLogout,
   onOpenAccounts,
+  onOpenCardPurchase,
   onOpenSettings,
   planEnabled,
   onTogglePlan,
@@ -215,6 +218,7 @@ export function ModalsContainer({
                 amount: data.amount.toString(),
                 direction: "Expense",
                 description: data.description,
+                ...(data.occurredAt ? { occurredAt: data.occurredAt } : {}),
               });
             }
           }}
@@ -340,6 +344,7 @@ export function ModalsContainer({
           loan={modals.selectedLoanDetail}
           onClose={modals.closeLoanDetail}
           onOpenPayment={(loanId, installmentNumber) => { void openLoanPaymentFromDetail(loanId, modals.closeLoanDetail, modals.openLoanPayment, installmentNumber); }}
+          onOpenCardPurchase={onOpenCardPurchase ? (loanId) => { modals.closeLoanDetail(); onOpenCardPurchase(loanId); } : undefined}
           onCancelLoan={async (loanId) => {
             const result = await actions.cancelLoan(loanId);
             modals.closeLoanDetail();

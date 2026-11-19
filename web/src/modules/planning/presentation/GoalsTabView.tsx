@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from "react";
 import { Plus, Search, ChevronDown } from "lucide-react";
-import { GoalDto, UpdateGoalRequest } from "../domain/planning.types";
+import { GoalDto, UpdateGoalRequest, GoalFundingEntryDto, GoalFundingKind, GoalFundingRequest } from "../domain/planning.types";
 import { AccountDto } from "@/modules/ledger/domain/ledger.types";
 import { notify } from "@/shared/lib/notify";
 
@@ -11,6 +11,8 @@ import { GoalsKpiCards } from "./GoalsKpiCards";
 import { GoalCard } from "./GoalCard";
 import { GoalsSummaryPanel } from "./GoalsSummaryPanel";
 import { EditGoalModal } from "./EditGoalModal";
+import { GoalFundingModal } from "./GoalFundingModal";
+import { Amount } from "@/shared/ui/amount";
 
 type GoalStatusFilter = "Todas" | "En progreso" | "Completadas" | "Pausadas";
 type GoalSortOption = "fecha" | "progreso" | "monto";
@@ -26,6 +28,8 @@ interface GoalsTabViewProps {
   onOpenPlan?: () => void;
   onUpdateGoal?: (id: string, req: UpdateGoalRequest) => Promise<void>;
   onDeleteGoal?: (id: string) => Promise<void>;
+  onRecordGoalFunding?: (id: string, kind: GoalFundingKind, request: GoalFundingRequest, key: string) => Promise<void>;
+  onGetGoalFunding?: (id: string) => Promise<GoalFundingEntryDto[]>;
   selectedCurrency?: "BOB" | "USD";
   p2pRate?: number;
 }
@@ -41,10 +45,15 @@ export function GoalsTabView({
   onOpenPlan,
   onUpdateGoal,
   onDeleteGoal,
+  onRecordGoalFunding,
+  onGetGoalFunding,
   selectedCurrency = "USD",
   p2pRate: _p2pRate = 9.85,
 }: GoalsTabViewProps) {
   void _p2pRate;
+  const [fundingGoal, setFundingGoal] = useState<GoalDto | null>(null);
+  const shortfalls = Array.from(new Map(goals.filter(goal => goal.fundingMode === "ReservedFunds" && goal.accountId && (goal.accountFundingShortfall ?? 0) > 0)
+    .map(goal => [`${goal.accountId}:${goal.currency}`, goal])).values());
   const [editingGoal, setEditingGoal] = useState<GoalDto | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<GoalStatusFilter>("Todas");
@@ -228,6 +237,12 @@ export function GoalsTabView({
         </div>
       )}
 
+      {shortfalls.map(goal => <section key={`${goal.accountId}:${goal.currency}`} role="status" className="rounded-xl border border-destructive/40 bg-destructive/10 p-4 text-sm">
+        <h2 className="font-semibold">Faltante de respaldo · {goal.accountName || "Cuenta vinculada"}</h2>
+        <p><Amount value={goal.accountFundingShortfall ?? 0} currency={goal.currency} size="sm" /> compartido por las metas de esta cuenta. Es un único faltante de la cuenta, no un importe adicional por cada meta.</p>
+        <p className="mt-1 text-muted-foreground">Los gastos siguen permitidos y tus asignaciones se conservan. Podés reponer saldo o liberar parte de las reservas.</p>
+      </section>)}
+
       {/* 4. Main Grid (Left 8 cols) + Summary Panel (Right 4 cols) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Left: Goals Grid (8/12) */}
@@ -239,6 +254,7 @@ export function GoalsTabView({
                 goal={goal}
                 onEdit={setEditingGoal}
                 onDelete={handleDeleteGoal}
+                onFunding={onRecordGoalFunding ? setFundingGoal : undefined}
               />
             ))}
           </div>
@@ -253,6 +269,8 @@ export function GoalsTabView({
           />
         </div>
       </div>
+
+      {fundingGoal && onRecordGoalFunding && <GoalFundingModal key={fundingGoal.id} goal={goals.find(goal => goal.id === fundingGoal.id) || fundingGoal} onClose={() => setFundingGoal(null)} onSubmit={onRecordGoalFunding} onGetHistory={onGetGoalFunding} />}
 
       {/* Edit Goal Modal */}
       {editingGoal && (

@@ -275,7 +275,7 @@ export function calculateCalendarAnalytics({
 
   // 3. Process Transactions (Actual Movements in current month)
   for (const tx of transactions) {
-    if (!tx.occurredAt) continue;
+    if (!tx.occurredAt || tx.loanCashKind === "Principal") continue;
     const txDate = tx.occurredAt.split("T")[0];
     if (txDate >= startStr && txDate <= endStr) {
       const isExpense = tx.direction === "Expense";

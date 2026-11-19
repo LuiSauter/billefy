@@ -62,15 +62,26 @@ function submit() {
 }
 
 const anchor = { href: "", download: "", click: vi.fn(), remove: vi.fn() };
-const popup = { opener: {}, document: { open: vi.fn(), write: vi.fn(), close: vi.fn() }, focus: vi.fn(), print: vi.fn() };
+// The popup prints only once its document has loaded (see "waits for the popup" test in report-export.service.test.ts).
+let popupLoaded: (() => void) | undefined;
+const popup = {
+  opener: {}, closed: false, document: { open: vi.fn(), write: vi.fn(), close: vi.fn() }, focus: vi.fn(), print: vi.fn(),
+  addEventListener: vi.fn((type: string, listener: () => void) => { if (type === "load") popupLoaded = listener; }),
+};
+function finishPopupLoad() { popupLoaded?.(); }
 let blobs: Blob[];
-const createObjectURL = vi.fn((blob: Blob) => { blobs.push(blob); return "blob:report"; });
+const createObjectURL = vi.fn((blob: Blob | MediaSource) => {
+  if (!(blob instanceof Blob)) throw new Error("Expected a report Blob");
+  blobs.push(blob);
+  return "blob:report";
+});
 const revokeObjectURL = vi.fn();
 const openWindow = vi.fn(() => popup);
 
 beforeEach(() => {
   slots.splice(0);
   blobs = [];
+  popupLoaded = undefined;
   vi.clearAllMocks();
   vi.useFakeTimers();
   vi.stubGlobal("document", { createElement: vi.fn(() => anchor), body: { appendChild: vi.fn() } });
@@ -118,13 +129,16 @@ describe("ReportGenerationCard", () => {
     expect(html).toContain('role="status"');
     if (format === "pdf") {
       expect(openWindow).toHaveBeenCalledOnce();
+      expect(popup.print).not.toHaveBeenCalled();
+      finishPopupLoad();
       expect(popup.print).toHaveBeenCalledOnce();
       expect(popup.document.write.mock.calls[0][0]).toContain("Flujo de efectivo");
       expect(createObjectURL).not.toHaveBeenCalled();
     } else {
       expect(anchor.click).toHaveBeenCalledOnce();
       expect(anchor.download).toBe(`flujo-de-efectivo-2026-11.${format}`);
-      expect(await blobs[0].text()).toContain("700.123456");
+      // Numbers match the on-screen es-BO format (and survive the ';' delimiter) instead of raw String(number).
+      expect(await blobs[0].text()).toContain(format === "csv" ? '"700,12"' : "700.123456");
     }
   });
 
@@ -143,6 +157,7 @@ describe("ReportGenerationCard", () => {
     expect(renderToStaticMarkup(render())).toContain('role="alert"');
     expect(renderToStaticMarkup(render())).not.toContain('role="status"');
     submit();
+    finishPopupLoad();
     expect(popup.print).toHaveBeenCalledOnce();
     expect(renderToStaticMarkup(render())).not.toContain('role="alert"');
   });
@@ -165,7 +180,7 @@ describe("report export service", () => {
     exportReportAsCsv(report, "financial-summary", "USD");
     expect(blobs[0].type).toBe("text/csv;charset=utf-8");
     const csv = await blobs[0].text();
-    for (const value of ["USD", "2026-10", "2026-11", "Indicador", "Ingresos totales", "1000.123456", "Flujo de efectivo", "Gastos por categoría", "Evolución del patrimonio", "-100", "Ratio de ahorro", '"Educación, ""cursos""\ncontinuos"']) expect(csv).toContain(value);
+    for (const value of ["USD", "2026-10", "2026-11", "Indicador", "Ingresos totales", '"1.000,12"', "Flujo de efectivo", "Gastos por categoría", "Evolución del patrimonio", '"-100,00"', "Ratio de ahorro", '"Educación, ""cursos""\ncontinuos"']) expect(csv).toContain(value);
     expect(anchor.href).toBe("blob:report");
     expect(anchor.download).toBe("reporte-financiero-2026-11.csv");
     expect(anchor.remove).toHaveBeenCalledOnce();
@@ -196,7 +211,7 @@ describe("report export service", () => {
     exportReportAsCsv({ ...report, categoryExpenses: [{ category: '=HYPERLINK("unsafe")', amount: -1.000001, percentage: 100 }] }, "category-expenses", "USD");
     const csv = await blobs[0].text();
     expect(csv).toContain('"\'=HYPERLINK(""unsafe"")"');
-    expect(csv).toContain('"-1.000001"');
+    expect(csv).toContain('"-1,00"');
     expect(csv).not.toContain("Ingresos totales");
   });
 
@@ -207,6 +222,7 @@ describe("report export service", () => {
     expect(html).not.toContain("<script>");
     expect(popup.opener).toBeNull();
     expect(popup.document.close).toHaveBeenCalledOnce();
+    finishPopupLoad();
     expect(popup.print).toHaveBeenCalledOnce();
   });
 

@@ -39,7 +39,9 @@ describe("stock-market.service", () => {
         post: vi.fn(),
         put: vi.fn(),
         delete: vi.fn(),
-        patch: vi.fn(),
+        setAuthSession: vi.fn(),
+        getAuthToken: vi.fn(),
+        getUserId: vi.fn(),
       };
 
       const quote = await fetchStockQuote("AAPL", mockHttp);
@@ -76,7 +78,9 @@ describe("stock-market.service", () => {
         post: vi.fn(),
         put: vi.fn(),
         delete: vi.fn(),
-        patch: vi.fn(),
+        setAuthSession: vi.fn(),
+        getAuthToken: vi.fn(),
+        getUserId: vi.fn(),
       };
 
       const results = await searchStocks("nvda", mockHttp);

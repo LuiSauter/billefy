@@ -1,10 +1,17 @@
 "use client";
 
 import React from "react";
-import { Bitcoin, TrendingUp, Layers } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
+import { Bitcoin, TrendingUp, Layers, type LucideIcon } from "lucide-react";
+import { CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
+import {
+  DashboardCard,
+  dashboardCardContentClassName,
+  dashboardCardHeaderClassName,
+  dashboardCardTitleClassName,
+} from "./dashboard-card";
 import { Badge } from "@/shared/ui/badge";
 import { Amount } from "@/shared/ui/amount";
+import { IconTile, type IconTileVariant } from "./IconTile";
 import { useNumberPreferences } from "@/shared/hooks/use-number-format";
 import { formatPercent } from "@/shared/lib/amount-format";
 import type { TopInvestmentItem } from "../../domain/dashboard-home-analytics";
@@ -15,6 +22,17 @@ interface DashboardTopInvestmentsCardProps {
   onOpenInvestmentsTab?: () => void;
 }
 
+function getIcon(type: string, name: string): { icon: LucideIcon; variant: IconTileVariant } {
+  const lower = `${type} ${name}`.toLowerCase();
+  if (lower.includes("crypto") || lower.includes("btc") || lower.includes("bitcoin")) {
+    return { icon: Bitcoin, variant: "amber" };
+  }
+  if (lower.includes("fondo") || lower.includes("fund") || lower.includes("layer")) {
+    return { icon: Layers, variant: "blue" };
+  }
+  return { icon: TrendingUp, variant: "purple" };
+}
+
 export function DashboardTopInvestmentsCard({
   investments,
   selectedCurrency,
@@ -22,34 +40,21 @@ export function DashboardTopInvestmentsCard({
 }: DashboardTopInvestmentsCardProps) {
   const numberPreferences = useNumberPreferences();
 
-  const getIcon = (type: string, name: string) => {
-    const lower = `${type} ${name}`.toLowerCase();
-    if (lower.includes("crypto") || lower.includes("btc") || lower.includes("bitcoin")) {
-      return { icon: Bitcoin, bg: "bg-amber-500/15 border-amber-500/30 text-amber-400" };
-    }
-    if (lower.includes("fondo") || lower.includes("fund") || lower.includes("layer")) {
-      return { icon: Layers, bg: "bg-blue-500/15 border-blue-500/30 text-blue-400" };
-    }
-    return { icon: TrendingUp, bg: "bg-purple-500/15 border-purple-500/30 text-purple-400" };
-  };
-
   return (
-    <Card className="rounded-2xl border-border/70 bg-card/60 backdrop-blur-xs shadow-xs overflow-hidden h-full flex flex-col justify-between">
-      <CardHeader className="p-4 pb-2">
-        <CardTitle className="text-base font-extrabold text-foreground">
+    <DashboardCard className="overflow-hidden h-full flex flex-col justify-between">
+      <CardHeader className={dashboardCardHeaderClassName}>
+        <CardTitle className={dashboardCardTitleClassName}>
           Principales inversiones
         </CardTitle>
       </CardHeader>
 
-      <CardContent className="p-4 pt-2 flex flex-col justify-between flex-1">
+      <CardContent className={`${dashboardCardContentClassName} flex flex-col justify-between flex-1`}>
         {investments.length === 0 ? (
           <div className="py-8 text-center text-xs text-muted-foreground flex flex-col items-center justify-center gap-2 flex-1">
-            <div className="w-9 h-9 rounded-xl bg-muted/60 flex items-center justify-center text-muted-foreground">
-              <TrendingUp className="w-4 h-4" />
-            </div>
+            <IconTile icon={TrendingUp} variant="muted" />
             <div className="flex flex-col">
-              <span className="font-bold text-foreground text-xs">Sin inversiones activas</span>
-              <span className="text-[11px] text-muted-foreground">
+              <span className="font-semibold text-foreground text-xs">Sin inversiones activas</span>
+              <span className="text-xs text-muted-foreground">
                 Comienza registrando tus posiciones en cripto, fondos o acciones.
               </span>
             </div>
@@ -57,7 +62,7 @@ export function DashboardTopInvestmentsCard({
               <button
                 type="button"
                 onClick={onOpenInvestmentsTab}
-                className="mt-1 text-xs font-bold text-purple-400 hover:text-purple-300 transition-colors"
+                className="mt-1 text-xs font-semibold text-purple-400 hover:text-purple-300 transition-colors"
               >
                 + Ir a Inversiones
               </button>
@@ -66,31 +71,27 @@ export function DashboardTopInvestmentsCard({
         ) : (
           <div className="flex flex-col divide-y divide-border/50">
             {investments.map((inv) => {
-              const { icon: Icon, bg } = getIcon(inv.type, inv.name);
+              const { icon, variant } = getIcon(inv.type, inv.name);
               return (
                 <div
                   key={inv.id}
                   onClick={onOpenInvestmentsTab}
                   className="py-3 flex items-center justify-between gap-3 cursor-pointer hover:bg-muted/30 transition-colors -mx-4 px-4 group"
                 >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div
-                      className={`w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 ${bg}`}
-                    >
-                      <Icon className="w-4 h-4" />
-                    </div>
+                  <div className="flex flex-1 items-center gap-3 min-w-0">
+                    <IconTile icon={icon} variant={variant} />
                     <div className="flex flex-col min-w-0">
-                      <span className="text-xs sm:text-sm font-bold text-foreground truncate">
+                      <span className="text-xs sm:text-sm font-semibold text-foreground truncate">
                         {inv.name}
                       </span>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-3 shrink-0">
-                    <Amount value={inv.balance} currency={selectedCurrency} size="sm" />
+                    <Amount value={inv.balance} currency={selectedCurrency} size="sm" className="shrink-0" />
                     <Badge
                       variant="outline"
-                      className="bg-emerald-500/15 border-emerald-500/30 text-emerald-400 text-[11px] font-bold px-2 py-0.5 rounded-full"
+                      className="bg-emerald-500/15 border-emerald-500/30 text-emerald-400 text-xs font-semibold px-2 py-0.5 rounded-full"
                     >
                       {inv.yieldRate >= 0 ? "+" : "-"}{formatPercent(Math.abs(inv.yieldRate), numberPreferences)}
                     </Badge>
@@ -101,6 +102,6 @@ export function DashboardTopInvestmentsCard({
           </div>
         )}
       </CardContent>
-    </Card>
+    </DashboardCard>
   );
 }

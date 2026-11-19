@@ -13,6 +13,8 @@ import { ResponsiveDrawer } from "@/shared/ui/responsive-drawer";
 import { SelectField } from "@/shared/ui/select-field";
 import { Textarea } from "@/shared/ui/textarea";
 import { Amount } from "@/shared/ui/amount";
+import { CategoryPickerField } from "@/modules/ledger/presentation/CategoryPickerField";
+import { CategoryCreatorView } from "@/modules/ledger/presentation/CategoryCreatorView";
 
 export interface RegisterLoanPaymentModalProps {
   isOpen: boolean;
@@ -111,6 +113,9 @@ export function RegisterLoanPaymentModal({ isOpen, onClose, loan, accounts, onSu
   const [quoteState, setQuote] = useState<{ loanId?: string; date?: string; data?: LoanPaymentQuoteDto; error?: string }>({});
   const [quoteAttempt, setQuoteAttempt] = useState(0);
   const [error, setError] = useState("");
+  const [interestCategoryId, setInterestCategoryId] = useState("");
+  const [creatingCategory, setCreatingCategory] = useState(false);
+  const [categoryValid, setCategoryValid] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const submitLock = useRef(false);
   const session = useRef(0);
@@ -122,7 +127,7 @@ export function RegisterLoanPaymentModal({ isOpen, onClose, loan, accounts, onSu
   useEffect(() => {
     session.current += 1;
     submitLock.current = false; setSubmitting(false); setError("");
-    setForm(initialForm(loanId)); setQuote({});
+    setForm(initialForm(loanId)); setQuote({}); setInterestCategoryId(""); setCreatingCategory(false);
     return () => { session.current += 1; };
   }, [isOpen, loanId]);
 
@@ -168,7 +173,7 @@ export function RegisterLoanPaymentModal({ isOpen, onClose, loan, accounts, onSu
   const validAmount = Boolean(amount?.gt(0) && amount.decimalPlaces() <= amountScale
     && amount.decimalPlaces() <= 6 && amount.precision(true) <= 20 && amount.decimalPlaces() <= 6
     && amount.abs().lessThanOrEqualTo(new D("99999999999999.999999")));
-  const accountValid = form.account === "none" || Boolean(selectedAccount && selectedAccount.currency === loan.currency);
+  const accountValid = (form.account === "none" && loan.loanKind !== "CreditCard") || Boolean(selectedAccount && selectedAccount.currency === loan.currency);
   const payable = ["Active", "InArrears"].includes(quote?.loanStatus ?? loan.status)
     && (quote ? quote.totalPayoff.gt(0) : Boolean(onGetQuote || (loan.totalPayoff ?? remaining)?.gt(0)));
   const dateValid = validDate(form.date);
@@ -187,7 +192,8 @@ export function RegisterLoanPaymentModal({ isOpen, onClose, loan, accounts, onSu
     submitLock.current = true; setSubmitting(true); setError("");
     try {
       await onSubmit(loan.id, { amount: amount!.toString(), accountId: form.account === "none" ? undefined : form.account,
-        paymentDate: form.date, note: form.note.trim() || undefined });
+        paymentDate: form.date, note: form.note.trim() || undefined,
+        ...(interestCategoryId ? { interestCategoryId } : {}) });
     } catch {
       if (session.current === activeSession) {
         setError("No se pudo registrar el pago. Tus datos se conservaron; inténtalo de nuevo.");
@@ -201,10 +207,14 @@ export function RegisterLoanPaymentModal({ isOpen, onClose, loan, accounts, onSu
 
   return <ResponsiveDrawer open={isOpen} onOpenChange={open => { if (!open) close(); }} size="md" title={title}
     description={`${loan.counterpartyName} · ${loan.currency}`}
-    footer={<>
+    footer={creatingCategory ? <><Button type="button" variant="outline" onClick={() => setCreatingCategory(false)}>Volver</Button>
+      <Button type="submit" form="loan-interest-category" disabled={!categoryValid}>Crear categoría</Button></> : <>
       <Button type="button" variant="outline" disabled={submitting} onClick={close}>Cancelar</Button>
       <Button type="submit" form={FORM_ID} disabled={!isValid || submitting} loading={submitting}>{title}</Button>
     </>}>
+    {creatingCategory ? <CategoryCreatorView formId="loan-interest-category" direction={isCollection ? "Income" : "Expense"}
+      onCancel={() => setCreatingCategory(false)} onValidityChange={setCategoryValid}
+      onCreated={category => { setInterestCategoryId(category.id); setCreatingCategory(false); }} /> :
     <form id={FORM_ID} onSubmit={handleSubmit} className="space-y-5" aria-busy={submitting}>
       <fieldset disabled={submitting || !payable} className="min-w-0 space-y-5">
         {installmentNumber !== undefined && <p className="text-sm font-medium">Referencia seleccionada: cuota {installmentNumber} · moneda del préstamo: {loan.currency}</p>}
@@ -231,13 +241,18 @@ export function RegisterLoanPaymentModal({ isOpen, onClose, loan, accounts, onSu
         <FormGrid>
           <FormField htmlFor="payment-account" label={isCollection ? "Cuenta de destino" : "Cuenta de origen"} hint="Sin movimiento en cuenta no cambiará el saldo de tus cuentas." required>{control =>
             <SelectField {...control} required aria-invalid={!accountValid && Boolean(form.account)} value={form.account} onChange={e => patch({ account: e.target.value })}
-              options={[{ value: "", label: "Seleccioná una opción" }, { value: "none", label: "(Sin movimiento en cuenta bancaria)" }, ...accounts.filter(item => item.currency === loan.currency)
+              options={[{ value: "", label: "Seleccioná una opción" }, ...(loan.loanKind === "CreditCard" ? [] : [{ value: "none", label: "(Sin movimiento en cuenta bancaria)" }]), ...accounts.filter(item => item.currency === loan.currency)
                 .map(item => ({ value: item.id, label: item.name }))]} />}</FormField>
           {!accountValid && form.account && <p role="alert" className="text-sm text-destructive">Elegí una cuenta en la moneda del préstamo o Sin movimiento en cuenta.</p>}
           <FormField htmlFor="payment-date" label={isCollection ? "Fecha del cobro" : "Fecha del pago"} required>{control =>
             <Input {...control} required aria-invalid={!dateValid} type="date" value={form.date} onChange={e => patch({ date: e.target.value })} />}</FormField>
           {!dateValid && <p role="alert" className="text-sm text-destructive">Ingresá una fecha válida.</p>}
         </FormGrid>
+        <p className="text-sm text-muted-foreground">El capital solo mueve efectivo y reduce deuda o cuenta por cobrar. Solo intereses y mora se reconocen como ingreso o gasto.</p>
+        <details className="space-y-3"><summary className="cursor-pointer text-sm font-medium">Categoría de intereses (opcional)</summary>
+          <CategoryPickerField direction={isCollection ? "Income" : "Expense"} selectedCategoryId={interestCategoryId}
+            onSelectCategory={category => setInterestCategoryId(category?.id ?? "")} onRequestCreateCategory={() => setCreatingCategory(true)} />
+        </details>
         <FormField htmlFor="payment-note" label="Nota" hint="Opcional. Referencia o comprobante del pago.">{control =>
           <Textarea {...control} rows={2} maxLength={500} aria-invalid={!noteValid} value={form.note} onChange={e => patch({ note: e.target.value })} />}</FormField>
         {!noteValid && <p role="alert" className="text-sm text-destructive">La nota no puede superar los 500 caracteres.</p>}
@@ -301,6 +316,6 @@ export function RegisterLoanPaymentModal({ isOpen, onClose, loan, accounts, onSu
       </Card>
       {!payable && <p role="status" className="text-sm text-muted-foreground">Este préstamo no tiene saldo pendiente o no admite pagos en su estado actual.</p>}
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-    </form>
+    </form>}
   </ResponsiveDrawer>;
 }

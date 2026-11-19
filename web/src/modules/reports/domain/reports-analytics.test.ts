@@ -33,13 +33,15 @@ afterEach(() => vi.useRealTimers());
 describe("calculateFinancialReport", () => {
   it("returns zero metrics and six chronological, zero-filled Spanish months for empty inputs", () => {
     const result = report();
-    expect(result.kpis).toEqual({ totalIncome: 0, incomeGrowthPct: 0, totalExpenses: 0, expensesGrowthPct: 0,
-      savingsAndInvestments: 0, savingsGrowthPct: 0, netBalance: 0, netBalanceGrowthPct: 0 });
+    // No prior-period baseline: growth is unavailable (null), never a fabricated 0%.
+    expect(result.kpis).toEqual({ totalIncome: 0, incomeGrowthPct: null, totalExpenses: 0, expensesGrowthPct: null,
+      savingsAndInvestments: 0, savingsGrowthPct: null, netBalance: 0, netBalanceGrowthPct: null });
     expect(result.cashFlowEvolution.map((point) => point.month)).toEqual(["May", "Jun", "Jul", "Ago", "Sep", "Oct"]);
     expect(result.cashFlowEvolution.map((point) => point.monthKey)).toEqual(["2026-05", "2026-06", "2026-07", "2026-08", "2026-09", "2026-10"]);
     expect(result.cashFlowEvolution.every((point) => point.income === 0 && point.expenses === 0 && point.net === 0)).toBe(true);
     expect(result.netWorthEvolution.every((point) => point.netWorth === 0)).toBe(true);
-    expect(result.periodSummary).toEqual({ savingsRatio: 0, netWorthGrowthPct: 0, debtRatio: 0, budgetCompliance: 0 });
+    // Missing denominators (no income, no net-worth baseline, no budget) are null; zero debt is a real 0%.
+    expect(result.periodSummary).toEqual({ savingsRatio: null, netWorthGrowthPct: null, debtRatio: 0, budgetCompliance: null });
     expect(result.categoryExpenses).toEqual([]);
     expect(result.conclusion).toMatchObject({ title: "Conclusión del período", healthStatus: "warning" });
     expect(result.conclusion.narrative).toContain("No hay ingresos ni gastos");
@@ -89,7 +91,7 @@ describe("calculateFinancialReport", () => {
       transaction("future", "999", { occurredAt: "2026-03-16T00:00:00Z" }),
     ], { periodMonths: 3, referenceDate: "2026-03-15T12:00:00Z" });
     expect(result.kpis).toEqual({ totalIncome: 200, incomeGrowthPct: 100, totalExpenses: 100, expensesGrowthPct: -50,
-      savingsAndInvestments: 100, savingsGrowthPct: 0, netBalance: 100, netBalanceGrowthPct: 200 });
+      savingsAndInvestments: 100, savingsGrowthPct: null, netBalance: 100, netBalanceGrowthPct: 200 });
     expect(result.cashFlowEvolution.map((point) => point.monthKey)).toEqual(["2026-01", "2026-02", "2026-03"]);
     expect(result.cashFlowEvolution[1]).toMatchObject({ income: 0, expenses: 0, net: 0 });
   });
@@ -121,6 +123,53 @@ describe("calculateFinancialReport", () => {
       { category: "Sin categoría", amount: 200, percentage: 14.81 },
       { category: "transport", amount: 50, percentage: 3.7 },
     ]);
+  });
+
+  it("distinguishes a genuine 0% change from a missing baseline", () => {
+    const result = report([
+      transaction("prior-income", "100", { direction: "Income", occurredAt: "2026-09-10" }),
+      transaction("income", "100", { direction: "Income" }),
+      transaction("expense", "40"),
+    ], { periodMonths: 1, budgets: [budget(40)], accounts: [account("500")] });
+    expect(result.kpis.incomeGrowthPct).toBe(0); // 100 -> 100 is a real zero change.
+    expect(result.kpis.expensesGrowthPct).toBeNull(); // 0 -> 40 has no baseline.
+    expect(result.periodSummary.budgetCompliance).toBe(100);
+    expect(result.periodSummary.savingsRatio).toBe(60);
+  });
+
+  describe("category name resolution", () => {
+    const groceriesId = "71fde9fb-ad49-4e03-86b1-b87df3bda000";
+    const rawIds = (result: ReturnType<typeof report>) => result.categoryExpenses.map((item) => item.category);
+
+    it("resolves a transaction categoryId through the supplied category lookup, never showing the raw id", () => {
+      const result = report([transaction("groceries", "80", { categoryId: groceriesId })],
+        { periodMonths: 1, categoryNames: new Map([[groceriesId, "Supermercado"]]) });
+      expect(result.categoryExpenses).toEqual([{ category: "Supermercado", amount: 80, percentage: 100 }]);
+    });
+
+    it("matches ids case-insensitively and prefers the allocation's own categoryName", () => {
+      const result = report([
+        transaction("a", "50", { categoryId: groceriesId.toUpperCase() }),
+        transaction("b", "50", { allocations: [{ categoryId: "other", categoryName: "Servicios", amount: new Decimal(50) }] }),
+      ], { periodMonths: 1, categoryNames: new Map([[groceriesId, "Supermercado"], ["other", "Ignorado"]]) });
+      expect(rawIds(result).sort()).toEqual(["Servicios", "Supermercado"]);
+    });
+
+    it("resolves allocation categoryIds that carry no categoryName", () => {
+      const result = report([transaction("split", "100", { allocations: [
+        { categoryId: groceriesId, amount: new Decimal(100) },
+      ] })], { periodMonths: 1, categoryNames: new Map([[groceriesId, "Supermercado"]]) });
+      expect(rawIds(result)).toEqual(["Supermercado"]);
+    });
+
+    it("falls back to 'Sin categoría' for unresolvable UUIDs and merges them with uncategorized spending", () => {
+      const result = report([
+        transaction("unknown", "30", { categoryId: groceriesId }),
+        transaction("none", "20"),
+      ], { periodMonths: 1 });
+      expect(result.categoryExpenses).toEqual([{ category: "Sin categoría", amount: 50, percentage: 100 }]);
+      expect(JSON.stringify(result.categoryExpenses)).not.toContain(groceriesId);
+    });
   });
 
   it("excludes internal transfers, investment cash, reconciliations and reversals from operating KPIs", () => {
@@ -161,7 +210,7 @@ describe("calculateFinancialReport", () => {
       accounts: [account("100", { createdAt: "2026-10-10" })],
       loans: [loan("20", { createdAt: "2026-10-10", disbursementDate: "2026-10-10" })] });
     expect(result.netWorthEvolution.map((point) => point.netWorth)).toEqual([0, 0, 80]);
-    expect(result.periodSummary.netWorthGrowthPct).toBe(0);
+    expect(result.periodSummary.netWorthGrowthPct).toBeNull();
   });
 
   it("scales active monthly and yearly budget limits by eligible months, ignoring stale spentAmount", () => {
@@ -177,12 +226,12 @@ describe("calculateFinancialReport", () => {
   it("handles no income, no assets and outstanding debt without NaN or false healthy ratios", () => {
     const result = report([transaction("expense", "100")], { periodMonths: 1, loans: [loan("100")] });
     expect(result.kpis).toMatchObject({ totalIncome: 0, totalExpenses: 100, netBalance: -100, savingsAndInvestments: 0 });
-    expect(result.periodSummary.savingsRatio).toBe(0);
+    expect(result.periodSummary.savingsRatio).toBeNull();
     expect(result.periodSummary.debtRatio).toBe(100);
     expect(result.conclusion.healthStatus).toBe("critical");
     expect(result.conclusion.narrative).toContain("sin ingresos");
     expect(result.conclusion.narrative).toContain("sin activos");
-    expect(JSON.stringify(result)).not.toMatch(/NaN|Infinity|null/);
+    expect(JSON.stringify(result)).not.toMatch(/NaN|Infinity/);
   });
 
   it.each([
@@ -195,9 +244,9 @@ describe("calculateFinancialReport", () => {
       periodMonths: 1, accounts: [account("100")], loans: [loan(debt)], budgets: [budget(Number(limit))],
     });
     expect(result.conclusion.healthStatus).toBe(status);
-    expect(result.conclusion.narrative).toContain(`${result.periodSummary.savingsRatio.toFixed(1)}%`);
+    expect(result.conclusion.narrative).toContain(`${result.periodSummary.savingsRatio!.toFixed(1)}%`);
     expect(result.conclusion.narrative).toContain(`${result.periodSummary.debtRatio.toFixed(1)}%`);
-    expect(result.conclusion.narrative).toContain(`${result.periodSummary.budgetCompliance.toFixed(1)}%`);
+    expect(result.conclusion.narrative).toContain(`${result.periodSummary.budgetCompliance!.toFixed(1)}%`);
     expect(result.conclusion.narrative).not.toMatch(/NaN|Infinity/);
     if (status === "critical") expect(result.conclusion.narrative).toContain("superan tus ingresos");
   });
@@ -251,7 +300,7 @@ describe("calculateFinancialReport", () => {
     const result = report(transactions, { periodMonths: 1, accounts: [account("80")] });
     expect(result.kpis.totalExpenses).toBe(20);
     expect(result.kpis.totalIncome).toBe(0);
-    expect(result.kpis.expensesGrowthPct).toBe(0); // Reversed prior spending has no usable baseline.
+    expect(result.kpis.expensesGrowthPct).toBeNull(); // Reversed prior spending has no usable baseline.
     expect(result.periodSummary.netWorthGrowthPct).toBe(33.33); // Raw October ledger net is +20.
   });
 
@@ -277,7 +326,7 @@ describe("calculateFinancialReport", () => {
   it("treats zero budgets as unavailable and does not cap genuine over-budget execution", () => {
     const transactions = [transaction("salary", "200", { direction: "Income" }), transaction("expense", "100")];
     const unavailable = report(transactions, { periodMonths: 1, budgets: [budget(0)] });
-    expect(unavailable.periodSummary.budgetCompliance).toBe(0);
+    expect(unavailable.periodSummary.budgetCompliance).toBeNull();
     expect(unavailable.conclusion.narrative).toContain("Sin presupuesto");
     const exceeded = report(transactions, { periodMonths: 1, budgets: [budget(50)] });
     expect(exceeded.periodSummary.budgetCompliance).toBe(200);

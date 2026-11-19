@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import { AccountDto, TransactionDto } from "@/modules/ledger/domain/ledger.types";
 import {
   calculateAccountsOverview,
@@ -13,6 +13,14 @@ import { AccountsAnalyticsSidePanels } from "./AccountsAnalyticsSidePanels";
 import { AccountDetailView } from "./account-detail/AccountDetailView";
 import { EditAccountModal } from "./EditAccountModal";
 
+type UpdateAccountHandler = (
+  accountId: string,
+  data: { name: string; iconKey: string; colorKey: string }
+) => Promise<void>;
+
+/** Stable fallback so EditAccountModal never receives a fresh function identity per render. */
+const NOOP_UPDATE_ACCOUNT: UpdateAccountHandler = async () => {};
+
 interface AccountsTabViewProps {
   accounts: AccountDto[];
   transactions?: TransactionDto[];
@@ -22,10 +30,7 @@ interface AccountsTabViewProps {
   onOpenCreateAccountModal: () => void;
   onOpenCsvModal: () => void;
   onOpenReconcileModal: (account: AccountDto) => void;
-  onUpdateAccount?: (
-    accountId: string,
-    data: { name: string; iconKey: string; colorKey: string }
-  ) => Promise<void>;
+  onUpdateAccount?: UpdateAccountHandler;
   onDeleteAccount?: (accountId: string) => Promise<void>;
   onOpenRegisterTxnModal?: (account: AccountDto) => void;
   onEditTxn?: (txn: TransactionDto) => void;
@@ -66,6 +71,20 @@ export function AccountsTabView({
     return accounts.find((a) => a.id === selectedAccountId) || null;
   }, [accounts, selectedAccountId]);
 
+  const handleBack = useCallback(() => setSelectedAccountId(null), []);
+  const handleSelectAccount = useCallback((acc: AccountDto) => setSelectedAccountId(acc.id), []);
+  const handleCloseEdit = useCallback(() => setEditingAccount(null), []);
+
+  // Single owner of the edit modal for both the detail view and the accounts list.
+  const editAccountModal = editingAccount ? (
+    <EditAccountModal
+      account={editingAccount}
+      onClose={handleCloseEdit}
+      onSubmit={onUpdateAccount ?? NOOP_UPDATE_ACCOUNT}
+      onDelete={onDeleteAccount}
+    />
+  ) : null;
+
   // If an account is selected, render the detailed account view
   if (selectedAccount) {
     return (
@@ -73,9 +92,9 @@ export function AccountsTabView({
         <AccountDetailView
           account={selectedAccount}
           transactions={transactions}
-          onBack={() => setSelectedAccountId(null)}
+          onBack={handleBack}
           onOpenReconcileModal={onOpenReconcileModal}
-          onOpenEditAccountModal={(acc) => setEditingAccount(acc)}
+          onOpenEditAccountModal={setEditingAccount}
           onOpenRegisterTxnModal={onOpenRegisterTxnModal}
           onEditTxn={onEditTxn}
           onReverseTxn={onReverseTxn}
@@ -84,14 +103,7 @@ export function AccountsTabView({
           p2pRate={p2pRate}
         />
 
-        {editingAccount && (
-          <EditAccountModal
-            account={editingAccount}
-            onClose={() => setEditingAccount(null)}
-            onSubmit={onUpdateAccount || (async () => {})}
-            onDelete={onDeleteAccount}
-          />
-        )}
+        {editAccountModal}
       </>
     );
   }
@@ -128,9 +140,9 @@ export function AccountsTabView({
             p2pRate={p2pRate}
             onOpenCreateAccountModal={onOpenCreateAccountModal}
             onOpenReconcileModal={onOpenReconcileModal}
-            onUpdateAccount={onUpdateAccount}
+            onEditAccount={onUpdateAccount ? setEditingAccount : undefined}
             onDeleteAccount={onDeleteAccount}
-            onSelectAccount={(acc) => setSelectedAccountId(acc.id)}
+            onSelectAccount={handleSelectAccount}
           />
         </div>
 
@@ -146,14 +158,7 @@ export function AccountsTabView({
         </div>
       </div>
 
-      {editingAccount && (
-        <EditAccountModal
-          account={editingAccount}
-          onClose={() => setEditingAccount(null)}
-          onSubmit={onUpdateAccount || (async () => {})}
-          onDelete={onDeleteAccount}
-        />
-      )}
+      {editAccountModal}
     </div>
   );
 }

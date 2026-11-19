@@ -84,6 +84,22 @@ export function useDashboardData(authToken?: string | null, authUserId?: string 
     }
   }, [httpClient, loadData]);
 
+  const ledgerMutations = useMemo(() => {
+    const afterWrite = <Args extends unknown[], Result>(action: (...args: Args) => Promise<Result>) => async (...args: Args): Promise<Result> => {
+      const result = await action(...args);
+      try { await refreshPlanning(); }
+      catch { setError("Operación registrada, pero no se pudo actualizar la planificación. Actualizá los datos; no repitas la operación."); }
+      return result;
+    };
+    return {
+      createAccount: afterWrite(ledger.createAccount), updateAccount: afterWrite(ledger.updateAccount),
+      deleteAccount: afterWrite(ledger.deleteAccount), registerTransaction: afterWrite(ledger.registerTransaction),
+      updateTransaction: afterWrite(ledger.updateTransaction), reverseTransaction: afterWrite(ledger.reverseTransaction),
+      reconcileAccount: afterWrite(ledger.reconcileAccount), executeFxTransfer: afterWrite(ledger.executeFxTransfer),
+    };
+  }, [ledger.createAccount, ledger.updateAccount, ledger.deleteAccount, ledger.registerTransaction,
+    ledger.updateTransaction, ledger.reverseTransaction, ledger.reconcileAccount, ledger.executeFxTransfer, refreshPlanning]);
+
   const totals = useMemo(
     () => calculatePortfolioTotals(ledger.accounts, fx.rate),
     [ledger.accounts, fx.rate]
@@ -96,6 +112,7 @@ export function useDashboardData(authToken?: string | null, authUserId?: string 
     accountsMap: ledger.accountsMap,
     transactions: ledger.transactions,
     refreshLedger: ledger.refreshLedger,
+    refreshLedgerAndPlanning: onLedgerAndPlanningImpacted,
     drafts: ingestion.drafts,
     pendingDrafts: ingestion.pendingDrafts,
     loans: lending.loans,
@@ -113,14 +130,7 @@ export function useDashboardData(authToken?: string | null, authUserId?: string 
     totals,
     loading,
     error,
-    createAccount: ledger.createAccount,
-    updateAccount: ledger.updateAccount,
-    deleteAccount: ledger.deleteAccount,
-    registerTransaction: ledger.registerTransaction,
-    updateTransaction: ledger.updateTransaction,
-    reverseTransaction: ledger.reverseTransaction,
-    reconcileAccount: ledger.reconcileAccount,
-    executeFxTransfer: ledger.executeFxTransfer,
+    ...ledgerMutations,
     confirmDraft: ingestion.confirmDraft,
     discardDraft: ingestion.discardDraft,
     importStatementCsv: ingestion.importStatementCsv,
@@ -132,12 +142,15 @@ export function useDashboardData(authToken?: string | null, authUserId?: string 
     getLoanById: lending.getLoanById,
     getPaymentQuote: lending.getPaymentQuote,
     registerLoanPayment: lending.registerLoanPayment,
+    registerCardPurchase: lending.registerCardPurchase,
     cancelLoan: lending.cancelLoan,
     createBudget: planning.createBudget,
     updateBudget: planning.updateBudget,
     createGoal: planning.createGoal,
     updateGoal: planning.updateGoal,
     deleteGoal: planning.deleteGoal,
+    recordGoalFunding: planning.recordGoalFunding,
+    getGoalFunding: planning.getGoalFunding,
     proposeIncomeDistribution: planning.proposeIncomeDistribution,
     linkWhatsApp: messaging.linkWhatsApp,
     sendWhatsAppWebhook: messaging.sendWhatsAppWebhook,

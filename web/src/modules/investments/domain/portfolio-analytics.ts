@@ -1,4 +1,5 @@
-import { Investment, InvestmentKind } from "./investment.types";
+import Decimal from "decimal.js";
+import { Investment, InvestmentKind, investmentCostBasis } from "./investment.types";
 
 export interface CategoryDistributionItem {
   kind: InvestmentKind;
@@ -16,6 +17,7 @@ export interface InvestmentPerformanceItem {
   currentValue: number;
   initialValue: number;
   gainLoss: number;
+  costKnown: boolean;
   performancePct: number;
   iconKey: string;
   colorKey: string;
@@ -32,6 +34,7 @@ export interface PortfolioEvolutionPoint {
 export interface PortfolioOverviewMetrics {
   totalValue: number;
   totalCost: number;
+  hasUnknownCost: boolean;
   totalGainLoss: number;
   totalGainLossPct: number;
   annualReturnYtdPct: number;
@@ -89,11 +92,15 @@ export function calculatePortfolioOverview(
     (acc, i) => acc + convertInvestmentAmount(i.currentValue || 0, i.currency, targetCurrency, p2pRate),
     0
   );
+  const hasUnknownCost = activeInvestments.some(i => investmentCostBasis(i) === null);
   const totalCost = activeInvestments.reduce(
-    (acc, i) => acc + convertInvestmentAmount(i.initialValue || 0, i.currency, targetCurrency, p2pRate),
-    0
-  );
-  const totalGainLoss = totalValue - totalCost;
+    (acc, i) => acc.plus(convertInvestmentAmount(investmentCostBasis(i) ?? 0, i.currency, targetCurrency, p2pRate)),
+    new Decimal(0)
+  ).toNumber();
+  const knownValue = activeInvestments.filter(i => investmentCostBasis(i) !== null).reduce(
+    (acc, i) => acc.plus(convertInvestmentAmount(i.currentValue, i.currency, targetCurrency, p2pRate)), new Decimal(0)
+  ).toNumber();
+  const totalGainLoss = new Decimal(knownValue).minus(totalCost).toNumber();
   const totalGainLossPct = totalCost > 0 ? (totalGainLoss / totalCost) * 100 : 0;
 
   // Estimate YTD or annualized return:
@@ -153,8 +160,9 @@ export function calculatePortfolioOverview(
   // Performance ranking
   const performanceRanking: InvestmentPerformanceItem[] = activeInvestments
     .map((inv) => {
-      const gainLoss = inv.currentValue - inv.initialValue;
-      const performancePct = inv.initialValue > 0 ? (gainLoss / inv.initialValue) * 100 : 0;
+      const cost = investmentCostBasis(inv);
+      const gainLoss = cost === null ? 0 : new Decimal(inv.currentValue).minus(cost).toNumber();
+      const performancePct = cost !== null && cost > 0 ? (gainLoss / cost) * 100 : 0;
       return {
         id: inv.id,
         name: inv.name,
@@ -162,6 +170,7 @@ export function calculatePortfolioOverview(
         currentValue: inv.currentValue,
         initialValue: inv.initialValue,
         gainLoss,
+        costKnown: cost !== null,
         performancePct,
         iconKey: inv.iconKey,
         colorKey: inv.colorKey,
@@ -191,6 +200,7 @@ export function calculatePortfolioOverview(
   return {
     totalValue,
     totalCost,
+    hasUnknownCost,
     totalGainLoss,
     totalGainLossPct,
     annualReturnYtdPct,

@@ -9,16 +9,28 @@ import {
   Coins,
   Banknote,
   Layers,
+  FileText,
   ArrowUpRight,
   ArrowDownRight,
+  type LucideIcon,
 } from "lucide-react";
 import { useNumberPreferences } from "@/shared/hooks/use-number-format";
 import { formatPercent } from "@/shared/lib/amount-format";
 import { Amount } from "@/shared/ui/amount";
+import { Badge } from "@/shared/ui/badge";
+import { Button } from "@/shared/ui/button";
+import { Card } from "@/shared/ui/card";
+import { IconTile } from "@/modules/dashboard/presentation/home/IconTile";
 import {
   AccountCategoryGroup,
   AccountsOverviewMetrics,
 } from "../domain/accounts-overview";
+import {
+  ACCOUNT_CATEGORY_COLORS,
+  AccountCategoryTone,
+} from "../domain/account-category-colors";
+import { AccountsCard } from "./AccountsCard";
+import { accountsPageTitleClassName } from "./accounts-styles";
 
 interface AccountsHeaderStatsProps {
   metrics: AccountsOverviewMetrics;
@@ -26,6 +38,23 @@ interface AccountsHeaderStatsProps {
   onOpenCreateAccountModal: () => void;
   onOpenCsvModal?: () => void;
 }
+
+const CATEGORY_ICONS: Record<AccountCategoryGroup, LucideIcon> = {
+  bancos: Landmark,
+  wallets: Wallet,
+  cripto: Coins,
+  efectivo: Banknote,
+  otros: Layers,
+};
+
+/** Percentage pill classes per tone (tones come from the single ACCOUNT_CATEGORY_COLORS map). */
+const TONE_BADGE_CLASSES: Record<AccountCategoryTone, string> = {
+  blue: "bg-blue-500/15 text-blue-300 border-blue-500/30",
+  purple: "bg-purple-500/15 text-purple-300 border-purple-500/30",
+  amber: "bg-amber-500/15 text-amber-300 border-amber-500/30",
+  emerald: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
+  muted: "bg-muted/60 text-muted-foreground border-border",
+};
 
 export function AccountsHeaderStats({
   metrics,
@@ -38,37 +67,6 @@ export function AccountsHeaderStats({
   const displayCurrency = isUsd ? "USD" : "BOB";
   const displayTotal = isUsd ? metrics.totalUsd : metrics.totalBob;
 
-  const categoryIcons: Record<
-    AccountCategoryGroup,
-    { icon: React.ComponentType<{ className?: string }>; colorClasses: string; badgeClasses: string }
-  > = {
-    bancos: {
-      icon: Landmark,
-      colorClasses: "bg-teal-500/15 text-teal-400 border border-teal-500/20",
-      badgeClasses: "bg-teal-500/15 text-teal-300 border border-teal-500/30",
-    },
-    wallets: {
-      icon: Wallet,
-      colorClasses: "bg-purple-500/15 text-purple-400 border border-purple-500/20",
-      badgeClasses: "bg-purple-500/15 text-purple-300 border border-purple-500/30",
-    },
-    cripto: {
-      icon: Coins,
-      colorClasses: "bg-amber-500/15 text-amber-400 border border-amber-500/20",
-      badgeClasses: "bg-amber-500/15 text-amber-300 border border-amber-500/30",
-    },
-    efectivo: {
-      icon: Banknote,
-      colorClasses: "bg-cyan-500/15 text-cyan-400 border border-cyan-500/20",
-      badgeClasses: "bg-cyan-500/15 text-cyan-300 border border-cyan-500/30",
-    },
-    otros: {
-      icon: Layers,
-      colorClasses: "bg-indigo-500/15 text-indigo-400 border border-indigo-500/20",
-      badgeClasses: "bg-indigo-500/15 text-indigo-300 border border-indigo-500/30",
-    },
-  };
-
   const changePct = metrics.monthlyChangePct;
   const isPositive = changePct === null || changePct >= 0;
 
@@ -77,9 +75,7 @@ export function AccountsHeaderStats({
       {/* Top Header Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-foreground tracking-tight">
-            Cuentas
-          </h1>
+          <h1 className={accountsPageTitleClassName}>Cuentas</h1>
           <p className="text-xs sm:text-sm font-medium text-muted-foreground mt-1">
             Administra todas tus cuentas (bancos, wallets, crypto, efectivo, etc.) en un solo lugar.
           </p>
@@ -87,30 +83,32 @@ export function AccountsHeaderStats({
 
         <div className="flex items-center gap-2">
           {onOpenCsvModal && (
-            <button
+            <Button
               type="button"
+              variant="outline"
               onClick={onOpenCsvModal}
-              className="h-10 px-3.5 rounded-xl border border-border/80 bg-card/80 hover:bg-muted text-foreground text-xs font-semibold flex items-center gap-2 transition cursor-pointer"
+              className="text-xs font-semibold cursor-pointer"
             >
-              <span>📄 Importar CSV</span>
-            </button>
+              <FileText />
+              <span>Importar CSV</span>
+            </Button>
           )}
 
-          <button
+          <Button
             type="button"
             onClick={onOpenCreateAccountModal}
-            className="h-10 px-4 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-sm font-bold flex items-center justify-center gap-2 transition shadow-lg shadow-purple-600/20 shrink-0 cursor-pointer active:scale-95"
+            className="font-bold shadow-lg shadow-primary/20 cursor-pointer active:scale-95"
           >
-            <Plus className="w-4 h-4 stroke-[2.5]" />
+            <Plus className="stroke-[2.5]" />
             <span>Agregar cuenta</span>
-          </button>
+          </Button>
         </div>
       </div>
 
       {/* Row of Stat Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-12 gap-3.5">
         {/* Hero Card: Saldo total en cuentas */}
-        <div className="xl:col-span-4 rounded-2xl bg-gradient-to-br from-[#26174d] via-[#1d123d] to-[#130d2a] border border-purple-500/25 p-5 relative overflow-hidden flex flex-col justify-between shadow-xl min-h-[148px]">
+        <Card className="xl:col-span-4 bg-gradient-to-br from-[#26174d] via-[#1d123d] to-[#130d2a] border-purple-500/25 p-5 relative overflow-hidden flex flex-col justify-between shadow-xl min-h-[148px]">
           {/* Subtle glow / wave effect */}
           <div className="absolute top-0 right-0 w-44 h-44 bg-purple-600/10 rounded-full blur-2xl pointer-events-none" />
           <svg
@@ -125,7 +123,7 @@ export function AccountsHeaderStats({
             />
             <path
               d="M0 60 C30 65, 50 30, 80 40 C110 50, 125 15, 144 20"
-              stroke="#a855f7"
+              stroke="var(--color-chart-4)"
               strokeWidth="2.5"
               strokeLinecap="round"
             />
@@ -153,61 +151,56 @@ export function AccountsHeaderStats({
           </div>
 
           <div className="flex items-center gap-2 relative z-10">
-            <span
-              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold border ${
-                isPositive
-                  ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
-                  : "bg-rose-500/15 text-rose-400 border-rose-500/30"
-              }`}
+            <Badge
+              variant={isPositive ? "success" : "expense"}
+              className={isPositive ? "border-emerald-500/30 font-bold" : "border-rose-500/30 font-bold"}
             >
               {isPositive ? (
-                <ArrowUpRight className="w-3 h-3 stroke-[2.5]" />
+                <ArrowUpRight className="stroke-[2.5]" />
               ) : (
-                <ArrowDownRight className="w-3 h-3 stroke-[2.5]" />
+                <ArrowDownRight className="stroke-[2.5]" />
               )}
-              {changePct !== null ? `${changePct < 0 ? "−" : changePct > 0 ? "+" : ""}${formatPercent(changePct, preferences)}` : `+${formatPercent(0, preferences)}`}
-            </span>
-            <span className="text-[11px] font-medium text-purple-200/70">
+              {changePct !== null ? `${changePct < 0 ? "-" : changePct > 0 ? "+" : ""}${formatPercent(changePct, preferences)}` : `+${formatPercent(0, preferences)}`}
+            </Badge>
+            <span className="text-xs font-medium text-purple-200/70">
               vs. mes anterior
             </span>
           </div>
-        </div>
+        </Card>
 
-        {/* 5 Category Cards */}
-        <div className="xl:col-span-8 grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3">
-          {metrics.categoryList.map((cat) => {
-            const config = categoryIcons[cat.group];
-            const Icon = config.icon;
-            const displayCatAmount = isUsd
-              ? (cat.amountUsd ?? cat.amount)
-              : (cat.amountBob ?? cat.amount);
+        {/* 5 Category Cards: the grid follows its own column width, not the viewport. */}
+        <div className="@container xl:col-span-8">
+          <div className="grid grid-cols-2 @lg:grid-cols-3 @3xl:grid-cols-5 gap-3">
+            {metrics.categoryList.map((cat) => {
+              const Icon = CATEGORY_ICONS[cat.group];
+              const { tone } = ACCOUNT_CATEGORY_COLORS[cat.group];
+              const displayCatAmount = isUsd
+                ? (cat.amountUsd ?? cat.amount)
+                : (cat.amountBob ?? cat.amount);
 
-            return (
-              <div
-                key={cat.group}
-                className="rounded-2xl bg-card border border-border/70 p-4 flex flex-col justify-between shadow-2xs hover:border-purple-500/30 transition group"
-              >
-                <div className="flex items-center gap-2">
-                  <div className={`p-1.5 rounded-lg ${config.colorClasses}`}>
-                    <Icon className="w-3.5 h-3.5" />
+              return (
+                <AccountsCard
+                  key={cat.group}
+                  className="p-4 flex flex-col justify-between hover:border-primary/30 transition group"
+                >
+                  <div className="flex items-center gap-2">
+                    <IconTile icon={Icon} variant={tone} size="sm" />
+                    <span className="text-xs font-semibold text-muted-foreground truncate">
+                      {cat.label}
+                    </span>
                   </div>
-                  <span className="text-xs font-semibold text-muted-foreground truncate">
-                    {cat.label}
-                  </span>
-                </div>
 
-                <Amount value={displayCatAmount} currency={displayCurrency} size="md" className="my-2 min-w-0 truncate" />
+                  <Amount value={displayCatAmount} currency={displayCurrency} size="md" className="my-2 min-w-0 truncate" />
 
-                <div>
-                  <span
-                    className={`inline-block px-2 py-0.5 rounded-full text-[11px] font-bold border ${config.badgeClasses}`}
-                  >
-                    {formatPercent(cat.percentage, preferences)}
-                  </span>
-                </div>
-              </div>
-            );
-          })}
+                  <div>
+                    <Badge variant="outline" className={`font-bold ${TONE_BADGE_CLASSES[tone]}`}>
+                      {formatPercent(cat.percentage, preferences)}
+                    </Badge>
+                  </div>
+                </AccountsCard>
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>

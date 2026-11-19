@@ -1,16 +1,15 @@
 "use client";
 
 import React from "react";
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  ResponsiveContainer,
-  Tooltip,
-} from "recharts";
+import { AreaChart, Area, XAxis, YAxis } from "recharts";
 import { ChevronDown } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
+import { CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
+import {
+  DashboardCard,
+  dashboardCardContentClassName,
+  dashboardCardHeaderClassName,
+  dashboardCardTitleClassName,
+} from "./dashboard-card";
 import { Button } from "@/shared/ui/button";
 import {
   DropdownMenu,
@@ -19,8 +18,31 @@ import {
   DropdownMenuTrigger,
 } from "@/shared/ui/dropdown-menu";
 import { useNumberPreferences } from "@/shared/hooks/use-number-format";
-import { formatAmountText } from "@/shared/lib/amount-format";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from "@/shared/ui/chart";
 import type { NetWorthEvolutionPoint } from "../../domain/dashboard-home-analytics";
+import {
+  CHART_AXIS_PROPS,
+  createAmountTooltipFormatter,
+  formatCompactAmount,
+  NET_WORTH_RANGE_OPTIONS,
+  sliceNetWorthRange,
+  type NetWorthRange,
+} from "./dashboard-chart-utils";
+
+const NET_WORTH_CHART_CONFIG = {
+  value: { label: "Patrimonio neto", color: "var(--color-chart-4)" },
+} satisfies ChartConfig;
+
+const NET_WORTH_CHART_MARGIN = { top: 15, right: 10, left: -15, bottom: 0 };
+const NET_WORTH_Y_DOMAIN: ["auto", "auto"] = ["auto", "auto"];
+const NET_WORTH_INITIAL_DIMENSION = { width: 280, height: 170 };
+const NET_WORTH_DOT = { r: 4, fill: "var(--color-value)", stroke: "var(--color-card)", strokeWidth: 2 };
+const NET_WORTH_ACTIVE_DOT = { r: 6, fill: "var(--color-value)", stroke: "var(--color-card)", strokeWidth: 2 };
 
 interface DashboardNetWorthEvolutionCardProps {
   data: NetWorthEvolutionPoint[];
@@ -32,14 +54,26 @@ export function DashboardNetWorthEvolutionCard({
   selectedCurrency,
 }: DashboardNetWorthEvolutionCardProps) {
   const numberPreferences = useNumberPreferences();
+  const gradientId = `netWorthGradient-${React.useId().replace(/:/g, "")}`;
+  const [range, setRange] = React.useState<NetWorthRange>("6m");
 
-  const formatK = (val: number) =>
-    formatAmountText(val, selectedCurrency, numberPreferences, { compact: true });
+  const activeRange =
+    NET_WORTH_RANGE_OPTIONS.find((opt) => opt.id === range) ?? NET_WORTH_RANGE_OPTIONS[0];
+  const chartData = React.useMemo(() => sliceNetWorthRange(data, range), [data, range]);
+
+  const formatK = React.useMemo(
+    () => (val: number) => formatCompactAmount(val, selectedCurrency, numberPreferences),
+    [selectedCurrency, numberPreferences]
+  );
+  const tooltipFormatter = React.useMemo(
+    () => createAmountTooltipFormatter(selectedCurrency, numberPreferences),
+    [selectedCurrency, numberPreferences]
+  );
 
   return (
-    <Card className="rounded-2xl border-border/70 bg-card/60 backdrop-blur-xs shadow-xs overflow-hidden h-full flex flex-col justify-between">
-      <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between space-y-0">
-        <CardTitle className="text-base font-extrabold text-foreground">
+    <DashboardCard className="overflow-hidden h-full flex flex-col justify-between">
+      <CardHeader className={`${dashboardCardHeaderClassName} flex flex-row items-center justify-between space-y-0`}>
+        <CardTitle className={dashboardCardTitleClassName}>
           Evolución del patrimonio neto
         </CardTitle>
         <DropdownMenu>
@@ -50,70 +84,61 @@ export function DashboardNetWorthEvolutionCard({
                 size="sm"
                 className="h-7 px-2.5 rounded-lg text-xs font-semibold gap-1 border-border bg-background hover:bg-muted text-foreground"
               >
-                <span>Últimos 6 meses</span>
+                <span>{activeRange.label}</span>
                 <ChevronDown className="w-3 h-3 text-muted-foreground" />
               </Button>
             }
           />
           <DropdownMenuContent align="end" className="text-xs">
-            <DropdownMenuItem className="font-bold text-purple-400">
-              Últimos 6 meses
-            </DropdownMenuItem>
-            <DropdownMenuItem>Último año</DropdownMenuItem>
-            <DropdownMenuItem>Histórico completo</DropdownMenuItem>
+            {NET_WORTH_RANGE_OPTIONS.map((opt) => (
+              <DropdownMenuItem
+                key={opt.id}
+                onClick={() => setRange(opt.id)}
+                className={opt.id === range ? "font-semibold text-purple-400" : undefined}
+              >
+                {opt.label}
+              </DropdownMenuItem>
+            ))}
           </DropdownMenuContent>
         </DropdownMenu>
       </CardHeader>
 
-      <CardContent className="p-4 pt-2">
-        <div className="h-[170px] w-full min-w-0">
-          <ResponsiveContainer width="100%" height="100%" minWidth={0} initialDimension={{ width: 280, height: 170 }}>
-            <AreaChart data={data} margin={{ top: 15, right: 10, left: -15, bottom: 0 }}>
-              <defs>
-                <linearGradient id="netWorthGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#a855f7" stopOpacity={0.4} />
-                  <stop offset="100%" stopColor="#a855f7" stopOpacity={0.0} />
-                </linearGradient>
-              </defs>
-              <XAxis
-                dataKey="month"
-                stroke="#64748b"
-                fontSize={11}
-                tickLine={false}
-                axisLine={false}
-              />
-              <YAxis
-                stroke="#64748b"
-                fontSize={11}
-                tickLine={false}
-                axisLine={false}
-                tickFormatter={formatK}
-                domain={["auto", "auto"]}
-              />
-              <Tooltip
-                formatter={(val) => formatAmountText(Number(val), selectedCurrency, numberPreferences)}
-                contentStyle={{
-                  backgroundColor: "rgba(15, 23, 42, 0.95)",
-                  borderColor: "rgba(168, 85, 247, 0.4)",
-                  borderRadius: 10,
-                  fontSize: 12,
-                  color: "#fff",
-                }}
-              />
-              <Area
-                type="monotone"
-                dataKey="value"
-                stroke="#a855f7"
-                strokeWidth={2.5}
-                fill="url(#netWorthGradient)"
-                dot={{ r: 4, fill: "#a855f7", stroke: "#0f172a", strokeWidth: 2 }}
-                activeDot={{ r: 6, fill: "#c084fc", stroke: "#fff", strokeWidth: 2 }}
-                isAnimationActive={false}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
+      <CardContent className={dashboardCardContentClassName}>
+        <ChartContainer
+          config={NET_WORTH_CHART_CONFIG}
+          initialDimension={NET_WORTH_INITIAL_DIMENSION}
+          className="aspect-auto h-[170px] w-full min-w-0"
+        >
+          <AreaChart data={chartData} margin={NET_WORTH_CHART_MARGIN}>
+            <defs>
+              <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="var(--color-value)" stopOpacity={0.4} />
+                <stop offset="100%" stopColor="var(--color-value)" stopOpacity={0.0} />
+              </linearGradient>
+            </defs>
+            <XAxis dataKey="month" {...CHART_AXIS_PROPS} />
+            <YAxis {...CHART_AXIS_PROPS} tickFormatter={formatK} domain={NET_WORTH_Y_DOMAIN} />
+            <ChartTooltip
+              content={
+                <ChartTooltipContent
+                  hideLabel
+                  formatter={tooltipFormatter}
+                />
+              }
+            />
+            <Area
+              type="monotone"
+              dataKey="value"
+              stroke="var(--color-value)"
+              strokeWidth={2.5}
+              fill={`url(#${gradientId})`}
+              dot={NET_WORTH_DOT}
+              activeDot={NET_WORTH_ACTIVE_DOT}
+              isAnimationActive={false}
+            />
+          </AreaChart>
+        </ChartContainer>
       </CardContent>
-    </Card>
+    </DashboardCard>
   );
 }

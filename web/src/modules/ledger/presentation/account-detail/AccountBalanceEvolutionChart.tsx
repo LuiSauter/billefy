@@ -1,33 +1,73 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
-import { ChevronDown } from "lucide-react";
+import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { AccountDto, TransactionDto } from "../../domain/ledger.types";
 import { calculateBalanceEvolutionPoints } from "../../domain/account-detail";
-import { useNumberFormat, useNumberPreferences } from "@/shared/hooks/use-number-format";
+import { AccountsCard } from "../AccountsCard";
+import { accountsCompactSelectClassName } from "../accounts-styles";
+import { useNumberPreferences } from "@/shared/hooks/use-number-format";
 import { formatAmountText } from "@/shared/lib/amount-format";
+import {
+  CHART_AXIS_PROPS,
+  createAmountTooltipFormatter,
+  formatCompactAmount,
+} from "@/shared/lib/chart-utils";
+import {
+  appCardContentClassName,
+  appCardHeaderClassName,
+  appCardTitleClassName,
+} from "@/shared/presentation/card-variants";
+import { Badge } from "@/shared/ui/badge";
+import { CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from "@/shared/ui/chart";
+import { SelectField, type SelectFieldOption } from "@/shared/ui/select-field";
 
 interface AccountBalanceEvolutionChartProps {
   account: AccountDto;
   transactions: TransactionDto[];
 }
 
+type EvolutionRange = "1m" | "3m" | "6m" | "1y";
+
+const RANGE_OPTIONS: SelectFieldOption[] = [
+  { value: "1m", label: "Últimos 30 días" },
+  { value: "3m", label: "Últimos 3 meses" },
+  { value: "6m", label: "Últimos 6 meses" },
+  { value: "1y", label: "Este año" },
+];
+
+const BALANCE_CHART_CONFIG = {
+  balance: { label: "Saldo", color: "var(--color-chart-4)" },
+} satisfies ChartConfig;
+const BALANCE_CHART_MARGIN = { top: 20, right: 10, left: -15, bottom: 0 };
+const BALANCE_INITIAL_DIMENSION = { width: 320, height: 220 };
+const BALANCE_Y_DOMAIN: ["auto", "auto"] = ["auto", "auto"];
+const BALANCE_DOT = {
+  r: 3.5,
+  fill: "var(--color-card)",
+  stroke: "var(--color-balance)",
+  strokeWidth: 2,
+};
+const BALANCE_ACTIVE_DOT = {
+  r: 5,
+  fill: "var(--color-balance)",
+  stroke: "var(--color-card)",
+  strokeWidth: 2,
+};
+
 export function AccountBalanceEvolutionChart({
   account,
   transactions,
 }: AccountBalanceEvolutionChartProps) {
-  const format = useNumberFormat();
   const preferences = useNumberPreferences();
-  const [range, setRange] = useState<"1m" | "3m" | "6m" | "1y">("6m");
+  const [range, setRange] = useState<EvolutionRange>("6m");
+  const gradientId = `accountBalanceGradient-${React.useId().replace(/:/g, "")}`;
 
   const data = useMemo(() => {
     return calculateBalanceEvolutionPoints(account, transactions, range);
@@ -35,50 +75,54 @@ export function AccountBalanceEvolutionChart({
 
   const latestPoint = data[data.length - 1];
 
-  const formatYAxis = (val: number) => {
-    if (val >= 1000) return `${format(val / 1000)}K`;
-    return format(val);
-  };
+  const formatYAxis = useMemo(
+    () => (value: number) => formatCompactAmount(value, account.currency, preferences),
+    [account.currency, preferences]
+  );
+  const tooltipFormatter = useMemo(
+    () => createAmountTooltipFormatter(account.currency, preferences),
+    [account.currency, preferences]
+  );
 
   return (
-    <div className="rounded-2xl bg-card border border-border/80 p-5 flex flex-col gap-4 shadow-sm min-w-0">
+    <AccountsCard className="min-w-0">
       {/* Header */}
-      <div className="flex items-center justify-between gap-2">
-        <h3 className="text-base font-bold text-foreground tracking-tight">
-          Evolución del saldo
-        </h3>
+      <CardHeader className={`${appCardHeaderClassName} flex flex-row items-center justify-between gap-2 space-y-0`}>
+        <CardTitle className={appCardTitleClassName}>Evolución del saldo</CardTitle>
 
-        {/* Range Dropdown */}
-        <div className="relative">
-          <select
-            value={range}
-            onChange={(e) => setRange(e.target.value as "1m" | "3m" | "6m" | "1y")}
-            className="appearance-none bg-muted/60 hover:bg-muted border border-border text-foreground text-xs font-semibold rounded-xl pl-3 pr-7 py-1.5 transition cursor-pointer outline-none focus:border-purple-500"
-          >
-            <option value="1m">Últimos 30 días</option>
-            <option value="3m">Últimos 3 meses</option>
-            <option value="6m">Últimos 6 meses</option>
-            <option value="1y">Este año</option>
-          </select>
-          <ChevronDown className="w-3.5 h-3.5 text-muted-foreground absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-        </div>
-      </div>
+        {/* Range selector */}
+        <SelectField
+          aria-label="Rango de tiempo"
+          value={range}
+          onChange={(e) => setRange(e.target.value as EvolutionRange)}
+          options={RANGE_OPTIONS}
+          wrapperClassName="w-auto"
+          className={accountsCompactSelectClassName}
+        />
+      </CardHeader>
 
       {/* Chart Canvas */}
-      <div className="w-full h-[220px] relative pt-2">
-        {/* Floating Callout for Current Balance in the upper right or on top of last point */}
+      <CardContent className={`${appCardContentClassName} relative`}>
+        {/* Floating Callout for Current Balance */}
         {latestPoint && (
-          <div className="absolute top-2 right-4 z-10 bg-purple-950/80 border border-purple-500/40 text-purple-200 text-xs font-bold px-2.5 py-1 rounded-lg shadow-sm backdrop-blur-xs pointer-events-none">
+          <Badge
+            variant="purple"
+            className="absolute top-4 right-8 z-10 rounded-lg border-purple-500/40 font-bold backdrop-blur-xs pointer-events-none"
+          >
             {formatAmountText(latestPoint.balance, account.currency, preferences)}
-          </div>
+          </Badge>
         )}
 
-        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
-          <AreaChart data={data} margin={{ top: 20, right: 10, left: -15, bottom: 0 }}>
+        <ChartContainer
+          config={BALANCE_CHART_CONFIG}
+          initialDimension={BALANCE_INITIAL_DIMENSION}
+          className="aspect-auto h-[220px] w-full min-w-0"
+        >
+          <AreaChart data={data} margin={BALANCE_CHART_MARGIN}>
             <defs>
-              <linearGradient id="purpleBalanceGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#8B5CF6" stopOpacity={0.45} />
-                <stop offset="95%" stopColor="#8B5CF6" stopOpacity={0.0} />
+              <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="var(--color-balance)" stopOpacity={0.45} />
+                <stop offset="95%" stopColor="var(--color-balance)" stopOpacity={0} />
               </linearGradient>
             </defs>
 
@@ -89,64 +133,26 @@ export function AccountBalanceEvolutionChart({
               opacity={0.35}
             />
 
-            <XAxis
-              dataKey="label"
-              tickLine={false}
-              axisLine={false}
-              tick={{ fill: "var(--muted-foreground)", fontSize: 11, fontWeight: 500 }}
-              dy={6}
-            />
+            <XAxis dataKey="label" {...CHART_AXIS_PROPS} dy={6} />
 
-            <YAxis
-              tickLine={false}
-              axisLine={false}
-              tickFormatter={formatYAxis}
-              tick={{ fill: "var(--muted-foreground)", fontSize: 11, fontWeight: 500 }}
-              domain={["auto", "auto"]}
-            />
+            <YAxis {...CHART_AXIS_PROPS} tickFormatter={formatYAxis} domain={BALANCE_Y_DOMAIN} />
 
-            <Tooltip
-              content={({ active, payload }) => {
-                if (active && payload && payload.length) {
-                  const val = payload[0].value as number;
-                  const label = payload[0].payload.label;
-                  return (
-                    <div className="rounded-xl bg-popover border border-border p-2.5 shadow-xl text-xs flex flex-col gap-0.5">
-                      <span className="text-[11px] text-muted-foreground font-medium">
-                        {label}
-                      </span>
-                      <span className="font-bold text-foreground text-sm">
-                        {formatAmountText(val, account.currency, preferences)}
-                      </span>
-                    </div>
-                  );
-                }
-                return null;
-              }}
-            />
+            <ChartTooltip content={<ChartTooltipContent formatter={tooltipFormatter} />} />
 
             <Area
               type="monotone"
               dataKey="balance"
-              stroke="#A855F7"
+              name="Saldo"
+              stroke="var(--color-balance)"
               strokeWidth={2.5}
-              fill="url(#purpleBalanceGradient)"
-              dot={{
-                r: 3.5,
-                fill: "#FFFFFF",
-                stroke: "#8B5CF6",
-                strokeWidth: 2,
-              }}
-              activeDot={{
-                r: 5,
-                fill: "#8B5CF6",
-                stroke: "#FFFFFF",
-                strokeWidth: 2,
-              }}
+              fill={`url(#${gradientId})`}
+              dot={BALANCE_DOT}
+              activeDot={BALANCE_ACTIVE_DOT}
+              isAnimationActive={false}
             />
           </AreaChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
+        </ChartContainer>
+      </CardContent>
+    </AccountsCard>
   );
 }

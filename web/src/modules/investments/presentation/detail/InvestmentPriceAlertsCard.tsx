@@ -3,110 +3,120 @@
 import React, { useState } from "react";
 import { Bell, Plus, ArrowUpRight, ArrowDownRight, Trash2 } from "lucide-react";
 import { InvestmentAlert } from "../../domain/investment-detail";
+import { toNumber } from "../parse-amount-input";
 import { Amount } from "@/shared/ui/amount";
+import { Button } from "@/shared/ui/button";
+import { CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
+import { Input } from "@/shared/ui/input";
+import { SelectField, type SelectFieldOption } from "@/shared/ui/select-field";
+import { Switch } from "@/shared/ui/switch";
+import {
+  appCardContentClassName,
+  appCardHeaderClassName,
+  appCardTitleClassName,
+} from "@/shared/presentation/card-variants";
+import { InvestmentsCard } from "../InvestmentsCard";
 
 interface InvestmentPriceAlertsCardProps {
   investmentId: string;
   currency?: string;
+  /** Persisted alerts. */
+  alerts?: InvestmentAlert[];
+  /**
+   * Handlers that really store / evaluate alerts. Without `onCreateAlert` the card shows that alerts
+   * are not available yet instead of keeping throw-away local state that no one would ever evaluate.
+   */
+  onCreateAlert?: (alert: { condition: "above" | "below"; targetPrice: number }) => Promise<void> | void;
+  onToggleAlert?: (id: string) => void;
+  onRemoveAlert?: (id: string) => void;
 }
 
+const CONDITION_OPTIONS: SelectFieldOption[] = [
+  { value: "above", label: "Si sube a" },
+  { value: "below", label: "Si baja a" },
+];
+
 export function InvestmentPriceAlertsCard({
-  investmentId,
   currency = "USD",
+  alerts = [],
+  onCreateAlert,
+  onToggleAlert,
+  onRemoveAlert,
 }: InvestmentPriceAlertsCardProps) {
-  const [alerts, setAlerts] = useState<InvestmentAlert[]>([]);
   const [isAdding, setIsAdding] = useState(false);
   const [newTarget, setNewTarget] = useState("");
   const [newCondition, setNewCondition] = useState<"above" | "below">("above");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
-  const toggleAlert = (id: string) => {
-    setAlerts((prev) =>
-      prev.map((a) => (a.id === id ? { ...a, active: !a.active } : a))
-    );
-  };
-
-  const removeAlert = (id: string) => {
-    setAlerts((prev) => prev.filter((a) => a.id !== id));
-  };
-
-  const handleAddAlert = (e: React.FormEvent) => {
+  const handleAddAlert = async (e: React.FormEvent) => {
     e.preventDefault();
-    const val = parseFloat(newTarget);
-    if (!val || val <= 0) return;
-
-    setAlerts((prev) => [
-      ...prev,
-      {
-        id: `alt-${Date.now()}`,
-        investmentId,
-        condition: newCondition,
-        targetPrice: val,
-        active: true,
-      },
-    ]);
-    setNewTarget("");
-    setIsAdding(false);
+    const val = toNumber(newTarget);
+    if (!onCreateAlert || val <= 0) return;
+    setSaving(true);
+    setError("");
+    try {
+      await onCreateAlert({ condition: newCondition, targetPrice: val });
+      setNewTarget("");
+      setIsAdding(false);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "No se pudo guardar la alerta.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
-    <div className="rounded-2xl bg-card border border-border/80 p-5 shadow-2xs flex flex-col gap-4">
-      <div className="flex items-center justify-between">
+    <InvestmentsCard className="@container">
+      <CardHeader className={`${appCardHeaderClassName} flex flex-row items-center justify-between space-y-0`}>
         <div className="flex items-center gap-2">
-          <Bell className="w-4 h-4 text-purple-400" />
-          <h3 className="text-base font-bold text-foreground tracking-tight">
-            Alertas de precio
-          </h3>
+          <Bell className="w-4 h-4 text-purple-400" aria-hidden="true" />
+          <CardTitle className={appCardTitleClassName}>Alertas de precio</CardTitle>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setIsAdding(!isAdding)}
-          className="text-xs font-bold text-purple-400 hover:text-purple-300 transition cursor-pointer flex items-center gap-1"
-        >
-          <Plus className="w-3.5 h-3.5" />
-          <span>Crear alerta</span>
-        </button>
-      </div>
+        {onCreateAlert && (
+          <Button type="button" variant="ghost" size="xs" className="text-purple-400" onClick={() => setIsAdding(!isAdding)}>
+            <Plus aria-hidden="true" />
+            <span>Crear alerta</span>
+          </Button>
+        )}
+      </CardHeader>
 
-      {isAdding && (
-        <form onSubmit={handleAddAlert} className="flex flex-col gap-2.5 p-3 rounded-xl bg-muted/60 border border-border/80 text-xs">
-          <div className="flex items-center gap-2">
-            <select
-              value={newCondition}
-              onChange={(e) => setNewCondition(e.target.value as "above" | "below")}
-              className="h-8 px-2 rounded-lg bg-card border border-border text-xs font-semibold text-foreground outline-none cursor-pointer"
-            >
-              <option value="above">Si sube a</option>
-              <option value="below">Si baja a</option>
-            </select>
-            <input
-              type="number"
-              value={newTarget}
-              onChange={(e) => setNewTarget(e.target.value)}
-              placeholder="70000"
-              className="h-8 px-3 rounded-lg bg-card border border-border text-xs font-bold text-foreground flex-1 outline-none"
-              autoFocus
-            />
-          </div>
-          <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => setIsAdding(false)}
-              className="h-7 px-2.5 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              className="h-7 px-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold cursor-pointer"
-            >
-              Guardar
-            </button>
-          </div>
-        </form>
-      )}
+      <CardContent className={`${appCardContentClassName} flex flex-col gap-3`}>
+        {isAdding && onCreateAlert && (
+          <form onSubmit={handleAddAlert} className="flex flex-col gap-2.5 p-3 rounded-xl bg-muted/60 border border-border/80 text-xs">
+            <div className="flex flex-col @sm:flex-row gap-2">
+              <SelectField
+                aria-label="Condición de la alerta"
+                value={newCondition}
+                onChange={(e) => setNewCondition(e.target.value as "above" | "below")}
+                options={CONDITION_OPTIONS}
+              />
+              <Input
+                aria-label="Precio objetivo"
+                inputMode="decimal"
+                value={newTarget}
+                onChange={(e) => setNewTarget(e.target.value)}
+                placeholder="70000"
+                autoFocus
+              />
+            </div>
+            {error && (
+              <p role="alert" className="text-xs text-destructive">
+                {error}
+              </p>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" size="xs" disabled={saving} onClick={() => setIsAdding(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit" size="xs" loading={saving} disabled={toNumber(newTarget) <= 0}>
+                Guardar
+              </Button>
+            </div>
+          </form>
+        )}
 
-      <div className="flex flex-col gap-3">
         {alerts.map((alt) => {
           const isAbove = alt.condition === "above";
           return (
@@ -116,9 +126,9 @@ export function InvestmentPriceAlertsCard({
             >
               <div className="flex items-center gap-2.5 min-w-0">
                 {isAbove ? (
-                  <ArrowUpRight className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <ArrowUpRight className="w-4 h-4 text-emerald-400 shrink-0" aria-hidden="true" />
                 ) : (
-                  <ArrowDownRight className="w-4 h-4 text-rose-400 shrink-0" />
+                  <ArrowDownRight className="w-4 h-4 text-rose-400 shrink-0" aria-hidden="true" />
                 )}
                 <span className="text-xs font-medium text-foreground truncate">
                   Si el precio {isAbove ? "sube" : "baja"} a{" "}
@@ -129,41 +139,42 @@ export function InvestmentPriceAlertsCard({
               </div>
 
               <div className="flex items-center gap-2">
-                {/* Switch Toggle */}
-                <button
-                  type="button"
-                  onClick={() => toggleAlert(alt.id)}
-                  className={`w-9 h-5 rounded-full transition-colors relative cursor-pointer ${
-                    alt.active ? "bg-purple-600" : "bg-muted-foreground/30"
-                  }`}
-                  title={alt.active ? "Alerta activada" : "Alerta desactivada"}
-                >
-                  <span
-                    className={`block w-3.5 h-3.5 rounded-full bg-white shadow-md transform transition-transform absolute top-0.5 left-0.5 ${
-                      alt.active ? "translate-x-4" : "translate-x-0"
-                    }`}
-                  />
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => removeAlert(alt.id)}
-                  className="p-1 text-muted-foreground/60 hover:text-rose-400 transition cursor-pointer"
-                  title="Eliminar alerta"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
+                <Switch
+                  size="sm"
+                  checked={alt.active}
+                  disabled={!onToggleAlert}
+                  onCheckedChange={() => onToggleAlert?.(alt.id)}
+                  aria-label={alt.active ? "Alerta activada" : "Alerta desactivada"}
+                />
+                {onRemoveAlert && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    className="text-muted-foreground hover:text-destructive"
+                    title="Eliminar alerta"
+                    aria-label="Eliminar alerta"
+                    onClick={() => onRemoveAlert(alt.id)}
+                  >
+                    <Trash2 aria-hidden="true" />
+                  </Button>
+                )}
               </div>
             </div>
           );
         })}
 
-        {alerts.length === 0 && !isAdding && (
+        {!onCreateAlert && alerts.length === 0 && (
+          <div className="p-3 text-center text-xs text-muted-foreground bg-muted/30 rounded-xl border border-border/50">
+            Las alertas de precio todavía no están disponibles. Estarán listas próximamente.
+          </div>
+        )}
+        {onCreateAlert && alerts.length === 0 && !isAdding && (
           <div className="p-3 text-center text-xs text-muted-foreground bg-muted/30 rounded-xl border border-border/50">
             No tienes alertas configuradas aún.
           </div>
         )}
-      </div>
-    </div>
+      </CardContent>
+    </InvestmentsCard>
   );
 }

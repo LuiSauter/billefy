@@ -1,17 +1,41 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
+import { Area, AreaChart, XAxis, YAxis } from "recharts";
+import { Calendar, ChevronDown } from "lucide-react";
 import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
-import { ChevronDown, Calendar } from "lucide-react";
+  PATRIMONIO_PERIOD_OPTIONS,
+  sliceEvolutionPoints,
+  type PatrimonioPeriod,
+} from "../domain/net-worth-analytics";
 import { PatrimonioEvolutionPoint } from "../domain/patrimonio.types";
+import { useNumberPreferences } from "@/shared/hooks/use-number-format";
+import {
+  CHART_AXIS_PROPS,
+  createAmountTooltipFormatter,
+  formatCompactAmount,
+} from "@/shared/lib/chart-utils";
+import {
+  appCardContentClassName,
+  appCardHeaderClassName,
+  appCardTitleClassName,
+} from "@/shared/presentation/card-variants";
 import { Amount } from "@/shared/ui/amount";
+import { Button } from "@/shared/ui/button";
+import { CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from "@/shared/ui/chart";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/shared/ui/dropdown-menu";
+import { PatrimonioCard } from "./PatrimonioCard";
 
 interface PatrimonioEvolutionChartProps {
   points: PatrimonioEvolutionPoint[];
@@ -19,119 +43,104 @@ interface PatrimonioEvolutionChartProps {
   currency?: string;
 }
 
-const PERIOD_CHOICES = ["Últimos 12 meses", "Últimos 6 meses", "Este año", "Todo"];
+const CHART_CONFIG = {
+  value: { label: "Patrimonio neto", color: "var(--color-chart-4)" },
+} satisfies ChartConfig;
+const CHART_MARGIN = { top: 12, right: 12, left: -16, bottom: 0 };
+const CHART_INITIAL_DIMENSION = { width: 320, height: 224 };
+const Y_DOMAIN: ["auto", "auto"] = ["auto", "auto"];
+const ACTIVE_DOT = { r: 5, fill: "var(--color-value)", stroke: "var(--color-card)", strokeWidth: 2 };
 
 export function PatrimonioEvolutionChart({
   points,
   currentNetWorth,
   currency = "USD",
 }: PatrimonioEvolutionChartProps) {
-  const [selectedPeriod, setSelectedPeriod] = useState("Últimos 12 meses");
-  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const numberPreferences = useNumberPreferences();
+  const gradientId = `netWorthAreaGrad-${React.useId().replace(/:/g, "")}`;
+  const [period, setPeriod] = useState<PatrimonioPeriod>("12m");
 
-  const formatYAxis = (val: number) => {
-    if (val >= 1000) {
-      return `${Math.round(val / 1000)}K`;
-    }
-    return String(val);
-  };
+  const activePeriod =
+    PATRIMONIO_PERIOD_OPTIONS.find((option) => option.value === period) ?? PATRIMONIO_PERIOD_OPTIONS[1];
+  const chartData = useMemo(() => sliceEvolutionPoints(points, period), [points, period]);
+  const formatTick = useMemo(
+    () => (value: number) => formatCompactAmount(value, currency, numberPreferences),
+    [currency, numberPreferences]
+  );
+  const tooltipFormatter = useMemo(
+    () => createAmountTooltipFormatter(currency, numberPreferences),
+    [currency, numberPreferences]
+  );
 
   return (
-    <div className="rounded-2xl bg-card border border-border/80 p-5 shadow-2xs flex flex-col justify-between h-full">
-      <div className="flex items-center justify-between gap-2 mb-3">
-        <h3 className="text-base font-bold text-foreground tracking-tight">
-          Evolución del patrimonio neto
-        </h3>
+    <PatrimonioCard className="@container flex flex-col justify-between h-full">
+      <CardHeader className={`${appCardHeaderClassName} flex flex-row items-center justify-between gap-2 space-y-0`}>
+        <CardTitle className={appCardTitleClassName}>Evolución del patrimonio neto</CardTitle>
 
         <div className="flex items-center gap-2">
-          <span className="hidden sm:inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-black bg-purple-600 text-white shadow-xs">
+          <span className="hidden @md:inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-black bg-purple-600 text-white shadow-xs">
             <Amount value={currentNetWorth} currency={currency} size="inherit" tone="inherit" />
           </span>
 
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setDropdownOpen(!dropdownOpen)}
-              className="h-8 px-2.5 rounded-lg border border-border/80 bg-muted/60 hover:bg-muted text-foreground text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
-            >
-              <Calendar className="w-3 h-3 text-muted-foreground" />
-              <span>{selectedPeriod}</span>
-              <ChevronDown className="w-3 h-3 text-muted-foreground" />
-            </button>
-
-            {dropdownOpen && (
-              <div className="absolute right-0 mt-1.5 w-40 rounded-xl bg-card border border-border shadow-xl z-30 py-1 animate-in fade-in zoom-in-95 duration-100">
-                {PERIOD_CHOICES.map((choice) => (
-                  <button
-                    key={choice}
-                    type="button"
-                    onClick={() => {
-                      setSelectedPeriod(choice);
-                      setDropdownOpen(false);
-                    }}
-                    className="w-full px-3 py-1.5 text-left text-xs text-foreground hover:bg-muted cursor-pointer"
-                  >
-                    {choice}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  aria-label="Período de la evolución"
+                  className="h-8 px-2.5 rounded-lg text-xs font-semibold gap-1.5"
+                >
+                  <Calendar className="text-muted-foreground" aria-hidden="true" />
+                  <span>{activePeriod.label}</span>
+                  <ChevronDown className="text-muted-foreground" aria-hidden="true" />
+                </Button>
+              }
+            />
+            <DropdownMenuContent align="end" className="w-48 text-xs">
+              {PATRIMONIO_PERIOD_OPTIONS.map((option) => (
+                <DropdownMenuItem
+                  key={option.value}
+                  onClick={() => setPeriod(option.value)}
+                  className={option.value === period ? "font-semibold text-purple-400" : undefined}
+                >
+                  {option.label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
-      </div>
+      </CardHeader>
 
-      <div className="w-full h-56 min-w-0 min-h-0 -ml-2">
-        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
-          <AreaChart data={points} margin={{ top: 12, right: 12, left: -16, bottom: 0 }}>
+      <CardContent className={appCardContentClassName}>
+        <ChartContainer
+          config={CHART_CONFIG}
+          initialDimension={CHART_INITIAL_DIMENSION}
+          className="aspect-auto h-56 w-full min-w-0"
+        >
+          <AreaChart data={chartData} margin={CHART_MARGIN}>
             <defs>
-              <linearGradient id="netWorthAreaGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#a855f7" stopOpacity={0.45} />
-                <stop offset="85%" stopColor="#a855f7" stopOpacity={0.02} />
+              <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="var(--color-value)" stopOpacity={0.45} />
+                <stop offset="85%" stopColor="var(--color-value)" stopOpacity={0.02} />
               </linearGradient>
             </defs>
-            <XAxis
-              dataKey="month"
-              stroke="#64748b"
-              fontSize={11}
-              tickLine={false}
-              axisLine={false}
-              dy={6}
-            />
-            <YAxis
-              stroke="#64748b"
-              fontSize={11}
-              tickLine={false}
-              axisLine={false}
-              tickFormatter={formatYAxis}
-              dx={-4}
-            />
-            <Tooltip
-              content={({ active, payload }) => {
-                if (active && payload && payload.length) {
-                  const data = payload[0].payload as PatrimonioEvolutionPoint;
-                  return (
-                    <div className="rounded-xl bg-popover/95 backdrop-blur-md border border-border/80 px-3 py-2 shadow-xl">
-                      <p className="text-[11px] font-semibold text-muted-foreground">{data.month}</p>
-                      <p className="text-xs font-bold text-foreground mt-0.5">
-                        <Amount value={data.value} currency={currency} size="inherit" tone="inherit" />
-                      </p>
-                    </div>
-                  );
-                }
-                return null;
-              }}
-            />
+            <XAxis dataKey="month" {...CHART_AXIS_PROPS} />
+            <YAxis {...CHART_AXIS_PROPS} tickFormatter={formatTick} domain={Y_DOMAIN} />
+            <ChartTooltip content={<ChartTooltipContent formatter={tooltipFormatter} />} />
             <Area
               type="monotone"
               dataKey="value"
-              stroke="#a855f7"
+              stroke="var(--color-value)"
               strokeWidth={2.5}
-              fill="url(#netWorthAreaGrad)"
-              activeDot={{ r: 5, fill: "#c084fc", stroke: "#581c87", strokeWidth: 2 }}
+              fill={`url(#${gradientId})`}
+              activeDot={ACTIVE_DOT}
+              isAnimationActive={false}
             />
           </AreaChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
+        </ChartContainer>
+      </CardContent>
+    </PatrimonioCard>
   );
 }

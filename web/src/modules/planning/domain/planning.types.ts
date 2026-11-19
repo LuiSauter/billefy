@@ -1,7 +1,11 @@
 export interface CreateBudgetRequest { limitAmount: number; currency: string; categoryId?: string; alertThreshold?: number; period?: string; }
 export interface UpdateBudgetRequest { limitAmount: number; /** Fraction in (0, 1], e.g. 0.8 for 80%. */ alertThreshold: number; }
 export interface BudgetDto { id: string; categoryId?: string; period: string; limitAmount: number; currency: string; alertThreshold: number; spentAmount: number; remainingAmount: number; percentageUsed: number; isAlertTriggered: boolean; isExceeded: boolean; isActive: boolean; createdAt: string; }
-export interface CreateGoalRequest { name: string; targetAmount: number; currency: string; targetDate?: string; accountId?: string; }
+export type GoalFundingMode = "AccountTracking" | "ReservedFunds";
+export type GoalFundingKind = "assign" | "release";
+export interface GoalFundingRequest { amount: string; currency: string; occurredAt?: string; }
+export interface GoalFundingEntryDto { id: string; goalId: string; accountId: string; kind: GoalFundingKind; amount: number | string; currency: string; occurredAt: string; createdAt: string; }
+export interface CreateGoalRequest { name: string; targetAmount: number; currency: string; targetDate?: string; accountId?: string; fundingMode?: GoalFundingMode; }
 export interface UpdateGoalRequest { name: string; targetAmount: number; targetDate?: string; accountId?: string; }
 export type GoalTrackingStatus = "tracked" | "unlinked" | "unavailable" | "currency_mismatch";
 export interface GoalDto {
@@ -9,6 +13,8 @@ export interface GoalDto {
   name: string; targetAmount: number; currency: string; targetDate?: string | null;
   currentAmount: number | null; remainingAmount: number | null; percentageAchieved: number | null;
   monthsRemaining?: number | null; monthlyContributionNeeded?: number | null; createdAt: string;
+  fundingMode?: GoalFundingMode; accountReservedAmount?: number | null; accountFundingShortfall?: number | null;
+  reservationStatus?: "funded" | "underfunded" | "unavailable" | null;
 }
 export interface FinancialHealthCurrencyDto {
   currency: string; monthlyIncome: number; monthlyExpenses: number; netCashFlow: number;
@@ -124,6 +130,8 @@ export interface IPlanningRepository {
   createGoal(req: CreateGoalRequest): Promise<{ id: string }>;
   updateGoal(id: string, req: UpdateGoalRequest): Promise<{ message: string }>;
   getGoals(): Promise<GoalDto[]>;
+  recordGoalFunding(id: string, kind: GoalFundingKind, request: GoalFundingRequest, key: string): Promise<GoalFundingEntryDto>;
+  getGoalFunding(id: string): Promise<GoalFundingEntryDto[]>;
   deleteGoal(id: string): Promise<{ message: string }>;
   getFinancialHealth(): Promise<FinancialHealthDto>;
   proposeIncomeDistribution(req: ProposeIncomeDistributionRequest): Promise<IncomeDistributionProposal>;

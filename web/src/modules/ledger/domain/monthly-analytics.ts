@@ -82,7 +82,7 @@ export function computeAccountMonthlyChanges(
 
 /** Income/spending flows only; never use this filter to derive account balances. */
 export function getActiveFlowTransactions(transactions: TransactionDto[]): TransactionDto[] {
-  return getActiveTransactions(transactions).filter((t) => !t.transferId && !t.investmentCashKind && !t.investmentId && !t.isReconciliationAdjustment);
+  return getActiveTransactions(transactions).filter((t) => !t.transferId && ((!t.investmentCashKind && !t.investmentId) || t.investmentCashKind === "Dividend") && !t.isReconciliationAdjustment && t.loanCashKind !== "Principal");
 }
 
 function getMonthlyFlows(

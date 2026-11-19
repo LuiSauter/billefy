@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useMemo } from "react";
 import { Calendar as CalendarIcon, ChevronDown, Bell, Settings } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import {
@@ -45,14 +45,18 @@ export function DashboardWelcomeHeader({
   const currentYear = currentDate.getFullYear();
   const currentMonthIndex = currentDate.getMonth();
 
-  const monthOptions = [-3, -2, -1, 0, 1, 2, 3].map((offset) => {
-    const d = new Date(currentYear, currentMonthIndex + offset, 1);
-    return {
-      year: d.getFullYear(),
-      month: d.getMonth(),
-      label: `${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`,
-    };
-  });
+  const monthOptions = useMemo(
+    () =>
+      [-3, -2, -1, 0, 1, 2, 3].map((offset) => {
+        const d = new Date(currentYear, currentMonthIndex + offset, 1);
+        return {
+          year: d.getFullYear(),
+          month: d.getMonth(),
+          label: `${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`,
+        };
+      }),
+    [currentYear, currentMonthIndex]
+  );
 
   const displayName = user?.fullName || user?.email?.split("@")[0] || "Luis Gabriel";
 
@@ -65,7 +69,7 @@ export function DashboardWelcomeHeader({
           <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-background absolute -bottom-0.5 -right-0.5" />
         </div>
         <div className="min-w-0">
-          <h1 className="text-xl sm:text-2xl font-black text-foreground tracking-tight flex items-center gap-2 truncate">
+          <h1 className="text-xl sm:text-2xl font-extrabold text-foreground tracking-tight flex items-center gap-2 truncate">
             <span>Hola, {displayName}</span>
             <span className="inline-block animate-pulse">👋</span>
           </h1>
@@ -99,7 +103,7 @@ export function DashboardWelcomeHeader({
                 onClick={() => onSelectMonth?.(opt.year, opt.month)}
                 className={`text-xs ${
                   opt.year === currentYear && opt.month === currentMonthIndex
-                    ? "font-bold text-purple-400 bg-purple-500/10"
+                    ? "font-semibold text-purple-400 bg-purple-500/10"
                     : ""
                 }`}
               >

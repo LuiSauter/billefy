@@ -21,7 +21,8 @@ describe("InvestmentsView number formatting", () => {
     const html = renderToStaticMarkup(
       <InvestmentsView controller={controller} p2pRate={9.85} accounts={[]} onCashComplete={vi.fn()} />
     );
-    expect(html).toContain("1.234,56 USD");
+    // Values are rendered by the shared Amount in the display currency (the old per-row "<n> USD" suffix is gone).
+    expect(html).toContain("$ 1.234,56");
   });
 
   it("renders full investments dashboard with header, KPIs, charts, table and side cards", () => {

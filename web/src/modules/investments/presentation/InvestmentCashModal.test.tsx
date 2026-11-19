@@ -9,7 +9,7 @@ const accounts = [{ id: "acc", name: "Efectivo", currency: "BOB" }] as AccountDt
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const controller: any = { investments: [{ id: "inv", name: "Bitcoin" }], recordCash: vi.fn(), refreshAfterCash: vi.fn() };
 const onClose = vi.fn(); const onComplete = vi.fn().mockResolvedValue(undefined);
-function render() { cursor = 0; return InvestmentCashModal({ open: true, onClose, controller, accounts, onComplete }); }
+function render(extra: { investmentId?: string } = {}) { cursor = 0; return InvestmentCashModal({ open: true, onClose, controller, accounts, onComplete, ...extra }); }
 function nodes(tree: unknown): Array<{ type?: unknown; props: Record<string, unknown> }> { if (Array.isArray(tree)) return tree.flatMap(nodes); if (!tree || typeof tree !== "object") return []; const e = tree as { type?: unknown; props?: Record<string, unknown> }; const props = e.props || {}; return [{ type: e.type, props }, ...nodes(props.children), ...nodes(props.footer)]; }
 function find(tree: unknown, label: string) { const node = nodes(tree).find(n => n.props["aria-label"] === label); if (!node) throw new Error(`Missing ${label}`); return node; }
 beforeEach(() => { slots.splice(0); controller.recordCash.mockReset(); controller.recordCash.mockResolvedValue({}); controller.refreshAfterCash.mockReset().mockResolvedValue(undefined); onClose.mockReset(); onComplete.mockReset().mockResolvedValue(undefined); });
@@ -69,5 +69,23 @@ describe("InvestmentCashModal", () => {
     tree = render(); expect(find(tree, "Monto de inversión").props.value).toBe("12.30");
     expect(nodes(tree).some(n => n.props.role === "alert" && String(n.props.children).includes("offline"))).toBe(true);
     expect(controller.refreshAfterCash).not.toHaveBeenCalled();
+  });
+
+  it("preselects and locks the asset when opened from a specific investment, submitting without re-picking it", async () => {
+    let tree = render({ investmentId: "inv" });
+    const select = find(tree, "Activo");
+    expect(select.props.value).toBe("inv");
+    expect(select.props.disabled).toBe(true);
+    (find(tree, "Cuenta de efectivo").props.onChange as (e: unknown) => void)({ target: { value: "acc" } });
+    (find(tree, "Monto de inversión").props.onChange as (e: unknown) => void)({ target: { value: "75.5" } });
+    tree = render({ investmentId: "inv" });
+    await (nodes(tree).find(n => n.type === "form")!.props.onSubmit as (e: unknown) => Promise<void>)({ preventDefault: vi.fn() });
+    expect(controller.recordCash).toHaveBeenCalledWith("inv", "Contribution", expect.objectContaining({ accountId: "acc", amount: "75.5" }));
+  });
+
+  it("keeps the asset selectable when opened from the general action", () => {
+    const tree = render();
+    expect(find(tree, "Activo").props.disabled).toBeFalsy();
+    expect(find(tree, "Activo").props.value).toBe("");
   });
 });

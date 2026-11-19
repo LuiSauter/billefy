@@ -20,6 +20,7 @@ export interface FxTransferCommand {
   amount: number | string;
   description: string;
   p2pRate: number;
+  occurredAt?: string;
 }
 
 export function useLedgerModule(http: IHttpClient | null) {
@@ -137,6 +138,7 @@ export function useLedgerModule(http: IHttpClient | null) {
         destinationAccountId: toAcc.id,
         destinationAmount: converted.toFixed(2),
         description: cmd.description,
+        ...(cmd.occurredAt ? { occurredAt: cmd.occurredAt } : {}),
       });
       try {
         await refreshLedger();

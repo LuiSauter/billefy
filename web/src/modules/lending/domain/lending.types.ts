@@ -61,7 +61,7 @@ export const LOAN_TEMPLATE_OPTIONS: { value: LoanTemplate; label: string }[] = [
 ];
 
 export interface SimulateLoanRequest {
-  principal: number;
+  principal: string | number;
   rate: number;
   rateUnit?: "Monthly" | "Annual";
   dayCount?: "Thirty360" | "Actual365";
@@ -94,7 +94,7 @@ export interface CreateLoanRequest {
   counterpartyName: string;
   type: LoanType;
   template: string;
-  principal: number;
+  principal: string | number;
   currency: string;
   interestRate: number;
   rateUnit?: string;
@@ -107,6 +107,9 @@ export interface CreateLoanRequest {
   graceDays?: number;
   lateRate?: number;
   earlyPaymentPolicy?: EarlyPaymentPolicy | string;
+  originationKind?: "CashDisbursement" | "OpeningBalance";
+  loanKind?: "Loan" | "CreditCard";
+  idempotencyKey?: string;
 }
 
 export interface LoanCancellationEligibilityDto {
@@ -136,6 +139,8 @@ export interface LoanSummaryDto {
   totalInstallments: number;
   createdAt: string;
   cancellationEligibility?: LoanCancellationEligibilityDto;
+  originationKind?: "CashDisbursement" | "OpeningBalance" | null;
+  loanKind?: "Loan" | "CreditCard" | null;
   earlyPaymentPolicy?: EarlyPaymentPolicy | string;
   lateRate?: number | null;
   graceDays?: number;
@@ -192,6 +197,7 @@ export interface LoanPaymentQuoteDto {
 
 export interface LoanDetailDto {
   summary: LoanSummaryDto;
+  purchases?: CardPurchaseDto[];
   installments: {
     id: string;
     number: number;
@@ -230,6 +236,21 @@ export interface RegisterLoanPaymentRequest {
   paymentDate?: string;
   accountId?: string;
   note?: string;
+  interestCategoryId?: string;
+  idempotencyKey?: string;
+}
+
+export interface RegisterCardPurchaseRequest {
+  amount: string;
+  currency: string;
+  categoryId?: string;
+  occurredAt: string;
+  description?: string;
+  idempotencyKey?: string;
+}
+export interface CardPurchaseDto {
+  id: string; amount: Decimal; currency: string; categoryId?: string; occurredAt: string;
+  description?: string; ledgerTransactionId: string;
 }
 
 export interface LoanPaymentResultDto {
@@ -248,4 +269,5 @@ export interface ILendingRepository {
   getPaymentQuote(loanId: string, paymentDate?: string, amount?: string | number): Promise<LoanPaymentQuoteDto>;
   registerLoanPayment(loanId: string, req: RegisterLoanPaymentRequest): Promise<LoanPaymentResultDto>;
   cancelLoan(loanId: string): Promise<LoanCancellationResultDto>;
+  registerCardPurchase(loanId: string, req: RegisterCardPurchaseRequest): Promise<{ id: string }>;
 }

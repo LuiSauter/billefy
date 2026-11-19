@@ -297,7 +297,7 @@ describe("RegisterLoanPaymentModal", () => {
 
   it("preserves an amount typed while the initial quote is pending", async () => {
     let resolve!: (value: LoanPaymentQuoteDto) => void;
-    let tree = render({ onGetQuote: vi.fn(() => new Promise(done => { resolve = done; })) });
+    let tree = render({ onGetQuote: vi.fn(() => new Promise<LoanPaymentQuoteDto>(done => { resolve = done; })) });
     change(tree, "payment-amount", "17.50"); resolve(quote()); await Promise.resolve(); tree = render();
     expect(control(tree, "payment-amount").props.value).toBe("17.50");
   });

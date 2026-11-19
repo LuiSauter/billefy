@@ -208,7 +208,7 @@ export function calculateDashboardHomeAnalytics({
   const endOfMonth = new Date(year, month + 1, 0);
   const endStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(endOfMonth.getDate()).padStart(2, "0")}`;
 
-  const flowTransactions = getActiveFlowTransactions(transactions);
+  const flowTransactions = getActiveFlowTransactions(transactions).filter(tx => tx.loanCashKind !== "Principal");
 
   let monthlyIncome = new Decimal(0);
   let monthlyExpenses = new Decimal(0);

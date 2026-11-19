@@ -142,6 +142,37 @@ afterEach(() => {
 });
 
 describe("CreateDebtModal", () => {
+  it("keeps high-value principal cents exact through simulation and creation", async () => {
+    let tree = fill();
+    change(tree, "debt-principal", "99999999999999.99");
+    render();
+    tree = await simulate();
+    expect(props.onSimulate).toHaveBeenCalledWith(expect.objectContaining({ principal: "99999999999999.99" }));
+    await submit(tree);
+    expect(props.onSubmit).toHaveBeenCalledWith(expect.objectContaining({ principal: "99999999999999.99" }));
+  });
+
+  it("records an existing opening debt without requiring or posting to a cash account", async () => {
+    let tree = fill();
+    change(tree, "debt-origin", "OpeningBalance");
+    change(tree, "debt-account", "");
+    tree = render({ accounts: [] });
+    await submit(tree);
+    expect(props.onSubmit).toHaveBeenCalledWith(expect.objectContaining({ originationKind: "OpeningBalance", principal: "1250.5" }));
+    expect(props.onSubmit).not.toHaveBeenCalledWith(expect.objectContaining({ disbursementAccountId: expect.any(String) }));
+    expect(text(tree)).toContain("No crea efectivo ni ingreso");
+  });
+
+  it("creates an operational card with an opening balance and no fictitious disbursement", async () => {
+    let tree = fill();
+    change(tree, "debt-kind", "CreditCard");
+    tree = render();
+    await submit(tree);
+    expect(props.onSubmit).toHaveBeenCalledWith(expect.objectContaining({ loanKind: "CreditCard", originationKind: "OpeningBalance",
+      template: "NoInterest", interestRate: 0, totalInstallments: 1, earlyPaymentPolicy: "AdvanceInstallments" }));
+    expect(props.onSubmit).not.toHaveBeenCalledWith(expect.objectContaining({ disbursementAccountId: expect.any(String) }));
+  });
+
   it("renders the wide drawer, design sections, accessible fields, and truthful unsupported controls", () => {
     const tree = render();
     expect(tree.type).toBe(ResponsiveDrawer);
@@ -198,7 +229,7 @@ describe("CreateDebtModal", () => {
     expect(control(tree, "debt-balance").props.value).toBe("1250.50");
     await submit(tree);
     expect(props.onSubmit).toHaveBeenCalledExactlyOnceWith({
-      type: "Borrowed", counterpartyName: "Entidad de prueba", principal: 1250.5, currency: "BOB",
+      type: "Borrowed", counterpartyName: "Entidad de prueba", principal: "1250.5", currency: "BOB",
       interestRate: 0.18, rateUnit: "Annual", frequency: "Monthly", template: "FixedInstallment",
       totalInstallments: 24, disbursementDate: "2026-10-01", disbursementAccountId: "bob-account",
       counterpartyNotes: "Referencia: Crédito personal\nCategoría: Personal\nDescripción: Condiciones acordadas",
@@ -209,7 +240,7 @@ describe("CreateDebtModal", () => {
 
   it("submits configured earlyPaymentPolicy when changed by user", async () => {
     let tree = fill();
-    control(tree, "debt-early-policy").props.onChange({ target: { value: "ReduceTerm" } });
+    change(tree, "debt-early-policy", "ReduceTerm");
     tree = render();
     await submit(tree);
     expect(props.onSubmit).toHaveBeenCalledWith(expect.objectContaining({ earlyPaymentPolicy: "ReduceTerm" }));
@@ -223,7 +254,7 @@ describe("CreateDebtModal", () => {
     await vi.advanceTimersByTimeAsync(299);
     expect(props.onSimulate).not.toHaveBeenCalled();
     tree = await simulate();
-    expect(props.onSimulate).toHaveBeenCalledExactlyOnceWith({ principal: 1000, rate: 0.18, rateUnit: "Annual",
+    expect(props.onSimulate).toHaveBeenCalledExactlyOnceWith({ principal: "1000", rate: 0.18, rateUnit: "Annual",
       frequency: "Monthly", totalInstallments: 24, template: "SimpleOnBalance", disbursementDate: "2026-10-01" });
     expect(text(tree)).toContain("110,00");
     expect(text(tree)).toContain("11,00%");

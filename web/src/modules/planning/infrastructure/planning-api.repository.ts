@@ -10,6 +10,9 @@ import {
   UpdateGoalRequest,
   FinancialHealthDto,
   GoalDto,
+  GoalFundingKind,
+  GoalFundingRequest,
+  GoalFundingEntryDto,
   IPlanningRepository,
   IncomeDistributionProposal,
   ProposeIncomeDistributionRequest,
@@ -53,6 +56,14 @@ export class PlanningApiRepository implements IPlanningRepository {
 
   async deleteGoal(id: string): Promise<{ message: string }> {
     return this.http.delete<{ message: string }>(`/v1/planning/goals/${id}`);
+  }
+
+  async recordGoalFunding(id: string, kind: GoalFundingKind, request: GoalFundingRequest, key: string): Promise<GoalFundingEntryDto> {
+    return this.http.post<GoalFundingEntryDto>(`/v1/planning/goals/${id}/funding/${kind}`, request, { headers: { "Idempotency-Key": key } });
+  }
+
+  async getGoalFunding(id: string): Promise<GoalFundingEntryDto[]> {
+    return this.http.get<GoalFundingEntryDto[]>(`/v1/planning/goals/${id}/funding`);
   }
 
   async getFinancialHealth(): Promise<FinancialHealthDto> {

@@ -2,11 +2,10 @@
 
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import { InvestmentsController } from "../application/useInvestments";
-import { Investment, InvestmentTransactionDto } from "../domain/investment.types";
+import { Investment, InvestmentTransactionDto, InvestmentPurchaseInput, InvestmentValuationInput } from "../domain/investment.types";
 import { calculatePortfolioOverview } from "../domain/portfolio-analytics";
 import { AccountDto } from "@/modules/ledger/domain/ledger.types";
 import { GoalDto } from "@/modules/planning/domain/planning.types";
-import { useNumberFormat } from "@/shared/hooks/use-number-format";
 import { notify } from "@/shared/lib/notify";
 
 // Subcomponents
@@ -28,6 +27,7 @@ import { RegisterOperationModal } from "./modals/RegisterOperationModal";
 import { CreateInvestmentModal } from "./modals/CreateInvestmentModal";
 import { ArchiveInvestmentModal } from "./modals/ArchiveInvestmentModal";
 import { InvestmentCashModal } from "./InvestmentCashModal";
+import { PurchaseInvestmentModal } from "./modals/PurchaseInvestmentModal";
 
 interface InvestmentsViewProps {
   controller: InvestmentsController;
@@ -58,8 +58,6 @@ export function InvestmentsView({
     recordCash,
   } = controller;
 
-  const format = useNumberFormat();
-
   // Navigation State
   const [selectedInvestmentId, setSelectedInvestmentId] = useState<string | null>(null);
   const [selectedInvestmentTransactions, setSelectedInvestmentTransactions] = useState<InvestmentTransactionDto[]>([]);
@@ -88,8 +86,19 @@ export function InvestmentsView({
   const [cashInvestment, setCashInvestment] = useState<Investment | null>(null);
   const [generalCashOpen, setGeneralCashOpen] = useState(false);
   const [updatePriceInvestment, setUpdatePriceInvestment] = useState<Investment | null>(null);
-  const [editInvestment, setEditInvestment] = useState<Investment | null>(null);
+  const [archiveInvestment, setArchiveInvestment] = useState<Investment | null>(null);
   const [operationInvestment, setOperationInvestment] = useState<Investment | null>(null);
+  const [purchaseInvestment, setPurchaseInvestment] = useState<Investment | null>(null);
+
+  const handlePurchase = async (id: string, input: InvestmentPurchaseInput, key: string) => {
+    await controller.purchaseInvestment(id, input, key);
+    await onCashComplete();
+    if (selectedInvestmentId === id) setSelectedInvestmentTransactions(await controller.getTransactions(id));
+  };
+  const handleValuation = async (id: string, input: InvestmentValuationInput) => {
+    await controller.recordValuation(id, input);
+    if (selectedInvestmentId === id) setSelectedInvestmentTransactions(await controller.getTransactions(id));
+  };
 
   // Auto-sync market prices once on load if user has crypto or stocks/funds positions
   const hasAutoSynced = useRef(false);
@@ -128,6 +137,19 @@ export function InvestmentsView({
     return calculatePortfolioOverview(investments, targetCurrency, p2pRate);
   }, [investments, targetCurrency, p2pRate]);
 
+  const goalItems = useMemo(
+    () =>
+      goals.map((g) => ({
+        id: g.id,
+        title: g.name,
+        currentAmount: g.currentAmount ?? 0,
+        targetAmount: g.targetAmount,
+        percentage: Math.round(g.percentageAchieved ?? 0),
+        color: "#2dd4bf",
+      })),
+    [goals]
+  );
+
   // Selected Investment
   const selectedInvestment = useMemo(() => {
     if (!selectedInvestmentId) return null;
@@ -145,16 +167,27 @@ export function InvestmentsView({
     date: string;
     notes?: string;
     linkedAccountId?: string;
+    idempotencyKey?: string;
+    totalAmountExact?: string;
   }) => {
+    // Purchases use the dedicated atomic form, never operation + a second cash-only request.
+    if (params.type === "buy") throw new Error("Usa Comprar unidades para registrar una compra con su cuenta de origen.");
     const target = investments.find((i) => i.id === params.investmentId);
     if (!target) return;
 
-    const opType =
-      params.type === "dividend"
-        ? "Dividend"
-        : params.type === "buy"
-        ? "Buy"
-        : "Sell";
+    if (params.type === "dividend") {
+      if (!params.linkedAccountId || !params.idempotencyKey || !params.totalAmountExact) throw new Error("Elegí una cuenta para acreditar el cobro.");
+      await controller.recordDividend(target.id, { totalAmount: params.totalAmountExact,
+        linkedAccountId: params.linkedAccountId, occurredAt: params.date, notes: params.notes }, params.idempotencyKey);
+      // The write committed: a read failure must not invite another financial submission.
+      try {
+        await onCashComplete();
+        if (selectedInvestmentId === target.id) setSelectedInvestmentTransactions(await controller.getTransactions(target.id));
+      } catch (reason) { notify.error("El cobro se guardó. Recarga los datos; no vuelvas a enviarlo.", reason); }
+      return;
+    }
+
+    const opType = "Sell";
 
     // 1. Persist immutable operation in backend transaction ledger
     await controller.registerOperation(target.id, {
@@ -176,19 +209,13 @@ export function InvestmentsView({
 
     // 2. If linked to cash account, record ledger cash movement
     if (params.linkedAccountId) {
-      const cashKind =
-        params.type === "buy"
-          ? "Contribution"
-          : "Disposal";
+      const cashKind = "Disposal";
 
       try {
         await recordCash(target.id, cashKind, {
           accountId: params.linkedAccountId,
           amount: String(params.totalAmount),
-          description:
-            params.type === "dividend"
-              ? `Cobro de dividendo/renta de ${target.name}`
-              : `${params.type === "buy" ? "Compra" : "Venta"} de ${target.name}`,
+          description: `Venta de ${target.name}`,
           occurredAt: params.date,
         });
         await onCashComplete();
@@ -197,6 +224,67 @@ export function InvestmentsView({
       }
     }
   };
+
+  // Modals are shared by the list and the detail view: rendered once, whichever view is active.
+  const modals = (
+    <>
+      <PurchaseInvestmentModal investment={purchaseInvestment} accounts={accounts} isOpen={!!purchaseInvestment}
+        onClose={() => setPurchaseInvestment(null)} onPurchase={handlePurchase} />
+
+      <CreateInvestmentModal
+        isOpen={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onCreate={createInvestment}
+        onFetchStockQuote={controller.getStockQuote}
+        currency={currency}
+      />
+
+      <UpdatePriceModal
+        investment={updatePriceInvestment}
+        isOpen={!!updatePriceInvestment}
+        onClose={() => setUpdatePriceInvestment(null)}
+        onUpdateValue={updateInvestmentValue}
+        onRecordValuation={handleValuation}
+        currency={updatePriceInvestment?.currency ?? currency}
+      />
+
+      <RegisterOperationModal
+        investment={operationInvestment}
+        accounts={accounts}
+        isOpen={!!operationInvestment}
+        onClose={() => setOperationInvestment(null)}
+        onConfirmOperation={handleConfirmOperation}
+        initialType="sell"
+        onRequestPurchase={() => { setPurchaseInvestment(operationInvestment); setOperationInvestment(null); }}
+        onFetchStockQuote={controller.getStockQuote}
+        currency={currency}
+      />
+
+      <ArchiveInvestmentModal
+        investment={archiveInvestment}
+        isOpen={!!archiveInvestment}
+        onClose={() => setArchiveInvestment(null)}
+        currency={currency}
+        onDelete={async (id) => {
+          await deleteInvestment(id);
+          // Archiving the asset being viewed leaves the detail view.
+          if (selectedInvestmentId === id) setSelectedInvestmentId(null);
+        }}
+      />
+
+      <InvestmentCashModal
+        open={generalCashOpen || !!cashInvestment}
+        onClose={() => {
+          setGeneralCashOpen(false);
+          setCashInvestment(null);
+        }}
+        controller={controller}
+        accounts={accounts}
+        onComplete={onCashComplete}
+        investmentId={cashInvestment?.id}
+      />
+    </>
+  );
 
   // If an investment is selected, render the detailed view
   if (selectedInvestment) {
@@ -208,60 +296,25 @@ export function InvestmentsView({
           transactions={selectedInvestmentTransactions}
           onBack={() => setSelectedInvestmentId(null)}
           onOpenUpdatePrice={(inv) => setUpdatePriceInvestment(inv)}
-          onOpenEditInvestment={(inv) => setEditInvestment(inv)}
+          onOpenArchiveInvestment={(inv) => setArchiveInvestment(inv)}
           onOpenOperation={(inv, type) => {
             if (type === "cash") {
               setCashInvestment(inv);
+            } else if (type === "buy") {
+              setPurchaseInvestment(inv);
             } else {
               setOperationInvestment(inv);
             }
           }}
-          currency={currency}
+          currency={selectedInvestment.currency}
         />
-
-        {/* Modals available while in detail view */}
-        <UpdatePriceModal
-          investment={updatePriceInvestment}
-          isOpen={!!updatePriceInvestment}
-          onClose={() => setUpdatePriceInvestment(null)}
-          onUpdateValue={updateInvestmentValue}
-          currency={currency}
-        />
-
-        <RegisterOperationModal
-          investment={operationInvestment}
-          accounts={accounts}
-          isOpen={!!operationInvestment}
-          onClose={() => setOperationInvestment(null)}
-          onConfirmOperation={handleConfirmOperation}
-          onFetchStockQuote={controller.getStockQuote}
-          currency={currency}
-        />
-
-        <ArchiveInvestmentModal
-          investment={editInvestment}
-          isOpen={!!editInvestment}
-          onClose={() => setEditInvestment(null)}
-          currency={currency}
-          onDelete={async (id) => {
-            await deleteInvestment(id);
-            setSelectedInvestmentId(null);
-          }}
-        />
-
-        <InvestmentCashModal
-          open={!!cashInvestment}
-          onClose={() => setCashInvestment(null)}
-          controller={controller}
-          accounts={accounts}
-          onComplete={onCashComplete}
-        />
+        {modals}
       </>
     );
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="@container flex flex-col gap-6">
       {/* 1. Header with Period Selector & "+ Registrar inversión" */}
       <InvestmentsHeader
         selectedPeriod={selectedPeriod}
@@ -284,10 +337,10 @@ export function InvestmentsView({
       {/* 2. Top 4 KPI Cards */}
       <InvestmentsKpiCards metrics={overview} currency={currency} />
 
-      {/* 3. Middle Section: Evolución, Distribución & Rendimiento */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-5 items-stretch">
+      {/* 3. Middle Section: Evolución, Distribución & Rendimiento (sized from the page area, not the viewport) */}
+      <div className="grid grid-cols-1 @2xl:grid-cols-2 @5xl:grid-cols-12 gap-5 items-stretch">
         {/* Left: Evolución del portafolio */}
-        <div className="lg:col-span-5 flex flex-col">
+        <div className="@5xl:col-span-5 flex flex-col min-w-0">
           <PortfolioEvolutionChart
             points={overview.evolutionPoints}
             currentValue={overview.totalValue}
@@ -296,7 +349,7 @@ export function InvestmentsView({
         </div>
 
         {/* Center: Distribución por tipo de inversión */}
-        <div className="lg:col-span-4 flex flex-col">
+        <div className="@5xl:col-span-4 flex flex-col min-w-0">
           <PortfolioDistributionDonutCard
             distribution={overview.categoryDistribution}
             totalValue={overview.totalValue}
@@ -305,19 +358,20 @@ export function InvestmentsView({
         </div>
 
         {/* Right: Rendimiento por inversión */}
-        <div className="md:col-span-2 lg:col-span-3 flex flex-col">
+        <div className="@2xl:col-span-2 @5xl:col-span-3 flex flex-col min-w-0">
           <InvestmentPerformanceListCard
             items={overview.performanceRanking}
             onSelectInvestment={(id) => setSelectedInvestmentId(id)}
             currency={currency}
+            p2pRate={p2pRate}
           />
         </div>
       </div>
 
-      {/* 4. Bottom Section: Mis Inversiones Table (8 cols) & Goals/Events (4 cols) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      {/* 4. Bottom Section: Mis Inversiones Table & Goals/Events */}
+      <div className="grid grid-cols-1 @4xl:grid-cols-12 gap-6 items-start">
         {/* Left Column: Mis inversiones Table */}
-        <div className="lg:col-span-7 xl:col-span-8 flex flex-col gap-4">
+        <div className="@4xl:col-span-7 @5xl:col-span-8 flex flex-col gap-4 min-w-0">
           <InvestmentsTableCard
             investments={investments}
             kindCounts={overview.kindCounts}
@@ -325,75 +379,26 @@ export function InvestmentsView({
             onSelectInvestment={(id) => setSelectedInvestmentId(id)}
             onOpenUpdatePrice={(inv) => setUpdatePriceInvestment(inv)}
             onOpenCashModal={(inv) => setCashInvestment(inv)}
-            onDeleteInvestment={deleteInvestment}
+            onArchiveInvestment={(inv) => setArchiveInvestment(inv)}
+            onOpenPurchase={setPurchaseInvestment}
             currency={currency}
-            formatter={format}
+            p2pRate={p2pRate}
           />
         </div>
 
         {/* Right Column: Metas de inversión & Próximos eventos */}
-        <div className="lg:col-span-5 xl:col-span-4 flex flex-col gap-5">
+        <div className="@4xl:col-span-5 @5xl:col-span-4 flex flex-col gap-5 min-w-0">
           <InvestmentGoalsCard
-            goals={goals.map((g) => ({
-              id: g.id,
-              title: g.name,
-              currentAmount: g.currentAmount ?? 0,
-              targetAmount: g.targetAmount,
-              percentage: Math.round(g.percentageAchieved ?? 0),
-              color: "#2dd4bf",
-            }))}
+            goals={goalItems}
             onAddGoal={onOpenCreateGoalModal}
             currency={currency}
           />
+          {/* No upcoming-events data source exists yet: honest empty state, no add handler. */}
           <InvestmentUpcomingEventsCard />
         </div>
       </div>
 
-      {/* Interactive Modals */}
-      <CreateInvestmentModal
-        isOpen={createOpen}
-        onClose={() => setCreateOpen(false)}
-        onCreate={createInvestment}
-        onFetchStockQuote={controller.getStockQuote}
-        currency={currency}
-      />
-
-      <UpdatePriceModal
-        investment={updatePriceInvestment}
-        isOpen={!!updatePriceInvestment}
-        onClose={() => setUpdatePriceInvestment(null)}
-        onUpdateValue={updateInvestmentValue}
-        currency={currency}
-      />
-
-      <RegisterOperationModal
-        investment={operationInvestment}
-        accounts={accounts}
-        isOpen={!!operationInvestment}
-        onClose={() => setOperationInvestment(null)}
-        onConfirmOperation={handleConfirmOperation}
-        onFetchStockQuote={controller.getStockQuote}
-        currency={currency}
-      />
-
-      <ArchiveInvestmentModal
-        investment={editInvestment}
-        isOpen={!!editInvestment}
-        onClose={() => setEditInvestment(null)}
-        currency={currency}
-        onDelete={deleteInvestment}
-      />
-
-      <InvestmentCashModal
-        open={generalCashOpen || !!cashInvestment}
-        onClose={() => {
-          setGeneralCashOpen(false);
-          setCashInvestment(null);
-        }}
-        controller={controller}
-        accounts={accounts}
-        onComplete={onCashComplete}
-      />
+      {modals}
     </div>
   );
 }

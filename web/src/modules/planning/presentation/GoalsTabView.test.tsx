@@ -22,6 +22,23 @@ const mockGoal: GoalDto = {
 };
 
 describe("GoalsTabView redesign", () => {
+  it("does not present an unavailable reserved account as backed or zero funded", () => {
+    const goal = { ...mockGoal, fundingMode: "ReservedFunds" as const, reservationStatus: "unavailable" as const, accountId: "missing", currentAmount: 700, percentageAchieved: 35 };
+    const html = renderToStaticMarkup(<GoalsTabView goals={[goal]} onOpenCreateGoalModal={vi.fn()} />);
+    expect(html).toContain("Respaldo no disponible");
+    expect(html).toContain("700,00");
+  });
+
+  it("shows a shared account shortfall once and keeps legacy goals on account tracking", () => {
+    const reserved = { ...mockGoal, accountId: "account-a", fundingMode: "ReservedFunds" as const, currentAmount: 700, percentageAchieved: 35, accountReservedAmount: 1000, accountFundingShortfall: 200, reservationStatus: "underfunded" as const };
+    const html = renderToStaticMarkup(<GoalsTabView goals={[reserved, { ...reserved, id: "goal-2" }, { ...mockGoal, id: "legacy" }]} onOpenCreateGoalModal={vi.fn()} onRecordGoalFunding={vi.fn()} />);
+    expect(html.match(/Faltante de respaldo/g)).toHaveLength(1);
+    expect(html).toContain("compartido por las metas de esta cuenta");
+    expect(html).toContain("Administrar reserva");
+    expect(html).toContain("Seguimiento del saldo");
+    expect(html).not.toContain("Conversión automática");
+  });
+
   it("renders the Metas header, KPIs, filter toolbar, cards and summary panel", () => {
     const html = renderToStaticMarkup(
       <GoalsTabView

@@ -110,6 +110,8 @@ describe("Financial Metrics Calculations", () => {
   const mockGoals: GoalDto[] = [
     {
       id: "g-1",
+      trackingStatus: "tracked",
+      sharedGoalCount: 1,
       name: "Fondo Emergencia",
       targetAmount: 30000,
       currency: "BOB",
@@ -120,6 +122,8 @@ describe("Financial Metrics Calculations", () => {
     },
     {
       id: "g-2",
+      trackingStatus: "tracked",
+      sharedGoalCount: 1,
       name: "Entrada Vehículo",
       targetAmount: 5000,
       currency: "USDT",

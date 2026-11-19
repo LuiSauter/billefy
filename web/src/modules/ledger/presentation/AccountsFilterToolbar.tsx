@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { memo } from "react";
 import {
   LayoutGrid,
   Landmark,
@@ -9,11 +9,14 @@ import {
   Banknote,
   Layers,
   List,
+  type LucideIcon,
 } from "lucide-react";
 import {
   AccountCategoryGroup,
   CategorySummary,
 } from "../domain/accounts-overview";
+import { Button } from "@/shared/ui/button";
+import { accountsPillClassName, accountsToggleVariant } from "./accounts-styles";
 
 export type FilterCategory = "all" | AccountCategoryGroup;
 export type ViewMode = "grid" | "list";
@@ -27,6 +30,48 @@ interface AccountsFilterToolbarProps {
   categoryTotals: Record<AccountCategoryGroup, CategorySummary>;
 }
 
+/** Static tab metadata; counts are the only per-render data. */
+const FILTER_TABS: { id: FilterCategory; label: string; icon: LucideIcon }[] = [
+  { id: "all", label: "Todas las cuentas", icon: LayoutGrid },
+  { id: "bancos", label: "Bancos", icon: Landmark },
+  { id: "wallets", label: "Wallets", icon: Wallet },
+  { id: "cripto", label: "Cripto", icon: Coins },
+  { id: "efectivo", label: "Efectivo", icon: Banknote },
+  { id: "otros", label: "Otros", icon: Layers },
+];
+
+const FilterPill = memo(function FilterPill({
+  id,
+  label,
+  count,
+  icon: Icon,
+  active,
+  onSelect,
+}: {
+  id: FilterCategory;
+  label: string;
+  count: number;
+  icon: LucideIcon;
+  active: boolean;
+  onSelect: (category: FilterCategory) => void;
+}) {
+  return (
+    <Button
+      type="button"
+      size="sm"
+      variant={accountsToggleVariant(active)}
+      aria-pressed={active}
+      onClick={() => onSelect(id)}
+      className={accountsPillClassName}
+    >
+      <Icon className="w-3.5 h-3.5" />
+      <span>
+        {label} <span className="opacity-80">({count})</span>
+      </span>
+    </Button>
+  );
+});
+
 export function AccountsFilterToolbar({
   selectedCategory,
   onSelectCategory,
@@ -35,106 +80,49 @@ export function AccountsFilterToolbar({
   totalCount,
   categoryTotals,
 }: AccountsFilterToolbarProps) {
-  const tabs: {
-    id: FilterCategory;
-    label: string;
-    count: number;
-    icon: React.ComponentType<{ className?: string }>;
-  }[] = [
-    {
-      id: "all",
-      label: "Todas las cuentas",
-      count: totalCount,
-      icon: LayoutGrid,
-    },
-    {
-      id: "bancos",
-      label: "Bancos",
-      count: categoryTotals.bancos.count,
-      icon: Landmark,
-    },
-    {
-      id: "wallets",
-      label: "Wallets",
-      count: categoryTotals.wallets.count,
-      icon: Wallet,
-    },
-    {
-      id: "cripto",
-      label: "Cripto",
-      count: categoryTotals.cripto.count,
-      icon: Coins,
-    },
-    {
-      id: "efectivo",
-      label: "Efectivo",
-      count: categoryTotals.efectivo.count,
-      icon: Banknote,
-    },
-    {
-      id: "otros",
-      label: "Otros",
-      count: categoryTotals.otros.count,
-      icon: Layers,
-    },
-  ];
-
   return (
     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
       {/* Category Pills */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
-        {tabs.map((tab) => {
-          const Icon = tab.icon;
-          const isActive = selectedCategory === tab.id;
-
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => onSelectCategory(tab.id)}
-              className={`h-9 px-3.5 rounded-xl text-xs flex items-center gap-2 font-semibold transition shrink-0 cursor-pointer ${
-                isActive
-                  ? "bg-purple-600/20 text-purple-300 border border-purple-500/60 shadow-sm shadow-purple-600/10 font-bold"
-                  : "bg-card/70 hover:bg-muted text-muted-foreground border border-border/70 hover:text-foreground"
-              }`}
-            >
-              <Icon className={`w-3.5 h-3.5 ${isActive ? "text-purple-400" : "text-muted-foreground"}`} />
-              <span>
-                {tab.label} <span className="opacity-80">({tab.count})</span>
-              </span>
-            </button>
-          );
-        })}
+        {FILTER_TABS.map((tab) => (
+          <FilterPill
+            key={tab.id}
+            id={tab.id}
+            label={tab.label}
+            icon={tab.icon}
+            count={tab.id === "all" ? totalCount : categoryTotals[tab.id].count}
+            active={selectedCategory === tab.id}
+            onSelect={onSelectCategory}
+          />
+        ))}
       </div>
 
       {/* Grid / List Switcher */}
-      <div className="flex items-center gap-1.5 self-end sm:self-auto shrink-0 bg-card/60 border border-border/80 p-1 rounded-xl">
-        <button
+      <div className="flex items-center gap-1.5 self-end sm:self-auto shrink-0 bg-card/60 border border-border/70 p-1 rounded-xl">
+        <Button
           type="button"
+          variant={viewMode === "grid" ? "default" : "ghost"}
+          size="icon-sm"
           onClick={() => onViewModeChange("grid")}
           title="Vista en cuadrícula"
           aria-label="Vista en cuadrícula"
-          className={`size-8 rounded-lg flex items-center justify-center transition cursor-pointer ${
-            viewMode === "grid"
-              ? "bg-primary text-primary-foreground shadow-xs"
-              : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
-          }`}
+          aria-pressed={viewMode === "grid"}
+          className="size-8 md:size-8 rounded-lg cursor-pointer"
         >
-          <LayoutGrid className="w-4 h-4" />
-        </button>
-        <button
+          <LayoutGrid />
+        </Button>
+        <Button
           type="button"
+          variant={viewMode === "list" ? "default" : "ghost"}
+          size="icon-sm"
           onClick={() => onViewModeChange("list")}
           title="Vista en lista"
           aria-label="Vista en lista"
-          className={`size-8 rounded-lg flex items-center justify-center transition cursor-pointer ${
-            viewMode === "list"
-              ? "bg-primary text-primary-foreground shadow-xs"
-              : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
-          }`}
+          aria-pressed={viewMode === "list"}
+          className="size-8 md:size-8 rounded-lg cursor-pointer"
         >
-          <List className="w-4 h-4" />
-        </button>
+          <List />
+        </Button>
       </div>
     </div>
   );

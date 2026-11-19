@@ -46,7 +46,9 @@ export interface TransactionDto {
   reversesId?: string;
   transferId?: string;
   investmentId?: string;
-  investmentCashKind?: "Contribution" | "Disposal";
+  investmentCashKind?: "Contribution" | "Disposal" | "Dividend";
+  loanId?: string;
+  loanCashKind?: "Principal" | "Interest" | "CardPurchase";
   isReconciliationAdjustment?: boolean;
   appliedRate?: number;
   rateSource?: string;

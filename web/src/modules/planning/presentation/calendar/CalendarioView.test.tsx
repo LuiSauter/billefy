@@ -82,28 +82,22 @@ const mockRecurringPayments: RecurringPaymentDto[] = [
 const mockAccounts: AccountDto[] = [
   {
     id: "acc-1",
-    userId: "usr-1",
     name: "Banco BISA Principal",
-    accountType: "Bank",
+    type: "Bank",
     currency: "BOB",
-    initialBalance: new Decimal(5000),
-    currentBalance: new Decimal(10000),
-    color: "#6366f1",
-    icon: "bank",
-    isIncludedInTotal: true,
+    balance: new Decimal(10000),
+    colorKey: "indigo",
+    iconKey: "landmark",
     createdAt: "2026-01-01T00:00:00Z",
   },
   {
     id: "acc-2",
-    userId: "usr-1",
     name: "Tarjeta Visa",
-    accountType: "CreditCard",
+    type: "CreditCard",
     currency: "BOB",
-    initialBalance: new Decimal(0),
-    currentBalance: new Decimal(-500),
-    color: "#ec4899",
-    icon: "card",
-    isIncludedInTotal: true,
+    balance: new Decimal(-500),
+    colorKey: "pink",
+    iconKey: "credit-card",
     createdAt: "2026-01-01T00:00:00Z",
   },
 ];
@@ -166,10 +160,17 @@ const createMockRepo = () => ({
   createGoal: vi.fn(),
   updateGoal: vi.fn(),
   getGoals: vi.fn().mockResolvedValue([]),
+  getGoalFunding: vi.fn().mockResolvedValue([]),
+  recordGoalFunding: vi.fn(),
   deleteGoal: vi.fn(),
   getFinancialHealth: vi.fn().mockResolvedValue({ score: 83, level: "Good", description: "Buena", metrics: {} }),
   proposeIncomeDistribution: vi.fn(),
   getRecurringPayments: vi.fn().mockResolvedValue(mockRecurringPayments),
+  getRecurringPaymentById: vi.fn(async (id: string) => {
+    const payment = mockRecurringPayments.find(payment => payment.id === id);
+    if (!payment) throw new Error(`Recurring payment not found: ${id}`);
+    return payment;
+  }),
   getRecurringSummary: vi.fn().mockResolvedValue({
     ActiveCount: 3,
     MonthlyExpenses: 104,

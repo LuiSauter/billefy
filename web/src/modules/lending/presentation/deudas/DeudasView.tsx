@@ -26,6 +26,7 @@ export interface DeudasViewProps {
   onOpenCreateDebt: () => void;
   onOpenPayment: (loanId: string) => void;
   onOpenLoanDetails?: (loanId: string) => void;
+  onOpenCardPurchase?: (loanId: string) => void;
 }
 
 function paymentStatus(loan: LoanSummaryDto, detail: LoanDetailDto | undefined, nextNumber?: number): DebtPaymentStatus {
@@ -40,7 +41,7 @@ function paymentStatus(loan: LoanSummaryDto, detail: LoanDetailDto | undefined, 
 }
 
 export function DeudasView({ loans, loanDetails, loading = false, selectedCurrency = "USD", p2pRate,
-  monthlyIncome = 0, onOpenCreateDebt, onOpenPayment, onOpenLoanDetails }: DeudasViewProps) {
+  monthlyIncome = 0, onOpenCreateDebt, onOpenPayment, onOpenLoanDetails, onOpenCardPurchase }: DeudasViewProps) {
   const header = <DeudasHeader onOpenCreateDebt={onOpenCreateDebt} />;
   if (loading) {
     return <section className="flex flex-col gap-5">{header}<div role="status" aria-busy="true" aria-label="Cargando deudas">
@@ -50,10 +51,17 @@ export function DeudasView({ loans, loanDetails, loading = false, selectedCurren
     </div></section>;
   }
 
+  const cards = loans.filter(loan => loan.loanKind === "CreditCard" && !["Cancelled", "Forgiven"].includes(loan.status));
+  const cardActions = onOpenCardPurchase && cards.length > 0 ? <Card className="space-y-3 p-4">
+    <h2 className="text-sm font-semibold">Compras con tarjeta</h2>
+    <p className="text-sm text-muted-foreground">La compra consume presupuesto y aumenta deuda; pagar capital no genera otro gasto.</p>
+    <div className="flex flex-wrap gap-2">{cards.map(card => <Button key={card.id} variant="outline" aria-label={`Registrar compra de ${card.counterpartyName}`} onClick={() => onOpenCardPurchase(card.id)}>
+      Registrar compra · {card.counterpartyName}</Button>)}</div>
+  </Card> : null;
   const debts = loans.filter((loan) => loan.type === "Borrowed" && loan.status !== "Paid"
     && loan.status !== "Cancelled" && loan.remainingPrincipal.gt(0));
   if (debts.length === 0) {
-    return <section className="flex flex-col gap-5">{header}<Card className="flex flex-col items-center gap-4 px-6 py-16 text-center">
+    return <section className="flex flex-col gap-5">{header}{cardActions}<Card className="flex flex-col items-center gap-4 px-6 py-16 text-center">
       <div className="rounded-full bg-violet-500/15 p-4 text-violet-500"><Layers className="size-8" aria-hidden="true" /></div>
       <h2 className="text-xl font-semibold">No tienes deudas pendientes</h2>
       <p className="max-w-md text-sm text-muted-foreground">Registra tu primera deuda para organizar tus cuotas, conocer tus intereses y planificar tus pagos.</p>
@@ -86,6 +94,7 @@ export function DeudasView({ loans, loanDetails, loading = false, selectedCurren
   return (
     <section className="flex w-full min-w-0 flex-col gap-5">
       {header}
+      {cardActions}
       <DeudasKpiCards metrics={metrics} hasIncome={Number.isFinite(monthlyIncome) && monthlyIncome > 0} />
       {metrics.hasEstimates && <p role="note" className="text-xs text-muted-foreground">Estimaciones: algunas cuotas y proyecciones se calculan desde el resumen. Consulta el calendario del préstamo para ver los importes confirmados.</p>}
       <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,2.2fr)_minmax(0,1fr)]">

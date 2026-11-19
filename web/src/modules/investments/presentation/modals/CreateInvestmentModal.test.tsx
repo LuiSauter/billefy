@@ -166,6 +166,19 @@ describe("CreateInvestmentModal", () => {
     expect(view.onClose).toHaveBeenCalledOnce();
   });
 
+  it("allows saving the default crypto asset without touching any radio button", async () => {
+    let view = render();
+    change(view.tree, "Cantidad de monedas (BTC)", "0.01");
+    view = render(view.onCreate, view.onClose);
+    change(view.tree, "Valor total (USDT)", "647.28");
+    view = render(view.onCreate, view.onClose);
+    await submit(view.tree);
+    expect(view.onCreate).toHaveBeenCalledWith(expect.objectContaining({
+      name: "Bitcoin (BTC)", quantity: 0.01, currentValue: 647.28,
+    }));
+    expect(view.onClose).toHaveBeenCalledOnce();
+  });
+
   it("keeps the selected valuation currency on the money input and payload", async () => {
     let view = render();
     choose(view.tree, "Tipo de activo", "other");
