@@ -43,6 +43,9 @@ local.properties
 *.key
 !*.sample.key
 
+# Offline independent-verifier dependencies (generated, regular files only)
+/.verifier-runtime/
+
 # Tools & Temporary
 .atl/
 .agents/

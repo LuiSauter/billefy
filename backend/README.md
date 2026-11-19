@@ -40,6 +40,8 @@ La API de metas incorpora `fundingMode`: al omitirlo conserva `AccountTracking` 
 
 ## 3. Variables de Entorno (.env) — Copiar y Pegar
 
+El backend carga `backend/.env` automáticamente al iniciar (`DotNetEnv`, ver `Program.cs`): alcanza con crear el archivo y correr `dotnet run`, sin necesidad de `export` manual en la terminal (Opción B sigue funcionando igual, para CI/producción donde las variables ya vienen del entorno real — esas siempre tienen prioridad sobre el `.env`).
+
 Para configurar tu backend de inmediato, copiá y pegá cualquiera de los siguientes bloques según tu flujo de trabajo o sistema operativo:
 
 ### Opción A: Crear tu archivo `.env` directamente en la terminal (macOS / Linux)
