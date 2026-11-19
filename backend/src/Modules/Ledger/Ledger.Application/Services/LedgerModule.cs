@@ -6,6 +6,7 @@ using BuildingBlocks.ValueObjects;
 using Fx.Contracts;
 using Ledger.Application.Abstractions;
 using Ledger.Application.Categories.Services;
+using Ledger.Application.Transactions;
 using Ledger.Contracts;
 using Ledger.Domain.Transactions;
 
@@ -109,6 +110,55 @@ public sealed class LedgerModule : ILedgerModule
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return transaction.Id;
+    }
+
+    public async Task<LoanPostingResultDto> RegisterLoanPostingAsync(LoanPostingRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        if (!Enum.TryParse<LoanCashKind>(request.Kind, out var kind) || !Enum.IsDefined(kind) ||
+            !Enum.TryParse<TransactionDirection>(request.Direction, out var direction) || !Enum.IsDefined(direction))
+            return new(null, "Loan.InvalidPosting");
+        var currency = Currency.FromCode(request.Currency);
+        if (request.Amount <= 0m || request.Amount > 99_999_999_999_999.999999m || request.Amount != decimal.Round(request.Amount, 6) ||
+            decimal.Round(request.Amount, currency.DecimalPlaces) != request.Amount)
+            return new(null, "Payment.InvalidPrecision");
+        if (request.AccountId.HasValue)
+        {
+            var account = await _accountRepository.GetByIdForUserAsync(request.UserId, request.AccountId.Value, cancellationToken);
+            if (account is null) return new(null, "Account.NotFound");
+            if (account.IsArchived) return new(null, "Account.Archived");
+            if (account.Currency.Code != request.Currency) return new(null, "Account.CurrencyMismatch");
+        }
+        else if (kind != LoanCashKind.CardPurchase) return new(null, "Account.NotFound");
+        if (request.CategoryId.HasValue)
+        {
+            var category = await _categoryRepository.GetByIdAsync(request.CategoryId.Value, cancellationToken);
+            if (category is null || category.UserId != request.UserId) return new(null, "Loan.InvalidCategory");
+            if ((category.Icon?.StartsWith("Income|", StringComparison.Ordinal) == true ||
+                 category.Icon?.StartsWith("Expense|", StringComparison.Ordinal) == true) &&
+                !category.Icon.StartsWith(direction + "|", StringComparison.Ordinal))
+                return new(null, "Loan.InvalidCategory");
+        }
+        if (request.AccountId.HasValue)
+        {
+            var guard = await OverdraftGuard.CheckAsync(_accountRepository, _transactionRepository,
+                direction, request.AccountId.Value, request.Amount, cancellationToken);
+            if (guard.IsFailure) return new(null, guard.Error.Code);
+        }
+        decimal? appliedRate = null;
+        string? rateSource = null;
+        if (_rateSnapshotProvider is not null)
+        {
+            var snapshot = await _rateSnapshotProvider.GetSnapshotAsync(request.Currency,
+                request.Currency == "USD" ? "BOB" : "USD", request.UserId, cancellationToken);
+            if (snapshot is not null) { appliedRate = snapshot.AppliedRate; rateSource = snapshot.RateSource; }
+        }
+        var transaction = Transaction.CreateLoanPosting(request.UserId, request.LoanId, request.AccountId,
+            Money.Of(request.Amount, currency), direction, kind, request.CategoryId, request.OccurredAt,
+            request.Description, appliedRate, rateSource, _clock.UtcNow);
+        await _transactionRepository.AddAsync(transaction, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        return new(transaction.Id, null);
     }
 
     public async Task<LoanPaymentPostingResultDto> RegisterLoanPaymentAsync(
@@ -444,8 +494,8 @@ public sealed class LedgerModule : ILedgerModule
         foreach (var t in txns)
         {
             // Linked cash movements and reversals are not ordinary income/spending.
-            if (t.TransferId.HasValue || t.InvestmentId.HasValue || t.WorkspaceSettlementId.HasValue ||
-                t.IsReconciliationAdjustment || t.ReversesId.HasValue ||
+            if (t.TransferId.HasValue || (t.InvestmentId.HasValue && t.InvestmentCashKind != InvestmentCashKind.Dividend) || t.WorkspaceSettlementId.HasValue ||
+                t.IsReconciliationAdjustment || t.LoanCashKind == LoanCashKind.Principal || t.ReversesId.HasValue ||
                 await _transactionRepository.GetReversalByOriginalIdAsync(t.Id, cancellationToken) is not null) continue;
 
             if (t.Direction == TransactionDirection.Income)

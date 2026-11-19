@@ -79,6 +79,8 @@ public sealed record LedgerCurrencySpendingDto(
 
 public interface ILedgerModule
 {
+    Task<LoanPostingResultDto> RegisterLoanPostingAsync(LoanPostingRequestDto request,
+        CancellationToken cancellationToken = default) => throw new NotSupportedException("Typed loan postings are not supported by this adapter.");
     /// <summary>Runs workspace persistence and Ledger postings in one local relational transaction.</summary>
     Task<T> ExecuteWorkspaceAtomicAsync<T>(
         Func<DbConnection, DbTransaction, CancellationToken, Task<T>> operation,

@@ -77,6 +77,9 @@ public sealed class RegisterTransactionCommandHandler
     {
         var prepared = await PrepareAsync(command, cancellationToken);
         if (prepared.IsFailure) return Result.Failure<Guid>(prepared.Error);
+        var guard = await OverdraftGuard.CheckAsync(_accountRepository, _transactionRepository,
+            command.Direction, command.AccountId, command.Amount, cancellationToken);
+        if (guard.IsFailure) return Result.Failure<Guid>(guard.Error);
         await _transactionRepository.AddAsync(prepared.Value, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
         return Result.Success(prepared.Value.Id);

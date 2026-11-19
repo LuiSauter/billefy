@@ -12,6 +12,8 @@ public sealed class PlanningFinancialDataReset(PlanningDbContext db) : IPlanning
         await db.InvestmentCashLinks.Where(x => x.UserId == userId).ExecuteDeleteAsync(cancellationToken);
         await db.Investments.Where(x => x.UserId == userId).ExecuteDeleteAsync(cancellationToken);
         await db.Budgets.Where(x => x.UserId == userId).ExecuteDeleteAsync(cancellationToken);
+        await db.GoalFundingEntries.Where(x => x.UserId == userId).ExecuteDeleteAsync(cancellationToken);
+        await db.GoalFundingAccounts.Where(x => x.UserId == userId).ExecuteDeleteAsync(cancellationToken);
         await db.Goals.Where(x => x.UserId == userId).ExecuteDeleteAsync(cancellationToken);
         await db.DistributionPlans.Where(x => x.UserId == userId).ExecuteDeleteAsync(cancellationToken);
         await db.RecurringPayments.Where(x => x.UserId == userId).ExecuteDeleteAsync(cancellationToken);

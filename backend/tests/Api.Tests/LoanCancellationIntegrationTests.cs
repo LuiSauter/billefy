@@ -172,30 +172,48 @@ public sealed class LoanCancellationIntegrationTests
     }
 
     [Fact]
-    public async Task CancelLoan_AlreadyReversedThroughGenericLedger_FailsWithoutDuplicate()
+    public async Task CancelLoan_RejectsIndependentDisbursementReversal_AndCancelsBothModulesTogether()
     {
         using var factory = new CustomWebApplicationFactory();
         using var client = factory.CreateClient();
         var userId = Guid.NewGuid();
         var accountId = await CreateAccount(client, userId);
+        using var openingAccounts = await Send(client, HttpMethod.Get, "/v1/accounts", userId);
+        var openingCash = await openingAccounts.Content.ReadAsStringAsync();
         var loanId = await CreateLoan(client, userId, "Lent", accountId);
-        Guid transactionId;
-        using (var scope = factory.Services.CreateScope())
-            transactionId = (await scope.ServiceProvider.GetRequiredService<LendingDbContext>().Loans.IgnoreQueryFilters().SingleAsync(l => l.Id == loanId)).DisbursementTransactionId!.Value;
-        using var genericReverse = await SendJson(client, HttpMethod.Post, $"/v1/transactions/{transactionId}/reverse", new { reason = "synthetic test" }, userId);
-        genericReverse.StatusCode.Should().Be(HttpStatusCode.OK);
-        using var duplicateReverse = await SendJson(client, HttpMethod.Post, $"/v1/transactions/{transactionId}/reverse", new { reason = "duplicate test" }, userId);
-        duplicateReverse.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        using var originalTransactions = await Send(client, HttpMethod.Get, "/v1/transactions", userId);
+        var originalBody = await originalTransactions.Content.ReadAsStringAsync();
+        using var original = JsonDocument.Parse(originalBody);
+        var transactionId = original.RootElement.EnumerateArray().Single().GetProperty("id").GetGuid();
+        using var originalDetail = await Send(client, HttpMethod.Get, $"/v1/loans/{loanId}", userId);
+        var originalLoan = await originalDetail.Content.ReadAsStringAsync();
 
-        using var detailResponse = await Send(client, HttpMethod.Get, $"/v1/loans/{loanId}", userId);
-        using var detail = await JsonDocument.ParseAsync(await detailResponse.Content.ReadAsStreamAsync());
-        detail.RootElement.GetProperty("summary").GetProperty("cancellationEligibility").GetProperty("reasonCode")
-            .GetString().Should().Be("DisbursementAlreadyReversed");
+        for (var attempt = 0; attempt < 2; attempt++)
+        {
+            using var rejected = await SendJson(client, HttpMethod.Post,
+                $"/v1/transactions/{transactionId}/reverse", new { reason = "synthetic test" }, userId);
+            rejected.StatusCode.Should().Be(HttpStatusCode.Conflict);
+            using var problem = await JsonDocument.ParseAsync(await rejected.Content.ReadAsStreamAsync());
+            problem.RootElement.GetProperty("title").GetString().Should().Be("LoanPosting.Immutable");
+            using var transactions = await Send(client, HttpMethod.Get, "/v1/transactions", userId);
+            (await transactions.Content.ReadAsStringAsync()).Should().Be(originalBody);
+            using var detail = await Send(client, HttpMethod.Get, $"/v1/loans/{loanId}", userId);
+            (await detail.Content.ReadAsStringAsync()).Should().Be(originalLoan);
+        }
 
-        using var response = await Send(client, HttpMethod.Post, $"/v1/loans/{loanId}/cancel", userId);
-        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
-        using var scopeAfter = factory.Services.CreateScope();
-        (await scopeAfter.ServiceProvider.GetRequiredService<LedgerDbContext>().Transactions.IgnoreQueryFilters().CountAsync()).Should().Be(2);
+        using var cancelled = await Send(client, HttpMethod.Post, $"/v1/loans/{loanId}/cancel", userId);
+        cancelled.StatusCode.Should().Be(HttpStatusCode.OK);
+        using var accountsAfter = await Send(client, HttpMethod.Get, "/v1/accounts", userId);
+        (await accountsAfter.Content.ReadAsStringAsync()).Should().Be(openingCash);
+        using var historyAfter = await Send(client, HttpMethod.Get, "/v1/transactions", userId);
+        using var history = await JsonDocument.ParseAsync(await historyAfter.Content.ReadAsStreamAsync());
+        history.RootElement.GetArrayLength().Should().Be(2);
+        history.RootElement.EnumerateArray().Count(row =>
+            row.GetProperty("reversesId").ValueKind == JsonValueKind.String &&
+            row.GetProperty("reversesId").GetGuid() == transactionId).Should().Be(1);
+        using var detailAfter = await Send(client, HttpMethod.Get, $"/v1/loans/{loanId}", userId);
+        using var loanAfter = await JsonDocument.ParseAsync(await detailAfter.Content.ReadAsStreamAsync());
+        loanAfter.RootElement.GetProperty("summary").GetProperty("status").GetString().Should().Be("Cancelled");
     }
 
     [Fact]

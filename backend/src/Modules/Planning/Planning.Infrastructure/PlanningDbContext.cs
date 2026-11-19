@@ -14,6 +14,8 @@ public class PlanningDbContext : DbContext
 
     public DbSet<Budget> Budgets => Set<Budget>();
     public DbSet<Goal> Goals => Set<Goal>();
+    public DbSet<GoalFundingEntry> GoalFundingEntries => Set<GoalFundingEntry>();
+    public DbSet<GoalFundingAccount> GoalFundingAccounts => Set<GoalFundingAccount>();
     public DbSet<Investment> Investments => Set<Investment>();
     public DbSet<InvestmentTransaction> InvestmentTransactions => Set<InvestmentTransaction>();
     public DbSet<InvestmentCashLink> InvestmentCashLinks => Set<InvestmentCashLink>();
@@ -35,6 +37,8 @@ public class PlanningDbContext : DbContext
 
         // Global query filters for user_id multi-tenancy isolation (fail-closed)
         modelBuilder.Entity<Budget>().HasQueryFilter(b => _currentUserContext.IsAuthenticated && b.UserId == _currentUserContext.UserId.GetValueOrDefault());
+        modelBuilder.Entity<GoalFundingEntry>().HasQueryFilter(e => _currentUserContext.IsAuthenticated && e.UserId == _currentUserContext.UserId.GetValueOrDefault());
+        modelBuilder.Entity<GoalFundingAccount>().HasQueryFilter(e => _currentUserContext.IsAuthenticated && e.UserId == _currentUserContext.UserId.GetValueOrDefault());
         modelBuilder.Entity<Goal>().HasQueryFilter(g => _currentUserContext.IsAuthenticated && g.UserId == _currentUserContext.UserId.GetValueOrDefault());
         modelBuilder.Entity<Investment>().HasQueryFilter(i => _currentUserContext.IsAuthenticated && i.UserId == _currentUserContext.UserId.GetValueOrDefault());
         modelBuilder.Entity<InvestmentTransaction>().HasQueryFilter(t => _currentUserContext.IsAuthenticated && t.UserId == _currentUserContext.UserId.GetValueOrDefault());

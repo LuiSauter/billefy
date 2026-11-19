@@ -12,12 +12,18 @@ internal sealed class LoanPaymentConfiguration : IEntityTypeConfiguration<LoanPa
         builder.ToTable("payments");
 
         builder.HasKey(p => p.Id);
-        builder.Property(p => p.Id).HasColumnName("id");
+        // Relationship discovery must enroll a newly appended payment as Added.
+        builder.Property(p => p.Id).HasColumnName("id").ValueGeneratedNever();
 
         builder.Property(p => p.UserId).HasColumnName("user_id").IsRequired();
         builder.Property(p => p.LoanId).HasColumnName("loan_id").IsRequired();
         builder.Property(p => p.AccountId).HasColumnName("account_id");
         builder.Property(p => p.LedgerTransactionId).HasColumnName("ledger_transaction_id");
+        builder.Property(p => p.InterestTransactionId).HasColumnName("interest_transaction_id");
+        builder.Property(p => p.IdempotencyKey).HasColumnName("idempotency_key");
+        builder.Property(p => p.Fingerprint).HasColumnName("fingerprint").HasMaxLength(64);
+        builder.Property(p => p.AccountingResult).HasColumnName("accounting_result");
+        builder.HasIndex(p => new { p.UserId, p.LoanId, p.IdempotencyKey }).IsUnique();
         builder.Property(p => p.PaymentDate).HasColumnName("payment_date").IsRequired();
         builder.Property(p => p.Note).HasColumnName("note").HasMaxLength(500);
         builder.Property(p => p.CreatedAt).HasColumnName("created_at").IsRequired();

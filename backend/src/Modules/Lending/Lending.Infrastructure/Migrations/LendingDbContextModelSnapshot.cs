@@ -90,6 +90,15 @@ namespace Lending.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
+                    b.Property<string>("CreationFingerprint")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("creation_fingerprint");
+
+                    b.Property<Guid?>("CreationKey")
+                        .HasColumnType("uuid")
+                        .HasColumnName("creation_key");
+
                     b.Property<string>("DayCount")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -141,6 +150,16 @@ namespace Lending.Infrastructure.Migrations
                         .HasPrecision(10, 6)
                         .HasColumnType("numeric(10,6)")
                         .HasColumnName("late_rate");
+
+                    b.Property<string>("LoanKind")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("loan_kind");
+
+                    b.Property<string>("OriginationKind")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("origination_kind");
 
                     b.Property<string>("RateUnit")
                         .IsRequired()
@@ -199,6 +218,9 @@ namespace Lending.Infrastructure.Migrations
 
                     b.HasIndex("UserId", "CounterpartyId");
 
+                    b.HasIndex("UserId", "CreationKey")
+                        .IsUnique();
+
                     b.HasIndex("UserId", "Status");
 
                     b.ToTable("loans", (string)null);
@@ -207,7 +229,6 @@ namespace Lending.Infrastructure.Migrations
             modelBuilder.Entity("Lending.Domain.Entities.LoanInstallment", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
@@ -272,13 +293,16 @@ namespace Lending.Infrastructure.Migrations
             modelBuilder.Entity("Lending.Domain.Entities.LoanPayment", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
                     b.Property<Guid?>("AccountId")
                         .HasColumnType("uuid")
                         .HasColumnName("account_id");
+
+                    b.Property<string>("AccountingResult")
+                        .HasColumnType("text")
+                        .HasColumnName("accounting_result");
 
                     b.Property<int?>("CalculationVersion")
                         .HasColumnType("integer")
@@ -296,6 +320,19 @@ namespace Lending.Infrastructure.Migrations
                     b.Property<DateOnly?>("EarlyPrincipalEffectiveDate")
                         .HasColumnType("date")
                         .HasColumnName("early_principal_effective_date");
+
+                    b.Property<string>("Fingerprint")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("fingerprint");
+
+                    b.Property<Guid?>("IdempotencyKey")
+                        .HasColumnType("uuid")
+                        .HasColumnName("idempotency_key");
+
+                    b.Property<Guid?>("InterestTransactionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("interest_transaction_id");
 
                     b.Property<Guid?>("LedgerTransactionId")
                         .HasColumnType("uuid")
@@ -347,13 +384,82 @@ namespace Lending.Infrastructure.Migrations
 
                     b.HasIndex("UserId", "LoanId");
 
+                    b.HasIndex("UserId", "LoanId", "IdempotencyKey")
+                        .IsUnique();
+
                     b.ToTable("payments", (string)null);
+                });
+
+            modelBuilder.Entity("Lending.Domain.Entities.LoanPurchase", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(20, 6)
+                        .HasColumnType("numeric(20,6)")
+                        .HasColumnName("amount");
+
+                    b.Property<Guid?>("CategoryId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("category_id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("description");
+
+                    b.Property<string>("Fingerprint")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("fingerprint");
+
+                    b.Property<Guid?>("IdempotencyKey")
+                        .HasColumnType("uuid")
+                        .HasColumnName("idempotency_key");
+
+                    b.Property<Guid>("InstallmentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("installment_id");
+
+                    b.Property<Guid>("LedgerTransactionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("ledger_transaction_id");
+
+                    b.Property<Guid>("LoanId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("loan_id");
+
+                    b.Property<DateTime>("OccurredAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("occurred_at");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LedgerTransactionId")
+                        .IsUnique();
+
+                    b.HasIndex("LoanId");
+
+                    b.HasIndex("UserId", "LoanId", "IdempotencyKey")
+                        .IsUnique();
+
+                    b.ToTable("loan_purchases", (string)null);
                 });
 
             modelBuilder.Entity("Lending.Domain.Entities.PaymentAllocation", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
@@ -407,6 +513,15 @@ namespace Lending.Infrastructure.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Lending.Domain.Entities.LoanPurchase", b =>
+                {
+                    b.HasOne("Lending.Domain.Entities.Loan", null)
+                        .WithMany("Purchases")
+                        .HasForeignKey("LoanId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Lending.Domain.Entities.PaymentAllocation", b =>
                 {
                     b.HasOne("Lending.Domain.Entities.LoanPayment", null)
@@ -421,6 +536,8 @@ namespace Lending.Infrastructure.Migrations
                     b.Navigation("Installments");
 
                     b.Navigation("Payments");
+
+                    b.Navigation("Purchases");
                 });
 
             modelBuilder.Entity("Lending.Domain.Entities.LoanPayment", b =>

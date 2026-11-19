@@ -20,7 +20,7 @@ public sealed class LoanService(
     ILendingUnitOfWork unitOfWork,
     ILoanTransaction loanTransaction,
     ICurrentUserContext userContext,
-    IClock clock) : ILoanService
+    IClock clock) : ILoanService, ILoanPurchaseService
 {
     public async Task<Result<Guid>> CreateLoanAsync(CreateLoanRequest request, CancellationToken cancellationToken = default)
     {
@@ -30,6 +30,37 @@ public sealed class LoanService(
         }
 
         var userId = userContext.UserId!.Value;
+        if (request.IdempotencyKey == Guid.Empty || request.OriginationKind is not ("CashDisbursement" or "OpeningBalance") ||
+            request.LoanKind is not ("Loan" or "CreditCard"))
+            return Result.Failure<Guid>(Error.Validation("Loan.InvalidOrigin", "Unknown origin, loan kind, or empty idempotency key."));
+        Currency currency;
+        try { currency = Currency.FromCode(request.Currency); }
+        catch (ArgumentException) { return Result.Failure<Guid>(Error.Validation("Loan.InvalidCurrency", "Unknown currency.")); }
+        if (request.Currency.Length > 10 ||
+            request.Principal > 99_999_999_999_999.999999m || request.Principal != decimal.Round(request.Principal, 6) ||
+            decimal.Round(request.Principal, currency.DecimalPlaces) != request.Principal)
+            return Result.Failure<Guid>(Error.Validation("Loan.InvalidPrecision", "Principal must use the currency precision."));
+        if (request.InterestRate < 0m || request.InterestRate > 9999.999999m || request.InterestRate != decimal.Round(request.InterestRate, 6) ||
+            request.LateRate is < 0m or > 9999.999999m || (request.LateRate.HasValue && request.LateRate.Value != decimal.Round(request.LateRate.Value, 6)) ||
+            request.TotalInstallments < 1 || request.GraceDays < 0 ||
+            !Enum.TryParse<RateUnit>(request.RateUnit, true, out var validatedRateUnit) || !Enum.IsDefined(validatedRateUnit) ||
+            !Enum.TryParse<DayCount>(request.DayCount, true, out var validatedDayCount) || !Enum.IsDefined(validatedDayCount) ||
+            !Enum.TryParse<PaymentFrequency>(request.Frequency, true, out var validatedFrequency) || !Enum.IsDefined(validatedFrequency))
+            return Result.Failure<Guid>(Error.Validation("Loan.InvalidTerms", "Rate, precision, schedule count, or frequency is invalid."));
+        if (!Enum.TryParse<LoanType>(request.Type, true, out var validatedType) || !Enum.IsDefined(validatedType))
+            return Result.Failure<Guid>(Error.Validation("Loan.InvalidType", "Unknown loan type."));
+        if (request.LoanKind == "CreditCard" && (validatedType != LoanType.Borrowed || request.Template != "NoInterest" ||
+            request.InterestRate != 0m || request.LateRate is not (null or 0m) || request.TotalInstallments != 1 ||
+            request.EarlyPaymentPolicy is not (null or "AdvanceInstallments") || validatedFrequency != PaymentFrequency.Monthly))
+            return Result.Failure<Guid>(Error.Validation("Loan.InvalidCardTerms", "Cards require Borrowed, NoInterest, one opening installment, and AdvanceInstallments."));
+        var fingerprint = Fingerprint(request with { IdempotencyKey = null });
+        if (request.IdempotencyKey.HasValue)
+        {
+            var previous = (await loanRepository.GetByUserIdAsync(userId, cancellationToken: cancellationToken))
+                .FirstOrDefault(l => l.CreationKey == request.IdempotencyKey);
+            if (previous is not null) return previous.CreationFingerprint == fingerprint ? Result.Success(previous.Id)
+                : Result.Failure<Guid>(Error.Conflict("Loan.IdempotencyConflict", "The key was already used with a different loan request."));
+        }
 
         if (request.Principal <= decimal.Zero)
         {
@@ -104,13 +135,12 @@ public sealed class LoanService(
                     compounding = comp;
                 }
 
-                var currency = Currency.FromCode(request.Currency);
                 var principalMoney = Money.Of(request.Principal, currency);
                 var disbursementDate = request.DisbursementDate ?? clock.TodayUtc;
                 var loan = Loan.Create(
                     userId,
                     counterpartyId,
-                    request.DisbursementAccountId,
+                    request.OriginationKind == "OpeningBalance" ? null : request.DisbursementAccountId,
                     loanType,
                     template,
                     principalMoney,
@@ -130,33 +160,18 @@ public sealed class LoanService(
                     activateImmediately: true,
                     createdAt: clock.UtcNow);
 
-                if (request.DisbursementAccountId.HasValue)
+                loan.SetAccountingOrigin(request.OriginationKind, request.LoanKind, request.IdempotencyKey, fingerprint);
+                if (request.DisbursementAccountId.HasValue && request.OriginationKind == "CashDisbursement")
                 {
                     var ledgerDirection = loanType == LoanType.Lent ? "Expense" : "Income";
                     var desc = loanType == LoanType.Lent
                         ? $"Loan disbursement to {request.CounterpartyName}"
                         : $"Loan disbursement from {request.CounterpartyName}";
-                    Guid transactionId;
-                    try
-                    {
-                        transactionId = await ledgerModule.CreateTransactionFromDraftAsync(new CreateTransactionFromDraftDto(
-                            userId,
-                            request.DisbursementAccountId.Value,
-                            request.Principal,
-                            currency.Code,
-                            ledgerDirection,
-                            CategoryId: null,
-                            disbursementDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc),
-                            desc,
-                            loan.Id,
-                            Reference: $"LOAN-{loan.Id.ToString()[..8].ToUpperInvariant()}"),
-                            transactionToken);
-                    }
-                    catch (InvalidOperationException)
-                    {
-                        throw new InvalidLoanDisbursementException();
-                    }
-                    loan.LinkDisbursementTransaction(transactionId);
+                    var posting = await ledgerModule.RegisterLoanPostingAsync(new LoanPostingRequestDto(userId,
+                        loan.Id, request.DisbursementAccountId.Value, request.Principal, currency.Code, ledgerDirection,
+                        "Principal", null, disbursementDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc), desc), transactionToken);
+                    if (posting.ErrorCode is not null || !posting.TransactionId.HasValue) throw PostingFailure(posting.ErrorCode);
+                    loan.LinkDisbursementTransaction(posting.TransactionId.Value);
                 }
 
                 await loanRepository.AddAsync(loan, transactionToken);
@@ -164,9 +179,16 @@ public sealed class LoanService(
                 createdLoanId = loan.Id;
             }, cancellationToken);
         }
-        catch (InvalidLoanDisbursementException)
+        catch (AccountingPostingException ex) { return Result.Failure<Guid>(ex.Error); }
+        catch (ArgumentException) { return Result.Failure<Guid>(Error.Validation("Loan.InvalidTerms", "Loan terms are invalid.")); }
+        catch (Exception) when (request.IdempotencyKey.HasValue && !cancellationToken.IsCancellationRequested)
         {
-            return Result.Failure<Guid>(Error.NotFound("Account.NotFound", "Disbursement account was not found."));
+            // A concurrent creator can win the unique key. The shared transaction
+            // has rolled back both modules and cleared tracked failed entities.
+            var winner = (await loanRepository.GetByUserIdAsync(userId, cancellationToken: cancellationToken))
+                .FirstOrDefault(l => l.CreationKey == request.IdempotencyKey);
+            if (winner is not null && winner.CreationFingerprint == fingerprint) return Result.Success(winner.Id);
+            return Result.Failure<Guid>(Error.Conflict("Loan.CreationConflict", "The loan could not be created; reload before retrying."));
         }
 
         if (counterpartyNotFound)
@@ -184,7 +206,62 @@ public sealed class LoanService(
         _ => DateTime.SpecifyKind(value, DateTimeKind.Utc)
     };
 
-    private sealed class InvalidLoanDisbursementException : Exception { }
+    private static string Fingerprint<T>(T request) => Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+        System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(request)));
+
+    private sealed class AccountingPostingException(Error error) : Exception { public Error Error { get; } = error; }
+    private static AccountingPostingException PostingFailure(string? code) => new(code == "Account.NotFound"
+        ? Error.NotFound("Account.NotFound", "Account was not found.")
+        : Error.Validation(code ?? "Loan.InvalidPosting", "Loan posting account, currency, category, or amount is invalid."));
+    private static LoanPaymentResultDto PaymentResult(LoanPayment payment) =>
+        System.Text.Json.JsonSerializer.Deserialize<LoanPaymentResultDto>(payment.AccountingResult
+            ?? throw new InvalidOperationException("Payment replay is missing its authoritative result."))!;
+
+    public async Task<Result<Guid>> RegisterPurchaseAsync(Guid loanId, RegisterCardPurchaseRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (!userContext.IsAuthenticated) return Result.Failure<Guid>(Error.Unauthorized("Auth.Unauthorized", "User is not authenticated."));
+        if (request.IdempotencyKey == Guid.Empty || request.Amount <= 0m || request.Amount > 99_999_999_999_999.999999m ||
+            request.Amount != decimal.Round(request.Amount, 6) || request.OccurredAt.Kind != DateTimeKind.Utc ||
+            (request.OccurredAt.Year == 9999 && request.OccurredAt.Month == 12) || request.Description?.Trim().Length > 500)
+            return Result.Failure<Guid>(Error.Validation("Card.InvalidPurchase", "Purchase amount, UTC date, description, or key is invalid."));
+        var fingerprint = Fingerprint(request with { IdempotencyKey = null });
+        Guid? id = null;
+        Error? error = null;
+        try
+        {
+            await loanTransaction.ExecuteAsync(async token =>
+            {
+                var loan = await loanRepository.GetByIdForUpdateAsync(loanId, userContext.UserId!.Value, token);
+                if (loan is null) { error = Error.NotFound("Loan.NotFound", "Loan not found."); return; }
+                var previous = request.IdempotencyKey.HasValue ? loan.Purchases.SingleOrDefault(p => p.IdempotencyKey == request.IdempotencyKey) : null;
+                if (previous is not null)
+                {
+                    if (previous.Fingerprint == fingerprint) id = previous.Id;
+                    else error = Error.Conflict("Card.IdempotencyConflict", "The key was already used with a different purchase request.");
+                    return;
+                }
+                if (loan.LoanKind != "CreditCard" || request.Currency != loan.Principal.Currency.Code ||
+                    decimal.Round(request.Amount, loan.Principal.Currency.DecimalPlaces) != request.Amount)
+                { error = Error.Validation("Card.InvalidPurchase", "Purchase requires a credit card and its exact currency precision."); return; }
+                var posting = await ledgerModule.RegisterLoanPostingAsync(new LoanPostingRequestDto(userContext.UserId.Value,
+                    loan.Id, null, request.Amount, request.Currency, "Expense", "CardPurchase", request.CategoryId,
+                    request.OccurredAt, request.Description), token);
+                if (posting.ErrorCode is not null || !posting.TransactionId.HasValue) throw PostingFailure(posting.ErrorCode);
+                var purchase = loan.RecordPurchase(request.Amount, request.OccurredAt, posting.TransactionId.Value,
+                    request.CategoryId, request.Description, request.IdempotencyKey, fingerprint, clock.UtcNow);
+                await loanRepository.UpdateAsync(loan, token);
+                await unitOfWork.SaveChangesAsync(token);
+                id = purchase.Id;
+            }, cancellationToken);
+        }
+        catch (AccountingPostingException ex) { error = ex.Error; }
+        catch (InvalidOperationException) { error = Error.Validation("Card.InvalidPurchase", "Purchase cannot precede opening or recorded operations, or use a closed card."); }
+        catch (Exception) when (!cancellationToken.IsCancellationRequested)
+        { error = Error.Conflict("Card.WriteConflict", "The purchase was not saved; reload before retrying with the same key."); }
+        return error is not null ? Result.Failure<Guid>(error) : id.HasValue ? Result.Success(id.Value)
+            : Result.Failure<Guid>(Error.Failure("Card.PurchaseFailed", "Purchase was not saved."));
+    }
 
     public async Task<Result<List<LoanSummaryDto>>> GetLoansAsync(string? type = null, string? status = null, CancellationToken cancellationToken = default)
     {
@@ -232,7 +309,7 @@ public sealed class LoanService(
                 loan.EarlyPaymentPolicy.ToString(),
                 loan.LateRate,
                 loan.GraceDays,
-                loan.AllocationOrder.ToString()));
+                loan.AllocationOrder.ToString(), OriginationKind: loan.OriginationKind, LoanKind: loan.LoanKind));
         }
 
         return Result.Success(dtos);
@@ -254,7 +331,9 @@ public sealed class LoanService(
         var cp = await counterpartyRepository.GetByIdAsync(loan.CounterpartyId, cancellationToken);
         var lastPaymentDate = LastPaymentDate(loan);
         var asOfDate = clock.TodayUtc > lastPaymentDate ? clock.TodayUtc : lastPaymentDate;
-        var calculation = LoanPaymentCalculationAdapter.Calculate(loan, asOfDate);
+        var lastPurchaseDate = loan.Purchases.Select(p => DateOnly.FromDateTime(p.OccurredAt)).DefaultIfEmpty(DateOnly.MinValue).Max();
+        if (lastPurchaseDate > asOfDate) asOfDate = lastPurchaseDate;
+        var calculation = loan.CalculatePayment(asOfDate);
         var balances = calculation.Installments.ToDictionary(i => i.InstallmentId);
         var snapshots = calculation.HistoricalSnapshots.ToDictionary(s => s.PaymentId!.Value);
 
@@ -324,7 +403,10 @@ public sealed class LoanService(
             snapshots[p.Id].RemainingTotal,
             snapshots[p.Id].IsAmbiguous)).ToList();
 
-        return Result.Success(new LoanDetailDto(summary, installmentDtos, paymentDtos));
+        summary = summary with { OriginationKind = loan.OriginationKind, LoanKind = loan.LoanKind };
+        return Result.Success(new LoanDetailDto(summary, installmentDtos, paymentDtos, loan.Purchases
+            .OrderBy(p => p.OccurredAt).Select(p => new CardPurchaseDto(p.Id, p.Amount, loan.Principal.Currency.Code,
+                p.CategoryId, p.OccurredAt, p.Description, p.LedgerTransactionId)).ToList()));
     }
 
     private static DateOnly LastPaymentDate(Loan loan) => loan.Payments
@@ -354,7 +436,7 @@ public sealed class LoanService(
         var asOfDate = paymentDate ?? clock.TodayUtc;
         try
         {
-            var calculation = LoanPaymentCalculationAdapter.Calculate(loan, asOfDate, amount);
+            var calculation = loan.CalculatePayment(asOfDate, amount);
             return Result.Success(new LoanPaymentQuoteDto(
                 loan.Id,
                 loan.Principal.Currency.Code,
@@ -409,7 +491,7 @@ public sealed class LoanService(
                     return;
                 }
 
-                if (loan.Payments.Count != 0)
+                if (loan.Payments.Count != 0 || loan.Purchases.Count != 0)
                 {
                     operationResult = Result.Failure<LoanCancellationResultDto>(Error.Conflict("Loan.HasPayments", "A loan with recorded payments cannot be cancelled."));
                     return;
@@ -468,7 +550,7 @@ public sealed class LoanService(
 
     private async Task<LoanCancellationEligibilityDto> GetCancellationEligibilityAsync(Loan loan, CancellationToken cancellationToken)
     {
-        if (loan.Payments.Count != 0)
+        if (loan.Payments.Count != 0 || loan.Purchases.Count != 0)
             return new(false, "HasPayments");
         if (loan.Status != LoanStatus.Active)
             return new(false, "InvalidStatus");
@@ -507,6 +589,9 @@ public sealed class LoanService(
         if (request.Note?.Trim().Length > 500)
             return Result.Failure<LoanPaymentResultDto>(Error.Validation("Payment.InvalidNote", "Payment note must be 500 characters or fewer."));
 
+        if (request.IdempotencyKey == Guid.Empty)
+            return Result.Failure<LoanPaymentResultDto>(Error.Validation("Payment.InvalidKey", "Idempotency key must not be empty."));
+        var fingerprint = Fingerprint(request with { IdempotencyKey = null });
         var userId = userContext.UserId!.Value;
         var paymentDate = NormalizePaymentDate(request.PaymentDate ?? clock.UtcNow);
         LoanPaymentResultDto? paymentResult = null;
@@ -522,48 +607,56 @@ public sealed class LoanService(
                     operationError = Error.NotFound("Loan.NotFound", "Loan not found.");
                     return;
                 }
+                var previous = request.IdempotencyKey.HasValue ? loan.Payments.SingleOrDefault(p => p.IdempotencyKey == request.IdempotencyKey) : null;
+                if (previous is not null)
+                {
+                    if (previous.Fingerprint != fingerprint) operationError = Error.Conflict("Payment.IdempotencyConflict", "The key was already used with a different payment request.");
+                    else paymentResult = PaymentResult(previous);
+                    return;
+                }
                 if (loan.Status != LoanStatus.Active && loan.Status != LoanStatus.InArrears)
                 {
                     operationError = Error.Validation("Payment.InvalidOperation", $"Cannot apply payment to a loan with status '{loan.Status}'.");
                     return;
                 }
 
-                Guid? ledgerTxnId = null;
+                if (DateOnly.FromDateTime(paymentDate) < loan.DisbursementDate ||
+                    DateOnly.FromDateTime(paymentDate) < LastPaymentDate(loan))
+                    throw new InvalidOperationException("Payment date cannot precede opening or the last payment.");
+                var allocation = loan.RecordPayment(request.Amount, paymentDate, request.AccountId, null, request.Note);
+                var recorded = loan.Payments.Last();
+                var principal = allocation.Allocations.Sum(a => a.ToPrincipal) + (recorded.EarlyPrincipalAmount ?? 0m);
+                var interest = allocation.Allocations.Sum(a => a.ToInterest + a.ToLateInterest);
+                Guid? principalId = null;
+                Guid? interestId = null;
                 if (request.AccountId.HasValue)
                 {
-                    var ledgerDirection = loan.Type == LoanType.Lent ? "Income" : "Expense";
-                    var description = loan.Type == LoanType.Lent
-                        ? $"Loan repayment collected (Loan #{loan.Id.ToString()[..8]})"
-                        : $"Loan payment made (Loan #{loan.Id.ToString()[..8]})";
-                    var posting = await ledgerModule.RegisterLoanPaymentAsync(new LoanPaymentPostingRequestDto(
-                        userId, request.AccountId.Value, request.Amount, loan.Principal.Currency.Code,
-                        ledgerDirection, paymentDate, description, loan.Id,
-                        Reference: $"PAY-{loan.Id.ToString()[..8]}"), token);
-                    if (posting.ErrorCode is not null || !posting.TransactionId.HasValue)
+                    var direction = loan.Type == LoanType.Lent ? "Income" : "Expense";
+                    async Task<Guid?> Post(decimal value, string kind, Guid? category)
                     {
-                        operationError = posting.ErrorCode switch
-                        {
-                            "Account.NotFound" => Error.NotFound("Account.NotFound", "Payment account was not found."),
-                            "Account.Archived" => Error.Validation("Account.Archived", "Archived accounts cannot receive payments."),
-                            "Account.CurrencyMismatch" => Error.Validation("Account.CurrencyMismatch", "Payment account must use the loan currency."),
-                            "Payment.InvalidNote" => Error.Validation("Payment.InvalidNote", "Payment note must be 500 characters or fewer."),
-                            _ => Error.Validation(posting.ErrorCode ?? "Payment.InvalidAccount", "Payment account or amount is invalid.")
-                        };
-                        return;
+                        if (value == 0m) return null;
+                        var posting = await ledgerModule.RegisterLoanPostingAsync(new LoanPostingRequestDto(userId, loan.Id,
+                            request.AccountId, value, loan.Principal.Currency.Code, direction, kind, category,
+                            paymentDate, $"Loan {kind.ToLowerInvariant()} payment (Loan #{loan.Id.ToString()[..8]})"), token);
+                        if (posting.ErrorCode is not null || !posting.TransactionId.HasValue) throw PostingFailure(posting.ErrorCode);
+                        return posting.TransactionId;
                     }
-                    ledgerTxnId = posting.TransactionId.Value;
+                    principalId = await Post(principal, "Principal", null);
+                    interestId = await Post(interest, "Interest", request.InterestCategoryId);
                 }
-
-                var allocation = loan.RecordPayment(request.Amount, paymentDate, request.AccountId, ledgerTxnId, request.Note);
+                else if (loan.LoanKind == "CreditCard") throw PostingFailure("Account.NotFound");
+                recorded.LinkAccounting(principalId, interestId, request.IdempotencyKey, fingerprint);
                 await loanRepository.UpdateAsync(loan, token);
                 var payment = loan.Payments.Last();
                 await loanRepository.AddPaymentAsync(payment, token);
+                paymentResult = new LoanPaymentResultDto(payment.Id, request.Amount, loan.RemainingPrincipal, loan.Status.ToString(),
+                    allocation.Allocations.Select(a => new PaymentAllocationDto(a.InstallmentId, a.InstallmentNumber,
+                        a.ToLateInterest, a.ToInterest, a.ToPrincipal, a.RemainingBalanceAfter)).ToList());
+                payment.StoreAccountingResult(System.Text.Json.JsonSerializer.Serialize(paymentResult));
                 await unitOfWork.SaveChangesAsync(token);
-                var allocations = allocation.Allocations.Select(a => new PaymentAllocationDto(
-                    a.InstallmentId, a.InstallmentNumber, a.ToLateInterest, a.ToInterest, a.ToPrincipal, a.RemainingBalanceAfter)).ToList();
-                paymentResult = new LoanPaymentResultDto(payment.Id, request.Amount, loan.RemainingPrincipal, loan.Status.ToString(), allocations);
             }, cancellationToken);
         }
+        catch (AccountingPostingException ex) { operationError = ex.Error; }
         catch (InvalidOperationException) when (!cancellationToken.IsCancellationRequested)
         {
             operationError = Error.Validation("Payment.InvalidOperation", "Payment cannot be applied to this loan or exceeds its outstanding scheduled balance.");

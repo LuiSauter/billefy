@@ -24,6 +24,7 @@ public interface IGoalRepository
 
 public interface IPlanningUnitOfWork
 {
+    Task<bool> TrySaveGoalChangesAsync(CancellationToken cancellationToken = default);
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }
 

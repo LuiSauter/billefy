@@ -18,6 +18,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Content Include="../../../docs/financial-audit/caso_prueba_contable_enero_2027.json" Link="Fixtures/caso_prueba_contable_enero_2027.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Using Include="Xunit" />
   </ItemGroup>
 

@@ -18,7 +18,9 @@ public sealed record InvestmentDto(
     List<InvestmentValuePointDto> History,
     DateTime CreatedAt,
     DateTime? ArchivedAt = null,
-    string? Ticker = null);
+    string? Ticker = null,
+    decimal? CostBasis = null,
+    decimal? UnrealizedGain = null);
 
 public sealed record CreateInvestmentRequest(
     string Name,
@@ -54,6 +56,8 @@ public sealed record RegisterInvestmentOperationRequest(
     DateTime? OccurredAt = null,
     string? Notes = null,
     Guid? LinkedAccountId = null);
+
+public sealed record InvestmentPurchaseResult(InvestmentTransactionDto Operation, bool Replayed);
 
 public sealed record InvestmentCashRequest(Guid AccountId, decimal Amount, string? Description = null, DateTime? OccurredAt = null);
 public sealed record InvestmentCashResult(Guid LedgerTransactionId, Guid InvestmentId, string Kind);

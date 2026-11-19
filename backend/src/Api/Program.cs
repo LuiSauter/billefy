@@ -22,6 +22,15 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Scalar.AspNetCore;
 
+// Load backend/.env into the process environment before the configuration pipeline
+// reads it. dotnet run does not do this on its own; only real shell-exported
+// variables reach IConfiguration by default. TraversePath searches upward from
+// the working directory, so it finds backend/.env regardless of which project
+// subfolder dotnet run is invoked from. NoClobber means a variable the
+// shell/CI/production environment already set always wins over the .env file,
+// which is a local-development-only fallback.
+DotNetEnv.Env.TraversePath().NoClobber().Load();
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Configurable Port (PORT or API_PORT)

@@ -27,6 +27,7 @@ public static class DependencyInjection
         // Application Services (Cohesive Facade for Driving Adapters)
         services.AddScoped<ILoanSimulationService, LoanSimulationService>();
         services.AddScoped<ILoanService, LoanService>();
+        services.AddScoped<ILoanPurchaseService, LoanService>();
         services.AddScoped<ILendingModule, LendingModule>();
         services.AddScoped<ILendingFinancialDataExport, LendingFinancialDataExport>();
         services.AddScoped<ILendingFinancialDataReset, LendingFinancialDataReset>();

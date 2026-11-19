@@ -3,6 +3,7 @@ using BuildingBlocks.Security;
 using BuildingBlocks.Time;
 using BuildingBlocks.ValueObjects;
 using Ledger.Application.Abstractions;
+using Ledger.Application.Transactions;
 using Ledger.Application.Transactions.RegisterTransaction;
 using Ledger.Application.Transactions.RegisterTransfer;
 using Ledger.Application.Transactions.ReverseTransaction;
@@ -36,17 +37,26 @@ public sealed class TransactionService(
             new MovementRepositoryQuery(query.StartUtc, query.EndUtcExclusive, query.AccountId, query.CategoryId,
                 query.Type?.ToString(), query.Search, query.Mode == MovementHistoryMode.Audit, query.Page, query.PageSize),
             cancellationToken);
+        var loanPostings = new Dictionary<Guid, Transaction>();
+        foreach (var entry in result.Items)
+        {
+            var transaction = await transactionRepository.GetByIdAsync(entry.Representative.Id, cancellationToken);
+            if (transaction?.LoanId is not null) loanPostings[transaction.Id] = transaction;
+        }
         var items = result.Items.Select(entry =>
         {
             var row = entry.Representative;
-            var kind = entry.IsTransfer ? "Transfer" : row.IsReconciliationAdjustment ? "Adjustment" : row.InvestmentId.HasValue ? "Investment" : row.Direction.ToString();
+            loanPostings.TryGetValue(row.Id, out var loanPosting);
+            var kind = entry.IsTransfer ? "Transfer" : row.IsReconciliationAdjustment ? "Adjustment" : row.InvestmentId.HasValue && row.InvestmentCashKind != "Dividend" ? "Investment"
+                : loanPosting?.LoanCashKind == LoanCashKind.Principal ? "Loan" : row.Direction.ToString();
             return new MovementDto(entry.IsTransfer ? row.TransferId!.Value : row.Id, kind, row.Amount, row.Currency,
-                row.Direction.ToString(), row.OccurredAt, row.AccountId, row.AccountName, row.CategoryId, row.CategoryName,
+                row.Direction.ToString(), row.OccurredAt, row.AccountId,
+                loanPosting?.LoanCashKind == LoanCashKind.CardPurchase ? "Tarjeta · sin efectivo" : row.AccountName, row.CategoryId, row.CategoryName,
                 row.Description, row.AppliedRate, row.RateSource, row.ReversesId.HasValue, row.ReversesId,
                 entry.Legs.Select(leg => new MovementLegDto(leg.Id, leg.AccountId, leg.AccountName, leg.Amount, leg.Currency,
                     leg.Direction.ToString(), leg.AppliedRate, leg.RateSource)).ToList(),
                 entry.Allocations.Select(item => new TransactionAllocationDto(item.CategoryId, item.CategoryName, item.Amount)).ToList(),
-                row.InvestmentId, row.InvestmentCashKind, row.IsReconciliationAdjustment);
+                row.InvestmentId, row.InvestmentCashKind, row.IsReconciliationAdjustment, loanPosting?.LoanId, loanPosting?.LoanCashKind?.ToString());
         }).ToList();
         var summary = result.Summary.Select(row => new MovementCurrencySummary(row.Currency, row.Income, row.Expenses,
             row.TransferOut, row.TransferIn, row.Contributions, row.Disposals)).ToList();
@@ -87,7 +97,8 @@ public sealed class TransactionService(
             t.Direction.ToString(), t.CategoryId, t.OccurredAt, t.Description, t.ReversesId, t.TransferId,
             t.AppliedRate, t.RateSource, t.CreatedAt,
             t.CategoryAllocations.Select(allocation => new TransactionAllocationDto(allocation.CategoryId,
-                labels.GetValueOrDefault(allocation.CategoryId), allocation.Amount)).ToList(), t.IsReconciliationAdjustment)).ToList();
+                labels.GetValueOrDefault(allocation.CategoryId), allocation.Amount)).ToList(), t.IsReconciliationAdjustment,
+            t.LoanId, t.LoanCashKind?.ToString(), t.InvestmentId, t.InvestmentCashKind?.ToString())).ToList();
 
         return Result.Success(dtos);
     }
@@ -209,6 +220,12 @@ public sealed class TransactionService(
         string? reason = null,
         CancellationToken cancellationToken = default)
     {
+        if (!userContext.IsAuthenticated) return Result.Failure<ReverseResult>(Error.Unauthorized("Auth.Unauthorized", "User is not authenticated."));
+        var original = await transactionRepository.GetByIdAsync(id, cancellationToken);
+        if (original is null || original.UserId != userContext.UserId)
+            return Result.Failure<ReverseResult>(Error.NotFound("Transaction.NotFound", "Transaction not found."));
+        if (original.LoanId.HasValue)
+            return Result.Failure<ReverseResult>(Error.Conflict("LoanPosting.Immutable", "Loan postings cannot be reversed independently of their debt or receivable."));
         var command = new ReverseTransactionCommand(id, reason);
         var result = await reverseHandler.HandleAsync(command, cancellationToken);
         if (result.IsFailure)
@@ -232,6 +249,8 @@ public sealed class TransactionService(
         var original = await transactionRepository.GetByIdAsync(id, cancellationToken);
         if (original is null || original.UserId != userContext.UserId)
             return Result.Failure<Guid>(Error.NotFound("Transaction.NotFound", "Transaction not found."));
+        if (original.LoanId.HasValue)
+            return Result.Failure<Guid>(Error.Conflict("LoanPosting.Immutable", "Loan postings cannot be edited independently of their debt or receivable."));
         if (original.WorkspaceSettlementId.HasValue)
             return Result.Failure<Guid>(Error.Conflict("WorkspaceSettlement.Immutable", "Settlement legs cannot be edited as ordinary transactions."));
         if (original.InvestmentId.HasValue)
@@ -247,6 +266,12 @@ public sealed class TransactionService(
         var targetAccount = await accountRepository!.GetByIdAsync(request.AccountId, cancellationToken);
         if (targetAccount is null) return Result.Failure<Guid>(Error.NotFound("Account.NotFound", "Account not found."));
         var preserveSnapshot = original.AccountId == targetAccount.Id && original.Amount.Currency == targetAccount.Currency;
+        {
+            var supersededAmount = original.Direction == TransactionDirection.Expense && preserveSnapshot ? original.Amount.Amount : 0m;
+            var guard = await OverdraftGuard.CheckAsync(accountRepository!, transactionRepository,
+                request.Direction, request.AccountId, request.Amount, cancellationToken, supersededAmount);
+            if (guard.IsFailure) return Result.Failure<Guid>(guard.Error);
+        }
         var replacement = await registerHandler.PrepareAsync(new RegisterTransactionCommand(request.AccountId, request.Amount,
             request.Direction, request.CategoryId, request.OccurredAt ?? clock.UtcNow, request.Description,
             preserveSnapshot ? original.AppliedRate : null, preserveSnapshot ? original.RateSource : null,

@@ -30,6 +30,7 @@ public static class DependencyInjection
         // Application Services (Cohesive Facade for Driving Adapters)
         services.AddScoped<IBudgetService, BudgetService>();
         services.AddScoped<IGoalService, GoalService>();
+        services.AddScoped<IGoalFundingService, GoalFundingService>();
         services.AddScoped<IInvestmentService, InvestmentService>();
         services.AddScoped<IDistributionPlanService, DistributionPlanService>();
         services.AddScoped<IFinancialHealthService, FinancialHealthService>();

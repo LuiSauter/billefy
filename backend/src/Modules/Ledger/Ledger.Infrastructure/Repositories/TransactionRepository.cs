@@ -13,8 +13,9 @@ public sealed class TransactionRepository : ITransactionRepository
             FROM transactions t
             WHERE t.user_id = {0}
               AND t.is_reconciliation_adjustment = FALSE
-              AND t.investment_id IS NULL
+              AND (t.investment_id IS NULL OR t.investment_cash_kind = 'Dividend')
               AND t.workspace_settlement_id IS NULL
+              AND COALESCE(t.loan_cash_kind, '') <> 'Principal'
               AND t.occurred_at >= {1}
               AND t.occurred_at < {2}
               AND t.reverses_id IS NULL
@@ -74,12 +75,13 @@ public sealed class TransactionRepository : ITransactionRepository
             ordinary = ordinary.Where(t => t.ReversesId == null && !ownerTransactions.Any(reversal => reversal.ReversesId == t.Id));
         }
         if (query.Type == "Transfer") ordinary = ordinary.Where(_ => false);
+        else if (query.Type == "Loan") ordinary = ordinary.Where(t => t.LoanCashKind == LoanCashKind.Principal);
         else if (query.Type == "Adjustment") ordinary = ordinary.Where(t => t.IsReconciliationAdjustment);
-        else if (query.Type == "Investment") ordinary = ordinary.Where(t => t.InvestmentId != null);
+        else if (query.Type == "Investment") ordinary = ordinary.Where(t => t.InvestmentId != null && t.InvestmentCashKind != InvestmentCashKind.Dividend);
         else if (query.Type is "Income" or "Expense")
         {
             var direction = query.Type == "Income" ? TransactionDirection.Income : TransactionDirection.Expense;
-            ordinary = ordinary.Where(t => t.InvestmentId == null && t.WorkspaceSettlementId == null && !t.IsReconciliationAdjustment && t.Direction == direction);
+            ordinary = ordinary.Where(t => (t.InvestmentId == null || t.InvestmentCashKind == InvestmentCashKind.Dividend) && t.WorkspaceSettlementId == null && !t.IsReconciliationAdjustment && t.Direction == direction && t.LoanCashKind != LoanCashKind.Principal);
         }
 
         var transferRows = ownerTransactions.Where(t => t.TransferId != null);
@@ -96,18 +98,19 @@ public sealed class TransactionRepository : ITransactionRepository
         var totalCount = await ordinary.CountAsync(cancellationToken) + await transferRows.CountAsync(cancellationToken);
         var summaries = await _context.Database.SqlQuery<MovementQueryCurrencySummary>($"""
             SELECT currency AS "Currency",
-                   COALESCE(SUM(CASE WHEN investment_id IS NULL AND workspace_settlement_id IS NULL AND is_reconciliation_adjustment = FALSE AND transfer_id IS NULL AND direction = 'Income' THEN amount ELSE 0 END), 0) AS "Income",
-                   COALESCE(SUM(CASE WHEN investment_id IS NULL AND workspace_settlement_id IS NULL AND is_reconciliation_adjustment = FALSE AND transfer_id IS NULL AND direction = 'Expense' THEN amount ELSE 0 END), 0) AS "Expenses",
+                   COALESCE(SUM(CASE WHEN COALESCE(loan_cash_kind, '') <> 'Principal' AND (investment_id IS NULL OR investment_cash_kind = 'Dividend') AND workspace_settlement_id IS NULL AND is_reconciliation_adjustment = FALSE AND transfer_id IS NULL AND direction = 'Income' THEN amount ELSE 0 END), 0) AS "Income",
+                   COALESCE(SUM(CASE WHEN COALESCE(loan_cash_kind, '') <> 'Principal' AND (investment_id IS NULL OR investment_cash_kind = 'Dividend') AND workspace_settlement_id IS NULL AND is_reconciliation_adjustment = FALSE AND transfer_id IS NULL AND direction = 'Expense' THEN amount ELSE 0 END), 0) AS "Expenses",
                    COALESCE(SUM(CASE WHEN transfer_id IS NOT NULL AND direction = 'Expense' THEN amount ELSE 0 END), 0) AS "TransferOut",
                    COALESCE(SUM(CASE WHEN transfer_id IS NOT NULL AND direction = 'Income' THEN amount ELSE 0 END), 0) AS "TransferIn",
                    COALESCE(SUM(CASE WHEN investment_cash_kind = 'Contribution' THEN amount ELSE 0 END), 0) AS "Contributions",
                    COALESCE(SUM(CASE WHEN investment_cash_kind = 'Disposal' THEN amount ELSE 0 END), 0) AS "Disposals"
             FROM transactions
             WHERE user_id = {userId}
-              AND ({query.Type == null} OR ({query.Type == "Income"} AND transfer_id IS NULL AND investment_id IS NULL AND workspace_settlement_id IS NULL AND is_reconciliation_adjustment = FALSE AND direction = 'Income') OR
-                   ({query.Type == "Expense"} AND transfer_id IS NULL AND investment_id IS NULL AND workspace_settlement_id IS NULL AND is_reconciliation_adjustment = FALSE AND direction = 'Expense') OR
+              AND ({query.Type == null} OR ({query.Type == "Income"} AND COALESCE(loan_cash_kind, '') <> 'Principal' AND transfer_id IS NULL AND (investment_id IS NULL OR investment_cash_kind = 'Dividend') AND workspace_settlement_id IS NULL AND is_reconciliation_adjustment = FALSE AND direction = 'Income') OR
+                   ({query.Type == "Expense"} AND COALESCE(loan_cash_kind, '') <> 'Principal' AND transfer_id IS NULL AND (investment_id IS NULL OR investment_cash_kind = 'Dividend') AND workspace_settlement_id IS NULL AND is_reconciliation_adjustment = FALSE AND direction = 'Expense') OR
+                   ({query.Type == "Loan"} AND loan_cash_kind = 'Principal') OR
                    ({query.Type == "Adjustment"} AND transfer_id IS NULL AND is_reconciliation_adjustment = TRUE) OR
-                   ({query.Type == "Investment"} AND investment_id IS NOT NULL) OR
+                   ({query.Type == "Investment"} AND investment_id IS NOT NULL AND investment_cash_kind <> 'Dividend') OR
                    ({query.Type == "Transfer"} AND transfer_id IS NOT NULL))
               AND (NOT {hasStartUtc} OR occurred_at >= {startUtc})
               AND (NOT {hasEndUtc} OR occurred_at < {endUtcExclusive})
@@ -292,7 +295,7 @@ public sealed class TransactionRepository : ITransactionRepository
 
         var txns = await _context.Transactions
             .IgnoreQueryFilters()
-            .Where(t => t.AccountId == accountId && t.UserId == account.UserId)
+            .Where(t => t.AccountId == accountId && t.UserId == account.UserId && t.LoanCashKind != LoanCashKind.CardPurchase)
             .Select(t => new { t.Amount.Amount, t.Direction })
             .ToListAsync(cancellationToken);
 

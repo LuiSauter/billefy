@@ -11,6 +11,12 @@ public sealed class Loan : Entity
 {
     private readonly List<LoanInstallment> _installments = [];
     private readonly List<LoanPayment> _payments = [];
+    private readonly List<LoanPurchase> _purchases = [];
+    public IReadOnlyCollection<LoanPurchase> Purchases => _purchases.AsReadOnly();
+    public string? OriginationKind { get; private set; }
+    public string? LoanKind { get; private set; }
+    public Guid? CreationKey { get; private set; }
+    public string? CreationFingerprint { get; private set; }
 
     public Guid CounterpartyId { get; private init; }
     public Guid? DisbursementAccountId { get; private init; }
@@ -196,6 +202,62 @@ public sealed class Loan : Entity
         DisbursementTransactionId = transactionId;
     }
 
+    public void SetAccountingOrigin(string originationKind, string loanKind, Guid? key, string fingerprint)
+    {
+        if (OriginationKind is not null) throw new InvalidOperationException("Loan origin is immutable.");
+        if (originationKind is not ("OpeningBalance" or "CashDisbursement") || loanKind is not ("Loan" or "CreditCard"))
+            throw new ArgumentException("Unknown accounting origin or loan kind.");
+        OriginationKind = originationKind; LoanKind = loanKind; CreationKey = key; CreationFingerprint = fingerprint;
+    }
+
+    public LoanPurchase RecordPurchase(decimal amount, DateTime occurredAt, Guid ledgerTransactionId,
+        Guid? categoryId, string? description, Guid? key, string fingerprint, DateTime createdAt)
+    {
+        if (LoanKind != "CreditCard" || Type != LoanType.Borrowed ||
+            Status is not (LoanStatus.Active or LoanStatus.InArrears or LoanStatus.Paid))
+            throw new InvalidOperationException("Only an operational credit card can record purchases.");
+        if (DateOnly.FromDateTime(occurredAt) < DisbursementDate ||
+            _payments.Any(p => DateOnly.FromDateTime(p.PaymentDate) >= DateOnly.FromDateTime(occurredAt)) ||
+            _purchases.Any(p => p.OccurredAt > occurredAt))
+            throw new InvalidOperationException("Purchase date cannot precede opening or a recorded operation.");
+        if (amount <= 0m || decimal.Round(amount, Principal.Currency.DecimalPlaces) != amount)
+            throw new InvalidOperationException("Purchase must be positive and currency-precise.");
+        var installment = new LoanInstallment(Guid.NewGuid(), Id, _installments.Max(i => i.Number) + 1,
+            DateOnly.FromDateTime(occurredAt).AddMonths(1), amount, 0m, amount);
+        var purchase = new LoanPurchase(UserId, Id, installment.Id, ledgerTransactionId, amount, occurredAt,
+            categoryId, description, key, fingerprint, createdAt);
+        _installments.Add(installment);
+        _purchases.Add(purchase);
+        RemainingPrincipal += amount;
+        Status = LoanStatus.Active;
+        ClosedAt = null;
+        return purchase;
+    }
+
+    public DynamicLoanPaymentResult CalculatePayment(DateOnly asOfDate, decimal? proposedAmount = null)
+    {
+        if (LoanKind != "CreditCard") return LoanPaymentCalculationAdapter.Calculate(this, asOfDate, proposedAmount);
+        var view = CardView(asOfDate);
+        var result = LoanPaymentCalculationAdapter.Calculate(view, asOfDate, proposedAmount);
+        return result with { HistoricalSnapshots = view.Payments.Select(p =>
+            LoanPaymentCalculationAdapter.Calculate(CardView(DateOnly.FromDateTime(p.PaymentDate)), DateOnly.FromDateTime(p.PaymentDate))
+                .HistoricalSnapshots.Single(s => s.PaymentId == p.Id)).ToList() };
+    }
+
+    private Loan CardView(DateOnly asOfDate)
+    {
+        // Later purchases never exist in an older payment snapshot. New card
+        // purchases after a payment must use a later calendar date, avoiding
+        // an invented intra-day order in the existing date-based allocator.
+        var view = new Loan(Id, UserId, CounterpartyId, DisbursementAccountId, Type, Template, Status, Principal,
+            InterestRate, RateUnit, DayCount, Frequency, TotalInstallments, DisbursementDate, FirstDueDate,
+            LateRate, GraceDays, AllocationOrder, EarlyPaymentPolicy, AnnualEffectiveRate, RemainingPrincipal, CreatedAt, ActivatedAt);
+        var futureIds = _purchases.Where(p => DateOnly.FromDateTime(p.OccurredAt) > asOfDate).Select(p => p.InstallmentId).ToHashSet();
+        view._installments.AddRange(_installments.Where(i => !futureIds.Contains(i.Id)));
+        view._payments.AddRange(_payments.Where(p => DateOnly.FromDateTime(p.PaymentDate) <= asOfDate));
+        return view;
+    }
+
     public PaymentAllocationResult RecordPayment(
         decimal paymentAmount,
         DateTime paymentDateTime,
@@ -210,7 +272,9 @@ public sealed class Loan : Entity
             throw new InvalidOperationException($"Cannot apply payment to a loan with status '{Status}'.");
 
         var paymentDate = DateOnly.FromDateTime(paymentDateTime);
-        var calculation = LoanPaymentCalculationAdapter.Calculate(this, paymentDate, paymentAmount);
+        if (_purchases.Any(p => DateOnly.FromDateTime(p.OccurredAt) > paymentDate))
+            throw new InvalidOperationException("Payment date cannot precede a recorded card purchase.");
+        var calculation = CalculatePayment(paymentDate, paymentAmount);
         var maxSeq = _payments.Select(p => p.RecordSequence).Max();
         var nextSeq = (maxSeq ?? 0L) + 1L;
         var earlyAmount = calculation.ProposedEarlyPrincipalAmount > 0m ? calculation.ProposedEarlyPrincipalAmount : (decimal?)null;
@@ -269,8 +333,8 @@ public sealed class Loan : Entity
     {
         if (Status != LoanStatus.Active)
             throw new InvalidOperationException($"Cannot cancel loan in state '{Status}'.");
-        if (_payments.Count != 0)
-            throw new InvalidOperationException("A loan with recorded payments cannot be cancelled.");
+        if (_payments.Count != 0 || _purchases.Count != 0)
+            throw new InvalidOperationException("A loan with recorded payments or purchases cannot be cancelled.");
         if (DisbursementAccountId is null && DisbursementTransactionId.HasValue)
             throw new InvalidOperationException("A disbursement transaction cannot exist without an account.");
         if (DisbursementAccountId.HasValue != DisbursementTransactionId.HasValue)

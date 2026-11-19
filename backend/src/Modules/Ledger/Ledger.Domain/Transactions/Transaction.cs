@@ -21,6 +21,8 @@ public sealed class Transaction : Entity
     public Guid? InvestmentId { get; private set; }
     public InvestmentCashKind? InvestmentCashKind { get; private set; }
     public bool IsReconciliationAdjustment { get; private set; }
+    public Guid? LoanId { get; private set; }
+    public LoanCashKind? LoanCashKind { get; private set; }
 
     // Required by EF Core
     private Transaction() : base()
@@ -132,6 +134,27 @@ public sealed class Transaction : Entity
             allocations: allocations);
     }
 
+    public static Transaction CreateLoanPosting(Guid userId, Guid loanId, Guid? accountId, Money amount,
+        TransactionDirection direction, LoanCashKind kind, Guid? categoryId, DateTime occurredAt,
+        string? description, decimal? appliedRate, string? rateSource, DateTime createdAt)
+    {
+        if (loanId == Guid.Empty || !Enum.IsDefined(kind) || !Enum.IsDefined(direction))
+            throw new ArgumentException("A loan posting requires a valid loan and posting kind.");
+        if ((kind == Ledger.Domain.Transactions.LoanCashKind.CardPurchase) != !accountId.HasValue)
+            throw new ArgumentException("Only card purchases may have a noncash loan source.");
+        if (kind == Ledger.Domain.Transactions.LoanCashKind.Principal && categoryId.HasValue)
+            throw new ArgumentException("Principal cannot be categorized as income or expense.");
+        if (kind == Ledger.Domain.Transactions.LoanCashKind.CardPurchase && direction != TransactionDirection.Expense)
+            throw new ArgumentException("A card purchase must recognize an expense.");
+        // A card source is explicitly the LoanId, not a cash account. No account
+        // row or offsetting cash leg is created. LoanCashKind determines effects.
+        var posting = new Transaction(Guid.NewGuid(), userId, accountId ?? loanId, amount, direction,
+            categoryId, occurredAt, description, null, null, appliedRate, rateSource, createdAt);
+        posting.LoanId = loanId;
+        posting.LoanCashKind = kind;
+        return posting;
+    }
+
     public static Transaction CreateReconciliationAdjustment(
         Guid userId, Guid accountId, Money amount, TransactionDirection direction, DateTime occurredAt,
         string? description, DateTime? createdAt = null) =>
@@ -172,7 +195,7 @@ public sealed class Transaction : Entity
             ? $"Reversal of transaction {original.Id}"
             : $"Reversal of transaction {original.Id}: {reason.Trim()}";
 
-        return new Transaction(
+        var reversal = new Transaction(
             Guid.NewGuid(),
             original.UserId,
             original.AccountId,
@@ -191,6 +214,9 @@ public sealed class Transaction : Entity
             investmentCashKind: original.InvestmentCashKind,
             isReconciliationAdjustment: original.IsReconciliationAdjustment,
             workspaceSettlementId: original.WorkspaceSettlementId);
+        reversal.LoanId = original.LoanId;
+        reversal.LoanCashKind = original.LoanCashKind;
+        return reversal;
     }
 
     public static (Transaction Outflow, Transaction Inflow) CreateTransferReversal(

@@ -23,6 +23,8 @@ internal sealed class InvestmentConfiguration : IEntityTypeConfiguration<Investm
         builder.Property(i => i.Quantity).HasColumnName("quantity").HasPrecision(28, 10).IsRequired();
         builder.Property(i => i.InitialValue).HasColumnName("initial_value").HasPrecision(20, 6).IsRequired();
         builder.Property(i => i.CurrentValue).HasColumnName("current_value").HasPrecision(20, 6).IsRequired();
+        builder.Property(i => i.CostBasis).HasColumnName("cost_basis").HasPrecision(20, 6);
+        builder.Property(i => i.ConcurrencyStamp).HasColumnName("concurrency_stamp").IsConcurrencyToken().HasDefaultValue(Guid.Empty);
         builder.Property(i => i.HistoryJson).HasColumnName("history_json").IsRequired();
         builder.Property(i => i.CreatedAt).HasColumnName("created_at").IsRequired();
         builder.Property(i => i.ArchivedAt).HasColumnName("archived_at");

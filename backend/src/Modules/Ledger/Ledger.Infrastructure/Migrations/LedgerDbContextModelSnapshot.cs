@@ -180,6 +180,15 @@ namespace Ledger.Infrastructure.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("is_reconciliation_adjustment");
 
+                    b.Property<string>("LoanCashKind")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("loan_cash_kind");
+
+                    b.Property<Guid?>("LoanId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("loan_id");
+
                     b.Property<DateTime>("OccurredAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("occurred_at");
@@ -222,6 +231,8 @@ namespace Ledger.Infrastructure.Migrations
                         });
 
                     b.HasKey("Id");
+
+                    b.HasIndex("LoanId");
 
                     b.HasIndex("ReversesId")
                         .IsUnique()

@@ -38,7 +38,8 @@ public sealed record CreateGoalRequest(
     decimal TargetAmount,
     string Currency,
     DateOnly? TargetDate = null,
-    Guid? AccountId = null);
+    Guid? AccountId = null,
+    string FundingMode = "AccountTracking");
 
 public sealed record UpdateGoalRequest(
     string Name,
@@ -61,7 +62,11 @@ public sealed record GoalDto(
     decimal? PercentageAchieved,
     int? MonthsRemaining,
     decimal? MonthlyContributionNeeded,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    string FundingMode = "AccountTracking",
+    decimal? AccountReservedAmount = null,
+    decimal? AccountFundingShortfall = null,
+    string? ReservationStatus = null);
 
 public sealed record FinancialHealthCurrencyDto(
     string Currency,

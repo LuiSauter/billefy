@@ -18,6 +18,9 @@ public sealed class Investment : Entity
     public decimal Quantity { get; private set; }
     public decimal InitialValue { get; private set; }
     public decimal CurrentValue { get; private set; }
+    // Null means legacy acquisition cost is not established; current valuation is not evidence of cost.
+    public decimal? CostBasis { get; private set; }
+    public Guid ConcurrencyStamp { get; private set; }
     public string HistoryJson { get; private set; }
     public DateTime? ArchivedAt { get; private set; }
 
@@ -61,6 +64,8 @@ public sealed class Investment : Entity
         Quantity = quantity;
         InitialValue = currentValue;
         CurrentValue = currentValue;
+        CostBasis = currentValue;
+        ConcurrencyStamp = Guid.NewGuid();
         HistoryJson = Serialize([new InvestmentValuePoint(createdAt, currentValue)]);
     }
 
@@ -96,11 +101,35 @@ public sealed class Investment : Entity
         }
 
         CurrentValue = newValue;
-        if (quantity.HasValue) Quantity = quantity.Value;
+        // Preserve the legacy quantity-edit option, but do not pretend it establishes acquisition cost.
+        if (quantity.HasValue && quantity.Value != Quantity)
+        {
+            Quantity = quantity.Value;
+            CostBasis = null;
+        }
+        ConcurrencyStamp = Guid.NewGuid();
         HistoryJson = Serialize(history);
     }
 
-    public void Archive(DateTime at) => ArchivedAt ??= at;
+    public void ApplyPurchase(decimal quantity, decimal acquisitionCost, DateTime at)
+    {
+        if (quantity <= 0 || acquisitionCost < 0) throw new ArgumentOutOfRangeException(nameof(quantity));
+        var cost = CostBasis;
+        UpdateValue(CurrentValue + acquisitionCost, Quantity + quantity, at);
+        CostBasis = cost.HasValue ? cost.Value + acquisitionCost : null;
+    }
+
+    public void MarkCostUnknown()
+    {
+        CostBasis = null;
+        ConcurrencyStamp = Guid.NewGuid();
+    }
+
+    public void Archive(DateTime at)
+    {
+        ArchivedAt ??= at;
+        ConcurrencyStamp = Guid.NewGuid();
+    }
 
     public decimal? VariationPct() =>
         InitialValue <= decimal.Zero ? null : Math.Round((CurrentValue - InitialValue) / InitialValue * 100m, 2);

@@ -11,7 +11,8 @@ internal sealed class PaymentAllocationConfiguration : IEntityTypeConfiguration<
         builder.ToTable("payment_allocations");
 
         builder.HasKey(a => a.Id);
-        builder.Property(a => a.Id).HasColumnName("id");
+        // Allocations receive their UUIDs in the domain before graph enrollment.
+        builder.Property(a => a.Id).HasColumnName("id").ValueGeneratedNever();
 
         builder.Property(a => a.PaymentId).HasColumnName("payment_id").IsRequired();
         builder.Property(a => a.InstallmentId).HasColumnName("installment_id").IsRequired();

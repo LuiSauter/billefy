@@ -9,7 +9,22 @@ public sealed class LoanPayment : Entity
 
     public Guid LoanId { get; private init; }
     public Guid? AccountId { get; private init; }
-    public Guid? LedgerTransactionId { get; private init; }
+    public Guid? LedgerTransactionId { get; private set; }
+    public Guid? InterestTransactionId { get; private set; }
+    public Guid? IdempotencyKey { get; private set; }
+    public string? Fingerprint { get; private set; }
+    public string? AccountingResult { get; private set; }
+    public void StoreAccountingResult(string result)
+    {
+        if (AccountingResult is not null) throw new InvalidOperationException("Payment response is immutable.");
+        AccountingResult = result;
+    }
+    public void LinkAccounting(Guid? principalTransactionId, Guid? interestTransactionId, Guid? key, string fingerprint)
+    {
+        if (Fingerprint is not null) throw new InvalidOperationException("Payment accounting is immutable.");
+        LedgerTransactionId = principalTransactionId; InterestTransactionId = interestTransactionId;
+        IdempotencyKey = key; Fingerprint = fingerprint;
+    }
     public Money Amount { get; private init; }
     public DateTime PaymentDate { get; private init; }
     public string? Note { get; private init; }

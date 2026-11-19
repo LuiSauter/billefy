@@ -129,6 +129,19 @@ namespace Planning.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
+                    b.Property<int>("FundingMode")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("funding_mode");
+
+                    b.Property<long>("FundingRevision")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasDefaultValue(0L)
+                        .HasColumnName("funding_revision");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(150)
@@ -166,6 +179,71 @@ namespace Planning.Infrastructure.Migrations
                     b.ToTable("goals", (string)null);
                 });
 
+            modelBuilder.Entity("Planning.Domain.Goals.GoalFundingAccount", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid");
+
+                    b.Property<long>("Revision")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.HasKey("UserId", "AccountId");
+
+                    b.ToTable("goal_funding_accounts", (string)null);
+                });
+
+            modelBuilder.Entity("Planning.Domain.Goals.GoalFundingEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<bool>("ExplicitDate")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("GoalId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("IdempotencyKey")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("OccurredAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal>("SignedAmount")
+                        .HasPrecision(28, 8)
+                        .HasColumnType("numeric(28,8)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GoalId");
+
+                    b.HasIndex("UserId", "AccountId");
+
+                    b.HasIndex("UserId", "IdempotencyKey")
+                        .IsUnique();
+
+                    b.ToTable("goal_funding_entries", (string)null);
+                });
+
             modelBuilder.Entity("Planning.Domain.Investments.Investment", b =>
                 {
                     b.Property<Guid>("Id")
@@ -182,6 +260,18 @@ namespace Planning.Infrastructure.Migrations
                         .HasMaxLength(30)
                         .HasColumnType("character varying(30)")
                         .HasColumnName("color_key");
+
+                    b.Property<Guid>("ConcurrencyStamp")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValue(new Guid("00000000-0000-0000-0000-000000000000"))
+                        .HasColumnName("concurrency_stamp");
+
+                    b.Property<decimal?>("CostBasis")
+                        .HasPrecision(20, 6)
+                        .HasColumnType("numeric(20,6)")
+                        .HasColumnName("cost_basis");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -331,6 +421,15 @@ namespace Planning.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("occurred_at");
 
+                    b.Property<Guid?>("PurchaseKey")
+                        .HasColumnType("uuid")
+                        .HasColumnName("purchase_key");
+
+                    b.Property<string>("PurchasePayloadHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("purchase_payload_hash");
+
                     b.Property<decimal>("Quantity")
                         .HasPrecision(28, 10)
                         .HasColumnType("numeric(28,10)")
@@ -361,6 +460,10 @@ namespace Planning.Infrastructure.Migrations
                     b.HasIndex("LedgerTransactionId");
 
                     b.HasIndex("InvestmentId", "UserId");
+
+                    b.HasIndex("UserId", "PurchaseKey")
+                        .IsUnique()
+                        .HasFilter("purchase_key IS NOT NULL");
 
                     b.HasIndex("UserId", "InvestmentId", "OccurredAt");
 
@@ -472,6 +575,15 @@ namespace Planning.Infrastructure.Migrations
                     b.HasIndex("UserId", "Status");
 
                     b.ToTable("recurring_payments", (string)null);
+                });
+
+            modelBuilder.Entity("Planning.Domain.Goals.GoalFundingEntry", b =>
+                {
+                    b.HasOne("Planning.Domain.Goals.Goal", null)
+                        .WithMany()
+                        .HasForeignKey("GoalId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Planning.Domain.Investments.InvestmentCashLink", b =>

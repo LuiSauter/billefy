@@ -53,7 +53,10 @@ public sealed record CreateLoanRequest(
     int CompoundingPeriods = 1,
     DateOnly? MaturityDate = null,
     string? EarlyPaymentPolicy = null,
-    string? AllocationOrder = null);
+    string? AllocationOrder = null,
+    string OriginationKind = "CashDisbursement",
+    string LoanKind = "Loan",
+    Guid? IdempotencyKey = null);
 
 public sealed record LoanCancellationEligibilityDto(bool CanCancel, string? ReasonCode);
 
@@ -81,7 +84,9 @@ public sealed record LoanSummaryDto(
     int GraceDays = 0,
     string? AllocationOrder = null,
     decimal TotalPayoff = 0m,
-    decimal? SuggestedAmount = null);
+    decimal? SuggestedAmount = null,
+    string? OriginationKind = null,
+    string? LoanKind = null);
 
 public sealed record LoanInstallmentDto(
     Guid Id,
@@ -160,13 +165,21 @@ public sealed record LoanPaymentQuoteDto(
 public sealed record LoanDetailDto(
     LoanSummaryDto Summary,
     List<LoanInstallmentDto> Installments,
-    List<LoanPaymentDto> Payments);
+    List<LoanPaymentDto> Payments,
+    List<CardPurchaseDto>? Purchases = null);
 
 public sealed record RegisterLoanPaymentRequest(
     decimal Amount,
     DateTime? PaymentDate = null,
     Guid? AccountId = null,
-    string? Note = null);
+    string? Note = null,
+    Guid? InterestCategoryId = null,
+    Guid? IdempotencyKey = null);
+
+public sealed record RegisterCardPurchaseRequest(decimal Amount, string Currency, Guid? CategoryId,
+    DateTime OccurredAt, string? Description = null, Guid? IdempotencyKey = null);
+public sealed record CardPurchaseDto(Guid Id, decimal Amount, string Currency, Guid? CategoryId,
+    DateTime OccurredAt, string? Description, Guid LedgerTransactionId);
 
 public sealed record LoanPaymentResultDto(
     Guid PaymentId,

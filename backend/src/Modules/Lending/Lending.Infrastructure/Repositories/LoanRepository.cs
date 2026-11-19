@@ -11,6 +11,7 @@ internal sealed class LoanRepository(LendingDbContext context) : ILoanRepository
     public Task<Loan?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         return context.Loans
+            .Include(l => l.Purchases)
             .Include(l => l.Installments)
             .Include(l => l.Payments)
                 .ThenInclude(p => p.Allocations)
@@ -38,6 +39,7 @@ internal sealed class LoanRepository(LendingDbContext context) : ILoanRepository
         // Ensure a pre-lock tracked snapshot cannot survive the lock and become authoritative.
         context.ChangeTracker.Clear();
         return await context.Loans.IgnoreQueryFilters()
+            .Include(l => l.Purchases)
             .Include(l => l.Installments)
             .Include(l => l.Payments).ThenInclude(p => p.Allocations)
             .SingleOrDefaultAsync(l => l.Id == id && l.UserId == userId, cancellationToken);
@@ -52,6 +54,7 @@ internal sealed class LoanRepository(LendingDbContext context) : ILoanRepository
         var query = context.Loans
             .IgnoreQueryFilters()
             .AsNoTracking()
+            .Include(l => l.Purchases)
             .Include(l => l.Installments)
             .Include(l => l.Payments)
                 .ThenInclude(p => p.Allocations)
@@ -84,7 +87,12 @@ internal sealed class LoanRepository(LendingDbContext context) : ILoanRepository
 
     public Task UpdateAsync(Loan loan, CancellationToken cancellationToken = default)
     {
-        // Entity is tracked by context. SaveChanges detects modifications and newly added payments.
+        // Explicitly enroll newly appended obligations/events with application UUIDs;
+        // EF must not infer them as updates to existing generated-key rows.
+        foreach (var installment in loan.Installments)
+            if (context.Entry(installment).State == EntityState.Detached) context.Installments.Add(installment);
+        foreach (var purchase in loan.Purchases)
+            if (context.Entry(purchase).State == EntityState.Detached) context.Purchases.Add(purchase);
         return Task.CompletedTask;
     }
 }

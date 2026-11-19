@@ -25,6 +25,9 @@ internal sealed class TransactionConfiguration : IEntityTypeConfiguration<Transa
         builder.Property(t => t.AccountId).HasColumnName("account_id").IsRequired();
         builder.Property(t => t.Direction).HasColumnName("direction").HasConversion<string>().HasMaxLength(20).IsRequired();
         builder.Property(t => t.CategoryId).HasColumnName("category_id");
+        builder.Property(t => t.LoanId).HasColumnName("loan_id");
+        builder.Property(t => t.LoanCashKind).HasColumnName("loan_cash_kind").HasConversion<string>().HasMaxLength(20);
+        builder.HasIndex(t => t.LoanId);
         builder.Property(t => t.OccurredAt).HasColumnName("occurred_at").IsRequired();
         builder.Property(t => t.Description).HasColumnName("description").HasMaxLength(500);
         builder.Property(t => t.ReversesId).HasColumnName("reverses_id");

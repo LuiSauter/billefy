@@ -1145,6 +1145,253 @@ public class LedgerIntegrationTests
         invalid.IsFailure.Should().BeTrue();
     }
 
+    [Theory]
+    [InlineData(AccountType.Cash)]
+    [InlineData(AccountType.Savings)]
+    [InlineData(AccountType.Wallet)]
+    [InlineData(AccountType.CryptoWallet)]
+    [InlineData(AccountType.Exchange)]
+    [InlineData(AccountType.International)]
+    public async Task RegisterTransaction_ExpenseExceedingBalance_IsRejected_ForNonOverdraftAccountTypes(AccountType accountType)
+    {
+        var userContext = new TestUserContext();
+        var clock = new TestClock();
+        var (context, connection) = CreateDbContext(userContext);
+        using var _ = connection;
+        using var __ = context;
+
+        var accountRepo = new AccountRepository(context);
+        var txnRepo = new TransactionRepository(context);
+        var unitOfWork = new UnitOfWork(context);
+
+        var createAccountHandler = new CreateAccountCommandHandler(accountRepo, userContext, clock, unitOfWork, new TestCurrencyCatalog());
+        var createResult = await createAccountHandler.HandleAsync(new CreateAccountCommand("Cuenta", accountType, "BOB", 0m));
+        createResult.IsSuccess.Should().BeTrue();
+        var accountId = createResult.Value;
+
+        var registerHandler = new RegisterTransactionCommandHandler(accountRepo, txnRepo, userContext, clock, unitOfWork);
+        var txnResult = await registerHandler.HandleAsync(new RegisterTransactionCommand(
+            accountId, 1m, TransactionDirection.Expense, null, clock.UtcNow, "Gasto excede saldo"));
+
+        txnResult.IsFailure.Should().BeTrue();
+        txnResult.Error.Code.Should().Be("Transaction.InsufficientFunds");
+
+        var balance = await context.CalculateAccountBalanceAsync(accountId);
+        balance.Amount.Should().Be(0m, "the rejected expense must not have been persisted.");
+    }
+
+    [Theory]
+    [InlineData(AccountType.Checking)]
+    [InlineData(AccountType.Bank)]
+    public async Task RegisterTransaction_ExpenseExceedingBalance_IsAllowed_ForOverdraftAccountTypes(AccountType accountType)
+    {
+        var userContext = new TestUserContext();
+        var clock = new TestClock();
+        var (context, connection) = CreateDbContext(userContext);
+        using var _ = connection;
+        using var __ = context;
+
+        var accountRepo = new AccountRepository(context);
+        var txnRepo = new TransactionRepository(context);
+        var unitOfWork = new UnitOfWork(context);
+
+        var createAccountHandler = new CreateAccountCommandHandler(accountRepo, userContext, clock, unitOfWork, new TestCurrencyCatalog());
+        var createResult = await createAccountHandler.HandleAsync(new CreateAccountCommand("Cuenta", accountType, "BOB", 0m));
+        var accountId = createResult.Value;
+
+        var registerHandler = new RegisterTransactionCommandHandler(accountRepo, txnRepo, userContext, clock, unitOfWork);
+        var txnResult = await registerHandler.HandleAsync(new RegisterTransactionCommand(
+            accountId, 1m, TransactionDirection.Expense, null, clock.UtcNow, "Gasto excede saldo"));
+
+        txnResult.IsSuccess.Should().BeTrue();
+        var balance = await context.CalculateAccountBalanceAsync(accountId);
+        balance.Amount.Should().Be(-1m, "Checking/Bank accounts may legitimately overdraft (existing TXN-03 behavior).");
+    }
+
+    [Fact]
+    public async Task RegisterTransaction_IncomeOnNonOverdraftAccount_IsNeverBlockedByTheGuard()
+    {
+        var userContext = new TestUserContext();
+        var clock = new TestClock();
+        var (context, connection) = CreateDbContext(userContext);
+        using var _ = connection;
+        using var __ = context;
+
+        var accountRepo = new AccountRepository(context);
+        var txnRepo = new TransactionRepository(context);
+        var unitOfWork = new UnitOfWork(context);
+
+        var createAccountHandler = new CreateAccountCommandHandler(accountRepo, userContext, clock, unitOfWork, new TestCurrencyCatalog());
+        var createResult = await createAccountHandler.HandleAsync(new CreateAccountCommand("Efectivo", AccountType.Cash, "BOB", 0m));
+        var accountId = createResult.Value;
+
+        var registerHandler = new RegisterTransactionCommandHandler(accountRepo, txnRepo, userContext, clock, unitOfWork);
+        var txnResult = await registerHandler.HandleAsync(new RegisterTransactionCommand(
+            accountId, 50m, TransactionDirection.Income, null, clock.UtcNow, "Ingreso"));
+
+        txnResult.IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task RegisterTransaction_ExpenseExactlyEqualToBalance_IsAllowed_ForNonOverdraftAccountTypes()
+    {
+        var userContext = new TestUserContext();
+        var clock = new TestClock();
+        var (context, connection) = CreateDbContext(userContext);
+        using var _ = connection;
+        using var __ = context;
+
+        var accountRepo = new AccountRepository(context);
+        var txnRepo = new TransactionRepository(context);
+        var unitOfWork = new UnitOfWork(context);
+
+        var createAccountHandler = new CreateAccountCommandHandler(accountRepo, userContext, clock, unitOfWork, new TestCurrencyCatalog());
+        var createResult = await createAccountHandler.HandleAsync(new CreateAccountCommand("Billetera", AccountType.Wallet, "BOB", 40m));
+        var accountId = createResult.Value;
+
+        var registerHandler = new RegisterTransactionCommandHandler(accountRepo, txnRepo, userContext, clock, unitOfWork);
+        var txnResult = await registerHandler.HandleAsync(new RegisterTransactionCommand(
+            accountId, 40m, TransactionDirection.Expense, null, clock.UtcNow, "Gasto exacto"));
+
+        txnResult.IsSuccess.Should().BeTrue("an exact-balance expense is allowed, mirroring TXN-03's exact-balance-transfer rule.");
+        var balance = await context.CalculateAccountBalanceAsync(accountId);
+        balance.Amount.Should().Be(0m);
+    }
+
+    [Fact]
+    public async Task UpdateTransaction_EditingExpenseOnNonOverdraftAccount_DoesNotDoubleCountTheOriginalAmount()
+    {
+        var userContext = new TestUserContext();
+        var clock = new TestClock();
+        var (context, connection) = CreateDbContext(userContext);
+        using var _ = connection;
+        using var __ = context;
+
+        var accountRepo = new AccountRepository(context);
+        var txnRepo = new TransactionRepository(context);
+        var categoryRepo = new CategoryRepository(context);
+        var unitOfWork = new UnitOfWork(context);
+
+        var createAccountHandler = new CreateAccountCommandHandler(accountRepo, userContext, clock, unitOfWork, new TestCurrencyCatalog());
+        var createResult = await createAccountHandler.HandleAsync(new CreateAccountCommand("Ahorros", AccountType.Savings, "BOB", 40m));
+        var accountId = createResult.Value;
+
+        var registerHandler = new RegisterTransactionCommandHandler(accountRepo, txnRepo, userContext, clock, unitOfWork);
+        var reverseHandler = new ReverseTransactionCommandHandler(txnRepo, userContext, clock, unitOfWork);
+        var service = new TransactionService(txnRepo, registerHandler, null!, reverseHandler, userContext, clock, accountRepo, unitOfWork, categoryRepo);
+
+        var original = await registerHandler.HandleAsync(new RegisterTransactionCommand(
+            accountId, 40m, TransactionDirection.Expense, null, clock.UtcNow, "Gasto original"));
+        original.IsSuccess.Should().BeTrue();
+
+        // Editing the same 40 expense to still be 40 (same account, same amount) must not be
+        // rejected by double-counting the still-active original transaction as a second 40 expense
+        // against a balance of 0 before the reversal is persisted.
+        var editResult = await service.UpdateTransactionAsync(original.Value,
+            new UpdateTransactionRequest(accountId, 40m, TransactionDirection.Expense, null, clock.UtcNow, "Gasto editado"));
+
+        editResult.IsSuccess.Should().BeTrue("editing an expense back to the same amount must not be blocked by double-counting the original.");
+        var balance = await context.CalculateAccountBalanceAsync(accountId);
+        balance.Amount.Should().Be(0m);
+    }
+
+    [Fact]
+    public async Task UpdateTransaction_IncreasingExpenseBeyondBalance_IsRejected_ForNonOverdraftAccountTypes()
+    {
+        var userContext = new TestUserContext();
+        var clock = new TestClock();
+        var (context, connection) = CreateDbContext(userContext);
+        using var _ = connection;
+        using var __ = context;
+
+        var accountRepo = new AccountRepository(context);
+        var txnRepo = new TransactionRepository(context);
+        var categoryRepo = new CategoryRepository(context);
+        var unitOfWork = new UnitOfWork(context);
+
+        var createAccountHandler = new CreateAccountCommandHandler(accountRepo, userContext, clock, unitOfWork, new TestCurrencyCatalog());
+        var createResult = await createAccountHandler.HandleAsync(new CreateAccountCommand("Ahorros", AccountType.Savings, "BOB", 40m));
+        var accountId = createResult.Value;
+
+        var registerHandler = new RegisterTransactionCommandHandler(accountRepo, txnRepo, userContext, clock, unitOfWork);
+        var reverseHandler = new ReverseTransactionCommandHandler(txnRepo, userContext, clock, unitOfWork);
+        var service = new TransactionService(txnRepo, registerHandler, null!, reverseHandler, userContext, clock, accountRepo, unitOfWork, categoryRepo);
+
+        var original = await registerHandler.HandleAsync(new RegisterTransactionCommand(
+            accountId, 40m, TransactionDirection.Expense, null, clock.UtcNow, "Gasto original"));
+        original.IsSuccess.Should().BeTrue();
+
+        // Balance is 0 after the original 40 expense. Editing it to 50 would leave -10, which must
+        // be rejected for a Savings account, without the still-active original 40 being counted twice.
+        var editResult = await service.UpdateTransactionAsync(original.Value,
+            new UpdateTransactionRequest(accountId, 50m, TransactionDirection.Expense, null, clock.UtcNow, "Gasto aumentado"));
+
+        editResult.IsFailure.Should().BeTrue();
+        editResult.Error.Code.Should().Be("Transaction.InsufficientFunds");
+        var balance = await context.CalculateAccountBalanceAsync(accountId);
+        balance.Amount.Should().Be(0m, "the rejected edit must leave the original 40 expense untouched.");
+    }
+
+    [Fact]
+    public async Task UpdateTransaction_DecreasingExpenseOnNonOverdraftAccount_IsAllowed()
+    {
+        var userContext = new TestUserContext();
+        var clock = new TestClock();
+        var (context, connection) = CreateDbContext(userContext);
+        using var _ = connection;
+        using var __ = context;
+
+        var accountRepo = new AccountRepository(context);
+        var txnRepo = new TransactionRepository(context);
+        var categoryRepo = new CategoryRepository(context);
+        var unitOfWork = new UnitOfWork(context);
+
+        var createAccountHandler = new CreateAccountCommandHandler(accountRepo, userContext, clock, unitOfWork, new TestCurrencyCatalog());
+        var createResult = await createAccountHandler.HandleAsync(new CreateAccountCommand("Ahorros", AccountType.Savings, "BOB", 40m));
+        var accountId = createResult.Value;
+
+        var registerHandler = new RegisterTransactionCommandHandler(accountRepo, txnRepo, userContext, clock, unitOfWork);
+        var reverseHandler = new ReverseTransactionCommandHandler(txnRepo, userContext, clock, unitOfWork);
+        var service = new TransactionService(txnRepo, registerHandler, null!, reverseHandler, userContext, clock, accountRepo, unitOfWork, categoryRepo);
+
+        var original = await registerHandler.HandleAsync(new RegisterTransactionCommand(
+            accountId, 40m, TransactionDirection.Expense, null, clock.UtcNow, "Gasto original"));
+        original.IsSuccess.Should().BeTrue();
+
+        var editResult = await service.UpdateTransactionAsync(original.Value,
+            new UpdateTransactionRequest(accountId, 10m, TransactionDirection.Expense, null, clock.UtcNow, "Gasto reducido"));
+
+        editResult.IsSuccess.Should().BeTrue();
+        var balance = await context.CalculateAccountBalanceAsync(accountId);
+        balance.Amount.Should().Be(30m);
+    }
+
+    [Fact]
+    public async Task RegisterTransfer_FromNonOverdraftAccount_StillUsesExistingTransferGuard_UnaffectedByNewExpenseGuard()
+    {
+        var userContext = new TestUserContext();
+        var clock = new TestClock();
+        var (context, connection) = CreateDbContext(userContext);
+        using var _ = connection;
+        using var __ = context;
+
+        var accountRepo = new AccountRepository(context);
+        var txnRepo = new TransactionRepository(context);
+        var unitOfWork = new UnitOfWork(context);
+
+        var createAccountHandler = new CreateAccountCommandHandler(accountRepo, userContext, clock, unitOfWork, new TestCurrencyCatalog());
+        var sourceResult = await createAccountHandler.HandleAsync(new CreateAccountCommand("Efectivo", AccountType.Cash, "BOB", 20m));
+        var destResult = await createAccountHandler.HandleAsync(new CreateAccountCommand("Banco", AccountType.Bank, "BOB", 0m));
+
+        var transferHandler = new RegisterTransferCommandHandler(accountRepo, txnRepo, userContext, clock, unitOfWork);
+        var transferResult = await transferHandler.HandleAsync(new RegisterTransferCommand(
+            sourceResult.Value, 50m, destResult.Value, 50m, clock.UtcNow, null, null, "Transferencia excede saldo"));
+
+        transferResult.IsFailure.Should().BeTrue();
+        transferResult.Error.Code.Should().Be("Transfer.InsufficientFunds",
+            "transfers keep their own pre-existing guard untouched by the new expense-only guard.");
+    }
+
     private sealed class StaleReversalReadRepository(ITransactionRepository inner, int initialMisses) : ITransactionRepository
     {
         private int _misses = initialMisses;

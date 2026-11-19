@@ -5,6 +5,7 @@ using BuildingBlocks.Time;
 using Ledger.Contracts;
 using Microsoft.AspNetCore.Mvc;
 using Planning.Application.Services;
+using Planning.Application.Abstractions;
 using Planning.Contracts;
 using System.Text.Json;
 
@@ -176,14 +177,28 @@ public static class PlanningEndpoints
         group.MapPost("/investments/{id:guid}/operations", async (
             [FromRoute] Guid id,
             [FromBody] RegisterInvestmentOperationRequest request,
+            [FromHeader(Name = "Idempotency-Key")] Guid? key,
             IInvestmentService service,
+            RelationalInvestmentCashTransaction coordinator,
+            ILedgerModule ledger,
+            ICurrentUserContext user,
+            IClock clock,
             CancellationToken ct) =>
         {
+            // A supplied purchase key must not bypass its payload binding by changing type or omitting the account.
+            if (key.HasValue || ((string.Equals(request.Type, "Buy", StringComparison.OrdinalIgnoreCase) || string.Equals(request.Type, "Dividend", StringComparison.OrdinalIgnoreCase)) && request.LinkedAccountId.HasValue))
+            {
+                var purchase = await coordinator.PurchaseAsync(id, request, key, ledger, user, clock, ct);
+                return purchase.ToHttpResult(value => value.Replayed ? Results.Ok(value.Operation)
+                    : Results.Created($"/v1/planning/investments/{id}/transactions/{value.Operation.Id}", value.Operation));
+            }
             var result = await service.RegisterOperationAsync(id, request, ct);
             return result.ToHttpResult(tx => Results.Created($"/v1/planning/investments/{id}/transactions/{tx.Id}", tx));
         })
         .WithName("RegisterInvestmentOperation")
         .WithSummary("Register an immutable investment operation (buy, sell, dividend, fee, revaluation).")
+        .WithDescription("Buy with linkedAccountId atomically debits same-currency cash and increases units, value and known historical cost. Dividend with linkedAccountId atomically credits cash as recognized income and appends linked immutable history without changing units, value or cost. Its quantity, unitPrice and fees must be zero; totalAmount is the positive received amount in account currency precision. Idempotency-Key UUID is reserved for funded purchases and dividends and required for them: exact replay returns 200, changed payload (including type or omitted account) 409. totalAmount is quantity × unitPrice rounded away from zero to currency precision; fees are separate and capitalized. Unlinked legacy operations retain their previous cash-neutral behavior. Revaluation records an effective date/reference price without cash; quantity 0 preserves position units. Cash-only reversal of funded purchases is blocked.")
+        .Produces<InvestmentTransactionDto>(StatusCodes.Status200OK)
         .Produces<InvestmentTransactionDto>(StatusCodes.Status201Created)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
@@ -368,6 +383,34 @@ public static class PlanningEndpoints
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status401Unauthorized);
 
+        // Goal funding is earmarking only: it never posts to Ledger.
+        group.MapPost("/goals/{id:guid}/funding/{kind}", async (
+            Guid id, string kind, [FromBody] GoalFundingRequest request,
+            [FromHeader(Name = "Idempotency-Key")] Guid? key, IGoalFundingService service, CancellationToken ct) =>
+        {
+            var result = await service.RecordAsync(id, kind, request, key, ct);
+            return result.ToHttpResult(value => value.Replayed
+                ? Results.Ok(value.Entry)
+                : Results.Created($"/v1/planning/goals/{id}/funding", value.Entry));
+        })
+        .WithName("RecordGoalFunding")
+        .WithSummary("Assign or release earmarked funds without moving cash.")
+        .WithDescription("kind is assign or release; a nonempty Idempotency-Key UUID is required. Positive currency-precision amounts only. Assignments are capped across all reserved goals of the account. Subsequent spending is allowed and may produce accountFundingShortfall. Same key/payload replays; conflicting payloads or competing writes return 409. No automatic retry.")
+        .Produces<GoalFundingEntryDto>(StatusCodes.Status201Created)
+        .Produces<GoalFundingEntryDto>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict);
+
+        group.MapGet("/goals/{id:guid}/funding", async (Guid id, IGoalFundingService service, CancellationToken ct) =>
+            (await service.GetHistoryAsync(id, ct)).ToHttpResult())
+        .WithName("GetGoalFunding")
+        .WithSummary("List the immutable assignment and release history for an owned goal.")
+        .Produces<List<GoalFundingEntryDto>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status404NotFound);
+
         // Goals
         group.MapPost("/goals", async (
             [FromBody] CreateGoalRequest request,
@@ -379,6 +422,7 @@ public static class PlanningEndpoints
         })
         .WithName("CreateGoal")
         .WithSummary("Create a savings goal with target amount, target date, and associated account (BUD-03).")
+        .WithDescription("Optional fundingMode defaults to AccountTracking (full linked-account balance). ReservedFunds starts at zero, requires an owned same-currency account, and never posts a ledger transaction. Funding entries explicitly assign or release earmarks. Unknown/null modes return 400 Goal.InvalidFundingMode.")
         .Produces(StatusCodes.Status201Created)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status401Unauthorized);
@@ -391,7 +435,8 @@ public static class PlanningEndpoints
             return result.ToHttpResult();
         })
         .WithName("GetGoals")
-        .WithSummary("List savings goals evaluated with current account progress and required monthly contribution.")
+        .WithSummary("List savings goals with funding mode, progress, and required monthly contribution.")
+        .WithDescription("AccountTracking uses the full linked-account balance. ReservedFunds uses net assignment history. accountReservedAmount and accountFundingShortfall are shared account-wide totals; do not add them across goals. reservationStatus is funded, underfunded, or unavailable. Spending never silently releases reservations.")
         .Produces<List<GoalDto>>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status401Unauthorized);
 
@@ -406,6 +451,7 @@ public static class PlanningEndpoints
         })
         .WithName("UpdateGoal")
         .WithSummary("Update a savings goal.")
+        .WithDescription("Preserves fundingMode. A ReservedFunds goal cannot be unlinked or change accounts after funding history exists. Goals with funding history cannot be deleted. Editing does not assign funds or post transactions.")
         .Produces(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status401Unauthorized)

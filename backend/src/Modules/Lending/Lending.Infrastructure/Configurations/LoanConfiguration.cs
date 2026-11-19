@@ -16,6 +16,12 @@ internal sealed class LoanConfiguration : IEntityTypeConfiguration<Loan>
 
         builder.Property(l => l.UserId).HasColumnName("user_id").IsRequired();
         builder.Property(l => l.CounterpartyId).HasColumnName("counterparty_id").IsRequired();
+        builder.Property(l => l.OriginationKind).HasColumnName("origination_kind").HasMaxLength(30);
+        builder.Property(l => l.LoanKind).HasColumnName("loan_kind").HasMaxLength(20);
+        builder.Property(l => l.CreationKey).HasColumnName("creation_key");
+        builder.Property(l => l.CreationFingerprint).HasColumnName("creation_fingerprint").HasMaxLength(64);
+        builder.HasIndex(l => new { l.UserId, l.CreationKey }).IsUnique();
+        builder.HasMany(l => l.Purchases).WithOne().HasForeignKey(p => p.LoanId).OnDelete(DeleteBehavior.Cascade);
         builder.Property(l => l.DisbursementAccountId).HasColumnName("disbursement_account_id");
         builder.Property(l => l.DisbursementTransactionId).HasColumnName("disbursement_transaction_id");
         builder.Property(l => l.DisbursementReversalTransactionId).HasColumnName("disbursement_reversal_transaction_id");

@@ -16,6 +16,9 @@ internal sealed class GoalConfiguration : IEntityTypeConfiguration<Goal>
 
         builder.Property(g => g.UserId).HasColumnName("user_id").IsRequired();
         builder.Property(g => g.AccountId).HasColumnName("account_id");
+        builder.Property(g => g.FundingRevision).HasColumnName("funding_revision").HasDefaultValue(0L).IsConcurrencyToken();
+        builder.Property(g => g.FundingMode).HasColumnName("funding_mode")
+            .HasConversion<int>().HasDefaultValue(GoalFundingMode.AccountTracking).IsRequired();
         builder.Property(g => g.Name).HasColumnName("name").HasMaxLength(150).IsRequired();
 
         // ComplexProperty TargetAmount

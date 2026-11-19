@@ -22,6 +22,9 @@ internal sealed class InvestmentTransactionConfiguration : IEntityTypeConfigurat
         builder.Property(t => t.OccurredAt).HasColumnName("occurred_at").IsRequired();
         builder.Property(t => t.Notes).HasColumnName("notes").HasMaxLength(500);
         builder.Property(t => t.LedgerTransactionId).HasColumnName("ledger_transaction_id");
+        builder.Property(t => t.PurchaseKey).HasColumnName("purchase_key");
+        builder.Property(t => t.PurchasePayloadHash).HasColumnName("purchase_payload_hash").HasMaxLength(64);
+        builder.HasIndex(t => new { t.UserId, t.PurchaseKey }).IsUnique().HasFilter("purchase_key IS NOT NULL");
         builder.Property(t => t.CreatedAt).HasColumnName("created_at").IsRequired();
 
         builder.HasIndex(t => new { t.UserId, t.InvestmentId, t.OccurredAt });

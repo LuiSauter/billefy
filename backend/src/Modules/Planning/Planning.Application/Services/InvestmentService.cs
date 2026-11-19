@@ -148,16 +148,33 @@ public sealed class InvestmentService(
                     return Result.Failure<InvestmentTransactionDto>(Error.Validation("Investment.InvalidQuantity", "Quantity must be strictly positive for buy operations."));
                 newQuantity = investment.Quantity + request.Quantity;
                 newCurrentValue = investment.CurrentValue + request.TotalAmount;
-                investment.UpdateValue(newCurrentValue, newQuantity, occurredAt);
+                // Unfunded legacy operations retain their existing cash/value semantics.
+                investment.ApplyPurchase(request.Quantity, request.TotalAmount, occurredAt);
                 break;
 
             case InvestmentTransactionType.Sell:
                 if (request.Quantity <= decimal.Zero)
                     return Result.Failure<InvestmentTransactionDto>(Error.Validation("Investment.InvalidQuantity", "Quantity must be strictly positive for sell operations."));
-                newQuantity = Math.Max(decimal.Zero, investment.Quantity - request.Quantity);
-                newCurrentValue = Math.Max(decimal.Zero, investment.CurrentValue - (request.Quantity * request.UnitPrice));
-                if (newQuantity == decimal.Zero) newCurrentValue = decimal.Zero;
-                if (newCurrentValue > decimal.Zero)
+                if (request.Quantity > investment.Quantity)
+                    return Result.Failure<InvestmentTransactionDto>(Error.Validation("Investment.InsufficientQuantity",
+                        "Cannot sell more units than the investment currently holds."));
+                newQuantity = investment.Quantity - request.Quantity;
+                newCurrentValue = investment.CurrentValue - (request.Quantity * request.UnitPrice);
+                // Legacy sale math is unchanged; no supported sale-cost allocation can establish remaining basis.
+                investment.MarkCostUnknown();
+                if (newQuantity == decimal.Zero)
+                {
+                    // A full sale liquidates the position: there is nothing left to hold a positive
+                    // value, so this is represented as an archived (closed) investment instead of a
+                    // live position stuck at a value UpdateValue would reject (it requires > 0).
+                    investment.Archive(occurredAt);
+                }
+                else if (newCurrentValue <= decimal.Zero)
+                {
+                    return Result.Failure<InvestmentTransactionDto>(Error.Validation("Investment.InvalidSaleValue",
+                        "This partial sale would leave the remaining position at zero or negative value."));
+                }
+                else
                 {
                     investment.UpdateValue(newCurrentValue, newQuantity, occurredAt);
                 }
@@ -223,9 +240,11 @@ public sealed class InvestmentService(
         i.GetHistory().Select(p => new InvestmentValuePointDto(p.At, p.Value)).ToList(),
         i.CreatedAt,
         i.ArchivedAt,
-        i.Ticker);
+        i.Ticker,
+        i.CostBasis,
+        i.CostBasis.HasValue ? i.CurrentValue - i.CostBasis.Value : null);
 
-    private static InvestmentTransactionDto ToTransactionDto(InvestmentTransaction t) => new(
+    public static InvestmentTransactionDto ToTransactionDto(InvestmentTransaction t) => new(
         t.Id,
         t.InvestmentId,
         t.Type.ToString(),

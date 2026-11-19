@@ -12,9 +12,18 @@ public sealed record GoalProgress(
     int? MonthsRemaining,
     decimal? MonthlyContributionNeeded);
 
+public enum GoalFundingMode
+{
+    AccountTracking = 0,
+    ReservedFunds = 1
+}
+
 public sealed class Goal : Entity
 {
     public Guid? AccountId { get; private set; }
+    public GoalFundingMode FundingMode { get; private set; }
+    public long FundingRevision { get; private set; }
+    public void AdvanceFundingRevision() => FundingRevision = checked(FundingRevision + 1);
     public string Name { get; private set; }
     public Money TargetAmount { get; private set; }
     public DateOnly? TargetDate { get; private set; }
@@ -32,7 +41,8 @@ public sealed class Goal : Entity
         string name,
         Money targetAmount,
         DateOnly? targetDate,
-        DateTime createdAt)
+        DateTime createdAt,
+        GoalFundingMode fundingMode = GoalFundingMode.AccountTracking)
         : base(id, userId, createdAt)
     {
         if (string.IsNullOrWhiteSpace(name))
@@ -41,7 +51,14 @@ public sealed class Goal : Entity
         if (targetAmount.Amount <= decimal.Zero)
             throw new ArgumentOutOfRangeException(nameof(targetAmount), "Goal target amount must be positive.");
 
+        if (!Enum.IsDefined(fundingMode))
+            throw new ArgumentOutOfRangeException(nameof(fundingMode), "Unknown goal funding mode.");
+
+        if (fundingMode == GoalFundingMode.ReservedFunds && (!accountId.HasValue || accountId == Guid.Empty))
+            throw new ArgumentException("Reserved-funds goals require a linked account.", nameof(accountId));
+
         AccountId = accountId;
+        FundingMode = fundingMode;
         Name = name.Trim();
         TargetAmount = targetAmount;
         TargetDate = targetDate;
@@ -53,7 +70,8 @@ public sealed class Goal : Entity
         Money targetAmount,
         DateOnly? targetDate,
         Guid? accountId,
-        DateTime? createdAt = null)
+        DateTime? createdAt = null,
+        GoalFundingMode fundingMode = GoalFundingMode.AccountTracking)
     {
         return new Goal(
             Guid.NewGuid(),
@@ -62,17 +80,21 @@ public sealed class Goal : Entity
             name,
             targetAmount,
             targetDate,
-            createdAt ?? DateTime.UtcNow);
+            createdAt ?? DateTime.UtcNow,
+            fundingMode);
     }
 
     public void Update(string name, Money targetAmount, DateOnly? targetDate, Guid? accountId)
     {
+        if (FundingMode == GoalFundingMode.ReservedFunds && (!accountId.HasValue || accountId == Guid.Empty))
+            throw new ArgumentException("Reserved-funds goals require a linked account.", nameof(accountId));
         if (string.IsNullOrWhiteSpace(name))
             throw new ArgumentException("Goal name cannot be empty.", nameof(name));
 
         if (targetAmount.Amount <= decimal.Zero)
             throw new ArgumentOutOfRangeException(nameof(targetAmount), "Goal target amount must be positive.");
 
+        if (FundingMode == GoalFundingMode.ReservedFunds) AdvanceFundingRevision();
         AccountId = accountId;
         Name = name.Trim();
         TargetAmount = targetAmount;

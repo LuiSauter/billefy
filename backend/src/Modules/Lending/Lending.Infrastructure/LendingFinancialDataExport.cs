@@ -20,6 +20,7 @@ public sealed class LendingFinancialDataExport(LendingDbContext db) : ILendingFi
             .Where(x => db.Loans.Any(loan => loan.Id == x.LoanId && loan.UserId == userId))
             .ToListAsync(cancellationToken);
         var payments = await db.Payments.AsNoTracking().Where(x => x.UserId == userId).ToListAsync(cancellationToken);
+        var purchases = await db.Purchases.AsNoTracking().Where(x => x.UserId == userId).ToListAsync(cancellationToken);
         var paymentAllocations = await db.PaymentAllocations.AsNoTracking()
             .Where(x => db.Payments.Any(payment => payment.Id == x.PaymentId && payment.UserId == userId))
             .ToListAsync(cancellationToken);
@@ -27,6 +28,6 @@ public sealed class LendingFinancialDataExport(LendingDbContext db) : ILendingFi
             .Where(x => x.UserId == userId).ToListAsync(cancellationToken);
 
         return JsonSerializer.SerializeToElement(
-            new { loans, installments, payments, paymentAllocations, counterparties }, JsonOptions);
+            new { loans, installments, payments, purchases, paymentAllocations, counterparties }, JsonOptions);
     }
 }

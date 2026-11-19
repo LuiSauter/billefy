@@ -11,7 +11,8 @@ internal sealed class LoanInstallmentConfiguration : IEntityTypeConfiguration<Lo
         builder.ToTable("installments");
 
         builder.HasKey(i => i.Id);
-        builder.Property(i => i.Id).HasColumnName("id");
+        // Domain-assigned IDs must remain inserts when discovered on a tracked loan.
+        builder.Property(i => i.Id).HasColumnName("id").ValueGeneratedNever();
 
         builder.Property(i => i.LoanId).HasColumnName("loan_id").IsRequired();
         builder.Property(i => i.Number).HasColumnName("number").IsRequired();

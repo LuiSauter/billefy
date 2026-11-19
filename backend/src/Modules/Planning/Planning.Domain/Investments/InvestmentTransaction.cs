@@ -22,6 +22,8 @@ public sealed class InvestmentTransaction : Entity
     public DateTime OccurredAt { get; private set; }
     public string? Notes { get; private set; }
     public Guid? LedgerTransactionId { get; private set; }
+    public Guid? PurchaseKey { get; private set; }
+    public string? PurchasePayloadHash { get; private set; }
 
     private InvestmentTransaction() : base() { }
 
@@ -81,6 +83,17 @@ public sealed class InvestmentTransaction : Entity
             notes,
             ledgerTransactionId,
             createdAt ?? DateTime.UtcNow);
+
+    public void BindPurchase(Guid key, string payloadHash) => BindCashOperation(key, payloadHash);
+
+    // Existing nullable key/hash columns identify both funded purchases and cash dividends.
+    public void BindCashOperation(Guid key, string payloadHash)
+    {
+        if (key == Guid.Empty || string.IsNullOrWhiteSpace(payloadHash) || PurchaseKey.HasValue)
+            throw new InvalidOperationException("A purchase requires one stable key and payload identity.");
+        PurchaseKey = key;
+        PurchasePayloadHash = payloadHash;
+    }
 
     public void LinkLedgerTransaction(Guid transactionId)
     {

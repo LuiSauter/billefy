@@ -17,7 +17,11 @@ public sealed class PlanningFinancialDataExport(PlanningDbContext db) : IPlannin
     {
         var budgets = await db.Budgets.AsNoTracking().Where(x => x.UserId == userId).ToListAsync(cancellationToken);
         var goals = await db.Goals.AsNoTracking().Where(x => x.UserId == userId).ToListAsync(cancellationToken);
+        var goalFundingEntries = await db.GoalFundingEntries.AsNoTracking().Where(x => x.UserId == userId).ToListAsync(cancellationToken);
+        var goalFundingAccounts = await db.GoalFundingAccounts.AsNoTracking().Where(x => x.UserId == userId).ToListAsync(cancellationToken);
         var investments = await db.Investments.AsNoTracking().Where(x => x.UserId == userId).ToListAsync(cancellationToken);
+        var investmentTransactions = await db.InvestmentTransactions.AsNoTracking()
+            .Where(x => x.UserId == userId).ToListAsync(cancellationToken);
         var investmentCashLinks = await db.InvestmentCashLinks.AsNoTracking()
             .Where(x => x.UserId == userId).ToListAsync(cancellationToken);
         var distributionPlans = await db.DistributionPlans.AsNoTracking()
@@ -26,6 +30,6 @@ public sealed class PlanningFinancialDataExport(PlanningDbContext db) : IPlannin
             .Where(x => x.UserId == userId).ToListAsync(cancellationToken);
 
         return JsonSerializer.SerializeToElement(
-            new { budgets, goals, investments, investmentCashLinks, distributionPlans, recurringPayments }, JsonOptions);
+            new { budgets, goals, goalFundingEntries, goalFundingAccounts, investments, investmentTransactions, investmentCashLinks, distributionPlans, recurringPayments }, JsonOptions);
     }
 }

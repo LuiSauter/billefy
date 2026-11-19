@@ -12,6 +12,7 @@ public sealed class LendingFinancialDataReset(LendingDbContext db) : ILendingFin
         await db.PaymentAllocations
             .Where(a => db.Payments.Where(p => p.UserId == userId).Select(p => p.Id).Contains(a.PaymentId))
             .ExecuteDeleteAsync(cancellationToken);
+        await db.Purchases.Where(x => x.UserId == userId).ExecuteDeleteAsync(cancellationToken);
         await db.Payments.Where(x => x.UserId == userId).ExecuteDeleteAsync(cancellationToken);
         await db.Installments
             .Where(i => db.Loans.Where(l => l.UserId == userId).Select(l => l.Id).Contains(i.LoanId))
