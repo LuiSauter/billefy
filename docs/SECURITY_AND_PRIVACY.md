@@ -103,11 +103,18 @@ This is the most privacy-sensitive feature.
 | Data | Retention |
 |---|---|
 | Raw captured text | 30 days from receipt |
-| Normalized transactions, drafts, loans, budgets, goals | Until the user deletes the account |
+| Normalized transactions, drafts, loans, budgets, goals | Until the user deletes the account or resets financial data |
 | Statement files | Until the import is deleted or the account is deleted |
 | Exchange-rate history (shared, not personal) | Indefinitely |
 | Manual rates (personal) | Until account deletion |
 | Backups | 35 days |
+
+**Financial-data reset:**
+
+- The authenticated user may request an immediate reset through `DELETE /v1/auth/financial-data`, separately from account deletion.
+- The reset atomically deletes that user's Ledger, Ingestion, Lending, and Planning records. Shared FX history is not user-owned and is retained.
+- The account, profile, preferences, authentication sessions, and integration links are retained. The action has no grace period and cannot be undone; users should export a backup first.
+- The Settings confirmation must make the scope and irreversible effect explicit.
 
 **Account deletion:**
 

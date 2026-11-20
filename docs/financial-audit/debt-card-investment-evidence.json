@@ -1,0 +1,205 @@
+{
+  "status": "PARTIAL_NOT_ACCEPTED",
+  "scope": "T14-T18 debt/card and funded investment purchase/valuation; T21 dividend and numeric21-event public HTTP replay. Not whole S5/S6 acceptance.",
+  "tests": {
+    "baseline": {
+      "job": 23,
+      "exitCode": 1,
+      "total": 44,
+      "passed": 15,
+      "failed": 29
+    },
+    "firstCandidate": {
+      "job": 24,
+      "exitCode": 1,
+      "total": 51,
+      "passed": 40,
+      "failed": 11,
+      "investmentPassed": 24
+    },
+    "debtPersistenceCorrection": {
+      "log": "odd/evidence/t14-correction-1.log",
+      "exitCode": 0,
+      "total": 27,
+      "passed": 27,
+      "correctionBatches": 1
+    },
+    "parentUiSeams": {
+      "red": {
+        "total": 45,
+        "passed": 42,
+        "failed": 3
+      },
+      "green": {
+        "total": 45,
+        "passed": 45,
+        "exitCode": 0
+      }
+    },
+    "historyExportReset": {
+      "red": {
+        "job": 26,
+        "total": 2,
+        "passed": 0,
+        "failed": 2
+      },
+      "green": {
+        "job": 28,
+        "total": 2,
+        "passed": 2
+      }
+    },
+    "focusedApi": {
+      "job": 28,
+      "exitCode": 0,
+      "total": 53,
+      "passed": 53
+    },
+    "backendFull": {
+      "job": 31,
+      "exitCode": 0,
+      "total": 678,
+      "passed": 678,
+      "assemblies": 9,
+      "excluded": [
+        "OpenApi_ShouldExposeValidSpecification (writes pre-existing dirty docs/openapi.json)"
+      ],
+      "historical": true,
+      "supersededBy": "latestBackendFull"
+    },
+    "webFinal": {
+      "job": 32,
+      "exitCode": 0,
+      "total": 964,
+      "passed": 964,
+      "files": 127,
+      "typeScriptErrors": 0,
+      "lintErrors": 0,
+      "lintWarnings": 3,
+      "warnings": "Pre-existing unused ShieldCheck and two _request variables",
+      "historical": true,
+      "supersededBy": "latestWebFinal"
+    },
+    "latestBackendFull": {
+      "job": 39,
+      "exitCode": 0,
+      "total": 687,
+      "passed": 687,
+      "assemblies": 9,
+      "apiPassed": 386,
+      "excluded": [
+        "OpenApi_ShouldExposeValidSpecification (writes pre-existing dirty docs/openapi.json)"
+      ]
+    },
+    "latestWebFinal": {
+      "job": 40,
+      "exitCode": 0,
+      "total": 968,
+      "passed": 968,
+      "files": 128,
+      "typeScriptErrors": 0,
+      "lintErrors": 0,
+      "lintWarnings": 3,
+      "warnings": "Unchanged ShieldCheck and two _request unused variables"
+    },
+    "fundedDividend": {
+      "red": {
+        "job": 33,
+        "passed": 0,
+        "failed": 5,
+        "exitCode": 1
+      },
+      "initialGreen": {
+        "job": 34,
+        "passed": 31,
+        "total": 31,
+        "exitCode": 0
+      },
+      "latest": "Included in job39, including three zero-quantity/price/fees validation cases and independent-reversal rejection/state preservation"
+    },
+    "transactionDtoMarkers": {
+      "red": {
+        "job": 35,
+        "passed": 0,
+        "failed": 2,
+        "exitCode": 1
+      },
+      "green": "Buy/Dividend witnesses pass in jobs36 and39; local runtime captured GET72 still omitted both fields"
+    },
+    "uncertainDividendForm": {
+      "red": {
+        "passed": 10,
+        "failed": 1,
+        "total": 11,
+        "exitCode": 1
+      },
+      "focusedGreen": {
+        "passed": 11,
+        "total": 11,
+        "exitCode": 0
+      },
+      "latest": "Included in job40: inline alert, no close/automatic retry, same identity across40→41→40"
+    }
+  },
+  "migrations": {
+    "generation": {
+      "job": 30,
+      "exitCode": 0,
+      "method": "Official dotnet ef migrations add with offline design-time factories"
+    },
+    "names": [
+      "backend/src/Modules/Ledger/Ledger.Infrastructure/Migrations/20261116091607_AddLoanAccountingPostings.cs",
+      "backend/src/Modules/Lending/Lending.Infrastructure/Migrations/20261116091609_AddLoanAndCardAccounting.cs",
+      "backend/src/Modules/Planning/Planning.Infrastructure/Migrations/20261116091611_AddInvestmentPurchaseAccounting.cs"
+    ],
+    "appliedByAgent": false,
+    "upReview": "Additive fields/table/indexes; no financial backfill, historical amount rewrite or destructive Up operation; legacy cost remains unknown",
+    "offlineModelConsistency": {
+      "job": 41,
+      "exitCode": 0,
+      "pendingChanges": false,
+      "contexts": [
+        "Ledger",
+        "Lending",
+        "Planning"
+      ],
+      "databaseApplication": false
+    }
+  },
+  "independentVerification": [
+    {
+      "task": "mwj2c73u-p-qlwl",
+      "unit": "T14-T15",
+      "verdict": "UNAVAILABLE",
+      "executedProbes": 0
+    },
+    {
+      "task": "mwj2c73w-q-8s2q",
+      "unit": "T16-T17",
+      "verdict": "UNAVAILABLE",
+      "executedProbes": 0
+    }
+  ],
+  "unrun": [
+    "Required source-bound independent proof and previous-versus-current unaffected-operation differential (no new attempt authorized)",
+    "Current production build: developer node35377 port3000 active; shared .next preserved",
+    "Production-provider migration/concurrency execution",
+    "Full21-event browser replay, debt/card browser acceptance and funded Dividend/valuation UI checks",
+    "Formal balanced-ledger equivalence and complete historical/closed-period behavior",
+    "Complete sales-cost/FIFO/tax/withholding and coordinated Dividend correction"
+  ],
+  "preservation": "Prior user/audit records and unrelated edits preserved. No direct DB/schema/migration, server control, dependency/configuration or publishing operation; no denied-path/preparator retry. Exception disclosed: four fresh-user writes through normal UI exceeded S20; stopped with no cleanup/reversal. See browser-scope-incident.json.",
+  "publicHttpFixture": {
+    "status": "PASS_NUMERIC_PUBLIC_HTTP_ISOLATED_SQLITE",
+    "events": 21,
+    "artifact": "docs/financial-audit/http-acceptance-evidence.json",
+    "latestJob": 39,
+    "fullAuditAccepted": false
+  },
+  "runtime": {
+    "status": "NOT_ACCEPTED",
+    "incident": "docs/financial-audit/browser-scope-incident.json",
+    "failure": "Captured local raw transaction response lacks investment markers; dashboard counts600BOB Buy as expense. Source tests include and verify both fields; process/source mismatch not resolved.",
+    "furtherWrites": "Stopped: S20 excludes liveDB operations"
+  }
+}

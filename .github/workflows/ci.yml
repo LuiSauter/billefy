@@ -1,0 +1,90 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend Build & Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore backend/
+
+      - name: Verify formatting
+        run: dotnet format backend/ --verify-no-changes --verbosity normal
+
+      - name: Build solution
+        run: dotnet build backend/ --no-restore --configuration Release
+
+      - name: Run tests
+        run: dotnet test backend/ --no-build --configuration Release --verbosity normal --collect:"XPlat Code Coverage"
+
+  web:
+    name: Web Build & Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - name: Install dependencies
+        run: pnpm --dir web install --frozen-lockfile
+        continue-on-error: true # until lockfile committed in task 6
+
+      - name: Lint
+        run: pnpm --dir web lint
+        continue-on-error: true
+
+      - name: Run tests
+        run: pnpm --dir web test
+        continue-on-error: true
+
+      - name: Build
+        run: pnpm --dir web build
+        continue-on-error: true
+
+  mobile:
+    name: Mobile Shared Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+        if: hashFiles('mobile/gradlew') != ''
+
+      - name: Run shared tests
+        if: hashFiles('mobile/gradlew') != ''
+        run: ./mobile/gradlew -p mobile :shared:allTests

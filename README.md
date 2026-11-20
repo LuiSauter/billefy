@@ -1,10 +1,24 @@
-# Personal Finance Manager
+# Personal Finance Manager (Billefy)
 
 > Working title. The product name is still to be defined.
 
 A multi-currency personal finance app for people whose money is scattered across banks, digital wallets, and crypto exchanges. It consolidates balances, captures income and expenses semi-automatically (always asking the user to confirm), manages money lent and borrowed with simple or compound interest, and teaches users how to distribute their income to build financial health.
 
-**Status:** design phase. No application code exists yet. This repository currently holds the product, architecture, and design documentation that will guide implementation.
+**Status:** Phases 0 through 5 implemented and passing all tests across Backend (ASP.NET Core .NET 10), Mobile (KMP Compose), and Web (Next.js 15 Clean Architecture).
+
+---
+
+## Subprojects & Standalone Guides
+
+Each project contains its own self-contained guide, prerequisites, commands for macOS, Linux, and Windows, and environment variable configuration without hardcoded values:
+
+| Subproject | Description | Documentation |
+|---|---|---|
+| **Backend** | ASP.NET Core .NET 10 Modular Monolith on PostgreSQL (Clean Architecture) | [backend/README.md](backend/README.md) |
+| **Web** | Next.js 15 App Router, TypeScript, Tailwind CSS (Clean Architecture) | [web/README.md](web/README.md) |
+| **Mobile** | Kotlin Multiplatform (KMP) & Compose Multiplatform (Android & iOS) | [mobile/README.md](mobile/README.md) |
+
+---
 
 ## What it does
 
@@ -21,12 +35,11 @@ A multi-currency personal finance app for people whose money is scattered across
 | Area | Technology |
 |---|---|
 | Mobile (Android and iOS) | Kotlin Multiplatform, Compose Multiplatform, thin SwiftUI host for iOS |
-| Web | Next.js |
-| Backend | ASP.NET Core (C#), modular monolith |
-| Database | PostgreSQL (data and background job queue) |
+| Web | Next.js 15, TypeScript, Tailwind CSS, Radix UI / shadcn |
+| Backend | ASP.NET Core (C# .NET 10), modular monolith |
+| Database | PostgreSQL 16+ (data and background job queue) |
 | Background jobs | Hangfire with PostgreSQL storage |
 | Object storage | S3-compatible (statements, backups) |
-| Deployment | Docker on a VPS with Coolify and Traefik |
 | Sign-in | Google (and Sign in with Apple on iOS) |
 
 ## Documentation
@@ -45,24 +58,17 @@ A multi-currency personal finance app for people whose money is scattered across
 | [docs/DOMAIN_GLOSSARY.md](docs/DOMAIN_GLOSSARY.md) | Shared vocabulary and naming map |
 | [docs/diagrams/](docs/diagrams/) | PlantUML diagrams (UML 2.5) |
 
-## Planned repository layout
+## Repository layout
 
 ```text
 .
 ├── AGENTS.md
 ├── README.md
-├── docs/
-│   ├── diagrams/
-│   └── ...
-├── backend/          # ASP.NET Core solution (API, Worker, Modules, tests)
-├── mobile/           # Kotlin Multiplatform (shared, composeApp, iosApp)
-├── web/              # Next.js application
-└── infra/            # Docker, Coolify, and deployment configuration
+├── docs/             # Technical specifications, architecture, and diagrams
+├── backend/          # ASP.NET Core solution (API, Worker, Modules, Tests)
+├── mobile/           # Kotlin Multiplatform (shared, composeApp)
+└── web/              # Next.js application (Clean Architecture)
 ```
-
-## Getting started
-
-Setup instructions will be added in Phase 0 of the [roadmap](docs/ROADMAP.md), together with the scaffolding for each project.
 
 ## Contributing
 

@@ -152,7 +152,7 @@ days_late      = max(0, payment_date - (due_date + grace_days))
 late_interest  = round(overdue_principal * late_daily_rate * days_late)
 ```
 
-`late_daily_rate` follows section 3.2 using `late_rate`, `rate_unit`, and `day_count`. If `late_rate` is not set, late interest is zero. Late interest is calculated when a payment is registered and whenever the schedule is displayed.
+`late_daily_rate` follows section 3.2 using `late_rate`, `rate_unit`, and `day_count`. If `late_rate` is not set, late interest is zero. For partial payments, dated replay sums accrual intervals using each interval's outstanding principal, then subtracts recorded late-interest allocations; it never applies today's reduced principal to the entire overdue period. Late interest is calculated when a payment is registered and whenever the schedule is displayed.
 
 ## 6. Payment allocation
 
@@ -162,11 +162,75 @@ late_interest  = round(overdue_principal * late_daily_rate * days_late)
 4. A payment that does not cover an installment leaves it `partially_paid`. The loan stays `in_arrears` while any installment is overdue.
 5. An amount that remains after all due installments is handled by the **early-payment policy**:
    - `ADVANCE_INSTALLMENTS`: pays future installments in due-date order; a partial amount marks the next installment partially paid. No recalculation.
-   - `REDUCE_TERM`: applies the amount to the outstanding principal, keeps the installment amount, and removes installments from the end.
-   - `REDUCE_INSTALLMENT`: applies the amount to the outstanding principal, keeps the number of installments, and recalculates the remaining installments.
-6. Early principal reductions take effect at the next due date. No partial-period interest is charged in the MVP.
-7. A payment larger than the total outstanding balance (including late interest) is rejected.
-8. The allocation is stored in `payment_allocations` (late interest, interest, and principal per installment). Registering a payment runs in one database transaction that locks the loan row.
+   - `REDUCE_TERM`: applies the amount to outstanding principal, keeps the contractual installment total for `FIXED_INSTALLMENT`, and shortens the schedule by removing its zero-principal tail. `SIMPLE_ON_BALANCE` retains fixed principal per installment.
+   - `REDUCE_INSTALLMENT`: applies the amount to outstanding principal and keeps the remaining original due dates. `NO_INTEREST` and `SIMPLE_ON_BALANCE` redistribute principal equally; `INTEREST_ONLY` retains the principal balloon and reprices later interest. `FIXED_INSTALLMENT` recalculates a level total using protected first-period interest (section 6.1). The last installment absorbs rounding.
+6. Accounting principal decreases exactly once when an explicit early-principal event is recorded. Its projection boundary is the next original due date: regular interest for the period ending there is protected; the reduced opening principal applies only to the following period. No partial-period ordinary-interest proration is charged. A payment on a due date covers due components first; only excess becomes early principal effective at the next future original date.
+7. Future projections replay immutable original installments, authoritative recorded allocations, and explicit dated early-principal events in payment order. Later events never rewrite original terms, settled rows, old allocations, or earlier historical snapshots. Repeated events at one pending boundary reduce principal once each, with the same final projection as their combined amount.
+8. Reduction-policy payoff is remaining actual principal plus unpaid due/protected regular interest and late interest, excluding unearned future interest. Exact payoff closes; any excess is rejected. Zero principal alone does not close unpaid interest. `ADVANCE_INSTALLMENTS` retains its original outstanding scheduled total and never regenerates the schedule.
+9. The allocation is stored in `payment_allocations` (late interest, interest, and principal per installment). Registering a payment runs in one database transaction that locks the loan row.
+
+### 6.1 Fixed-installment reduction projection
+
+For remaining principal `B`, `m` remaining original dates, and outstanding protected first interest `K`, the first payment is **undiscounted** because its interest is already known:
+
+```text
+A = round((B + K) / (1 + 1/(1+i) + ... + 1/(1+i)^(m-1)))
+C_1 = A - K
+I_k = round(B_{k-1} * i), C_k = A - I_k   for later dates
+```
+
+`K` is the outstanding amount after recorded/current allocations, not restored original interest. Known `K = 0` is distinct from an ordinary annuity whose first interest must still be calculated. `REDUCE_TERM` instead keeps the original contractual total and uses the same interest/principal recurrence, removing the zero-obligation tail. Both policies cap principal portions at the remaining balance and adjust the last amount without adding dates.
+
+**Exceptional first amount:** if protected interest is at least the rounded level amount, the first amount is the protected interest itself with zero principal. The remaining dates use the ordinary annuity on `B` (section 4.4), not the known-zero-interest formula. Interest is neither lost nor capitalized. With only one remaining date, its amount is all remaining principal plus protected interest. At zero rate, these policies match `NO_INTEREST`.
+
+Example: original principal `300`, monthly rate `10%`, original dates November 1 / December 1 / January 1, original principal `90.63 / 99.69 / 109.68` and interest `30 / 20.94 / 10.97`. Early principal `100` on October 15 protects November's `30` interest:
+
+| Policy | Future principal | Future interest | Future total |
+|---|---|---|---|
+| `REDUCE_TERM` | `90.63 / 109.37` | `30 / 10.94` | `120.63 / 120.31` |
+| `REDUCE_INSTALLMENT` | `54.08 / 69.49 / 76.43` | `30 / 14.59 / 7.64` | `84.08 / 84.08 / 84.07` |
+
+**Live aggregate integration:** `Loan.RecordPayment` now calculates through `LoanPaymentCalculationAdapter.Calculate(loan, paymentDate, paymentAmount)`, which maps immutable original obligations and recorded allocations to the pure `DynamicLoanPaymentCalculator` without seeding replay from mutable `Paid*` caches. It records proposed component allocations and any separate early principal once, then takes remaining principal and loan state from the calculation. Closure requires all payable components to be settled, not just zero principal; `ClosedAt` is set to the payment date only on first closure. Original schedules and recorded history are not rewritten.
+
+The existing application payment transaction acquires the loan row lock before calling the aggregate, keeping calculation, provenance assignment, and linked ledger posting atomic. Payment dates before the last recorded calendar date are rejected; same-day payments are allowed. The shared API quote and loan detail now expose this same calculation (section 6.3). UI integration remains pending; a preview never authorizes a commit.
+
+### 6.2 Immutable payment provenance
+
+Payment metadata is optional for legacy compatibility and uses the existing payment `Amount.Currency`:
+
+| Column | Nullable type | Meaning |
+|---|---|---|
+| `record_sequence` | `bigint` | Positive per-loan recording order; unique when non-null |
+| `calculation_version` | `integer` | Positive server calculation-format version |
+| `early_principal_amount` | `numeric(20,6)` | Positive loan-level principal reduction, separate from installment allocations |
+| `early_principal_effective_date` | `date` | Paired with early principal; next original due date after payment |
+
+Legacy values stay `NULL`: no backfill, fabricated order, or inferred version. New payments recorded by `Loan.RecordPayment` stamp `LoanPaymentCalculationAdapter.CurrentCalculationVersion = 1` and assign `max(non-null record_sequence) + 1` under the existing loan row lock (first new sequence 1, including when all prior payments are legacy). Both fields are server-assigned, never client input. Early-principal fields are recorded only when the calculation proposes a positive reduction; otherwise both remain `NULL`.
+
+Replay requires **all** original installments, payments, and allocations. Recorded allocations plus explicit early principal must equal each payment amount; incomplete allocations are rejected, never reconstructed from paid totals. Detail, locked, and user-list repository loaders all include payment allocations. A completely omitted payment cannot be detected by this domain adapter. Legacy tied timestamps retain ambiguous historical snapshots rather than invented intermediate balances.
+
+### 6.3 Authoritative quote and detail API
+
+Use `GET /v1/loans/{id}/quote?paymentDate=2026-11-11&amount=100` to preview a payment in the loan's native currency. Both query parameters are optional. The endpoint requires authentication, ownership, and an `Active` or `InArrears` loan; it never writes payments, schedules, or ledger entries.
+
+| Response | Meaning |
+|---|---|
+| `asOfDate` | Requested calendar date, or the server's UTC today when omitted |
+| `totalPayoff` | Policy-specific amount payable on that date, including unpaid late interest |
+| `suggestedAmount` | Total outstanding on the oldest unpaid installment; null when none remains |
+| `remainingPrincipal`, `installments` | Pre-payment principal and dated outstanding principal, regular interest, late interest, and total by original installment ID/due date |
+| `proposedAllocations` | Oldest-first component allocations for the optional amount, using the contractual allocation order |
+| `proposedEarlyPrincipalAmount`, `proposedEarlyPrincipalEffectiveDate` | Separate principal reduction and next original boundary for reduction policies |
+| `projectedInstallments` | Engine policy projection, including a proposed early-principal reduction; original stored rows remain unchanged |
+| `loanStatus` | Recorded aggregate status; `resultingState` is the calculated dated state after any proposed payment |
+| `resultingPrincipal` | Principal remaining after proposed allocations and early principal |
+| `historicalSnapshots` | Payment-ID-linked, immutable replay totals at each recorded payment date, with provenance and ambiguity flags |
+
+An explicit date before the last recorded payment returns `400 Payment.InvalidDate`; same-day payments are valid. Omitted dates are **not** advanced to a future recorded payment: if today precedes it, calculation returns `400 Payment.InvalidOperation`. Amounts must be positive, have at most six decimal places, and fit `numeric(20,6)`. Above-payoff previews return `400 Payment.InvalidOperation`. Unknown or other-owner loans return `404`; unauthenticated requests return `401`. Payment commit still recalculates under the existing row lock and atomic ledger transaction; a successful or stale quote grants no authorization.
+
+`GET /v1/loans/{id}` calculates at the later of UTC today and the last payment date. Its summary includes `totalPayoff`, `suggestedAmount`, policy, late rate, grace days, and allocation order. Installments retain their original expected/paid fields and add authoritative `outstandingPrincipal`, `outstandingInterest`, `outstandingLateInterest`, and `totalOutstanding`; use these new fields for current payment presentation, not expected-minus-paid reconstruction. Payment-level `remainingBalanceAfter` is the historical **total payable**, not today's principal or an allocation-level legacy balance. Legacy tied timestamps produce `remainingBalanceAfter: null` and `isAmbiguous: true`, never an invented intermediate total. Later payments do not change earlier snapshots.
+
+Creation and anonymous simulation accept optional `earlyPaymentPolicy` and `allocationOrder` enum names, case-insensitively. Defaults remain `AdvanceInstallments` and `LateInterestInterestPrincipal`; incompatible template/policy combinations return `400 Loan.IncompatiblePolicy` before creation writes. Policies govern future payments, not the initial schedule. Loan lists expose the contractual policy and terms; their backward-compatible default payoff fields are not authoritative quotes—fetch detail or the quote endpoint for dated amounts. No reporting FX conversion enters these amounts.
 
 ## 7. Effective annual rate (TEA)
 

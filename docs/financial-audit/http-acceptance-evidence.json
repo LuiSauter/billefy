@@ -1,0 +1,418 @@
+{
+  "status": "PASS_PUBLIC_HTTP_ISOLATED_SQLITE_ONLY",
+  "whole_audit_accepted": false,
+  "fixture": "docs/financial-audit/caso_prueba_contable_enero_2027.json",
+  "fixture_sha256": "494bab6ff6d6674506f027be16479e7be2da8c8248836cc7801c8c4528d67463",
+  "provenance": {
+    "test": "Api.Tests.JanuaryAccountingAcceptanceTests.AuthoritativeJanuaryFixture_All21PublicEvents_ReconcileEveryCheckpointAndClosing",
+    "raw_trace": "backend/tests/Api.Tests/TestResults/accounting-final.trx",
+    "job": 39,
+    "source": "Captured ITestOutput from passed TRX, not reconstructed expected values"
+  },
+  "setup": "New SQLite test factory; fresh owner; all financial records through public HTTP; mutable January2027clock; no local/production DB writes",
+  "client_owned_input": {
+    "asset.laptop": "3500",
+    "limitation": "Manual client asset supplied from unchanged fixture; not a claim of server persistence/browser acceptance"
+  },
+  "checkpoints": [
+    {
+      "step": 1,
+      "status": "PASS",
+      "observed": {
+        "bank": "11000.0",
+        "liquidity": "16000.0",
+        "assets": "21500.0",
+        "liabilities": "3600.0",
+        "net": "17900.0",
+        "income": "5000.0",
+        "expenses": "0"
+      }
+    },
+    {
+      "step": 2,
+      "status": "PASS",
+      "observed": {
+        "bank": "12200.0",
+        "liquidity": "17200.0",
+        "assets": "22700.0",
+        "liabilities": "3600.0",
+        "net": "19100.0",
+        "income": "6200.0",
+        "expenses": "0"
+      }
+    },
+    {
+      "step": 3,
+      "status": "PASS",
+      "observed": {
+        "bank": "11950.0",
+        "liquidity": "17200.0",
+        "assets": "22700.0",
+        "liabilities": "3600.0",
+        "net": "19100.0",
+        "income": "6200.0",
+        "expenses": "0"
+      }
+    },
+    {
+      "step": 4,
+      "status": "PASS",
+      "observed": {
+        "bank": "11750.0",
+        "liquidity": "17200.0",
+        "assets": "22700.0",
+        "liabilities": "3600.0",
+        "net": "19100.0",
+        "income": "6200.0",
+        "expenses": "0"
+      }
+    },
+    {
+      "step": 5,
+      "status": "PASS",
+      "observed": {
+        "bank": "10350.0",
+        "liquidity": "15800.0",
+        "assets": "21300.0",
+        "liabilities": "3600.0",
+        "net": "17700.0",
+        "income": "6200.0",
+        "expenses": "1400.0"
+      }
+    },
+    {
+      "step": 6,
+      "status": "PASS",
+      "observed": {
+        "bank": "9800.0",
+        "liquidity": "15250.0",
+        "assets": "20750.0",
+        "liabilities": "3600.0",
+        "net": "17150.0",
+        "income": "6200.0",
+        "expenses": "1950.0"
+      }
+    },
+    {
+      "step": 7,
+      "status": "PASS",
+      "observed": {
+        "bank": "9800.0",
+        "liquidity": "15250.0",
+        "assets": "20750.0",
+        "liabilities": "3950.0",
+        "net": "16800.0",
+        "income": "6200.0",
+        "expenses": "2300.0"
+      }
+    },
+    {
+      "step": 8,
+      "status": "PASS",
+      "observed": {
+        "bank": "9800.0",
+        "liquidity": "15100.0",
+        "assets": "20600.0",
+        "liabilities": "3950.0",
+        "net": "16650.0",
+        "income": "6200.0",
+        "expenses": "2450.0"
+      }
+    },
+    {
+      "step": 9,
+      "status": "PASS",
+      "observed": {
+        "bank": "9580.0",
+        "liquidity": "14880.0",
+        "assets": "20380.0",
+        "liabilities": "3950.0",
+        "net": "16430.0",
+        "income": "6200.0",
+        "expenses": "2670.0"
+      }
+    },
+    {
+      "step": 10,
+      "status": "PASS",
+      "observed": {
+        "bank": "9500.0",
+        "liquidity": "14800.0",
+        "assets": "20300.0",
+        "liabilities": "3950.0",
+        "net": "16350.0",
+        "income": "6200.0",
+        "expenses": "2750.0"
+      }
+    },
+    {
+      "step": 11,
+      "status": "PASS",
+      "observed": {
+        "bank": "9500.0",
+        "liquidity": "14670.0",
+        "assets": "20170.0",
+        "liabilities": "3950.0",
+        "net": "16220.0",
+        "income": "6200.0",
+        "expenses": "2880.0"
+      }
+    },
+    {
+      "step": 12,
+      "status": "PASS",
+      "observed": {
+        "bank": "8800.0",
+        "liquidity": "14670.0",
+        "assets": "20170.0",
+        "liabilities": "3950.0",
+        "net": "16220.0",
+        "income": "6200.0",
+        "expenses": "2880.0"
+      }
+    },
+    {
+      "step": 13,
+      "status": "PASS",
+      "observed": {
+        "bank": "8200.0",
+        "liquidity": "14070.0",
+        "assets": "20170.0",
+        "liabilities": "3950.0",
+        "net": "16220.0",
+        "income": "6200.0",
+        "expenses": "2880.0"
+      }
+    },
+    {
+      "step": 14,
+      "status": "PASS",
+      "observed": {
+        "bank": "7500.0",
+        "liquidity": "13370.0",
+        "assets": "19470.0",
+        "liabilities": "3250.0",
+        "net": "16220.0",
+        "income": "6200.0",
+        "expenses": "2880.0"
+      }
+    },
+    {
+      "step": 15,
+      "status": "PASS",
+      "observed": {
+        "bank": "6970.0",
+        "liquidity": "12840.0",
+        "assets": "18940.0",
+        "liabilities": "2750.0",
+        "net": "16190.0",
+        "income": "6200.0",
+        "expenses": "2910.0"
+      }
+    },
+    {
+      "step": 16,
+      "status": "PASS",
+      "observed": {
+        "bank": "6170.0",
+        "liquidity": "12040.0",
+        "assets": "18940.0",
+        "liabilities": "2750.0",
+        "net": "16190.0",
+        "income": "6200.0",
+        "expenses": "2910.0"
+      }
+    },
+    {
+      "step": 17,
+      "status": "PASS",
+      "observed": {
+        "bank": "6490.0",
+        "liquidity": "12360.0",
+        "assets": "18960.0",
+        "liabilities": "2750.0",
+        "net": "16210.0",
+        "income": "6220.0",
+        "expenses": "2910.0"
+      }
+    },
+    {
+      "step": 18,
+      "status": "PASS",
+      "observed": {
+        "bank": "7390.0",
+        "liquidity": "13260.0",
+        "assets": "19860.0",
+        "liabilities": "3650.0",
+        "net": "16210.0",
+        "income": "6220.0",
+        "expenses": "2910.0"
+      }
+    },
+    {
+      "step": 19,
+      "status": "PASS",
+      "observed": {
+        "bank": "7290.0",
+        "liquidity": "13160.0",
+        "assets": "19760.0",
+        "liabilities": "3550.0",
+        "net": "16210.0",
+        "income": "6220.0",
+        "expenses": "2910.0"
+      }
+    },
+    {
+      "step": 20,
+      "status": "PASS",
+      "observed": {
+        "bank": "7330.0",
+        "liquidity": "13200.0",
+        "assets": "19800.0",
+        "liabilities": "3550.0",
+        "net": "16250.0",
+        "income": "6260.0",
+        "expenses": "2910.0"
+      }
+    },
+    {
+      "step": 21,
+      "status": "PASS",
+      "observed": {
+        "bank": "7330.0",
+        "liquidity": "13200.0",
+        "assets": "19950.0",
+        "liabilities": "3550.0",
+        "net": "16400.0",
+        "income": "6260.0",
+        "expenses": "2910.0"
+      }
+    }
+  ],
+  "closing_observed": {
+    "banco": "7330.0",
+    "efectivo_total": "13200.0",
+    "activos_total": "19950.0",
+    "pasivos_total": "3550.0",
+    "patrimonio_neto": "16400.0",
+    "ingresos_ordinarios_y_financieros_sin_valorizacion": "6260.0",
+    "gastos": "2910.0",
+    "excedente_antes_de_valorizacion": "3350.0",
+    "ganancia_no_realizada": "150.0",
+    "resultado_total": "3500.0",
+    "prestamo_bancario": "2500.0",
+    "tarjeta": "250.0",
+    "prestamo_familiar": "800.0",
+    "prestamo_por_cobrar": "500.0",
+    "inversion_valor_mercado": "2750.0",
+    "inversion_costo": "2600",
+    "acciones": "25",
+    "dividendos": "40.0",
+    "presupuesto": "3100.0",
+    "presupuesto_consumido": "2910.0",
+    "presupuesto_disponible": "190.0",
+    "meta_objetivo": "2000.0",
+    "meta_asignada": "700",
+    "meta_progreso_pct": "35.00",
+    "flujo_efectivo_operativo": "3700.0",
+    "flujo_efectivo_inversion": "-1100.0",
+    "flujo_efectivo_financiacion": "-400.0",
+    "flujo_efectivo_neto": "2200.0"
+  },
+  "assertion_coverage": [
+    "Four original checkpoint fields including card debt",
+    "Every cash account balance and loan remaining principal",
+    "Position units/value/cost; recognized income/expense",
+    "Budget spent/remaining and no capital-payment duplication",
+    "Reserved goal/history and no asset duplication",
+    "Recurring materialization counts",
+    "Immutable operation-to-ledger links",
+    "Operating/investing/financing cashflow and exact final fields"
+  ],
+  "backend": {
+    "job": 39,
+    "exit_code": 0,
+    "total": 687,
+    "passed": 687,
+    "assemblies": [
+      {
+        "name": "Api.Tests",
+        "total": 386,
+        "passed": 386
+      },
+      {
+        "name": "Architecture.Tests",
+        "total": 7,
+        "passed": 7
+      },
+      {
+        "name": "BuildingBlocks.Tests",
+        "total": 18,
+        "passed": 18
+      },
+      {
+        "name": "Fx.Domain.Tests",
+        "total": 7,
+        "passed": 7
+      },
+      {
+        "name": "Ingestion.Domain.Tests",
+        "total": 12,
+        "passed": 12
+      },
+      {
+        "name": "Ledger.Domain.Tests",
+        "total": 11,
+        "passed": 11
+      },
+      {
+        "name": "Ledger.IntegrationTests",
+        "total": 33,
+        "passed": 33
+      },
+      {
+        "name": "Lending.Domain.Tests",
+        "total": 152,
+        "passed": 152
+      },
+      {
+        "name": "Workspaces.Domain.Tests",
+        "total": 61,
+        "passed": 61
+      }
+    ],
+    "excluded": [
+      "OpenApi_ShouldExposeValidSpecification (preserve pre-existing dirty docs/openapi.json)"
+    ]
+  },
+  "web": {
+    "job": 40,
+    "exit_code": 0,
+    "files": 128,
+    "total": 968,
+    "passed": 968,
+    "typescript_errors": 0,
+    "lint_errors": 0,
+    "preexisting_lint_warnings": 3
+  },
+  "offline_models": {
+    "job": 41,
+    "exit_code": 0,
+    "contexts": [
+      "LedgerDbContext",
+      "LendingDbContext",
+      "PlanningDbContext"
+    ],
+    "pending_changes": false,
+    "database_application": false
+  },
+  "not_proved": [
+    "Independent source-bound verification (unavailable, not retried)",
+    "Base-versus-current unaffected-operation differential",
+    "Live PostgreSQL migration/concurrency execution",
+    "Current production build (developer dev3000 active)",
+    "Complete21-event browser acceptance",
+    "Formal balanced-ledger equivalence and complete historical/closed-period behavior",
+    "Sales-cost/FIFO/tax/withholding and coordinated dividend correction"
+  ]
+}

@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\BuildingBlocks\BuildingBlocks.csproj" />
+    <ProjectReference Include="..\..\Ledger\Ledger.Contracts\Ledger.Contracts.csproj" />
+    <ProjectReference Include="..\..\Lending\Lending.Contracts\Lending.Contracts.csproj" />
+    <ProjectReference Include="..\..\Fx\Fx.Contracts\Fx.Contracts.csproj" />
+    <ProjectReference Include="..\Planning.Contracts\Planning.Contracts.csproj" />
+    <ProjectReference Include="..\Planning.Domain\Planning.Domain.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>

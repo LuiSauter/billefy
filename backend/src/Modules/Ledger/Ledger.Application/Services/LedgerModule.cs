@@ -1,0 +1,552 @@
+using System.Data.Common;
+using BuildingBlocks.Common;
+using BuildingBlocks.Currencies;
+using BuildingBlocks.Time;
+using BuildingBlocks.ValueObjects;
+using Fx.Contracts;
+using Ledger.Application.Abstractions;
+using Ledger.Application.Categories.Services;
+using Ledger.Application.Transactions;
+using Ledger.Contracts;
+using Ledger.Domain.Transactions;
+
+namespace Ledger.Application.Services;
+
+public sealed class LedgerModule : ILedgerModule
+{
+    private readonly IAccountRepository _accountRepository;
+    private readonly ITransactionRepository _transactionRepository;
+    private readonly ICategoryService _categoryService;
+    private readonly ICategoryRepository _categoryRepository;
+    private readonly IUnitOfWork _unitOfWork;
+    private readonly IClock _clock;
+    private readonly IRateSnapshotProvider? _rateSnapshotProvider;
+
+    public LedgerModule(
+        IAccountRepository accountRepository,
+        ITransactionRepository transactionRepository,
+        ICategoryService categoryService,
+        IUnitOfWork unitOfWork,
+        IClock clock,
+        ICategoryRepository categoryRepository,
+        IRateSnapshotProvider? rateSnapshotProvider = null)
+    {
+        _accountRepository = accountRepository;
+        _transactionRepository = transactionRepository;
+        _categoryService = categoryService;
+        _categoryRepository = categoryRepository;
+        _unitOfWork = unitOfWork;
+        _clock = clock;
+        _rateSnapshotProvider = rateSnapshotProvider;
+    }
+
+    public Task<T> ExecuteWorkspaceAtomicAsync<T>(
+        Func<DbConnection, DbTransaction, CancellationToken, Task<T>> operation,
+        CancellationToken cancellationToken = default) =>
+        _unitOfWork.ExecuteWorkspaceAtomicAsync(operation, cancellationToken);
+
+    public async Task<IReadOnlyList<Guid>> GetExpenseCategoryIdsForCurrentUserAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var categories = await _categoryService.GetCategoriesAsync(TransactionDirection.Expense, cancellationToken);
+        return categories.IsSuccess ? categories.Value.Select(c => c.Id).ToArray() : [];
+    }
+
+    public async Task<Guid> CreateTransactionFromDraftAsync(
+        CreateTransactionFromDraftDto dto,
+        CancellationToken cancellationToken = default)
+    {
+        var account = await _accountRepository.GetByIdForUserAsync(dto.UserId, dto.AccountId, cancellationToken)
+            ?? throw new InvalidOperationException($"Account {dto.AccountId} does not exist or does not belong to the user.");
+
+        if (!string.IsNullOrWhiteSpace(dto.Currency) &&
+            !StringComparer.Ordinal.Equals(dto.Currency, account.Currency.Code))
+        {
+            throw new InvalidOperationException($"Currency mismatch: transaction currency '{dto.Currency}' does not match account currency '{account.Currency.Code}'.");
+        }
+
+        var direction = Enum.TryParse<TransactionDirection>(dto.Direction, ignoreCase: true, out var parsedDir)
+            ? parsedDir
+            : TransactionDirection.Expense;
+
+        decimal? appliedRate = null;
+        string? rateSource = null;
+
+        if (_rateSnapshotProvider is not null)
+        {
+            var targetBase = account.Currency.Code == "USD" ? "BOB" : "USD";
+            var snapshot = await _rateSnapshotProvider.GetSnapshotAsync(
+                account.Currency.Code,
+                targetBase,
+                dto.UserId,
+                cancellationToken);
+
+            if (snapshot is not null)
+            {
+                appliedRate = snapshot.AppliedRate;
+                rateSource = snapshot.RateSource;
+            }
+        }
+
+        var money = Money.Of(dto.Amount, account.Currency);
+
+        var description = string.IsNullOrWhiteSpace(dto.Description)
+            ? (!string.IsNullOrWhiteSpace(dto.Reference) ? $"Ref: {dto.Reference}" : "Draft confirmed")
+            : dto.Description.Trim();
+
+        var transaction = Transaction.Create(
+            dto.UserId,
+            dto.AccountId,
+            money,
+            direction,
+            dto.CategoryId,
+            dto.OccurredAt,
+            description,
+            appliedRate,
+            rateSource,
+            _clock.UtcNow);
+
+        await _transactionRepository.AddAsync(transaction, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return transaction.Id;
+    }
+
+    public async Task<LoanPostingResultDto> RegisterLoanPostingAsync(LoanPostingRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        if (!Enum.TryParse<LoanCashKind>(request.Kind, out var kind) || !Enum.IsDefined(kind) ||
+            !Enum.TryParse<TransactionDirection>(request.Direction, out var direction) || !Enum.IsDefined(direction))
+            return new(null, "Loan.InvalidPosting");
+        var currency = Currency.FromCode(request.Currency);
+        if (request.Amount <= 0m || request.Amount > 99_999_999_999_999.999999m || request.Amount != decimal.Round(request.Amount, 6) ||
+            decimal.Round(request.Amount, currency.DecimalPlaces) != request.Amount)
+            return new(null, "Payment.InvalidPrecision");
+        if (request.AccountId.HasValue)
+        {
+            var account = await _accountRepository.GetByIdForUserAsync(request.UserId, request.AccountId.Value, cancellationToken);
+            if (account is null) return new(null, "Account.NotFound");
+            if (account.IsArchived) return new(null, "Account.Archived");
+            if (account.Currency.Code != request.Currency) return new(null, "Account.CurrencyMismatch");
+        }
+        else if (kind != LoanCashKind.CardPurchase) return new(null, "Account.NotFound");
+        if (request.CategoryId.HasValue)
+        {
+            var category = await _categoryRepository.GetByIdAsync(request.CategoryId.Value, cancellationToken);
+            if (category is null || category.UserId != request.UserId) return new(null, "Loan.InvalidCategory");
+            if ((category.Icon?.StartsWith("Income|", StringComparison.Ordinal) == true ||
+                 category.Icon?.StartsWith("Expense|", StringComparison.Ordinal) == true) &&
+                !category.Icon.StartsWith(direction + "|", StringComparison.Ordinal))
+                return new(null, "Loan.InvalidCategory");
+        }
+        if (request.AccountId.HasValue)
+        {
+            var guard = await OverdraftGuard.CheckAsync(_accountRepository, _transactionRepository,
+                direction, request.AccountId.Value, request.Amount, cancellationToken);
+            if (guard.IsFailure) return new(null, guard.Error.Code);
+        }
+        decimal? appliedRate = null;
+        string? rateSource = null;
+        if (_rateSnapshotProvider is not null)
+        {
+            var snapshot = await _rateSnapshotProvider.GetSnapshotAsync(request.Currency,
+                request.Currency == "USD" ? "BOB" : "USD", request.UserId, cancellationToken);
+            if (snapshot is not null) { appliedRate = snapshot.AppliedRate; rateSource = snapshot.RateSource; }
+        }
+        var transaction = Transaction.CreateLoanPosting(request.UserId, request.LoanId, request.AccountId,
+            Money.Of(request.Amount, currency), direction, kind, request.CategoryId, request.OccurredAt,
+            request.Description, appliedRate, rateSource, _clock.UtcNow);
+        await _transactionRepository.AddAsync(transaction, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        return new(transaction.Id, null);
+    }
+
+    public async Task<LoanPaymentPostingResultDto> RegisterLoanPaymentAsync(
+        LoanPaymentPostingRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        if (request.Amount <= 0) return new(null, "Payment.InvalidAmount");
+        if (request.Amount > 99_999_999_999_999.999999m || request.Amount != decimal.Round(request.Amount, 6))
+            return new(null, "Payment.InvalidPrecision");
+        if (request.Description?.Trim().Length > 500) return new(null, "Payment.InvalidNote");
+        var account = await _accountRepository.GetByIdForUserAsync(request.UserId, request.AccountId, cancellationToken);
+        if (account is null) return new(null, "Account.NotFound");
+        if (account.IsArchived) return new(null, "Account.Archived");
+        if (!StringComparer.Ordinal.Equals(request.Currency, account.Currency.Code))
+            return new(null, "Account.CurrencyMismatch");
+        if (request.Amount != decimal.Round(request.Amount, account.Currency.DecimalPlaces))
+            return new(null, "Payment.InvalidPrecision");
+
+        decimal? appliedRate = null;
+        string? rateSource = null;
+        if (_rateSnapshotProvider is not null)
+        {
+            var snapshot = await _rateSnapshotProvider.GetSnapshotAsync(account.Currency.Code,
+                account.Currency.Code == "USD" ? "BOB" : "USD", request.UserId, cancellationToken);
+            if (snapshot is not null) { appliedRate = snapshot.AppliedRate; rateSource = snapshot.RateSource; }
+        }
+        var transaction = Transaction.Create(request.UserId, account.Id, Money.Of(request.Amount, account.Currency),
+            Enum.Parse<TransactionDirection>(request.Direction, true), null, request.OccurredAt,
+            request.Description, appliedRate, rateSource, _clock.UtcNow);
+        await _transactionRepository.AddAsync(transaction, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        return new(transaction.Id, null);
+    }
+
+    public async Task<Guid> RegisterRecurringTransactionAsync(
+        RegisterRecurringTransactionDto dto,
+        CancellationToken cancellationToken = default)
+    {
+        var account = await _accountRepository.GetByIdForUserAsync(dto.UserId, dto.AccountId, cancellationToken)
+            ?? throw new InvalidOperationException($"Account {dto.AccountId} does not exist or does not belong to the user.");
+
+        if (account.IsArchived)
+            throw new InvalidOperationException($"Account {dto.AccountId} is archived and cannot receive transactions.");
+
+        var direction = Enum.TryParse<TransactionDirection>(dto.Direction, ignoreCase: true, out var parsedDir)
+            ? parsedDir
+            : TransactionDirection.Expense;
+
+        decimal? appliedRate = null;
+        string? rateSource = null;
+
+        if (_rateSnapshotProvider is not null)
+        {
+            var targetBase = account.Currency.Code == "USD" ? "BOB" : "USD";
+            var snapshot = await _rateSnapshotProvider.GetSnapshotAsync(
+                account.Currency.Code,
+                targetBase,
+                dto.UserId,
+                cancellationToken);
+
+            if (snapshot is not null)
+            {
+                appliedRate = snapshot.AppliedRate;
+                rateSource = snapshot.RateSource;
+            }
+        }
+
+        var money = Money.Of(dto.Amount, account.Currency);
+        var description = string.IsNullOrWhiteSpace(dto.Description)
+            ? "Recurring payment"
+            : dto.Description.Trim();
+
+        var transaction = Transaction.Create(
+            dto.UserId,
+            dto.AccountId,
+            money,
+            direction,
+            dto.CategoryId,
+            dto.OccurredAt,
+            description,
+            appliedRate,
+            rateSource,
+            _clock.UtcNow);
+
+        await _transactionRepository.AddAsync(transaction, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return transaction.Id;
+    }
+
+    public async Task<InvestmentCashTransactionResultDto> RegisterInvestmentCashAsync(
+        InvestmentCashTransactionRequestDto request, CancellationToken cancellationToken = default)
+    {
+        if (request.Amount <= 0 || !Enum.TryParse<InvestmentCashKind>(request.Kind, true, out var kind))
+            return new(null, "InvestmentCash.InvalidAmountOrKind");
+        var account = await _accountRepository.GetByIdForUserAsync(request.UserId, request.AccountId, cancellationToken);
+        if (account is null) return new(null, "Account.NotFound");
+        if (account.IsArchived) return new(null, "Account.Archived");
+        if (request.Amount != decimal.Round(request.Amount, account.Currency.DecimalPlaces))
+            return new(null, "InvestmentCash.InvalidPrecision");
+        decimal? rate = null;
+        string? source = null;
+        if (_rateSnapshotProvider is not null && account.Currency.Code != "USD")
+        {
+            var snapshot = await _rateSnapshotProvider.GetSnapshotAsync(account.Currency.Code, "USD", request.UserId, cancellationToken);
+            if (snapshot is not null) { rate = snapshot.AppliedRate; source = snapshot.RateSource; }
+        }
+        var transaction = Transaction.CreateInvestmentCash(request.UserId, account.Id, Money.Of(request.Amount, account.Currency),
+            kind, request.InvestmentId, request.OccurredAt, request.Description, rate, source, _clock.UtcNow);
+        await _transactionRepository.AddAsync(transaction, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        return new(transaction.Id, null);
+    }
+
+    public async Task<InvestmentCashTransactionResultDto> ReverseInvestmentCashAsync(
+        Guid userId, Guid transactionId, CancellationToken cancellationToken = default)
+    {
+        var original = await _transactionRepository.GetByIdAsync(transactionId, cancellationToken);
+        if (original is null || original.UserId != userId || !original.InvestmentId.HasValue || original.ReversesId.HasValue)
+            return new(null, "InvestmentCash.NotFound");
+        if (await _transactionRepository.GetReversalByOriginalIdAsync(transactionId, cancellationToken) is not null)
+            return new(null, "InvestmentCash.AlreadyReversed");
+        var reversal = Transaction.CreateReversal(original, _clock.UtcNow, "Investment cash reversal", _clock.UtcNow);
+        await _transactionRepository.AddAsync(reversal, cancellationToken);
+        try { await _unitOfWork.SaveChangesAsync(cancellationToken); }
+        catch
+        {
+            if (await _transactionRepository.GetReversalByOriginalIdAsync(transactionId, cancellationToken) is not null)
+                return new(null, "InvestmentCash.AlreadyReversed");
+            throw;
+        }
+        return new(reversal.Id, null);
+    }
+
+    public Task<WorkspaceLedgerTransactionResultDto> RegisterSharedExpenseAsync(
+        SharedExpenseLedgerRequestDto request, CancellationToken cancellationToken = default) =>
+        RegisterWorkspaceTransactionAsync(request.UserId, request.AccountId, request.Amount, request.Currency,
+            TransactionDirection.Expense, request.CategoryId, null, request.OccurredAt, request.Description, cancellationToken);
+
+    public Task<WorkspaceLedgerTransactionResultDto> RegisterSharedIncomeAsync(
+        SharedIncomeLedgerRequestDto request, CancellationToken cancellationToken = default) =>
+        RegisterWorkspaceTransactionAsync(request.UserId, request.AccountId, request.Amount, request.Currency,
+            TransactionDirection.Income, request.CategoryId, null, request.OccurredAt, request.Description, cancellationToken);
+
+    public Task<WorkspaceLedgerTransactionResultDto> RegisterWorkspaceSettlementLegAsync(
+        SettlementLegRequestDto request, CancellationToken cancellationToken = default)
+    {
+        if (request.Direction is not ("Outflow" or "Inflow") || request.WorkspaceSettlementId == Guid.Empty)
+            return Task.FromResult(new WorkspaceLedgerTransactionResultDto(null, "Workspace.InvalidSettlementLeg"));
+        return RegisterWorkspaceTransactionAsync(request.UserId, request.AccountId, request.Amount, request.Currency,
+            request.Direction == "Outflow" ? TransactionDirection.Expense : TransactionDirection.Income,
+            null, request.WorkspaceSettlementId, request.OccurredAt, request.Description, cancellationToken);
+    }
+
+    private async Task<WorkspaceLedgerTransactionResultDto> RegisterWorkspaceTransactionAsync(
+        Guid userId, Guid accountId, decimal amount, string currency, TransactionDirection direction,
+        Guid? categoryId, Guid? settlementId, DateTime occurredAt, string? description, CancellationToken ct)
+    {
+        if (amount <= 0) return new(null, "Workspace.InvalidAmount");
+        if (description?.Trim().Length > 500) return new(null, "Workspace.InvalidDescription");
+        var account = await _accountRepository.GetByIdForUserAsync(userId, accountId, ct);
+        if (account is null) return new(null, "Account.NotFound");
+        if (account.IsArchived) return new(null, "Account.Archived");
+        if (!StringComparer.Ordinal.Equals(currency, account.Currency.Code))
+            return new(null, "Workspace.CurrencyMismatch");
+        if (amount != decimal.Round(amount, account.Currency.DecimalPlaces))
+            return new(null, "Workspace.InvalidPrecision");
+        if (categoryId.HasValue)
+        {
+            var category = (await _categoryRepository.GetByUserIdAsync(userId, ct)).SingleOrDefault(c => c.Id == categoryId);
+            if (category is null) return new(null, "Category.NotFound");
+            var isIncomeCategory = category.Icon?.StartsWith("Income|", StringComparison.Ordinal) == true;
+            if ((direction == TransactionDirection.Income) != isIncomeCategory)
+                return new(null, "Category.DirectionMismatch");
+        }
+        decimal? rate = null;
+        string? source = null;
+        if (_rateSnapshotProvider is not null)
+        {
+            var snapshot = await _rateSnapshotProvider.GetSnapshotAsync(account.Currency.Code,
+                account.Currency.Code == "USD" ? "BOB" : "USD", userId, ct);
+            if (snapshot is not null) { rate = snapshot.AppliedRate; source = snapshot.RateSource; }
+        }
+        var money = Money.Of(amount, account.Currency);
+        var transaction = settlementId.HasValue
+            ? Transaction.CreateWorkspaceSettlementLeg(userId, accountId, money, direction, settlementId.Value,
+                occurredAt, description, rate, source, _clock.UtcNow)
+            : Transaction.Create(userId, accountId, money, direction, categoryId, occurredAt, description, rate, source, _clock.UtcNow);
+        await _transactionRepository.AddAsync(transaction, ct);
+        await _unitOfWork.SaveChangesAsync(ct);
+        return new(transaction.Id, null);
+    }
+
+    public async Task<WorkspaceLedgerTransactionResultDto> ReverseWorkspaceLedgerTransactionAsync(
+        Guid userId, Guid transactionId, CancellationToken cancellationToken = default)
+    {
+        var original = await _transactionRepository.GetByIdAsync(transactionId, cancellationToken);
+        if (original is null || original.UserId != userId || original.ReversesId.HasValue ||
+            original.TransferId.HasValue || original.InvestmentId.HasValue || original.IsReconciliationAdjustment ||
+            (!original.WorkspaceSettlementId.HasValue && original.Direction != TransactionDirection.Expense))
+            return new(null, "Workspace.TransactionNotFound");
+        if (await _transactionRepository.GetReversalByOriginalIdAsync(transactionId, cancellationToken) is not null)
+            return new(null, "Workspace.AlreadyReversed");
+        var reversal = Transaction.CreateReversal(original, _clock.UtcNow, "Workspace transaction reversal", _clock.UtcNow);
+        await _transactionRepository.AddAsync(reversal, cancellationToken);
+        try { await _unitOfWork.SaveChangesAsync(cancellationToken); }
+        catch
+        {
+            if (await _transactionRepository.GetReversalByOriginalIdAsync(transactionId, cancellationToken) is not null)
+                return new(null, "Workspace.AlreadyReversed");
+            throw;
+        }
+        return new(reversal.Id, null);
+    }
+
+    public async Task<LoanDisbursementReversalResultDto> ValidateLoanDisbursementReversalAsync(
+        LoanDisbursementReversalRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        var original = await _transactionRepository.GetByIdAsync(request.TransactionId, cancellationToken);
+        if (original is null || original.UserId != request.UserId)
+            return new(null, "Loan.DisbursementNotFound");
+
+        var expectedDirection = Enum.TryParse<TransactionDirection>(request.ExpectedDirection, true, out var direction)
+            ? direction
+            : (TransactionDirection?)null;
+        if (original.AccountId != request.AccountId || original.Amount.Amount != request.Principal ||
+            !StringComparer.Ordinal.Equals(original.Amount.Currency.Code, request.Currency) ||
+            original.Direction != expectedDirection || original.ReversesId.HasValue || original.TransferId.HasValue)
+        {
+            return new(null, "Loan.DisbursementMismatch");
+        }
+
+        if (await _transactionRepository.GetReversalByOriginalIdAsync(original.Id, cancellationToken) is not null)
+            return new(null, "Loan.DisbursementAlreadyReversed");
+
+        return new(null, null);
+    }
+
+    public async Task<LoanDisbursementReversalResultDto> ReverseLoanDisbursementAsync(
+        LoanDisbursementReversalRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        var validation = await ValidateLoanDisbursementReversalAsync(request, cancellationToken);
+        if (validation.ErrorCode is not null)
+            return validation;
+        var original = await _transactionRepository.GetByIdAsync(request.TransactionId, cancellationToken);
+        if (original is null)
+            return new(null, "Loan.DisbursementNotFound");
+        var reversal = Transaction.CreateReversal(original, _clock.UtcNow, "Loan cancellation", _clock.UtcNow);
+        await _transactionRepository.AddAsync(reversal, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        return new(reversal.Id, null);
+    }
+
+    public async Task<IReadOnlyList<LedgerCurrencyHealthMetricsDto>> GetMonthlyHealthMetricsAsync(
+        Guid userId,
+        DateTime monthStartUtc,
+        DateTime monthEndUtcExclusive,
+        CancellationToken cancellationToken = default)
+    {
+        var totals = await _transactionRepository.GetMonthlyActivityByCurrencyAsync(
+            userId, monthStartUtc, monthEndUtcExclusive, cancellationToken);
+        var metrics = new Dictionary<string, (decimal Income, decimal Expenses, decimal Balance)>(StringComparer.Ordinal);
+
+        foreach (var total in totals)
+        {
+            var current = metrics.GetValueOrDefault(total.Currency);
+            metrics[total.Currency] = (
+                current.Income + total.Income,
+                current.Expenses + total.Expenses,
+                current.Balance);
+        }
+
+        var accounts = await _accountRepository.GetByUserIdAsync(userId, includeArchived: false, cancellationToken);
+        foreach (var account in accounts)
+        {
+            var balance = await _transactionRepository.CalculateBalanceAsync(account.Id, cancellationToken);
+            var current = metrics.GetValueOrDefault(account.Currency.Code);
+            metrics[account.Currency.Code] = (current.Income, current.Expenses, current.Balance + balance);
+        }
+
+        return metrics.OrderBy(pair => pair.Key, StringComparer.Ordinal)
+            .Select(pair => new LedgerCurrencyHealthMetricsDto(
+                pair.Key, pair.Value.Income, pair.Value.Expenses, pair.Value.Balance))
+            .ToArray();
+    }
+
+    public async Task<IReadOnlyList<LedgerCurrencySpendingDto>> GetMonthlySpendingByCurrencyAsync(
+        Guid userId,
+        DateTime monthStartUtc,
+        DateTime monthEndUtcExclusive,
+        CancellationToken cancellationToken = default)
+    {
+        var currencyTotals = await _transactionRepository.GetMonthlyActivityByCurrencyAsync(
+            userId, monthStartUtc, monthEndUtcExclusive, cancellationToken);
+        var categoryTotals = await _transactionRepository.GetMonthlyCategoryExpensesAsync(
+            userId, monthStartUtc, monthEndUtcExclusive, cancellationToken);
+        var categoryGroups = categoryTotals.GroupBy(total => total.Currency, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key,
+                group => (IReadOnlyList<LedgerCategoryExpenseDto>)group
+                    .OrderBy(total => total.CategoryId)
+                    .Select(total => new LedgerCategoryExpenseDto(total.CategoryId, total.Amount)).ToArray(),
+                StringComparer.Ordinal);
+
+        return currencyTotals.OrderBy(total => total.Currency, StringComparer.Ordinal)
+            .Select(total => new LedgerCurrencySpendingDto(
+                total.Currency,
+                total.Expenses,
+                categoryGroups.GetValueOrDefault(total.Currency, [])))
+            .ToArray();
+    }
+
+    public async Task<MonthlyLedgerMetricsDto> GetMonthlyMetricsAsync(
+        Guid userId,
+        DateTime monthStart,
+        DateTime monthEnd,
+        CancellationToken cancellationToken = default)
+    {
+        var txns = await _transactionRepository.GetFilteredAsync(
+            userId: userId,
+            accountId: null,
+            direction: null,
+            from: monthStart,
+            to: monthEnd,
+            limit: 1000,
+            cancellationToken: cancellationToken);
+
+        decimal totalIncome = decimal.Zero;
+        decimal totalExpense = decimal.Zero;
+        var categoryMap = new Dictionary<Guid, decimal>();
+
+        foreach (var t in txns)
+        {
+            // Linked cash movements and reversals are not ordinary income/spending.
+            if (t.TransferId.HasValue || (t.InvestmentId.HasValue && t.InvestmentCashKind != InvestmentCashKind.Dividend) || t.WorkspaceSettlementId.HasValue ||
+                t.IsReconciliationAdjustment || t.LoanCashKind == LoanCashKind.Principal || t.ReversesId.HasValue ||
+                await _transactionRepository.GetReversalByOriginalIdAsync(t.Id, cancellationToken) is not null) continue;
+
+            if (t.Direction == TransactionDirection.Income)
+            {
+                totalIncome += t.Amount.Amount;
+            }
+            else
+            {
+                totalExpense += t.Amount.Amount;
+                if (t.CategoryId.HasValue)
+                {
+                    categoryMap[t.CategoryId.Value] = categoryMap.GetValueOrDefault(t.CategoryId.Value) + t.Amount.Amount;
+                }
+            }
+        }
+
+        var accounts = await _accountRepository.GetByUserIdAsync(userId, includeArchived: false, cancellationToken);
+        decimal totalLiquid = decimal.Zero;
+        foreach (var acc in accounts)
+        {
+            var bal = await _transactionRepository.CalculateBalanceAsync(acc.Id, cancellationToken);
+            totalLiquid += bal;
+        }
+
+        return new MonthlyLedgerMetricsDto(totalIncome, totalExpense, totalLiquid, categoryMap);
+    }
+
+    public Task<decimal> GetAccountBalanceAsync(Guid accountId, CancellationToken cancellationToken = default)
+    {
+        return _transactionRepository.CalculateBalanceAsync(accountId, cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<LedgerAccountSummaryDto>> GetAccountsByUserIdAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        var accounts = await _accountRepository.GetByUserIdAsync(userId, includeArchived: false, cancellationToken);
+        var dtos = new List<LedgerAccountSummaryDto>();
+
+        foreach (var account in accounts)
+        {
+            var balance = await _transactionRepository.CalculateBalanceAsync(account.Id, cancellationToken);
+            dtos.Add(new LedgerAccountSummaryDto(
+                account.Id,
+                account.Name,
+                account.Type.ToString(),
+                account.Currency.Code,
+                balance,
+                account.CreatedAt));
+        }
+
+        return dtos;
+    }
+}

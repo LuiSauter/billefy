@@ -1,0 +1,321 @@
+{
+  "case": "AUDITORIA_FINANZAS_PERSONALES_ENERO_2027",
+  "channel": "Chrome DevTools, authenticated audit user, client interactions only",
+  "status": "INCOMPLETE_BLOCKED_BY_UI_REQUIREMENTS",
+  "opening": {
+    "numericComparison": "PASS",
+    "expected": {
+      "liquidity": "11000",
+      "assets": "16500",
+      "liabilities": "3600",
+      "netWorth": "12900"
+    },
+    "observed": {
+      "bank": "6000",
+      "cash": "300",
+      "wallet": "700",
+      "savings": "4000",
+      "investmentValue": "2000",
+      "investmentUnits": "20",
+      "investmentCost": "2000",
+      "laptop": "3500",
+      "bankLoan": "3000",
+      "cardLiability": "600",
+      "assets": "16500",
+      "liabilities": "3600",
+      "netWorth": "12900",
+      "income": "0",
+      "expenses": "0"
+    },
+    "objectsPrefix": "AUD27",
+    "representation": {
+      "cashAccounts": "Created with initial balances via client UI; POST201 request ids511,516,521,525",
+      "investment": "Registered20shares/2000BOB through UI; POST201 req537; synthetic instrument AUD27 to avoid live-price changes",
+      "laptop": "Client manual patrimonial asset",
+      "bankLoanAndCard": "Client manual opening liabilities, NOT funded loan records"
+    },
+    "limits": [
+      "Opening amounts reconcile numerically; no journal-line equivalence or dated opening proved",
+      "Loan-creation UI requires associated account and always advertises disbursement, including Tarjeta; existing balance readonly",
+      "Manual opening liabilities do not establish a usable credit-card transaction ledger"
+    ],
+    "persistenceAfterReload": "PASS"
+  },
+  "events": [
+    {
+      "step": 1,
+      "status": "NUMERIC_PASS_AFTER_AUDITABLE_DATE_CORRECTION",
+      "checkpoint": {
+        "bank": "11000",
+        "netWorth": "17900",
+        "liquidity": "16000"
+      },
+      "scope": "Original immediate numeric checkpoint observed before S2; corrected January checkpoint assessed cumulatively afterS2",
+      "monthlySalary": "5000",
+      "postRequestId": 625
+    },
+    {
+      "step": 2,
+      "status": "PASS",
+      "expected": {
+        "bank": "12200",
+        "netWorth": "19100",
+        "liquidity": "17200",
+        "cardDebt": "600",
+        "januaryIncome": "6200"
+      },
+      "observed": {
+        "bank": "Bs 12.200,00",
+        "netWorth": "Bs 19.100,00",
+        "liquidity": "Bs 17.200,00",
+        "januaryIncome": "Bs 6.200,00",
+        "januaryExpenses": "Bs 0,00"
+      },
+      "postRequestId": 608,
+      "occurredAt": "2027-01-02T21:11:00.000Z"
+    },
+    {
+      "step": 3,
+      "status": "BLOCKED_UI",
+      "expected": "Bank→wallet250BOB during January2027",
+      "observed": "Transfer dialog exposes accounts and amount, but no effective-date input; same dialog via Movimientos and FX route. Cancelled without submitting.",
+      "evidence": "Chrome transfer dialog snapshot80; no transfer among four public transaction records"
+    },
+    {
+      "step": 4,
+      "status": "NOT_RUN",
+      "reason": "Ordered January replay stopped at first unsupported step3; no substitute postings or fabricated checkpoints"
+    },
+    {
+      "step": 5,
+      "status": "NOT_RUN",
+      "reason": "Ordered January replay stopped at first unsupported step3; no substitute postings or fabricated checkpoints"
+    },
+    {
+      "step": 6,
+      "status": "NOT_RUN",
+      "reason": "Ordered January replay stopped at first unsupported step3; no substitute postings or fabricated checkpoints"
+    },
+    {
+      "step": 7,
+      "status": "NOT_RUN",
+      "reason": "Ordered January replay stopped at first unsupported step3; no substitute postings or fabricated checkpoints"
+    },
+    {
+      "step": 8,
+      "status": "NOT_RUN",
+      "reason": "Ordered January replay stopped at first unsupported step3; no substitute postings or fabricated checkpoints"
+    },
+    {
+      "step": 9,
+      "status": "NOT_RUN",
+      "reason": "Ordered January replay stopped at first unsupported step3; no substitute postings or fabricated checkpoints"
+    },
+    {
+      "step": 10,
+      "status": "NOT_RUN",
+      "reason": "Ordered January replay stopped at first unsupported step3; no substitute postings or fabricated checkpoints"
+    },
+    {
+      "step": 11,
+      "status": "NOT_RUN",
+      "reason": "Ordered January replay stopped at first unsupported step3; no substitute postings or fabricated checkpoints"
+    },
+    {
+      "step": 12,
+      "status": "NOT_RUN",
+      "reason": "Ordered January replay stopped at first unsupported step3; no substitute postings or fabricated checkpoints"
+    },
+    {
+      "step": 13,
+      "status": "NOT_RUN",
+      "reason": "Ordered January replay stopped at first unsupported step3; no substitute postings or fabricated checkpoints"
+    },
+    {
+      "step": 14,
+      "status": "NOT_RUN",
+      "reason": "Ordered January replay stopped at first unsupported step3; no substitute postings or fabricated checkpoints"
+    },
+    {
+      "step": 15,
+      "status": "NOT_RUN",
+      "reason": "Ordered January replay stopped at first unsupported step3; no substitute postings or fabricated checkpoints"
+    },
+    {
+      "step": 16,
+      "status": "NOT_RUN",
+      "reason": "Ordered January replay stopped at first unsupported step3; no substitute postings or fabricated checkpoints"
+    },
+    {
+      "step": 17,
+      "status": "NOT_RUN",
+      "reason": "Ordered January replay stopped at first unsupported step3; no substitute postings or fabricated checkpoints"
+    },
+    {
+      "step": 18,
+      "status": "NOT_RUN",
+      "reason": "Ordered January replay stopped at first unsupported step3; no substitute postings or fabricated checkpoints"
+    },
+    {
+      "step": 19,
+      "status": "NOT_RUN",
+      "reason": "Ordered January replay stopped at first unsupported step3; no substitute postings or fabricated checkpoints"
+    },
+    {
+      "step": 20,
+      "status": "NOT_RUN",
+      "reason": "Ordered January replay stopped at first unsupported step3; no substitute postings or fabricated checkpoints"
+    },
+    {
+      "step": 21,
+      "status": "NOT_RUN",
+      "reason": "Ordered January replay stopped at first unsupported step3; no substitute postings or fabricated checkpoints"
+    }
+  ],
+  "independentCodeVerification": "STILL_PENDING",
+  "concurrencySecurityFaultInjection": "NOT_RUN",
+  "calibration": {
+    "initialSalary": {
+      "requestId": 600,
+      "occurredAt": "2026-11-15T21:07:00.000Z",
+      "amount": "5000",
+      "status": "REVERSED_THROUGH_UI",
+      "reversalRequestId": 617
+    },
+    "finding": "MCP fill changed date DOM but did not commit date state; native ArrowUp/ArrowDown + Tab and subsequent account-selection change preserved manual date; confirmed in API body. Not attributed to application logic.",
+    "correctedSalary": {
+      "requestId": 625,
+      "amount": "5000",
+      "occurredAt": "2027-01-01T21:16:00.000Z"
+    },
+    "chosenDates": "Fixture omits individual dates; ordinal January days used only for test sequencing.",
+    "novemberIncomeAfterReversal": "0",
+    "novemberExpensesAfterReversal": "0",
+    "originalPreservedInPublicRead": true,
+    "reversalLinkedInPublicRead": true,
+    "publicReadRequestId": 746,
+    "publicReadRowCount": 4,
+    "dateEntryCausality": "Observed MCP-input calibration issue; exact application-versus-tool cause not established by source inspection. Not reported as an accounting defect."
+  },
+  "budgets": {
+    "status": "CREATED_VIA_UI",
+    "month": "2027-01",
+    "limits": [
+      {
+        "category": "Housing",
+        "amount": "1400"
+      },
+      {
+        "category": "Food",
+        "amount": "950"
+      },
+      {
+        "category": "Transport",
+        "amount": "200"
+      },
+      {
+        "category": "Utilities",
+        "amount": "250"
+      },
+      {
+        "category": "Subscriptions",
+        "amount": "100"
+      },
+      {
+        "category": "Health",
+        "amount": "150"
+      },
+      {
+        "category": "Interest",
+        "amount": "50"
+      }
+    ],
+    "total": "3100",
+    "observedConsumption": "0",
+    "effectOnMoneyAfterReload": "NONE_OBSERVED",
+    "fullPeriodConsumption": "NOT_RUN"
+  },
+  "goal": {
+    "name": "Fondo de emergencia",
+    "status": "FAIL_FIXTURE_EARMARK_REQUIREMENT",
+    "target": "2000",
+    "linkedAccount": "AUD27 Ahorros",
+    "expectedInitialAssigned": "0",
+    "observedTrackedAmount": "4000",
+    "observedAverageProgress": "200%",
+    "observedCardProgress": "100% (clamped)",
+    "observedStatus": "Completed immediately",
+    "uiDisclosure": "Linked account's full balance counts for progress; no reservation or transfer.",
+    "effectOnMoneyAfterReload": "NONE_OBSERVED",
+    "step12AndFinal35Percent": "NOT_RUN"
+  },
+  "inspectedGaps": [
+    {
+      "id": "UI1",
+      "requirement": "Dated own-account transfers in January",
+      "finding": "No effective-date input in exposed transfer form",
+      "kind": "CONFIRMED_UI_GAP",
+      "steps": [
+        3,
+        4,
+        12
+      ],
+      "executed": false
+    },
+    {
+      "id": "UI2",
+      "requirement": "Existing bank/card opening debt without new cash",
+      "finding": "Operational loan form requires associated account/disbursement, current balance readonly; card type exposes same form. Manual patrimonial liabilities give numerical opening only.",
+      "kind": "CONFIRMED_UI_GAP",
+      "steps": [
+        7,
+        14,
+        15
+      ],
+      "executed": false
+    },
+    {
+      "id": "UI3",
+      "requirement": "Earmark0 initially, then700 of savings, not the account's entire balance",
+      "finding": "Linked goal immediately tracks4000/2000 and completes, with no reserved-funds input",
+      "kind": "OBSERVED_FIXTURE_NONCONFORMANCE",
+      "steps": [
+        12
+      ],
+      "executed": "Goal setup only; transfer/allocation step12 NOT_RUN"
+    },
+    {
+      "id": "UI4",
+      "requirement": "Atomic purchase5shares@120: bank−600, units+5 and cost+600",
+      "finding": "Aporte/retiro form explicitly says it changes cash account but NOT investment value or quantity. Row menu offers detail/updateprice/contribution/archive, not buy/sell.",
+      "kind": "CONFIRMED_EXPOSED_WORKFLOW_GAP_NOT_EXECUTED_PURCHASE",
+      "steps": [
+        13
+      ],
+      "executed": false
+    }
+  ],
+  "afterPlanningAndReload": {
+    "month": "2027-01",
+    "observed": {
+      "Patrimonio Neto": "Bs 19.100,00",
+      "Activos": "Bs 22.700,00",
+      "Pasivos": "Bs 3.600,00",
+      "Saldo total en cuentas": "Bs 17.200,00",
+      "Ingresos": "Bs 6.200,00",
+      "Gastos": "Bs 0,00",
+      "AUD27 Banco": "Bs 12.200,00",
+      "AUD27 Efectivo": "Bs 300,00",
+      "AUD27 Billetera": "Bs 700,00",
+      "AUD27 Ahorros": "Bs 4.000,00"
+    },
+    "transactionRows": 4,
+    "expectedFixturePostedEvents": 2
+  },
+  "automationWarnings": [
+    "Category combobox first fill used underlying value instead of visible label; rejected before financial mutation; corrected with visible label.",
+    "Two category fill_form calls reported interactivity timeout after applying the text; current UI value was checked before continuing, no duplicate create.",
+    "A success-toast wait timed out after salary HTTP201; network and persisted UI were used instead of treating missing toast as save failure.",
+    "Initial date fill displayed January but POST600 used November; retained original and created UI reversal617 plus corrected January record625. Native-key date entry confirmed by POST608 and625."
+  ]
+}

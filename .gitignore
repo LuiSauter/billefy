@@ -1,1 +1,56 @@
-.atl
+# Operating Systems
+.DS_Store
+Thumbs.db
+
+# IDEs and Editors
+.idea/
+*.iml
+.vscode/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# .NET / C#
+bin/
+obj/
+TestResults/
+*.received.*
+*.verified.*
+
+# Node / Web
+node_modules/
+.pnpm-store/
+web/.next/
+web/out/
+web/coverage/
+*.tsbuildinfo
+
+# Mobile / Android / Kotlin / Gradle
+.gradle/
+build/
+local.properties
+*.apk
+*.aab
+*.keystore
+!*.example.keystore
+
+# Local Environment & Secrets
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+!*.sample.key
+
+# Offline independent-verifier dependencies (generated, regular files only)
+/.verifier-runtime/
+
+# Tools & Temporary
+.atl/
+.agents/
+skills-lock.json
+.pi/*
+!.pi/mcp.json
+*.log
+binance-spot-api-docs/

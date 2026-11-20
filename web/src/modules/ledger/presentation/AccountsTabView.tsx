@@ -1,0 +1,164 @@
+"use client";
+
+import React, { useState, useMemo, useCallback } from "react";
+import { AccountDto, TransactionDto } from "@/modules/ledger/domain/ledger.types";
+import {
+  calculateAccountsOverview,
+  classifyAccountCategory,
+} from "@/modules/ledger/domain/accounts-overview";
+import { AccountsHeaderStats } from "./AccountsHeaderStats";
+import { AccountsFilterToolbar, FilterCategory, ViewMode } from "./AccountsFilterToolbar";
+import { AccountsMainView } from "./AccountsMainView";
+import { AccountsAnalyticsSidePanels } from "./AccountsAnalyticsSidePanels";
+import { AccountDetailView } from "./account-detail/AccountDetailView";
+import { EditAccountModal } from "./EditAccountModal";
+
+type UpdateAccountHandler = (
+  accountId: string,
+  data: { name: string; iconKey: string; colorKey: string }
+) => Promise<void>;
+
+/** Stable fallback so EditAccountModal never receives a fresh function identity per render. */
+const NOOP_UPDATE_ACCOUNT: UpdateAccountHandler = async () => {};
+
+interface AccountsTabViewProps {
+  accounts: AccountDto[];
+  transactions?: TransactionDto[];
+  p2pRate?: number;
+  selectedCurrency?: "BOB" | "USD";
+  loading: boolean;
+  onOpenCreateAccountModal: () => void;
+  onOpenCsvModal: () => void;
+  onOpenReconcileModal: (account: AccountDto) => void;
+  onUpdateAccount?: UpdateAccountHandler;
+  onDeleteAccount?: (accountId: string) => Promise<void>;
+  onOpenRegisterTxnModal?: (account: AccountDto) => void;
+  onEditTxn?: (txn: TransactionDto) => void;
+  onReverseTxn?: (txnId: string) => void;
+}
+
+export function AccountsTabView({
+  accounts,
+  transactions = [],
+  p2pRate = 9.85,
+  selectedCurrency = "BOB",
+  loading,
+  onOpenCreateAccountModal,
+  onOpenCsvModal,
+  onOpenReconcileModal,
+  onUpdateAccount,
+  onDeleteAccount,
+  onOpenRegisterTxnModal,
+  onEditTxn,
+  onReverseTxn,
+}: AccountsTabViewProps) {
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
+  const [editingAccount, setEditingAccount] = useState<AccountDto | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<FilterCategory>("all");
+  const [viewMode, setViewMode] = useState<ViewMode>("grid");
+
+  const metrics = useMemo(() => {
+    return calculateAccountsOverview(accounts, transactions, p2pRate);
+  }, [accounts, transactions, p2pRate]);
+
+  const filteredAccounts = useMemo(() => {
+    if (selectedCategory === "all") return accounts;
+    return accounts.filter((a) => classifyAccountCategory(a) === selectedCategory);
+  }, [accounts, selectedCategory]);
+
+  const selectedAccount = useMemo(() => {
+    if (!selectedAccountId) return null;
+    return accounts.find((a) => a.id === selectedAccountId) || null;
+  }, [accounts, selectedAccountId]);
+
+  const handleBack = useCallback(() => setSelectedAccountId(null), []);
+  const handleSelectAccount = useCallback((acc: AccountDto) => setSelectedAccountId(acc.id), []);
+  const handleCloseEdit = useCallback(() => setEditingAccount(null), []);
+
+  // Single owner of the edit modal for both the detail view and the accounts list.
+  const editAccountModal = editingAccount ? (
+    <EditAccountModal
+      account={editingAccount}
+      onClose={handleCloseEdit}
+      onSubmit={onUpdateAccount ?? NOOP_UPDATE_ACCOUNT}
+      onDelete={onDeleteAccount}
+    />
+  ) : null;
+
+  // If an account is selected, render the detailed account view
+  if (selectedAccount) {
+    return (
+      <>
+        <AccountDetailView
+          account={selectedAccount}
+          transactions={transactions}
+          onBack={handleBack}
+          onOpenReconcileModal={onOpenReconcileModal}
+          onOpenEditAccountModal={setEditingAccount}
+          onOpenRegisterTxnModal={onOpenRegisterTxnModal}
+          onEditTxn={onEditTxn}
+          onReverseTxn={onReverseTxn}
+          onDeleteAccount={onDeleteAccount}
+          selectedCurrency={selectedCurrency}
+          p2pRate={p2pRate}
+        />
+
+        {editAccountModal}
+      </>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-6">
+      {/* 1. Header with Title, Description, "+ Agregar cuenta" & 6 Stat Cards */}
+      <AccountsHeaderStats
+        metrics={metrics}
+        currency={selectedCurrency}
+        onOpenCreateAccountModal={onOpenCreateAccountModal}
+        onOpenCsvModal={onOpenCsvModal}
+      />
+
+      {/* 2. Filter Tabs & View Mode Switcher */}
+      <AccountsFilterToolbar
+        selectedCategory={selectedCategory}
+        onSelectCategory={setSelectedCategory}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        totalCount={accounts.length}
+        categoryTotals={metrics.categoryTotals}
+      />
+
+      {/* 3. Main 2-Column Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Left Column: Mis Cuentas (Grid or List) */}
+        <div className="lg:col-span-7 xl:col-span-8 flex flex-col gap-4">
+          <AccountsMainView
+            accounts={filteredAccounts}
+            loading={loading}
+            viewMode={viewMode}
+            selectedCurrency={selectedCurrency}
+            p2pRate={p2pRate}
+            onOpenCreateAccountModal={onOpenCreateAccountModal}
+            onOpenReconcileModal={onOpenReconcileModal}
+            onEditAccount={onUpdateAccount ? setEditingAccount : undefined}
+            onDeleteAccount={onDeleteAccount}
+            onSelectAccount={handleSelectAccount}
+          />
+        </div>
+
+        {/* Right Column: Distribución Donut & Evolución Area Chart */}
+        <div className="lg:col-span-5 xl:col-span-4 flex flex-col gap-4">
+          <AccountsAnalyticsSidePanels
+            metrics={metrics}
+            accounts={accounts}
+            transactions={transactions}
+            p2pRate={p2pRate}
+            currency={selectedCurrency}
+          />
+        </div>
+      </div>
+
+      {editAccountModal}
+    </div>
+  );
+}

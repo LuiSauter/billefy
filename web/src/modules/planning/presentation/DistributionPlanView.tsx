@@ -1,0 +1,329 @@
+"use client";
+
+import React, { useMemo, useState } from "react";
+import Decimal from "decimal.js";
+import { AlertTriangle, Plus, Trash2 } from "lucide-react";
+import { TransactionDto } from "@/modules/ledger/domain/ledger.types";
+import {
+  monthKey,
+  monthLabel,
+  sumMonthlyFlow,
+  sumMonthlySpendingByCategory,
+} from "@/modules/ledger/domain/monthly-analytics";
+import { CATEGORY_COLOR_THEMES } from "@/modules/ledger/domain/category.types";
+import { useUserCategories } from "@/modules/ledger/application/CategoriesContext";
+import { CategoryIconBadge } from "@/modules/ledger/presentation/CategoryIcon";
+import { Button } from "@/shared/ui/button";
+import { useNumberPreferences } from "@/shared/hooks/use-number-format";
+import { formatPercent } from "@/shared/lib/amount-format";
+import { Amount } from "@/shared/ui/amount";
+import { Input } from "@/shared/ui/input";
+import {
+  PLAN_PRESETS,
+  PlanBucket,
+  bucketFromPreset,
+  totalPercent,
+  bucketTrackingMode,
+  changeBucketTrackingMode,
+  TrackingMode,
+} from "../domain/distribution-plan";
+import { DistributionPlanController } from "../application/useDistributionPlan";
+
+interface DistributionPlanViewProps {
+  controller: DistributionPlanController;
+  transactions: TransactionDto[];
+  p2pRate: number;
+}
+
+export function DistributionPlanView({
+  controller,
+  transactions,
+  p2pRate,
+}: DistributionPlanViewProps) {
+  const { plan, setBuckets, setEnabled, validationErrors } = controller;
+  const { buckets } = plan;
+  const preferences = useNumberPreferences();
+  const { getCategoriesByDirection } = useUserCategories();
+  const expenseCategories = getCategoriesByDirection("Expense");
+  const [editOverride, setEditOverride] = useState<boolean | null>(null);
+  const editing = editOverride ?? (!plan.enabled || buckets.length === 0);
+
+  const month = monthKey(new Date());
+  const income = useMemo(
+    () => sumMonthlyFlow(transactions, month, "Income", p2pRate),
+    [transactions, month, p2pRate]
+  );
+
+  const spentByCategory = useMemo(
+    () => sumMonthlySpendingByCategory(transactions, month, p2pRate),
+    [transactions, month, p2pRate]
+  );
+
+  const total = totalPercent(buckets);
+  const assigned = new Set(buckets.flatMap((b) => b.categoryIds));
+  const unassigned = expenseCategories.filter((c) => !assigned.has(c.id));
+
+  const patch = (id: string, changes: Partial<PlanBucket>) =>
+    setBuckets(buckets.map((b) => (b.id === id ? { ...b, ...changes } : b)));
+
+  const toggleCategory = (bucketId: string, categoryId: string) => {
+    setBuckets(
+      buckets.map((b) => {
+        if (b.id === bucketId) {
+          return {
+            ...b,
+            categoryIds: b.categoryIds.includes(categoryId)
+              ? b.categoryIds.filter((c) => c !== categoryId)
+              : [...b.categoryIds, categoryId],
+          };
+        }
+        return { ...b, categoryIds: b.categoryIds.filter((c) => c !== categoryId) };
+      })
+    );
+  };
+
+  const addBucket = () =>
+    setBuckets([
+      ...buckets,
+      {
+        id: `b-${Date.now()}`,
+        name: `Grupo ${buckets.length + 1}`,
+        percent: Math.max(0, 100 - total),
+        colorKey: "violet",
+        trackingMode: "Expenses",
+        categoryIds: [],
+      },
+    ]);
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h1 className="text-[18px] font-black text-foreground tracking-tight">
+            Plan de distribución
+          </h1>
+          <p className="text-xs font-medium text-muted-foreground mt-0.5">
+            {monthLabel(month)} • Ingresos del mes:{" "}
+            <span className="font-bold text-foreground">
+              <Amount value={income} currency="BOB" size="sm" className="text-foreground" />
+            </span>
+          </p>
+        </div>
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={() => setEditOverride(!editing)}
+          className="border border-border"
+        >
+          {editing ? "Ver seguimiento" : "Configurar plan"}
+        </Button>
+      </div>
+
+      <p className="text-xs text-muted-foreground">
+        El plan reparte los ingresos reales del mes actual, sin transferencias internas.
+        Los presupuestos son complementarios: ponen topes a los gastos por categoría.
+      </p>
+      {validationErrors.length > 0 && (
+        <div role="alert" className="text-xs text-amber-500">
+          <p>Para activar o guardar el plan activo, corregí lo siguiente (podés seguir editando):</p>
+          <ul>{validationErrors.map((error) => <li key={error}>{error}</li>)}</ul>
+        </div>
+      )}
+      {!plan.enabled && (
+        <Button type="button" disabled={validationErrors.length > 0} onClick={() => setEnabled(true)}>
+          Activar plan
+        </Button>
+      )}
+
+      {editing ? (
+        <div className="flex flex-col gap-5">
+          <div className="rounded-2xl bg-card border border-border p-4 flex flex-col gap-3">
+            <span className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground">
+              Empezá con una plantilla (o armá la tuya)
+            </span>
+            <div className="flex flex-wrap gap-2">
+              {PLAN_PRESETS.map((p) => (
+                <button
+                  key={p.key}
+                  type="button"
+                  onClick={() => setBuckets(bucketFromPreset(p))}
+                  className="px-3 h-8 rounded-full border border-border bg-background text-xs font-bold hover:bg-muted transition"
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {buckets.map((b) => {
+            const theme = CATEGORY_COLOR_THEMES[b.colorKey];
+            return (
+              <div
+                key={b.id}
+                className="rounded-2xl bg-card border border-border p-4 flex flex-col gap-3"
+              >
+                <div className="flex items-center gap-2">
+                  <span
+                    className="w-3 h-3 rounded-full shrink-0"
+                    style={{ backgroundColor: theme.swatchHex }}
+                  />
+                  <Input
+                    aria-label="Nombre del grupo"
+                    value={b.name}
+                    onChange={(e) => patch(b.id, { name: e.target.value })}
+                    className="flex-1"
+                  />
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Input
+                      aria-label="Porcentaje"
+                      type="number"
+                      step="any"
+                      inputMode="decimal"
+                      value={String(b.percent)}
+                      onChange={(e) =>
+                        patch(b.id, {
+                          percent: Number(e.target.value.replace(",", ".")) || 0,
+                        })
+                      }
+                      className="w-16 text-right"
+                    />
+                    <span className="text-sm font-bold text-muted-foreground">%</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setBuckets(buckets.filter((x) => x.id !== b.id))}
+                    title="Quitar grupo"
+                    className="p-2 text-muted-foreground hover:text-rose-500 transition"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <label className="text-xs text-muted-foreground flex flex-col gap-1.5">
+                  Seguimiento del grupo
+                  <select
+                    aria-label={`Seguimiento de ${b.name}`}
+                    value={bucketTrackingMode(b)}
+                    onChange={(e) => setBuckets(buckets.map((item) => item.id === b.id
+                      ? changeBucketTrackingMode(item, e.target.value as TrackingMode) : item))}
+                    className="rounded-lg border border-border bg-background p-2 text-foreground"
+                  >
+                    <option value="Expenses">Gastos por categorías</option>
+                    <option value="TargetOnly">Solo objetivo (ahorro/inversión)</option>
+                  </select>
+                  Al elegir solo objetivo se quitan las categorías asignadas; no se registran aportes.
+                </label>
+                {bucketTrackingMode(b) === "Expenses" && <div className="flex flex-wrap gap-1.5">
+                  {expenseCategories.length === 0 && (
+                    <span className="text-xs text-muted-foreground">
+                      Creá categorías de gasto para asignarlas a este grupo.
+                    </span>
+                  )}
+                  {expenseCategories.map((c) => {
+                    const inThis = b.categoryIds.includes(c.id);
+                    const elsewhere = !inThis && assigned.has(c.id);
+                    return (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => toggleCategory(b.id, c.id)}
+                        className={`inline-flex items-center gap-1.5 pl-1 pr-2.5 h-7 rounded-full border text-xs font-semibold transition ${
+                          inThis
+                            ? "bg-accent border-primary text-foreground"
+                            : elsewhere
+                            ? "bg-background border-border text-muted-foreground opacity-50"
+                            : "bg-background border-border text-foreground hover:bg-muted"
+                        }`}
+                      >
+                        <CategoryIconBadge iconKey={c.iconKey} colorKey={c.colorKey} size="sm" />
+                        {c.name}
+                      </button>
+                    );
+                  })}
+                </div>}
+                {b.categoryIds.length > 0 && (
+                  <button type="button" className="text-xs text-muted-foreground text-left underline" onClick={() => patch(b.id, { categoryIds: [] })}>
+                    Quitar todas las categorías asignadas ({b.categoryIds.length})
+                  </button>
+                )}
+              </div>
+            );
+          })}
+
+          <div className="flex items-center justify-between">
+            <Button type="button" variant="ghost" onClick={addBucket} disabled={buckets.length >= 8} className="gap-1.5 border border-border">
+              <Plus className="w-4 h-4" /> Agregar grupo
+            </Button>
+            <span
+              className={`text-sm font-extrabold ${
+                total === 100 ? "text-emerald-500" : "text-rose-500"
+              }`}
+            >
+              Total: {formatPercent(total, preferences)}
+            </span>
+          </div>
+
+          {total !== 100 && buckets.length > 0 && (
+            <p className="flex items-center gap-1.5 text-xs font-semibold text-amber-500">
+              <AlertTriangle className="w-3.5 h-3.5" /> Los porcentajes deben sumar 100%.
+            </p>
+          )}
+          {unassigned.length > 0 && buckets.length > 0 && (
+            <p className="text-xs text-muted-foreground">
+              Sin asignar: {unassigned.map((c) => c.name).join(", ")}
+            </p>
+          )}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {buckets.map((b) => {
+            const theme = CATEGORY_COLOR_THEMES[b.colorKey];
+            const target = income.times(b.percent).dividedBy(100);
+            const spent = b.categoryIds.reduce(
+              (total, id) => total.plus(spentByCategory.get(id) ?? 0),
+              new Decimal(0)
+            );
+            const ratio = target.gt(0) ? Math.min(100, spent.dividedBy(target).times(100).toNumber()) : 0;
+            const over = target.gt(0) && spent.gt(target);
+            return (
+              <div key={b.id} className="rounded-2xl bg-card border border-border p-4 flex flex-col gap-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-2 text-sm font-extrabold text-foreground">
+                    <span className="w-3 h-3 rounded-full" style={{ backgroundColor: theme.swatchHex }} />
+                    {b.name}
+                  </span>
+                  <span className="text-xs font-bold text-muted-foreground">{formatPercent(b.percent, preferences)}</span>
+                </div>
+                {bucketTrackingMode(b) === "TargetOnly" ? (
+                  <>
+                    <p className="text-sm font-bold">Objetivo asignado: <Amount value={target} currency="BOB" size="sm" /></p>
+                    <p className="text-xs text-muted-foreground">No registra aportes ni mide avance de ahorro/inversión.</p>
+                  </>
+                ) : <>
+                <div className="h-2 rounded-full bg-muted overflow-hidden">
+                  <div
+                    className={`h-full transition-all ${over ? "bg-rose-500" : ""}`}
+                    style={{
+                      width: `${ratio}%`,
+                      backgroundColor: over ? undefined : theme.swatchHex,
+                    }}
+                  />
+                </div>
+                <div className="flex items-center justify-between gap-2 text-xs">
+                  <Amount value={spent} currency="BOB" size="xs" className={over ? "text-rose-500" : "text-foreground"} />
+                  <span className="text-muted-foreground">de <Amount value={target} currency="BOB" size="xs" /></span>
+                </div>
+                </>}
+              </div>
+            );
+          })}
+          {buckets.length === 0 && (
+            <p className="text-sm text-muted-foreground">
+              Todavía no configuraste tu plan. Tocá «Configurar plan».
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}

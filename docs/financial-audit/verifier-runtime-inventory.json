@@ -1,0 +1,599 @@
+{
+  "status": "BLOCKED_BY_PAYLOAD_LIMITS",
+  "run": {
+    "exitCode": 1,
+    "elapsedSeconds": 14.075,
+    "deadlineSeconds": 120,
+    "timedOut": false,
+    "attempts": 1,
+    "rawLog": "/var/folders/lb/ydz9zgs96ms9wss75lvjpj740000gn/T/gpCIxjot/gentle-jobs-VLguS2/job-2.log"
+  },
+  "runtimeProvisioned": false,
+  "applicationVerification": "NOT_RUN",
+  "debugMapPolicyChanged": false,
+  "measurement": {
+    "dryRun": true,
+    "packages": 205,
+    "sourcePackages": 205,
+    "runtimeFiles": 33619,
+    "runtimeBytes": 322326607,
+    "baseline": {
+      "files": 1229,
+      "bytes": 29852811
+    },
+    "totalFiles": 34848,
+    "totalBytes": 352179418,
+    "maxFiles": 20000,
+    "maxBytes": 268435456,
+    "debugMaps": {
+      "validated": {
+        "files": 4871,
+        "bytes": 92456028
+      },
+      "protected": {
+        "files": 31,
+        "bytes": 177066
+      },
+      "candidates": {
+        "files": 4840,
+        "bytes": 92278962
+      },
+      "candidateSha256": "161f0b78792a418a275940e3b6bd98fd130d4c91b62b77a6335c02fb24d75ebc",
+      "proposed": {
+        "runtimeFiles": 28779,
+        "runtimeBytes": 231274606,
+        "totalFiles": 30008,
+        "totalBytes": 261127417
+      },
+      "absoluteMinimumFiles": 29977,
+      "policy": "Measurement only; candidates are an upper bound, not proof against dynamic resource use; nothing omitted"
+    },
+    "manifest": ".verifier-runtime/manifest.json",
+    "cli": {
+      "vitest": "node_modules/vitest/vitest.mjs",
+      "tsc": "node_modules/typescript/bin/tsc",
+      "esbuild": "node_modules/esbuild/bin/esbuild"
+    },
+    "api": {
+      "esbuild": "node_modules/esbuild/lib/main.js"
+    },
+    "inputSha256": "e15c4f5381cb0385f1b09ec8bce14f5dfc81b8fd74d74fe211ece67e4a391967",
+    "largestPackages": [
+      {
+        "name": "next",
+        "version": "15.5.28",
+        "files": 7278,
+        "bytes": 141023718
+      },
+      {
+        "name": "lucide-react",
+        "version": "1.61.0",
+        "files": 4388,
+        "bytes": 36339823
+      },
+      {
+        "name": "typescript",
+        "version": "5.9.3",
+        "files": 132,
+        "bytes": 23625066
+      },
+      {
+        "name": "date-fns",
+        "version": "4.4.0",
+        "files": 5136,
+        "bytes": 10902084
+      },
+      {
+        "name": "@esbuild/darwin-arm64",
+        "version": "0.28.2",
+        "files": 3,
+        "bytes": 10591409
+      },
+      {
+        "name": "@base-ui/react",
+        "version": "1.9.0",
+        "files": 3451,
+        "bytes": 10377319
+      },
+      {
+        "name": "@shikijs/langs",
+        "version": "4.5.0",
+        "files": 725,
+        "bytes": 8650980
+      },
+      {
+        "name": "lightningcss-darwin-arm64",
+        "version": "1.32.0",
+        "files": 4,
+        "bytes": 8532867
+      },
+      {
+        "name": "react-dom",
+        "version": "19.3.1",
+        "files": 43,
+        "bytes": 8067632
+      },
+      {
+        "name": "recharts",
+        "version": "3.8.0",
+        "files": 791,
+        "bytes": 6701107
+      }
+    ],
+    "omittedRoots": [
+      {
+        "name": "@eslint/eslintrc",
+        "requested": "^3.3.0",
+        "reason": "Lint/build-only root; retained if required by selected graph"
+      },
+      {
+        "name": "@tailwindcss/postcss",
+        "requested": "^4.3.3",
+        "reason": "Lint/build-only root; retained if required by selected graph"
+      },
+      {
+        "name": "eslint",
+        "requested": "^9.21.0",
+        "reason": "Lint/build-only root; retained if required by selected graph"
+      },
+      {
+        "name": "eslint-config-next",
+        "requested": "^15.2.4",
+        "reason": "Lint/build-only root; retained if required by selected graph"
+      },
+      {
+        "name": "postcss",
+        "requested": "^8.5.31",
+        "reason": "Lint/build-only root; retained if required by selected graph"
+      },
+      {
+        "name": "tailwindcss",
+        "requested": "^4.3.3",
+        "reason": "Lint/build-only root; retained if required by selected graph"
+      }
+    ],
+    "omissions": [
+      {
+        "source": "next",
+        "name": "@next/swc-darwin-arm64",
+        "reason": "Next optional build/server image processing; not test/compiler/browser bundling"
+      },
+      {
+        "source": "next",
+        "name": "@next/swc-darwin-x64",
+        "reason": "Next optional build/server image processing; not test/compiler/browser bundling"
+      },
+      {
+        "source": "next",
+        "name": "@next/swc-linux-arm64-gnu",
+        "reason": "Next optional build/server image processing; not test/compiler/browser bundling"
+      },
+      {
+        "source": "next",
+        "name": "@next/swc-linux-arm64-musl",
+        "reason": "Next optional build/server image processing; not test/compiler/browser bundling"
+      },
+      {
+        "source": "next",
+        "name": "@next/swc-linux-x64-gnu",
+        "reason": "Next optional build/server image processing; not test/compiler/browser bundling"
+      },
+      {
+        "source": "next",
+        "name": "@next/swc-linux-x64-musl",
+        "reason": "Next optional build/server image processing; not test/compiler/browser bundling"
+      },
+      {
+        "source": "next",
+        "name": "@next/swc-win32-arm64-msvc",
+        "reason": "Next optional build/server image processing; not test/compiler/browser bundling"
+      },
+      {
+        "source": "next",
+        "name": "@next/swc-win32-x64-msvc",
+        "reason": "Next optional build/server image processing; not test/compiler/browser bundling"
+      },
+      {
+        "source": "next",
+        "name": "sharp",
+        "reason": "Next optional build/server image processing; not test/compiler/browser bundling"
+      },
+      {
+        "source": "next",
+        "name": "@opentelemetry/api",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "next",
+        "name": "@playwright/test",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "next",
+        "name": "babel-plugin-react-compiler",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "next",
+        "name": "sass",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "@vitest/mocker",
+        "name": "msw",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "esbuild",
+        "name": "@esbuild/aix-ppc64",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "esbuild",
+        "name": "@esbuild/android-arm",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "esbuild",
+        "name": "@esbuild/android-arm64",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "esbuild",
+        "name": "@esbuild/android-x64",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "esbuild",
+        "name": "@esbuild/darwin-x64",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "esbuild",
+        "name": "@esbuild/freebsd-arm64",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "esbuild",
+        "name": "@esbuild/freebsd-x64",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "esbuild",
+        "name": "@esbuild/linux-arm",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "esbuild",
+        "name": "@esbuild/linux-arm64",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "esbuild",
+        "name": "@esbuild/linux-ia32",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "esbuild",
+        "name": "@esbuild/linux-loong64",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "esbuild",
+        "name": "@esbuild/linux-mips64el",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "esbuild",
+        "name": "@esbuild/linux-ppc64",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "esbuild",
+        "name": "@esbuild/linux-riscv64",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "esbuild",
+        "name": "@esbuild/linux-s390x",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "esbuild",
+        "name": "@esbuild/linux-x64",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "esbuild",
+        "name": "@esbuild/netbsd-arm64",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "esbuild",
+        "name": "@esbuild/netbsd-x64",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "esbuild",
+        "name": "@esbuild/openbsd-arm64",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "esbuild",
+        "name": "@esbuild/openbsd-x64",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "esbuild",
+        "name": "@esbuild/openharmony-arm64",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "esbuild",
+        "name": "@esbuild/sunos-x64",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "esbuild",
+        "name": "@esbuild/win32-arm64",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "esbuild",
+        "name": "@esbuild/win32-ia32",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "esbuild",
+        "name": "@esbuild/win32-x64",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "rollup",
+        "name": "@napi-rs/lzma-linux-x64-gnu",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "rollup",
+        "name": "@rollup/rollup-android-arm-eabi",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "rollup",
+        "name": "@rollup/rollup-android-arm64",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "rollup",
+        "name": "@rollup/rollup-darwin-x64",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "rollup",
+        "name": "@rollup/rollup-freebsd-arm64",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "rollup",
+        "name": "@rollup/rollup-freebsd-x64",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "rollup",
+        "name": "@rollup/rollup-linux-arm-gnueabihf",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "rollup",
+        "name": "@rollup/rollup-linux-arm-musleabihf",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "rollup",
+        "name": "@rollup/rollup-linux-arm64-gnu",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "rollup",
+        "name": "@rollup/rollup-linux-arm64-musl",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "rollup",
+        "name": "@rollup/rollup-linux-loong64-gnu",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "rollup",
+        "name": "@rollup/rollup-linux-loong64-musl",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "rollup",
+        "name": "@rollup/rollup-linux-ppc64-gnu",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "rollup",
+        "name": "@rollup/rollup-linux-ppc64-musl",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "rollup",
+        "name": "@rollup/rollup-linux-riscv64-gnu",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "rollup",
+        "name": "@rollup/rollup-linux-riscv64-musl",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "rollup",
+        "name": "@rollup/rollup-linux-s390x-gnu",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "rollup",
+        "name": "@rollup/rollup-linux-x64-gnu",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "rollup",
+        "name": "@rollup/rollup-linux-x64-musl",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "rollup",
+        "name": "@rollup/rollup-openbsd-x64",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "rollup",
+        "name": "@rollup/rollup-openharmony-arm64",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "rollup",
+        "name": "@rollup/rollup-win32-arm64-msvc",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "rollup",
+        "name": "@rollup/rollup-win32-ia32-msvc",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "rollup",
+        "name": "@rollup/rollup-win32-x64-gnu",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "rollup",
+        "name": "@rollup/rollup-win32-x64-msvc",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "vite",
+        "name": "less",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "lightningcss",
+        "name": "lightningcss-android-arm64",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "lightningcss",
+        "name": "lightningcss-darwin-x64",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "lightningcss",
+        "name": "lightningcss-freebsd-x64",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "lightningcss",
+        "name": "lightningcss-linux-arm-gnueabihf",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "lightningcss",
+        "name": "lightningcss-linux-arm64-gnu",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "lightningcss",
+        "name": "lightningcss-linux-arm64-musl",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "lightningcss",
+        "name": "lightningcss-linux-x64-gnu",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "lightningcss",
+        "name": "lightningcss-linux-x64-musl",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "lightningcss",
+        "name": "lightningcss-win32-arm64-msvc",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "lightningcss",
+        "name": "lightningcss-win32-x64-msvc",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "vite",
+        "name": "sass",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "vite",
+        "name": "sass-embedded",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "vite",
+        "name": "stylus",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "vite",
+        "name": "sugarss",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "vite",
+        "name": "terser",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "vite",
+        "name": "tsx",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "vite",
+        "name": "yaml",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "vitest",
+        "name": "@edge-runtime/vm",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "vitest",
+        "name": "@types/debug",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "vitest",
+        "name": "@vitest/browser",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "vitest",
+        "name": "@vitest/ui",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "vitest",
+        "name": "happy-dom",
+        "reason": "Optional dependency/peer not installed"
+      },
+      {
+        "source": "vitest",
+        "name": "jsdom",
+        "reason": "Optional dependency/peer not installed"
+      }
+    ],
+    "inputPreserved": true
+  }
+}

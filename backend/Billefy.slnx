@@ -1,0 +1,80 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Api/Api.csproj" />
+    <Project Path="src/BuildingBlocks/BuildingBlocks.csproj" />
+    <Project Path="src/Worker/Worker.csproj" />
+  </Folder>
+  <Folder Name="/src/Integrations/">
+    <Project Path="src/Integrations/Billefy.Integrations.Fx/Billefy.Integrations.Fx.csproj" />
+    <Project Path="src/Integrations/Billefy.Integrations.WhatsApp/Billefy.Integrations.WhatsApp.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/" />
+  <Folder Name="/src/Modules/Analytics/">
+    <Project Path="src/Modules/Analytics/Analytics.Contracts/Analytics.Contracts.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Fx/">
+    <Project Path="src/Modules/Fx/Fx.Application/Fx.Application.csproj" />
+    <Project Path="src/Modules/Fx/Fx.Contracts/Fx.Contracts.csproj" />
+    <Project Path="src/Modules/Fx/Fx.Domain/Fx.Domain.csproj" />
+    <Project Path="src/Modules/Fx/Fx.Infrastructure/Fx.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Identity/">
+    <Project Path="src/Modules/Identity/Identity.Application/Identity.Application.csproj" />
+    <Project Path="src/Modules/Identity/Identity.Contracts/Identity.Contracts.csproj" />
+    <Project Path="src/Modules/Identity/Identity.Domain/Identity.Domain.csproj" />
+    <Project Path="src/Modules/Identity/Identity.Infrastructure/Identity.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Ingestion/">
+    <Project Path="src/Modules/Ingestion/Ingestion.Application/Ingestion.Application.csproj" />
+    <Project Path="src/Modules/Ingestion/Ingestion.Contracts/Ingestion.Contracts.csproj" />
+    <Project Path="src/Modules/Ingestion/Ingestion.Domain/Ingestion.Domain.csproj" />
+    <Project Path="src/Modules/Ingestion/Ingestion.Infrastructure/Ingestion.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Ledger/">
+    <Project Path="src/Modules/Ledger/Ledger.Application/Ledger.Application.csproj" />
+    <Project Path="src/Modules/Ledger/Ledger.Contracts/Ledger.Contracts.csproj" />
+    <Project Path="src/Modules/Ledger/Ledger.Domain/Ledger.Domain.csproj" />
+    <Project Path="src/Modules/Ledger/Ledger.Infrastructure/Ledger.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Lending/">
+    <Project Path="src/Modules/Lending/Lending.Application/Lending.Application.csproj" />
+    <Project Path="src/Modules/Lending/Lending.Contracts/Lending.Contracts.csproj" />
+    <Project Path="src/Modules/Lending/Lending.Domain/Lending.Domain.csproj" />
+    <Project Path="src/Modules/Lending/Lending.Infrastructure/Lending.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Messaging/">
+    <Project Path="src/Modules/Messaging/Messaging.Application/Messaging.Application.csproj" />
+    <Project Path="src/Modules/Messaging/Messaging.Contracts/Messaging.Contracts.csproj" />
+    <Project Path="src/Modules/Messaging/Messaging.Domain/Messaging.Domain.csproj" />
+    <Project Path="src/Modules/Messaging/Messaging.Infrastructure/Messaging.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Notifications/">
+    <Project Path="src/Modules/Notifications/Notifications.Application/Notifications.Application.csproj" />
+    <Project Path="src/Modules/Notifications/Notifications.Contracts/Notifications.Contracts.csproj" />
+    <Project Path="src/Modules/Notifications/Notifications.Domain/Notifications.Domain.csproj" />
+    <Project Path="src/Modules/Notifications/Notifications.Infrastructure/Notifications.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Planning/">
+    <Project Path="src/Modules/Planning/Planning.Application/Planning.Application.csproj" />
+    <Project Path="src/Modules/Planning/Planning.Contracts/Planning.Contracts.csproj" />
+    <Project Path="src/Modules/Planning/Planning.Domain/Planning.Domain.csproj" />
+    <Project Path="src/Modules/Planning/Planning.Infrastructure/Planning.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Workspaces/">
+    <Project Path="src/Modules/Workspaces/Workspaces.Application/Workspaces.Application.csproj" />
+    <Project Path="src/Modules/Workspaces/Workspaces.Contracts/Workspaces.Contracts.csproj" />
+    <Project Path="src/Modules/Workspaces/Workspaces.Domain/Workspaces.Domain.csproj" />
+    <Project Path="src/Modules/Workspaces/Workspaces.Infrastructure/Workspaces.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Api.Tests/Api.Tests.csproj" />
+    <Project Path="tests/Architecture.Tests/Architecture.Tests.csproj" />
+    <Project Path="tests/BuildingBlocks.Tests/BuildingBlocks.Tests.csproj" />
+    <Project Path="tests/Fx.Domain.Tests/Fx.Domain.Tests.csproj" />
+    <Project Path="tests/Ingestion.Domain.Tests/Ingestion.Domain.Tests.csproj" />
+    <Project Path="tests/Lending.Domain.Tests/Lending.Domain.Tests.csproj" />
+    <Project Path="tests/Ledger.Domain.Tests/Ledger.Domain.Tests.csproj" />
+    <Project Path="tests/Ledger.IntegrationTests/Ledger.IntegrationTests.csproj" />
+    <Project Path="tests/Workspaces.Domain.Tests/Workspaces.Domain.Tests.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,335 @@
+{
+  "scenario": "T13 reserved-goal functional acceptance",
+  "status": "PASS_OBSERVED_SCENARIOS_ONLY",
+  "environment": "Existing local web/API; fresh synthetic test user created through authentic signup UI",
+  "independentVerification": "PARTIAL_UNAVAILABLE; no independent execution; not the 21-event accounting fixture or audit approval",
+  "preservation": "Original audit records untouched. All new records created through the client; no manual database writes, schema application, reset, deletion or server restart.",
+  "checks": [
+    {
+      "rule": "Opening account is not income",
+      "observed": {
+        "cash": "1000",
+        "assets": "1000",
+        "liabilities": "0",
+        "netWorth": "1000",
+        "income": "0",
+        "expenses": "0"
+      },
+      "status": "PASS"
+    },
+    {
+      "rule": "Reserved goal starts at zero, not full account balance",
+      "observed": {
+        "target": "2000",
+        "assigned": "0",
+        "percent": "0"
+      },
+      "status": "PASS"
+    },
+    {
+      "rule": "Assigning 700 changes no cash or transactions",
+      "requests": [
+        450,
+        489,
+        490,
+        494,
+        512
+      ],
+      "observed": {
+        "assigned": "700",
+        "percent": "35",
+        "cash": "1000",
+        "netWorth": "1000",
+        "transactionCount": 0,
+        "historyCount": 1
+      },
+      "status": "PASS"
+    },
+    {
+      "rule": "Spending is allowed and retains reservations",
+      "requests": [
+        517,
+        518,
+        519
+      ],
+      "observed": {
+        "expense": "500",
+        "cash": "500",
+        "assigned": "700",
+        "shortfall": "200"
+      },
+      "initialFailure": "UI omitted shortfall until reload",
+      "correction": "Dashboard mutations now refresh planning after successful ledger writes",
+      "status": "PASS_AFTER_CORRECTION"
+    },
+    {
+      "rule": "Release appends history without moving cash",
+      "requests": [
+        643,
+        646
+      ],
+      "observed": {
+        "released": "300",
+        "assigned": "400",
+        "percent": "20",
+        "cash": "500",
+        "shortfall": "0"
+      },
+      "status": "PASS"
+    },
+    {
+      "rule": "Cross-goal capacity uses aggregate reservations",
+      "requests": [
+        650,
+        652,
+        658,
+        659,
+        662,
+        663
+      ],
+      "observed": {
+        "secondGoalAssigned": "0",
+        "accountCash": "500",
+        "alreadyReserved": "400",
+        "rejectedAmount": "101",
+        "statusCodes": [
+          409,
+          409
+        ],
+        "errorTitle": "GoalFunding.InsufficientFunds",
+        "sameKeyAcrossExplicitRetries": true
+      },
+      "status": "PASS"
+    },
+    {
+      "rule": "Ordinary successful assignment, followed by explicit release, remains in history",
+      "requests": [
+        669
+      ],
+      "observed": {
+        "assigned": "100",
+        "released": "100",
+        "resultingGoalAssigned": "400"
+      },
+      "note": "A late fetch override did not intercept the client's constructor-captured fetch. This was an ordinary successful write, NOT lost-response proof; the wrapper was removed on reload.",
+      "status": "PASS"
+    },
+    {
+      "rule": "Lost successful response does not duplicate an assignment",
+      "requests": [
+        736,
+        737
+      ],
+      "observed": {
+        "initialStatus": 201,
+        "replayStatus": 200,
+        "sameKey": true,
+        "sameResponse": true,
+        "sameEntryId": true,
+        "assignedAfterReplay": "500"
+      },
+      "faultInjection": "One actual HTTP201 response was deliberately withheld from the app by a one-shot browser fetch wrapper installed before client construction. Real server persistence remained in use. Input100 and error remained; no automatic retry occurred. Explicit UI retry returned200. Instrumentation disarmed/restored and later navigation cleared it.",
+      "status": "PASS"
+    },
+    {
+      "rule": "A later expense updates the shortfall without a reload, once per shared account",
+      "requests": [
+        745,
+        747,
+        748,
+        754
+      ],
+      "observed": {
+        "expense": "100",
+        "cash": "400",
+        "assigned": "500",
+        "shortfall": "100",
+        "reservedGoalCount": 2,
+        "shortfallBannerCount": 1
+      },
+      "status": "PASS_AFTER_CORRECTION"
+    },
+    {
+      "rule": "Direct movement reversal also refreshes planning",
+      "initialReproductionRequests": [
+        760,
+        763,
+        764,
+        766
+      ],
+      "initialFailure": "Cash restored to500 while shortfall banner remained100; direct Movimientos callback refreshed only Ledger",
+      "correctedRequests": [
+        805,
+        808,
+        809,
+        816,
+        820,
+        826,
+        827,
+        829,
+        833
+      ],
+      "observed": {
+        "beforeShortfall": "100",
+        "afterShortfall": "0",
+        "cash": "500",
+        "assigned": "500",
+        "reversalKeepsOriginalRecord": true,
+        "pageReloadBetweenCorrectedWriteAndRead": false
+      },
+      "correction": "page.tsx passes refreshLedgerAndPlanning to MovimientosView",
+      "status": "PASS_AFTER_CORRECTION"
+    },
+    {
+      "rule": "Explicit legacy full-account tracking remains available",
+      "observed": {
+        "legacyGoalAmount": "500",
+        "legacyTarget": "2000",
+        "legacyPercent": "25",
+        "legacyHasFundingAction": false,
+        "reservedGoalAmount": "500",
+        "secondReservedGoalAmount": "0",
+        "cash": "500",
+        "netWorth": "500"
+      },
+      "status": "PASS"
+    },
+    {
+      "rule": "Reserved edit retains mode and account",
+      "observed": {
+        "accountSelectorDisabled": true,
+        "modeConversionNotOffered": true,
+        "unchangedEditSaved": true,
+        "historyCountAfterEdit": 5
+      },
+      "status": "PASS"
+    },
+    {
+      "rule": "Persisted state and history survive navigation/reloads",
+      "observed": {
+        "cash": "500",
+        "assets": "500",
+        "liabilities": "0",
+        "netWorth": "500",
+        "income": "0",
+        "netExpenses": "500",
+        "reserved": "500",
+        "reservedPercent": "25",
+        "secondReserved": "0",
+        "historyAmounts": [
+          "assign700",
+          "release300",
+          "assign100",
+          "release100",
+          "assign100"
+        ],
+        "historyCount": 5
+      },
+      "status": "PASS"
+    },
+    {
+      "rule": "Mobile drawer is usable at390px",
+      "observed": {
+        "viewport": 390,
+        "pageWidth": 390,
+        "dialogWidth": 390,
+        "horizontalOverflow": false,
+        "historyRows": 5,
+        "controls": [
+          "Asignar",
+          "Liberar",
+          "Monto de reserva",
+          "Cerrar",
+          "Asignar dinero"
+        ]
+      },
+      "note": "Chrome window resize alone was clamped to500px; actual390px proof used device viewport emulation and the authentic Más→Metas navigation. Emulation cleared afterwards.",
+      "status": "PASS"
+    }
+  ],
+  "automatedChecks": {
+    "fullWebTests": {
+      "passed": 921,
+      "failed": 0,
+      "files": 120,
+      "job": 18
+    },
+    "focusedAfterFixtureCorrection": {
+      "passed": 26,
+      "failed": 0
+    },
+    "lint": {
+      "exitCode": 0,
+      "errors": 0,
+      "warnings": 3
+    },
+    "typecheck": {
+      "exitCode": 2,
+      "remainingTestFixtureDiagnostics": 35,
+      "newT13Diagnostic": "Removed an invalid currency field from the new mocked RegisterTransactionRequest; focused26 PASS afterwards."
+    },
+    "productionBuild": {
+      "status": "NOT_PASS",
+      "priorAttempt": "Compilation succeeded, build stopped at lint; lint now corrected, typecheck still fails. No second production build while shared dev output is active."
+    },
+    "diffWhitespace": "PASS"
+  },
+  "notRun": [
+    "Unchanged21-event accounting replay",
+    "Independent T13 execution",
+    "Reopened historical/backend verifier attempts",
+    "PostgreSQL concurrency proof",
+    "Mobile-native build/tests",
+    "Live migration application"
+  ],
+  "fixtureTypingFollowUp": {
+    "task": "T20 / S17",
+    "scope": "Only test fixtures/mocks in20files; no product/config/dependency changes or weakened checks",
+    "typecheck": {
+      "command": "pnpm --dir web exec tsc --noEmit --incremental false",
+      "initialExitCode": 2,
+      "initialDiagnostics": 35,
+      "finalExitCode": 0,
+      "remainingDiagnostics": 0
+    },
+    "focusedTests": {
+      "passed": 247,
+      "failed": 0,
+      "files": 20,
+      "job": 21
+    },
+    "fullWebTests": {
+      "passed": 921,
+      "failed": 0,
+      "files": 120,
+      "job": 21
+    },
+    "lint": {
+      "exitCode": 0,
+      "errors": 0,
+      "warnings": 3,
+      "job": 21
+    },
+    "diffWhitespace": {
+      "exitCode": 0,
+      "job": 21
+    },
+    "preservation": {
+      "unchangedAssertionLines": 741,
+      "unchangedTrackedNonTestSourceFiles": 406,
+      "postBuildTrackedProductFilesUnchanged": 406
+    },
+    "productionBuild": {
+      "status": "PASS",
+      "command": "pnpm --dir web build",
+      "exitCode": 0,
+      "job": 22,
+      "checks": "Optimized compilation, lint, TypeScript validity, all7static pages, optimization and build traces completed.",
+      "warnings": "Three existing unused-variable lint warnings; no checks disabled.",
+      "readiness": "Developer stopped dev; port3000 confirmed free before build. No server started or restarted by agent.",
+      "log": "/var/folders/lb/ydz9zgs96ms9wss75lvjpj740000gn/T/gp5Nxp9W/gentle-jobs-GJSU55/job-22.log"
+    },
+    "exclusions": "Does not replace historical automated/browser observations or independent proof; no new browser replay, live migration, full21-event PASS, commit or publishing."
+  },
+  "automatedChecksScope": "Historical pre-T20 snapshot retained verbatim; fixtureTypingFollowUp supersedes the compiler/build status with later observed results."
+}

@@ -1,0 +1,1544 @@
+{
+  "reference_only": true,
+  "application_acceptance": "NOT_RUN",
+  "fixture": "AUDITORIA_FINANZAS_PERSONALES_ENERO_2027",
+  "currency": "BOB",
+  "stages": [
+    {
+      "stage": "opening",
+      "checks": [
+        {
+          "check": "balanced_entry",
+          "actual": "16500",
+          "expected": "16500",
+          "status": "PASS"
+        },
+        {
+          "check": "nonnegative_balances",
+          "actual": true,
+          "expected": true,
+          "status": "PASS"
+        },
+        {
+          "check": "accounting_equation",
+          "actual": "12900",
+          "expected": "12900",
+          "status": "PASS"
+        },
+        {
+          "check": "all_opening_accounts",
+          "actual": {
+            "asset.bank": "6000",
+            "asset.cash": "300",
+            "asset.wallet": "700",
+            "asset.savings": "4000",
+            "asset.investment": "2000",
+            "asset.laptop": "3500",
+            "asset.loan_receivable": "0",
+            "liability.bank_loan": "3000",
+            "liability.credit_card": "600",
+            "liability.family_loan": "0",
+            "equity.opening": "12900",
+            "income.salary": "0",
+            "income.freelance": "0",
+            "income.interest": "0",
+            "income.dividend": "0",
+            "income.investment_valuation": "0",
+            "expense.housing": "0",
+            "expense.food": "0",
+            "expense.transport": "0",
+            "expense.utilities": "0",
+            "expense.subscriptions": "0",
+            "expense.health": "0",
+            "expense.interest": "0"
+          },
+          "expected": {
+            "asset.bank": "6000",
+            "asset.cash": "300",
+            "asset.wallet": "700",
+            "asset.savings": "4000",
+            "asset.investment": "2000",
+            "asset.laptop": "3500",
+            "asset.loan_receivable": "0",
+            "liability.bank_loan": "3000",
+            "liability.credit_card": "600",
+            "liability.family_loan": "0",
+            "equity.opening": "12900",
+            "income.salary": "0",
+            "income.freelance": "0",
+            "income.interest": "0",
+            "income.dividend": "0",
+            "income.investment_valuation": "0",
+            "expense.housing": "0",
+            "expense.food": "0",
+            "expense.transport": "0",
+            "expense.utilities": "0",
+            "expense.subscriptions": "0",
+            "expense.health": "0",
+            "expense.interest": "0"
+          },
+          "status": "PASS"
+        },
+        {
+          "check": "opening_investment",
+          "actual": "2000",
+          "expected": "2000",
+          "status": "PASS"
+        },
+        {
+          "check": "event_sequence",
+          "actual": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21
+          ],
+          "expected": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21
+          ],
+          "status": "PASS"
+        },
+        {
+          "check": "goal_initially_unreserved",
+          "actual": "0",
+          "expected": "0",
+          "status": "PASS"
+        }
+      ],
+      "status": "PASS"
+    },
+    {
+      "stage": "step_1",
+      "checks": [
+        {
+          "check": "balanced_entry",
+          "actual": "5000",
+          "expected": "5000",
+          "status": "PASS"
+        },
+        {
+          "check": "nonnegative_balances",
+          "actual": true,
+          "expected": true,
+          "status": "PASS"
+        },
+        {
+          "check": "accounting_equation",
+          "actual": "17900",
+          "expected": "17900",
+          "status": "PASS"
+        },
+        {
+          "check": "all_step_expectations",
+          "actual": {
+            "banco": "11000",
+            "patrimonio_neto": "17900",
+            "tarjeta_deuda": "600",
+            "efectivo_total": "16000"
+          },
+          "expected": {
+            "banco": "11000",
+            "patrimonio_neto": "17900",
+            "tarjeta_deuda": "600",
+            "efectivo_total": "16000"
+          },
+          "status": "PASS"
+        },
+        {
+          "check": "cash_classification_reconciles",
+          "actual": "5000",
+          "expected": "5000",
+          "status": "PASS"
+        },
+        {
+          "check": "goal_backed",
+          "actual": true,
+          "expected": true,
+          "status": "PASS"
+        }
+      ],
+      "cash_flow": {
+        "operativo": "5000",
+        "inversion": "0",
+        "financiacion": "0"
+      },
+      "status": "PASS"
+    },
+    {
+      "stage": "step_2",
+      "checks": [
+        {
+          "check": "balanced_entry",
+          "actual": "1200",
+          "expected": "1200",
+          "status": "PASS"
+        },
+        {
+          "check": "nonnegative_balances",
+          "actual": true,
+          "expected": true,
+          "status": "PASS"
+        },
+        {
+          "check": "accounting_equation",
+          "actual": "19100",
+          "expected": "19100",
+          "status": "PASS"
+        },
+        {
+          "check": "all_step_expectations",
+          "actual": {
+            "banco": "12200",
+            "patrimonio_neto": "19100",
+            "tarjeta_deuda": "600",
+            "efectivo_total": "17200"
+          },
+          "expected": {
+            "banco": "12200",
+            "patrimonio_neto": "19100",
+            "tarjeta_deuda": "600",
+            "efectivo_total": "17200"
+          },
+          "status": "PASS"
+        },
+        {
+          "check": "cash_classification_reconciles",
+          "actual": "1200",
+          "expected": "1200",
+          "status": "PASS"
+        },
+        {
+          "check": "goal_backed",
+          "actual": true,
+          "expected": true,
+          "status": "PASS"
+        }
+      ],
+      "cash_flow": {
+        "operativo": "1200",
+        "inversion": "0",
+        "financiacion": "0"
+      },
+      "status": "PASS"
+    },
+    {
+      "stage": "step_3",
+      "checks": [
+        {
+          "check": "balanced_entry",
+          "actual": "250",
+          "expected": "250",
+          "status": "PASS"
+        },
+        {
+          "check": "nonnegative_balances",
+          "actual": true,
+          "expected": true,
+          "status": "PASS"
+        },
+        {
+          "check": "accounting_equation",
+          "actual": "19100",
+          "expected": "19100",
+          "status": "PASS"
+        },
+        {
+          "check": "all_step_expectations",
+          "actual": {
+            "banco": "11950",
+            "patrimonio_neto": "19100",
+            "tarjeta_deuda": "600",
+            "efectivo_total": "17200"
+          },
+          "expected": {
+            "banco": "11950",
+            "patrimonio_neto": "19100",
+            "tarjeta_deuda": "600",
+            "efectivo_total": "17200"
+          },
+          "status": "PASS"
+        },
+        {
+          "check": "cash_classification_reconciles",
+          "actual": "0",
+          "expected": "0",
+          "status": "PASS"
+        },
+        {
+          "check": "goal_backed",
+          "actual": true,
+          "expected": true,
+          "status": "PASS"
+        }
+      ],
+      "cash_flow": {
+        "operativo": "0",
+        "inversion": "0",
+        "financiacion": "0"
+      },
+      "status": "PASS"
+    },
+    {
+      "stage": "step_4",
+      "checks": [
+        {
+          "check": "balanced_entry",
+          "actual": "200",
+          "expected": "200",
+          "status": "PASS"
+        },
+        {
+          "check": "nonnegative_balances",
+          "actual": true,
+          "expected": true,
+          "status": "PASS"
+        },
+        {
+          "check": "accounting_equation",
+          "actual": "19100",
+          "expected": "19100",
+          "status": "PASS"
+        },
+        {
+          "check": "all_step_expectations",
+          "actual": {
+            "banco": "11750",
+            "patrimonio_neto": "19100",
+            "tarjeta_deuda": "600",
+            "efectivo_total": "17200"
+          },
+          "expected": {
+            "banco": "11750",
+            "patrimonio_neto": "19100",
+            "tarjeta_deuda": "600",
+            "efectivo_total": "17200"
+          },
+          "status": "PASS"
+        },
+        {
+          "check": "cash_classification_reconciles",
+          "actual": "0",
+          "expected": "0",
+          "status": "PASS"
+        },
+        {
+          "check": "goal_backed",
+          "actual": true,
+          "expected": true,
+          "status": "PASS"
+        }
+      ],
+      "cash_flow": {
+        "operativo": "0",
+        "inversion": "0",
+        "financiacion": "0"
+      },
+      "status": "PASS"
+    },
+    {
+      "stage": "step_5",
+      "checks": [
+        {
+          "check": "balanced_entry",
+          "actual": "1400",
+          "expected": "1400",
+          "status": "PASS"
+        },
+        {
+          "check": "nonnegative_balances",
+          "actual": true,
+          "expected": true,
+          "status": "PASS"
+        },
+        {
+          "check": "accounting_equation",
+          "actual": "17700",
+          "expected": "17700",
+          "status": "PASS"
+        },
+        {
+          "check": "all_step_expectations",
+          "actual": {
+            "banco": "10350",
+            "patrimonio_neto": "17700",
+            "tarjeta_deuda": "600",
+            "efectivo_total": "15800"
+          },
+          "expected": {
+            "banco": "10350",
+            "patrimonio_neto": "17700",
+            "tarjeta_deuda": "600",
+            "efectivo_total": "15800"
+          },
+          "status": "PASS"
+        },
+        {
+          "check": "cash_classification_reconciles",
+          "actual": "-1400",
+          "expected": "-1400",
+          "status": "PASS"
+        },
+        {
+          "check": "goal_backed",
+          "actual": true,
+          "expected": true,
+          "status": "PASS"
+        }
+      ],
+      "cash_flow": {
+        "operativo": "-1400",
+        "inversion": "0",
+        "financiacion": "0"
+      },
+      "status": "PASS"
+    },
+    {
+      "stage": "step_6",
+      "checks": [
+        {
+          "check": "balanced_entry",
+          "actual": "550",
+          "expected": "550",
+          "status": "PASS"
+        },
+        {
+          "check": "nonnegative_balances",
+          "actual": true,
+          "expected": true,
+          "status": "PASS"
+        },
+        {
+          "check": "accounting_equation",
+          "actual": "17150",
+          "expected": "17150",
+          "status": "PASS"
+        },
+        {
+          "check": "all_step_expectations",
+          "actual": {
+            "banco": "9800",
+            "patrimonio_neto": "17150",
+            "tarjeta_deuda": "600",
+            "efectivo_total": "15250"
+          },
+          "expected": {
+            "banco": "9800",
+            "patrimonio_neto": "17150",
+            "tarjeta_deuda": "600",
+            "efectivo_total": "15250"
+          },
+          "status": "PASS"
+        },
+        {
+          "check": "cash_classification_reconciles",
+          "actual": "-550",
+          "expected": "-550",
+          "status": "PASS"
+        },
+        {
+          "check": "goal_backed",
+          "actual": true,
+          "expected": true,
+          "status": "PASS"
+        }
+      ],
+      "cash_flow": {
+        "operativo": "-550",
+        "inversion": "0",
+        "financiacion": "0"
+      },
+      "status": "PASS"
+    },
+    {
+      "stage": "step_7",
+      "checks": [
+        {
+          "check": "balanced_entry",
+          "actual": "350",
+          "expected": "350",
+          "status": "PASS"
+        },
+        {
+          "check": "nonnegative_balances",
+          "actual": true,
+          "expected": true,
+          "status": "PASS"
+        },
+        {
+          "check": "accounting_equation",
+          "actual": "16800",
+          "expected": "16800",
+          "status": "PASS"
+        },
+        {
+          "check": "all_step_expectations",
+          "actual": {
+            "banco": "9800",
+            "patrimonio_neto": "16800",
+            "tarjeta_deuda": "950",
+            "efectivo_total": "15250"
+          },
+          "expected": {
+            "banco": "9800",
+            "patrimonio_neto": "16800",
+            "tarjeta_deuda": "950",
+            "efectivo_total": "15250"
+          },
+          "status": "PASS"
+        },
+        {
+          "check": "cash_classification_reconciles",
+          "actual": "0",
+          "expected": "0",
+          "status": "PASS"
+        },
+        {
+          "check": "goal_backed",
+          "actual": true,
+          "expected": true,
+          "status": "PASS"
+        }
+      ],
+      "cash_flow": {
+        "operativo": "0",
+        "inversion": "0",
+        "financiacion": "0"
+      },
+      "status": "PASS"
+    },
+    {
+      "stage": "step_8",
+      "checks": [
+        {
+          "check": "balanced_entry",
+          "actual": "150",
+          "expected": "150",
+          "status": "PASS"
+        },
+        {
+          "check": "nonnegative_balances",
+          "actual": true,
+          "expected": true,
+          "status": "PASS"
+        },
+        {
+          "check": "accounting_equation",
+          "actual": "16650",
+          "expected": "16650",
+          "status": "PASS"
+        },
+        {
+          "check": "all_step_expectations",
+          "actual": {
+            "banco": "9800",
+            "patrimonio_neto": "16650",
+            "tarjeta_deuda": "950",
+            "efectivo_total": "15100"
+          },
+          "expected": {
+            "banco": "9800",
+            "patrimonio_neto": "16650",
+            "tarjeta_deuda": "950",
+            "efectivo_total": "15100"
+          },
+          "status": "PASS"
+        },
+        {
+          "check": "cash_classification_reconciles",
+          "actual": "-150",
+          "expected": "-150",
+          "status": "PASS"
+        },
+        {
+          "check": "goal_backed",
+          "actual": true,
+          "expected": true,
+          "status": "PASS"
+        }
+      ],
+      "cash_flow": {
+        "operativo": "-150",
+        "inversion": "0",
+        "financiacion": "0"
+      },
+      "status": "PASS"
+    },
+    {
+      "stage": "step_9",
+      "checks": [
+        {
+          "check": "balanced_entry",
+          "actual": "220",
+          "expected": "220",
+          "status": "PASS"
+        },
+        {
+          "check": "nonnegative_balances",
+          "actual": true,
+          "expected": true,
+          "status": "PASS"
+        },
+        {
+          "check": "accounting_equation",
+          "actual": "16430",
+          "expected": "16430",
+          "status": "PASS"
+        },
+        {
+          "check": "all_step_expectations",
+          "actual": {
+            "banco": "9580",
+            "patrimonio_neto": "16430",
+            "tarjeta_deuda": "950",
+            "efectivo_total": "14880"
+          },
+          "expected": {
+            "banco": "9580",
+            "patrimonio_neto": "16430",
+            "tarjeta_deuda": "950",
+            "efectivo_total": "14880"
+          },
+          "status": "PASS"
+        },
+        {
+          "check": "cash_classification_reconciles",
+          "actual": "-220",
+          "expected": "-220",
+          "status": "PASS"
+        },
+        {
+          "check": "goal_backed",
+          "actual": true,
+          "expected": true,
+          "status": "PASS"
+        }
+      ],
+      "cash_flow": {
+        "operativo": "-220",
+        "inversion": "0",
+        "financiacion": "0"
+      },
+      "status": "PASS"
+    },
+    {
+      "stage": "step_10",
+      "checks": [
+        {
+          "check": "balanced_entry",
+          "actual": "80",
+          "expected": "80",
+          "status": "PASS"
+        },
+        {
+          "check": "nonnegative_balances",
+          "actual": true,
+          "expected": true,
+          "status": "PASS"
+        },
+        {
+          "check": "accounting_equation",
+          "actual": "16350",
+          "expected": "16350",
+          "status": "PASS"
+        },
+        {
+          "check": "all_step_expectations",
+          "actual": {
+            "banco": "9500",
+            "patrimonio_neto": "16350",
+            "tarjeta_deuda": "950",
+            "efectivo_total": "14800"
+          },
+          "expected": {
+            "banco": "9500",
+            "patrimonio_neto": "16350",
+            "tarjeta_deuda": "950",
+            "efectivo_total": "14800"
+          },
+          "status": "PASS"
+        },
+        {
+          "check": "cash_classification_reconciles",
+          "actual": "-80",
+          "expected": "-80",
+          "status": "PASS"
+        },
+        {
+          "check": "goal_backed",
+          "actual": true,
+          "expected": true,
+          "status": "PASS"
+        }
+      ],
+      "cash_flow": {
+        "operativo": "-80",
+        "inversion": "0",
+        "financiacion": "0"
+      },
+      "status": "PASS"
+    },
+    {
+      "stage": "step_11",
+      "checks": [
+        {
+          "check": "balanced_entry",
+          "actual": "130",
+          "expected": "130",
+          "status": "PASS"
+        },
+        {
+          "check": "nonnegative_balances",
+          "actual": true,
+          "expected": true,
+          "status": "PASS"
+        },
+        {
+          "check": "accounting_equation",
+          "actual": "16220",
+          "expected": "16220",
+          "status": "PASS"
+        },
+        {
+          "check": "all_step_expectations",
+          "actual": {
+            "banco": "9500",
+            "patrimonio_neto": "16220",
+            "tarjeta_deuda": "950",
+            "efectivo_total": "14670"
+          },
+          "expected": {
+            "banco": "9500",
+            "patrimonio_neto": "16220",
+            "tarjeta_deuda": "950",
+            "efectivo_total": "14670"
+          },
+          "status": "PASS"
+        },
+        {
+          "check": "cash_classification_reconciles",
+          "actual": "-130",
+          "expected": "-130",
+          "status": "PASS"
+        },
+        {
+          "check": "goal_backed",
+          "actual": true,
+          "expected": true,
+          "status": "PASS"
+        }
+      ],
+      "cash_flow": {
+        "operativo": "-130",
+        "inversion": "0",
+        "financiacion": "0"
+      },
+      "status": "PASS"
+    },
+    {
+      "stage": "step_12",
+      "checks": [
+        {
+          "check": "balanced_entry",
+          "actual": "700",
+          "expected": "700",
+          "status": "PASS"
+        },
+        {
+          "check": "nonnegative_balances",
+          "actual": true,
+          "expected": true,
+          "status": "PASS"
+        },
+        {
+          "check": "accounting_equation",
+          "actual": "16220",
+          "expected": "16220",
+          "status": "PASS"
+        },
+        {
+          "check": "all_step_expectations",
+          "actual": {
+            "banco": "8800",
+            "patrimonio_neto": "16220",
+            "tarjeta_deuda": "950",
+            "efectivo_total": "14670"
+          },
+          "expected": {
+            "banco": "8800",
+            "patrimonio_neto": "16220",
+            "tarjeta_deuda": "950",
+            "efectivo_total": "14670"
+          },
+          "status": "PASS"
+        },
+        {
+          "check": "cash_classification_reconciles",
+          "actual": "0",
+          "expected": "0",
+          "status": "PASS"
+        },
+        {
+          "check": "goal_backing_transfer",
+          "actual": "700",
+          "expected": "700",
+          "status": "PASS"
+        },
+        {
+          "check": "goal_does_not_create_net_worth",
+          "actual": "16220",
+          "expected": "16220",
+          "status": "PASS"
+        },
+        {
+          "check": "goal_backed",
+          "actual": true,
+          "expected": true,
+          "status": "PASS"
+        }
+      ],
+      "cash_flow": {
+        "operativo": "0",
+        "inversion": "0",
+        "financiacion": "0"
+      },
+      "status": "PASS"
+    },
+    {
+      "stage": "step_13",
+      "checks": [
+        {
+          "check": "balanced_entry",
+          "actual": "600",
+          "expected": "600",
+          "status": "PASS"
+        },
+        {
+          "check": "nonnegative_balances",
+          "actual": true,
+          "expected": true,
+          "status": "PASS"
+        },
+        {
+          "check": "accounting_equation",
+          "actual": "16220",
+          "expected": "16220",
+          "status": "PASS"
+        },
+        {
+          "check": "all_step_expectations",
+          "actual": {
+            "banco": "8200",
+            "patrimonio_neto": "16220",
+            "tarjeta_deuda": "950",
+            "efectivo_total": "14070"
+          },
+          "expected": {
+            "banco": "8200",
+            "patrimonio_neto": "16220",
+            "tarjeta_deuda": "950",
+            "efectivo_total": "14070"
+          },
+          "status": "PASS"
+        },
+        {
+          "check": "cash_classification_reconciles",
+          "actual": "-600",
+          "expected": "-600",
+          "status": "PASS"
+        },
+        {
+          "check": "goal_backed",
+          "actual": true,
+          "expected": true,
+          "status": "PASS"
+        },
+        {
+          "check": "investment_purchase",
+          "actual": "600",
+          "expected": "600",
+          "status": "PASS"
+        }
+      ],
+      "cash_flow": {
+        "operativo": "0",
+        "inversion": "-600",
+        "financiacion": "0"
+      },
+      "status": "PASS"
+    },
+    {
+      "stage": "step_14",
+      "checks": [
+        {
+          "check": "balanced_entry",
+          "actual": "700",
+          "expected": "700",
+          "status": "PASS"
+        },
+        {
+          "check": "nonnegative_balances",
+          "actual": true,
+          "expected": true,
+          "status": "PASS"
+        },
+        {
+          "check": "accounting_equation",
+          "actual": "16220",
+          "expected": "16220",
+          "status": "PASS"
+        },
+        {
+          "check": "all_step_expectations",
+          "actual": {
+            "banco": "7500",
+            "patrimonio_neto": "16220",
+            "tarjeta_deuda": "250",
+            "efectivo_total": "13370"
+          },
+          "expected": {
+            "banco": "7500",
+            "patrimonio_neto": "16220",
+            "tarjeta_deuda": "250",
+            "efectivo_total": "13370"
+          },
+          "status": "PASS"
+        },
+        {
+          "check": "cash_classification_reconciles",
+          "actual": "-700",
+          "expected": "-700",
+          "status": "PASS"
+        },
+        {
+          "check": "goal_backed",
+          "actual": true,
+          "expected": true,
+          "status": "PASS"
+        }
+      ],
+      "cash_flow": {
+        "operativo": "0",
+        "inversion": "0",
+        "financiacion": "-700"
+      },
+      "status": "PASS"
+    },
+    {
+      "stage": "step_15",
+      "checks": [
+        {
+          "check": "balanced_entry",
+          "actual": "530",
+          "expected": "530",
+          "status": "PASS"
+        },
+        {
+          "check": "nonnegative_balances",
+          "actual": true,
+          "expected": true,
+          "status": "PASS"
+        },
+        {
+          "check": "accounting_equation",
+          "actual": "16190",
+          "expected": "16190",
+          "status": "PASS"
+        },
+        {
+          "check": "all_step_expectations",
+          "actual": {
+            "banco": "6970",
+            "patrimonio_neto": "16190",
+            "tarjeta_deuda": "250",
+            "efectivo_total": "12840"
+          },
+          "expected": {
+            "banco": "6970",
+            "patrimonio_neto": "16190",
+            "tarjeta_deuda": "250",
+            "efectivo_total": "12840"
+          },
+          "status": "PASS"
+        },
+        {
+          "check": "cash_classification_reconciles",
+          "actual": "-530",
+          "expected": "-530",
+          "status": "PASS"
+        },
+        {
+          "check": "goal_backed",
+          "actual": true,
+          "expected": true,
+          "status": "PASS"
+        }
+      ],
+      "cash_flow": {
+        "operativo": "-30",
+        "inversion": "0",
+        "financiacion": "-500"
+      },
+      "status": "PASS"
+    },
+    {
+      "stage": "step_16",
+      "checks": [
+        {
+          "check": "balanced_entry",
+          "actual": "800",
+          "expected": "800",
+          "status": "PASS"
+        },
+        {
+          "check": "nonnegative_balances",
+          "actual": true,
+          "expected": true,
+          "status": "PASS"
+        },
+        {
+          "check": "accounting_equation",
+          "actual": "16190",
+          "expected": "16190",
+          "status": "PASS"
+        },
+        {
+          "check": "all_step_expectations",
+          "actual": {
+            "banco": "6170",
+            "patrimonio_neto": "16190",
+            "tarjeta_deuda": "250",
+            "efectivo_total": "12040"
+          },
+          "expected": {
+            "banco": "6170",
+            "patrimonio_neto": "16190",
+            "tarjeta_deuda": "250",
+            "efectivo_total": "12040"
+          },
+          "status": "PASS"
+        },
+        {
+          "check": "cash_classification_reconciles",
+          "actual": "-800",
+          "expected": "-800",
+          "status": "PASS"
+        },
+        {
+          "check": "goal_backed",
+          "actual": true,
+          "expected": true,
+          "status": "PASS"
+        }
+      ],
+      "cash_flow": {
+        "operativo": "0",
+        "inversion": "-800",
+        "financiacion": "0"
+      },
+      "status": "PASS"
+    },
+    {
+      "stage": "step_17",
+      "checks": [
+        {
+          "check": "balanced_entry",
+          "actual": "320",
+          "expected": "320",
+          "status": "PASS"
+        },
+        {
+          "check": "nonnegative_balances",
+          "actual": true,
+          "expected": true,
+          "status": "PASS"
+        },
+        {
+          "check": "accounting_equation",
+          "actual": "16210",
+          "expected": "16210",
+          "status": "PASS"
+        },
+        {
+          "check": "all_step_expectations",
+          "actual": {
+            "banco": "6490",
+            "patrimonio_neto": "16210",
+            "tarjeta_deuda": "250",
+            "efectivo_total": "12360"
+          },
+          "expected": {
+            "banco": "6490",
+            "patrimonio_neto": "16210",
+            "tarjeta_deuda": "250",
+            "efectivo_total": "12360"
+          },
+          "status": "PASS"
+        },
+        {
+          "check": "cash_classification_reconciles",
+          "actual": "320",
+          "expected": "320",
+          "status": "PASS"
+        },
+        {
+          "check": "goal_backed",
+          "actual": true,
+          "expected": true,
+          "status": "PASS"
+        }
+      ],
+      "cash_flow": {
+        "operativo": "20",
+        "inversion": "300",
+        "financiacion": "0"
+      },
+      "status": "PASS"
+    },
+    {
+      "stage": "step_18",
+      "checks": [
+        {
+          "check": "balanced_entry",
+          "actual": "900",
+          "expected": "900",
+          "status": "PASS"
+        },
+        {
+          "check": "nonnegative_balances",
+          "actual": true,
+          "expected": true,
+          "status": "PASS"
+        },
+        {
+          "check": "accounting_equation",
+          "actual": "16210",
+          "expected": "16210",
+          "status": "PASS"
+        },
+        {
+          "check": "all_step_expectations",
+          "actual": {
+            "banco": "7390",
+            "patrimonio_neto": "16210",
+            "tarjeta_deuda": "250",
+            "efectivo_total": "13260"
+          },
+          "expected": {
+            "banco": "7390",
+            "patrimonio_neto": "16210",
+            "tarjeta_deuda": "250",
+            "efectivo_total": "13260"
+          },
+          "status": "PASS"
+        },
+        {
+          "check": "cash_classification_reconciles",
+          "actual": "900",
+          "expected": "900",
+          "status": "PASS"
+        },
+        {
+          "check": "goal_backed",
+          "actual": true,
+          "expected": true,
+          "status": "PASS"
+        }
+      ],
+      "cash_flow": {
+        "operativo": "0",
+        "inversion": "0",
+        "financiacion": "900"
+      },
+      "status": "PASS"
+    },
+    {
+      "stage": "step_19",
+      "checks": [
+        {
+          "check": "balanced_entry",
+          "actual": "100",
+          "expected": "100",
+          "status": "PASS"
+        },
+        {
+          "check": "nonnegative_balances",
+          "actual": true,
+          "expected": true,
+          "status": "PASS"
+        },
+        {
+          "check": "accounting_equation",
+          "actual": "16210",
+          "expected": "16210",
+          "status": "PASS"
+        },
+        {
+          "check": "all_step_expectations",
+          "actual": {
+            "banco": "7290",
+            "patrimonio_neto": "16210",
+            "tarjeta_deuda": "250",
+            "efectivo_total": "13160"
+          },
+          "expected": {
+            "banco": "7290",
+            "patrimonio_neto": "16210",
+            "tarjeta_deuda": "250",
+            "efectivo_total": "13160"
+          },
+          "status": "PASS"
+        },
+        {
+          "check": "cash_classification_reconciles",
+          "actual": "-100",
+          "expected": "-100",
+          "status": "PASS"
+        },
+        {
+          "check": "goal_backed",
+          "actual": true,
+          "expected": true,
+          "status": "PASS"
+        }
+      ],
+      "cash_flow": {
+        "operativo": "0",
+        "inversion": "0",
+        "financiacion": "-100"
+      },
+      "status": "PASS"
+    },
+    {
+      "stage": "step_20",
+      "checks": [
+        {
+          "check": "balanced_entry",
+          "actual": "40",
+          "expected": "40",
+          "status": "PASS"
+        },
+        {
+          "check": "nonnegative_balances",
+          "actual": true,
+          "expected": true,
+          "status": "PASS"
+        },
+        {
+          "check": "accounting_equation",
+          "actual": "16250",
+          "expected": "16250",
+          "status": "PASS"
+        },
+        {
+          "check": "all_step_expectations",
+          "actual": {
+            "banco": "7330",
+            "patrimonio_neto": "16250",
+            "tarjeta_deuda": "250",
+            "efectivo_total": "13200"
+          },
+          "expected": {
+            "banco": "7330",
+            "patrimonio_neto": "16250",
+            "tarjeta_deuda": "250",
+            "efectivo_total": "13200"
+          },
+          "status": "PASS"
+        },
+        {
+          "check": "cash_classification_reconciles",
+          "actual": "40",
+          "expected": "40",
+          "status": "PASS"
+        },
+        {
+          "check": "goal_backed",
+          "actual": true,
+          "expected": true,
+          "status": "PASS"
+        }
+      ],
+      "cash_flow": {
+        "operativo": "40",
+        "inversion": "0",
+        "financiacion": "0"
+      },
+      "status": "PASS"
+    },
+    {
+      "stage": "step_21",
+      "checks": [
+        {
+          "check": "balanced_entry",
+          "actual": "150",
+          "expected": "150",
+          "status": "PASS"
+        },
+        {
+          "check": "nonnegative_balances",
+          "actual": true,
+          "expected": true,
+          "status": "PASS"
+        },
+        {
+          "check": "accounting_equation",
+          "actual": "16400",
+          "expected": "16400",
+          "status": "PASS"
+        },
+        {
+          "check": "all_step_expectations",
+          "actual": {
+            "banco": "7330",
+            "patrimonio_neto": "16400",
+            "tarjeta_deuda": "250",
+            "efectivo_total": "13200"
+          },
+          "expected": {
+            "banco": "7330",
+            "patrimonio_neto": "16400",
+            "tarjeta_deuda": "250",
+            "efectivo_total": "13200"
+          },
+          "status": "PASS"
+        },
+        {
+          "check": "cash_classification_reconciles",
+          "actual": "0",
+          "expected": "0",
+          "status": "PASS"
+        },
+        {
+          "check": "goal_backed",
+          "actual": true,
+          "expected": true,
+          "status": "PASS"
+        }
+      ],
+      "cash_flow": {
+        "operativo": "0",
+        "inversion": "0",
+        "financiacion": "0"
+      },
+      "status": "PASS"
+    },
+    {
+      "stage": "closing",
+      "checks": [
+        {
+          "check": "all_closing_accounts",
+          "actual": {
+            "asset.bank": "7330",
+            "asset.cash": "370",
+            "asset.wallet": "800",
+            "asset.savings": "4700",
+            "asset.investment": "2750",
+            "asset.laptop": "3500",
+            "asset.loan_receivable": "500",
+            "liability.bank_loan": "2500",
+            "liability.credit_card": "250",
+            "liability.family_loan": "800",
+            "equity.opening": "12900",
+            "income.salary": "5000",
+            "income.freelance": "1200",
+            "income.interest": "20",
+            "income.dividend": "40",
+            "income.investment_valuation": "150",
+            "expense.housing": "1400",
+            "expense.food": "900",
+            "expense.transport": "150",
+            "expense.utilities": "220",
+            "expense.subscriptions": "80",
+            "expense.health": "130",
+            "expense.interest": "30"
+          },
+          "expected": {
+            "asset.bank": "7330",
+            "asset.cash": "370",
+            "asset.wallet": "800",
+            "asset.savings": "4700",
+            "asset.investment": "2750",
+            "asset.laptop": "3500",
+            "asset.loan_receivable": "500",
+            "liability.bank_loan": "2500",
+            "liability.credit_card": "250",
+            "liability.family_loan": "800",
+            "equity.opening": "12900",
+            "income.salary": "5000",
+            "income.freelance": "1200",
+            "income.interest": "20",
+            "income.dividend": "40",
+            "income.investment_valuation": "150",
+            "expense.housing": "1400",
+            "expense.food": "900",
+            "expense.transport": "150",
+            "expense.utilities": "220",
+            "expense.subscriptions": "80",
+            "expense.health": "130",
+            "expense.interest": "30"
+          },
+          "status": "PASS"
+        },
+        {
+          "check": "investment_market_value",
+          "actual": "2750",
+          "expected": "2750",
+          "status": "PASS"
+        },
+        {
+          "check": "valuation_above_historical_cost",
+          "actual": "150",
+          "expected": "150",
+          "status": "PASS"
+        },
+        {
+          "check": "net_worth_movement",
+          "actual": "3500",
+          "expected": "3500",
+          "status": "PASS"
+        },
+        {
+          "check": "cash_movement",
+          "actual": "2200",
+          "expected": "2200",
+          "status": "PASS"
+        },
+        {
+          "check": "budget_categories",
+          "actual": [
+            "expense.food",
+            "expense.health",
+            "expense.housing",
+            "expense.interest",
+            "expense.subscriptions",
+            "expense.transport",
+            "expense.utilities"
+          ],
+          "expected": [
+            "expense.food",
+            "expense.health",
+            "expense.housing",
+            "expense.interest",
+            "expense.subscriptions",
+            "expense.transport",
+            "expense.utilities"
+          ],
+          "status": "PASS"
+        },
+        {
+          "check": "all_result_fields",
+          "actual": {
+            "cuentas": {
+              "asset.bank": "7330",
+              "asset.cash": "370",
+              "asset.savings": "4700",
+              "asset.wallet": "800"
+            },
+            "efectivo_total": "13200",
+            "activos_total": "19950",
+            "pasivos_total": "3550",
+            "patrimonio_neto": "16400",
+            "ingresos_ordinarios_y_financieros_sin_valorizacion": "6260",
+            "gastos": "2910",
+            "excedente_antes_de_valorizacion": "3350",
+            "ganancia_no_realizada": "150",
+            "resultado_total": "3500",
+            "prestamo_bancario": "2500",
+            "tarjeta": "250",
+            "prestamo_familiar": "800",
+            "prestamo_por_cobrar": "500",
+            "inversion_valor_mercado": "2750",
+            "inversion_costo": "2600",
+            "acciones": "25",
+            "dividendos": "40",
+            "presupuesto": "3100",
+            "presupuesto_consumido": "2910",
+            "presupuesto_disponible": "190",
+            "meta_objetivo": "2000",
+            "meta_asignada": "700",
+            "meta_progreso_pct": "35",
+            "flujo_efectivo_operativo": "3700",
+            "flujo_efectivo_inversion": "-1100",
+            "flujo_efectivo_financiacion": "-400",
+            "flujo_efectivo_neto": "2200"
+          },
+          "expected": {
+            "cuentas": {
+              "asset.bank": "7330",
+              "asset.cash": "370",
+              "asset.wallet": "800",
+              "asset.savings": "4700"
+            },
+            "efectivo_total": "13200",
+            "activos_total": "19950",
+            "pasivos_total": "3550",
+            "patrimonio_neto": "16400",
+            "ingresos_ordinarios_y_financieros_sin_valorizacion": "6260",
+            "gastos": "2910",
+            "excedente_antes_de_valorizacion": "3350",
+            "ganancia_no_realizada": "150",
+            "resultado_total": "3500",
+            "prestamo_bancario": "2500",
+            "tarjeta": "250",
+            "prestamo_familiar": "800",
+            "prestamo_por_cobrar": "500",
+            "inversion_valor_mercado": "2750",
+            "inversion_costo": "2600",
+            "acciones": "25",
+            "dividendos": "40",
+            "presupuesto": "3100",
+            "presupuesto_consumido": "2910",
+            "presupuesto_disponible": "190",
+            "meta_objetivo": "2000",
+            "meta_asignada": "700",
+            "meta_progreso_pct": "35",
+            "flujo_efectivo_operativo": "3700",
+            "flujo_efectivo_inversion": "-1100",
+            "flujo_efectivo_financiacion": "-400",
+            "flujo_efectivo_neto": "2200"
+          },
+          "status": "PASS"
+        }
+      ],
+      "status": "PASS"
+    }
+  ],
+  "status": "PASS"
+}

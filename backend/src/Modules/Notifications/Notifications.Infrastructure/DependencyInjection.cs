@@ -1,0 +1,55 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Notifications.Application.Abstractions;
+using Notifications.Application.Services;
+using Notifications.Contracts;
+using Notifications.Infrastructure.Repositories;
+
+namespace Notifications.Infrastructure;
+
+public static class DependencyInjection
+{
+    public static IServiceCollection AddNotificationsModule(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
+        var connectionString = configuration.GetConnectionString("PostgreSQL");
+        if (!string.IsNullOrWhiteSpace(connectionString))
+        {
+            services.AddDbContext<NotificationsDbContext>(options =>
+                options.UseNpgsql(connectionString));
+        }
+
+        services.AddScoped<IDeviceTokenRepository, DeviceTokenRepository>();
+        services.AddScoped<IWebPushSubscriptionRepository, WebPushSubscriptionRepository>();
+        services.AddScoped<INotificationLogRepository, NotificationLogRepository>();
+        services.AddScoped<INotificationsUnitOfWork, NotificationsUnitOfWork>();
+
+        services.AddSingleton<IPushGateway, SimulatedPushGateway>();
+
+        var mailtrapOptions = new MailtrapOptions
+        {
+            ServiceUrl = configuration["Mailer:ServiceUrl"]
+                ?? Environment.GetEnvironmentVariable("MAILER_SERVICE")
+                ?? string.Empty,
+            FromEmail = configuration["Mailer:FromEmail"]
+                ?? Environment.GetEnvironmentVariable("MAILER_EMAIL")
+                ?? string.Empty,
+            SecretKey = configuration["Mailer:SecretKey"]
+                ?? Environment.GetEnvironmentVariable("MAILER_SECRET_KEY")
+                ?? string.Empty,
+            FromName = configuration["Mailer:FromName"]
+                ?? Environment.GetEnvironmentVariable("MAILER_FROM_NAME")
+                ?? "Billefy"
+        };
+        services.AddSingleton(mailtrapOptions);
+        services.AddHttpClient<IEmailGateway, MailtrapEmailGateway>();
+
+        services.Configure<VapidOptions>(configuration.GetSection(VapidOptions.SectionName));
+        services.AddSingleton<IWebPushGateway, VapidWebPushGateway>();
+        services.AddScoped<INotificationsModule, NotificationsService>();
+
+        return services;
+    }
+}

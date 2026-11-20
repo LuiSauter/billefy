@@ -1,0 +1,636 @@
+{
+	"nombre": "AUDITORIA_FINANZAS_PERSONALES_ENERO_2027",
+	"moneda": "BOB",
+	"periodo_inicio": "2027-01-01",
+	"periodo_fin": "2027-01-31",
+	"convenciones": [
+		"Devengo simplificado; no se generan intereses adicionales no registrados al cierre",
+		"Sin comisiones, impuestos o ajustes por tipo de cambio",
+		"La laptop no se deprecia durante este mes de pruebas",
+		"La inversion se mide a valor de mercado, con su cambio registrado como resultado de valoracion separado",
+		"Pagos recurrentes contables se reconocen al materializarse, no al crear un recordatorio"
+	],
+	"saldos_apertura": {
+		"asset.bank": "6000",
+		"asset.cash": "300",
+		"asset.wallet": "700",
+		"asset.savings": "4000",
+		"asset.investment": "2000",
+		"asset.laptop": "3500",
+		"asset.loan_receivable": "0",
+		"liability.bank_loan": "3000",
+		"liability.credit_card": "600",
+		"liability.family_loan": "0",
+		"equity.opening": "12900",
+		"income.salary": "0",
+		"income.freelance": "0",
+		"income.interest": "0",
+		"income.dividend": "0",
+		"income.investment_valuation": "0",
+		"expense.housing": "0",
+		"expense.food": "0",
+		"expense.transport": "0",
+		"expense.utilities": "0",
+		"expense.subscriptions": "0",
+		"expense.health": "0",
+		"expense.interest": "0"
+	},
+	"asiento_apertura": {
+		"debe": [
+			{
+				"cuenta": "asset.bank",
+				"importe": "6000"
+			},
+			{
+				"cuenta": "asset.cash",
+				"importe": "300"
+			},
+			{
+				"cuenta": "asset.wallet",
+				"importe": "700"
+			},
+			{
+				"cuenta": "asset.savings",
+				"importe": "4000"
+			},
+			{
+				"cuenta": "asset.investment",
+				"importe": "2000"
+			},
+			{
+				"cuenta": "asset.laptop",
+				"importe": "3500"
+			}
+		],
+		"haber": [
+			{
+				"cuenta": "liability.bank_loan",
+				"importe": "3000"
+			},
+			{
+				"cuenta": "liability.credit_card",
+				"importe": "600"
+			},
+			{
+				"cuenta": "equity.opening",
+				"importe": "12900"
+			}
+		]
+	},
+	"presupuestos": {
+		"expense.housing": "1400",
+		"expense.food": "950",
+		"expense.transport": "200",
+		"expense.utilities": "250",
+		"expense.subscriptions": "100",
+		"expense.health": "150",
+		"expense.interest": "50"
+	},
+	"meta": {
+		"nombre": "Fondo de emergencia",
+		"objetivo": "2000",
+		"asignacion_inicial": "0",
+		"paso_asignacion": 12,
+		"asignacion": "700",
+		"cuenta_respaldo": "asset.savings"
+	},
+	"inversion": {
+		"unidades_iniciales": "20",
+		"precio_inicial": "100",
+		"unidades_compradas": "5",
+		"precio_compra": "120",
+		"precio_valuacion_cierre": "110"
+	},
+	"eventos": [
+		{
+			"paso": 1,
+			"descripcion": "Cobro de sueldo",
+			"debe": [
+				{
+					"cuenta": "asset.bank",
+					"importe": "5000"
+				}
+			],
+			"haber": [
+				{
+					"cuenta": "income.salary",
+					"importe": "5000"
+				}
+			],
+			"esperado_despues": {
+				"banco": "11000",
+				"patrimonio_neto": "17900",
+				"tarjeta_deuda": "600",
+				"efectivo_total": "16000"
+			}
+		},
+		{
+			"paso": 2,
+			"descripcion": "Ingreso por trabajo extra",
+			"debe": [
+				{
+					"cuenta": "asset.bank",
+					"importe": "1200"
+				}
+			],
+			"haber": [
+				{
+					"cuenta": "income.freelance",
+					"importe": "1200"
+				}
+			],
+			"esperado_despues": {
+				"banco": "12200",
+				"patrimonio_neto": "19100",
+				"tarjeta_deuda": "600",
+				"efectivo_total": "17200"
+			}
+		},
+		{
+			"paso": 3,
+			"descripcion": "Transferencia banco a billetera",
+			"debe": [
+				{
+					"cuenta": "asset.wallet",
+					"importe": "250"
+				}
+			],
+			"haber": [
+				{
+					"cuenta": "asset.bank",
+					"importe": "250"
+				}
+			],
+			"esperado_despues": {
+				"banco": "11950",
+				"patrimonio_neto": "19100",
+				"tarjeta_deuda": "600",
+				"efectivo_total": "17200"
+			}
+		},
+		{
+			"paso": 4,
+			"descripcion": "Retiro bancario a efectivo",
+			"debe": [
+				{
+					"cuenta": "asset.cash",
+					"importe": "200"
+				}
+			],
+			"haber": [
+				{
+					"cuenta": "asset.bank",
+					"importe": "200"
+				}
+			],
+			"esperado_despues": {
+				"banco": "11750",
+				"patrimonio_neto": "19100",
+				"tarjeta_deuda": "600",
+				"efectivo_total": "17200"
+			}
+		},
+		{
+			"paso": 5,
+			"descripcion": "Alquiler recurrente",
+			"debe": [
+				{
+					"cuenta": "expense.housing",
+					"importe": "1400"
+				}
+			],
+			"haber": [
+				{
+					"cuenta": "asset.bank",
+					"importe": "1400"
+				}
+			],
+			"esperado_despues": {
+				"banco": "10350",
+				"patrimonio_neto": "17700",
+				"tarjeta_deuda": "600",
+				"efectivo_total": "15800"
+			}
+		},
+		{
+			"paso": 6,
+			"descripcion": "Alimentos pagados con banco",
+			"debe": [
+				{
+					"cuenta": "expense.food",
+					"importe": "550"
+				}
+			],
+			"haber": [
+				{
+					"cuenta": "asset.bank",
+					"importe": "550"
+				}
+			],
+			"esperado_despues": {
+				"banco": "9800",
+				"patrimonio_neto": "17150",
+				"tarjeta_deuda": "600",
+				"efectivo_total": "15250"
+			}
+		},
+		{
+			"paso": 7,
+			"descripcion": "Alimentos comprados con tarjeta",
+			"debe": [
+				{
+					"cuenta": "expense.food",
+					"importe": "350"
+				}
+			],
+			"haber": [
+				{
+					"cuenta": "liability.credit_card",
+					"importe": "350"
+				}
+			],
+			"esperado_despues": {
+				"banco": "9800",
+				"patrimonio_neto": "16800",
+				"tarjeta_deuda": "950",
+				"efectivo_total": "15250"
+			}
+		},
+		{
+			"paso": 8,
+			"descripcion": "Transporte pagado con billetera",
+			"debe": [
+				{
+					"cuenta": "expense.transport",
+					"importe": "150"
+				}
+			],
+			"haber": [
+				{
+					"cuenta": "asset.wallet",
+					"importe": "150"
+				}
+			],
+			"esperado_despues": {
+				"banco": "9800",
+				"patrimonio_neto": "16650",
+				"tarjeta_deuda": "950",
+				"efectivo_total": "15100"
+			}
+		},
+		{
+			"paso": 9,
+			"descripcion": "Electricidad",
+			"debe": [
+				{
+					"cuenta": "expense.utilities",
+					"importe": "220"
+				}
+			],
+			"haber": [
+				{
+					"cuenta": "asset.bank",
+					"importe": "220"
+				}
+			],
+			"esperado_despues": {
+				"banco": "9580",
+				"patrimonio_neto": "16430",
+				"tarjeta_deuda": "950",
+				"efectivo_total": "14880"
+			}
+		},
+		{
+			"paso": 10,
+			"descripcion": "Suscripcion recurrente",
+			"debe": [
+				{
+					"cuenta": "expense.subscriptions",
+					"importe": "80"
+				}
+			],
+			"haber": [
+				{
+					"cuenta": "asset.bank",
+					"importe": "80"
+				}
+			],
+			"esperado_despues": {
+				"banco": "9500",
+				"patrimonio_neto": "16350",
+				"tarjeta_deuda": "950",
+				"efectivo_total": "14800"
+			}
+		},
+		{
+			"paso": 11,
+			"descripcion": "Salud en efectivo",
+			"debe": [
+				{
+					"cuenta": "expense.health",
+					"importe": "130"
+				}
+			],
+			"haber": [
+				{
+					"cuenta": "asset.cash",
+					"importe": "130"
+				}
+			],
+			"esperado_despues": {
+				"banco": "9500",
+				"patrimonio_neto": "16220",
+				"tarjeta_deuda": "950",
+				"efectivo_total": "14670"
+			}
+		},
+		{
+			"paso": 12,
+			"descripcion": "Transferencia a ahorro + asignacion de meta",
+			"debe": [
+				{
+					"cuenta": "asset.savings",
+					"importe": "700"
+				}
+			],
+			"haber": [
+				{
+					"cuenta": "asset.bank",
+					"importe": "700"
+				}
+			],
+			"esperado_despues": {
+				"banco": "8800",
+				"patrimonio_neto": "16220",
+				"tarjeta_deuda": "950",
+				"efectivo_total": "14670"
+			}
+		},
+		{
+			"paso": 13,
+			"descripcion": "Compra de 5 acciones a Bs 120",
+			"debe": [
+				{
+					"cuenta": "asset.investment",
+					"importe": "600"
+				}
+			],
+			"haber": [
+				{
+					"cuenta": "asset.bank",
+					"importe": "600"
+				}
+			],
+			"esperado_despues": {
+				"banco": "8200",
+				"patrimonio_neto": "16220",
+				"tarjeta_deuda": "950",
+				"efectivo_total": "14070"
+			}
+		},
+		{
+			"paso": 14,
+			"descripcion": "Pago de tarjeta de credito",
+			"debe": [
+				{
+					"cuenta": "liability.credit_card",
+					"importe": "700"
+				}
+			],
+			"haber": [
+				{
+					"cuenta": "asset.bank",
+					"importe": "700"
+				}
+			],
+			"esperado_despues": {
+				"banco": "7500",
+				"patrimonio_neto": "16220",
+				"tarjeta_deuda": "250",
+				"efectivo_total": "13370"
+			}
+		},
+		{
+			"paso": 15,
+			"descripcion": "Pago cuota prestamo banco, capital 500 e interes 30",
+			"debe": [
+				{
+					"cuenta": "liability.bank_loan",
+					"importe": "500"
+				},
+				{
+					"cuenta": "expense.interest",
+					"importe": "30"
+				}
+			],
+			"haber": [
+				{
+					"cuenta": "asset.bank",
+					"importe": "530"
+				}
+			],
+			"esperado_despues": {
+				"banco": "6970",
+				"patrimonio_neto": "16190",
+				"tarjeta_deuda": "250",
+				"efectivo_total": "12840"
+			}
+		},
+		{
+			"paso": 16,
+			"descripcion": "Desembolso prestamo otorgado a amigo",
+			"debe": [
+				{
+					"cuenta": "asset.loan_receivable",
+					"importe": "800"
+				}
+			],
+			"haber": [
+				{
+					"cuenta": "asset.bank",
+					"importe": "800"
+				}
+			],
+			"esperado_despues": {
+				"banco": "6170",
+				"patrimonio_neto": "16190",
+				"tarjeta_deuda": "250",
+				"efectivo_total": "12040"
+			}
+		},
+		{
+			"paso": 17,
+			"descripcion": "Recuperacion capital prestado 300 + interes 20",
+			"debe": [
+				{
+					"cuenta": "asset.bank",
+					"importe": "320"
+				}
+			],
+			"haber": [
+				{
+					"cuenta": "asset.loan_receivable",
+					"importe": "300"
+				},
+				{
+					"cuenta": "income.interest",
+					"importe": "20"
+				}
+			],
+			"esperado_despues": {
+				"banco": "6490",
+				"patrimonio_neto": "16210",
+				"tarjeta_deuda": "250",
+				"efectivo_total": "12360"
+			}
+		},
+		{
+			"paso": 18,
+			"descripcion": "Nuevo prestamo familiar recibido",
+			"debe": [
+				{
+					"cuenta": "asset.bank",
+					"importe": "900"
+				}
+			],
+			"haber": [
+				{
+					"cuenta": "liability.family_loan",
+					"importe": "900"
+				}
+			],
+			"esperado_despues": {
+				"banco": "7390",
+				"patrimonio_neto": "16210",
+				"tarjeta_deuda": "250",
+				"efectivo_total": "13260"
+			}
+		},
+		{
+			"paso": 19,
+			"descripcion": "Pago parcial del prestamo familiar",
+			"debe": [
+				{
+					"cuenta": "liability.family_loan",
+					"importe": "100"
+				}
+			],
+			"haber": [
+				{
+					"cuenta": "asset.bank",
+					"importe": "100"
+				}
+			],
+			"esperado_despues": {
+				"banco": "7290",
+				"patrimonio_neto": "16210",
+				"tarjeta_deuda": "250",
+				"efectivo_total": "13160"
+			}
+		},
+		{
+			"paso": 20,
+			"descripcion": "Dividendos cobrados",
+			"debe": [
+				{
+					"cuenta": "asset.bank",
+					"importe": "40"
+				}
+			],
+			"haber": [
+				{
+					"cuenta": "income.dividend",
+					"importe": "40"
+				}
+			],
+			"esperado_despues": {
+				"banco": "7330",
+				"patrimonio_neto": "16250",
+				"tarjeta_deuda": "250",
+				"efectivo_total": "13200"
+			}
+		},
+		{
+			"paso": 21,
+			"descripcion": "Valorizacion inversiones a 25 acciones x Bs 110",
+			"debe": [
+				{
+					"cuenta": "asset.investment",
+					"importe": "150"
+				}
+			],
+			"haber": [
+				{
+					"cuenta": "income.investment_valuation",
+					"importe": "150"
+				}
+			],
+			"esperado_despues": {
+				"banco": "7330",
+				"patrimonio_neto": "16400",
+				"tarjeta_deuda": "250",
+				"efectivo_total": "13200"
+			}
+		}
+	],
+	"saldos_cierre_por_cuenta": {
+		"asset.bank": "7330",
+		"asset.cash": "370",
+		"asset.wallet": "800",
+		"asset.savings": "4700",
+		"asset.investment": "2750",
+		"asset.laptop": "3500",
+		"asset.loan_receivable": "500",
+		"liability.bank_loan": "2500",
+		"liability.credit_card": "250",
+		"liability.family_loan": "800",
+		"equity.opening": "12900",
+		"income.salary": "5000",
+		"income.freelance": "1200",
+		"income.interest": "20",
+		"income.dividend": "40",
+		"income.investment_valuation": "150",
+		"expense.housing": "1400",
+		"expense.food": "900",
+		"expense.transport": "150",
+		"expense.utilities": "220",
+		"expense.subscriptions": "80",
+		"expense.health": "130",
+		"expense.interest": "30"
+	},
+	"resultado_esperado": {
+		"cuentas": {
+			"asset.bank": "7330",
+			"asset.cash": "370",
+			"asset.wallet": "800",
+			"asset.savings": "4700"
+		},
+		"efectivo_total": "13200",
+		"activos_total": "19950",
+		"pasivos_total": "3550",
+		"patrimonio_neto": "16400",
+		"ingresos_ordinarios_y_financieros_sin_valorizacion": "6260",
+		"gastos": "2910",
+		"excedente_antes_de_valorizacion": "3350",
+		"ganancia_no_realizada": "150",
+		"resultado_total": "3500",
+		"prestamo_bancario": "2500",
+		"tarjeta": "250",
+		"prestamo_familiar": "800",
+		"prestamo_por_cobrar": "500",
+		"inversion_valor_mercado": "2750",
+		"inversion_costo": "2600",
+		"acciones": "25",
+		"dividendos": "40",
+		"presupuesto": "3100",
+		"presupuesto_consumido": "2910",
+		"presupuesto_disponible": "190",
+		"meta_objetivo": "2000",
+		"meta_asignada": "700",
+		"meta_progreso_pct": "35",
+		"flujo_efectivo_operativo": "3700",
+		"flujo_efectivo_inversion": "-1100",
+		"flujo_efectivo_financiacion": "-400",
+		"flujo_efectivo_neto": "2200"
+	}
+}

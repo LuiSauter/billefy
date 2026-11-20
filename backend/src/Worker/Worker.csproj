@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk.Worker">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\BuildingBlocks\BuildingBlocks.csproj" />
+    <ProjectReference Include="..\Modules\Fx\Fx.Infrastructure\Fx.Infrastructure.csproj" />
+    <ProjectReference Include="..\Modules\Ingestion\Ingestion.Infrastructure\Ingestion.Infrastructure.csproj" />
+    <ProjectReference Include="..\Modules\Planning\Planning.Infrastructure\Planning.Infrastructure.csproj" />
+    <ProjectReference Include="..\Integrations\Billefy.Integrations.Fx\Billefy.Integrations.Fx.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.14" />
+  </ItemGroup>
+
+</Project>
